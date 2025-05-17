@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Filter, Sparkles, Zap, TrendingUp, Clock, Star, XCircle, AlertCircle } from 'lucide-react';
+import { Search, Filter, Moon, Sun, TrendingUp, Clock, Star, XCircle, AlertCircle } from 'lucide-react';
 import DeckPreview from '../../components/ui/DeckPreview';
 import { Deck } from '../../types';
 import { supabase } from '../../lib/supabase';
@@ -333,7 +333,7 @@ const Marketplace = () => {
                 isActive={activeFilter === 'free'} 
                 onClick={() => setActiveFilter('free')}
               >
-                <Zap className="h-4 w-4 mr-1" />
+                <img src="/tarot-forge-logo.svg" alt="" className="h-4 w-4 mr-1" />
                 Free Decks
               </FilterButton>
               <FilterButton 
@@ -354,7 +354,7 @@ const Marketplace = () => {
                 isActive={activeFilter === 'nft'} 
                 onClick={() => setActiveFilter('nft')}
               >
-                <Sparkles className="h-4 w-4 mr-1" />
+                <img src="/tarot-forge-logo.svg" alt="" className="h-4 w-4 mr-1" />
                 NFT Decks
               </FilterButton>
             </div>
@@ -371,7 +371,7 @@ const Marketplace = () => {
             transition={{ duration: 0.3 }}
           >
             <div className="flex items-start gap-3">
-              <Sparkles className="h-5 w-5 text-primary mt-1" />
+              <img src="/tarot-forge-logo.svg" alt="" className="h-5 w-5 text-primary mt-1" />
               <div>
                 <h3 className="text-sm font-medium mb-2">AI Theme Inspiration</h3>
                 <p className="text-sm text-foreground/90">{promptEngineValue}</p>
@@ -450,7 +450,7 @@ const Marketplace = () => {
                 {getFreeDecks().length > 0 && (
                   <div className="col-span-full">
                     <h3 className="text-xl font-serif font-medium mb-4 flex items-center">
-                      <Zap className="h-5 w-5 text-success mr-2" />
+                      <img src="/tarot-forge-logo.svg" alt="" className="h-5 w-5 text-success mr-2" />
                       Free Decks
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -469,7 +469,7 @@ const Marketplace = () => {
                 {/* NFT & Premium Decks - Side by side */}
                 <div className="col-span-full md:col-span-6">
                   <h3 className="text-xl font-serif font-medium mb-4 flex items-center">
-                    <Sparkles className="h-5 w-5 text-accent mr-2" />
+                    <img src="/tarot-forge-logo.svg" alt="" className="h-5 w-5 text-accent mr-2" />
                     NFT Collections
                   </h3>
                   {getNftDecks().length > 0 ? (
@@ -607,14 +607,14 @@ const BentoCard = ({ deck, size, badge }: BentoCardProps) => {
       case 'nft':
         return (
           <div className="absolute top-3 left-3 bg-primary/90 text-primary-foreground font-medium px-3 py-1 rounded-full text-xs flex items-center">
-            <Sparkles className="h-3 w-3 mr-1" />
+            <img src="/tarot-forge-logo.svg" alt="" className="h-3 w-3 mr-1" />
             NFT
           </div>
         );
       case 'free':
         return (
           <div className="absolute top-3 left-3 bg-success/90 text-success-foreground font-medium px-3 py-1 rounded-full text-xs flex items-center">
-            <Zap className="h-3 w-3 mr-1" />
+            <img src="/tarot-forge-logo.svg" alt="" className="h-3 w-3 mr-1" />
             Free
           </div>
         );
@@ -652,7 +652,7 @@ const BentoCard = ({ deck, size, badge }: BentoCardProps) => {
           {/* Price Tag */}
           {deck.is_free ? (
             <div className="absolute top-3 right-3 bg-success/90 text-success-foreground font-medium px-3 py-1 rounded-full text-sm flex items-center">
-              <Zap className="h-3 w-3 mr-1" />
+              <img src="/tarot-forge-logo.svg" alt="" className="h-3 w-3 mr-1" />
               Free
             </div>
           ) : (
@@ -725,7 +725,7 @@ const BentoCard = ({ deck, size, badge }: BentoCardProps) => {
           {/* Price Tag */}
           {deck.is_free ? (
             <div className="absolute top-3 right-3 bg-success/90 text-success-foreground font-medium px-3 py-1 rounded-full text-xs flex items-center">
-              <Zap className="h-3 w-3 mr-1" />
+              <img src="/tarot-forge-logo.svg" alt="" className="h-3 w-3 mr-1" />
               Free
             </div>
           ) : (
@@ -783,7 +783,7 @@ const BentoCard = ({ deck, size, badge }: BentoCardProps) => {
           {/* Price Tag */}
           {deck.is_free ? (
             <div className="absolute top-3 right-3 bg-success/90 text-success-foreground font-medium px-3 py-1 rounded-full text-xs flex items-center">
-              <Zap className="h-3 w-3 mr-1" />
+              <img src="/tarot-forge-logo.svg" alt="" className="h-3 w-3 mr-1" />
               Free
             </div>
           ) : (
@@ -842,7 +842,7 @@ const BentoCard = ({ deck, size, badge }: BentoCardProps) => {
             <div className="flex items-center space-x-2">
               {deck.is_free ? (
                 <span className="flex items-center text-success text-sm font-medium">
-                  <Zap className="h-3 w-3 mr-1" />
+                  <img src="/tarot-forge-logo.svg" alt="" className="h-3 w-3 mr-1" />
                   Free
                 </span>
               ) : (

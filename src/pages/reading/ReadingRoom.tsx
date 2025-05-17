@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, Sparkles, XCircle, MessageSquare, Video, PhoneCall, Zap, Link as LinkIcon } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, MessageSquare, Video, PhoneCall, Link as LinkIcon } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { getReadingInterpretation } from '../../lib/gemini-ai';
@@ -519,7 +519,7 @@ const ReadingRoom = () => {
                 {deck?.title ? `Using ${deck.title} by ${deck.creator_name}` : 'Select a deck to begin'}
                 {deck?.is_free && (
                   <span className="inline-flex items-center ml-2 text-success">
-                    <Zap className="h-4 w-4 mr-1" />
+                    <img src="/tarot-forge-logo.svg" alt="" className="h-4 w-4 mr-1" />
                     Free Deck
                   </span>
                 )}
@@ -696,7 +696,7 @@ const ReadingRoom = () => {
                             </>
                           ) : (
                             <>
-                              <Sparkles className="mr-2 h-4 w-4" />
+                              <img src="/tarot-forge-logo.svg" alt="" className="mr-2 h-4 w-4" />
                               AI Interpretation
                             </>
                           )}
@@ -818,7 +818,7 @@ const ReadingRoom = () => {
               >
                 <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
                   <div className="flex items-center">
-                    <Sparkles className="h-5 w-5 text-primary mr-2" />
+                    <img src="/tarot-forge-logo.svg" alt="" className="h-5 w-5 text-primary mr-2" />
                     <h3 className="font-medium">AI Interpretation</h3>
                   </div>
                   <button onClick={() => setShowAIMode(false)}>
