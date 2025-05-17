@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Sparkles, Github, Twitter, Instagram, Mail } from 'lucide-react';
+import { Github, Twitter, Instagram, Mail } from 'lucide-react';
+import TarotLogo from '../ui/TarotLogo';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -11,7 +12,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="md:col-span-1">
             <div className="flex items-center space-x-2 mb-3">
-              <Sparkles className="h-6 w-6 text-accent" />
+              <TarotLogo className="h-6 w-6 text-accent" />
               <span className="text-xl font-serif font-bold">Tarot Forge</span>
             </div>
             <p className="text-muted-foreground text-sm">

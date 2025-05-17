@@ -1,5 +1,5 @@
-import { Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import TarotLogo from './TarotLogo';
 
 const LoadingScreen = () => {
   const [showLoadingTooLong, setShowLoadingTooLong] = useState(false);
@@ -16,7 +16,7 @@ const LoadingScreen = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background">
       <div className="relative">
-        <Sparkles className="h-16 w-16 text-accent animate-pulse" />
+        <TarotLogo className="h-16 w-16 text-accent animate-pulse" />
         <div className="absolute inset-0 rounded-full bg-accent/10 animate-ping"></div>
       </div>
       <h2 className="mt-6 text-2xl font-serif">Tarot Forge</h2>

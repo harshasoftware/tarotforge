@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, HelpCircle } from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
 import { generateElaborateTheme } from '../../lib/gemini-ai';
+import TarotLogo from '../ui/TarotLogo';
 
 interface PromptEditorProps {
   initialValue?: string;
@@ -91,7 +92,7 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
     <div className="bg-card/50 rounded-lg border border-border p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center">
-          <Sparkles className="text-accent h-5 w-5 mr-2" />
+          <TarotLogo className="text-accent h-5 w-5 mr-2" />
           <h3 className="font-medium">Prompt Enhancement</h3>
         </div>
         
@@ -157,7 +158,7 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
                     </>
                   ) : (
                     <>
-                      <Sparkles className="h-3 w-3 mr-1" />
+                      <TarotLogo className="h-3 w-3 mr-1" />
                       {theme}
                     </>
                   )}
@@ -196,7 +197,7 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
             </>
           ) : (
             <>
-              <Sparkles className="h-4 w-4 mr-2" />
+              <TarotLogo className="h-4 w-4 mr-2" />
               Apply Prompt
             </>
           )}

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Filter, Sparkles, Zap, TrendingUp, Clock, Star, XCircle, AlertCircle } from 'lucide-react';
+import { Search, Filter, Zap, TrendingUp, Clock, Star, XCircle, AlertCircle } from 'lucide-react';
 import DeckPreview from '../../components/ui/DeckPreview';
 import { Deck } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { generateThemeSuggestions, generateElaborateTheme } from '../../lib/gemini-ai';
+import TarotLogo from '../../components/ui/TarotLogo';
 
 // Placeholder decks for initial render
 const placeholderDecks: Deck[] = Array(9).fill(null).map((_, i) => ({
@@ -354,7 +355,7 @@ const Marketplace = () => {
                 isActive={activeFilter === 'nft'} 
                 onClick={() => setActiveFilter('nft')}
               >
-                <Sparkles className="h-4 w-4 mr-1" />
+                <TarotLogo className="h-4 w-4 mr-1" />
                 NFT Decks
               </FilterButton>
             </div>
@@ -371,7 +372,7 @@ const Marketplace = () => {
             transition={{ duration: 0.3 }}
           >
             <div className="flex items-start gap-3">
-              <Sparkles className="h-5 w-5 text-primary mt-1" />
+              <TarotLogo className="h-5 w-5 text-primary mt-1" />
               <div>
                 <h3 className="text-sm font-medium mb-2">AI Theme Inspiration</h3>
                 <p className="text-sm text-foreground/90">{promptEngineValue}</p>
@@ -469,7 +470,7 @@ const Marketplace = () => {
                 {/* NFT & Premium Decks - Side by side */}
                 <div className="col-span-full md:col-span-6">
                   <h3 className="text-xl font-serif font-medium mb-4 flex items-center">
-                    <Sparkles className="h-5 w-5 text-accent mr-2" />
+                    <TarotLogo className="h-5 w-5 text-accent mr-2" />
                     NFT Collections
                   </h3>
                   {getNftDecks().length > 0 ? (
@@ -607,7 +608,7 @@ const BentoCard = ({ deck, size, badge }: BentoCardProps) => {
       case 'nft':
         return (
           <div className="absolute top-3 left-3 bg-primary/90 text-primary-foreground font-medium px-3 py-1 rounded-full text-xs flex items-center">
-            <Sparkles className="h-3 w-3 mr-1" />
+            <TarotLogo className="h-3 w-3 mr-1" />
             NFT
           </div>
         );
