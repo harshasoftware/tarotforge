@@ -9,14 +9,17 @@ const TarotLogo: React.FC<TarotLogoProps> = ({ className = "h-8 w-8" }) => {
   
   return (
     <div 
-      className="inline-block"
+      className="inline-block perspective-[600px]"
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
     >
       <img 
         src="/tarot-icon.svg" 
         alt="Tarot Forge Logo" 
-        className={`transform transition-all duration-700 ${isHovering ? 'rotate-[360deg]' : 'rotate-0'} ${className}`}
+        className={`transition-transform duration-700 ${className}`}
+        style={{ 
+          transform: isHovering ? 'rotateY(360deg)' : 'rotateY(0deg)'
+        }}
       />
     </div>
   );

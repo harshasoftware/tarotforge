@@ -59,6 +59,9 @@ export default {
       rotate: {
         '360': '360deg',
       },
+      perspective: {
+        '600px': '600px',
+      }
     },
   },
   plugins: [],
