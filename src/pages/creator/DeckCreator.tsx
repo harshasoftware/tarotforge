@@ -130,9 +130,21 @@ const DeckCreator = () => {
   // Reference for tracking active generation tasks
   const activeGenerationTasks = useRef<number>(0);
   
-  // Auto-generate theme based on location state or use defaults
+  // Navigation guard - redirect if accessed directly via URL
   useEffect(() => {
-    if (locationState?.initialTheme) {
+    // If there's no location state, it means the user is trying to access this page directly
+    if (!locationState) {
+      // Redirect to home page immediately
+      navigate('/');
+    }
+  }, [locationState, navigate]);
+  
+  // Auto-generate theme based on location state - only runs when there's valid location state
+  useEffect(() => {
+    // Only proceed if there is valid location state
+    if (!locationState) return;
+    
+    if (locationState.initialTheme) {
       const theme = locationState.initialTheme;
       const themeWords = theme.split(/\s+/);
       
@@ -154,13 +166,13 @@ const DeckCreator = () => {
       setDeckTheme(mainTheme);
       setDeckStyle(styleHint);
       setDeckDescription(`A tarot deck exploring ${theme}. Each card captures the essence of ${mainTheme} with a ${styleHint} artistic style.`);
+      
+      // Start card generation automatically - with delay to ensure state is properly set
+      setTimeout(() => {
+        prepareCardGenerationQueue(false);
+      }, 500);
     }
-    
-    // Start card generation automatically
-    setTimeout(() => {
-      prepareCardGenerationQueue(false);
-    }, 500); // Delay to ensure state is properly set
-  }, [locationState]);
+  }, [locationState, navigate]);
   
   // Check if the user is logged in
   useEffect(() => {
@@ -229,7 +241,8 @@ const DeckCreator = () => {
   // Process generation queue when it changes
   useEffect(() => {
     const startNextGenerations = async () => {
-      if (!isGenerating || generationQueue.length === 0 || !deckId) return;
+      // Immediately return if no location state or other required conditions are not met
+      if (!locationState || !isGenerating || generationQueue.length === 0 || !deckId) return;
       
       // Calculate how many new generations we can start
       const availableSlots = MAX_CONCURRENT_GENERATIONS - activeGenerationTasks.current;
@@ -268,7 +281,7 @@ const DeckCreator = () => {
     };
     
     startNextGenerations();
-  }, [generationQueue, isGenerating, currentlyGenerating, deckId]);
+  }, [generationQueue, isGenerating, currentlyGenerating, deckId, locationState]);
   
   // Generate a single card
   const generateCard = async (cardToGenerate: CardToGenerate) => {
