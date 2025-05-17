@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, Sparkles, XCircle, MessageSquare, Video, PhoneCall, Zap, Link as LinkIcon } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, MessageSquare, Video, PhoneCall, Zap, Link as LinkIcon } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { getReadingInterpretation } from '../../lib/gemini-ai';
 import VideoChat from '../../components/video/VideoChat';
 import JoinByLinkModal from '../../components/video/JoinByLinkModal';
+import TarotLogo from '../../components/ui/TarotLogo';
 
 // Free deck cards
 const freeDeckCards: {[key: string]: Card[]} = {
@@ -696,7 +697,7 @@ const ReadingRoom = () => {
                             </>
                           ) : (
                             <>
-                              <Sparkles className="mr-2 h-4 w-4" />
+                              <TarotLogo className="mr-2 h-4 w-4" />
                               AI Interpretation
                             </>
                           )}
@@ -818,7 +819,7 @@ const ReadingRoom = () => {
               >
                 <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
                   <div className="flex items-center">
-                    <Sparkles className="h-5 w-5 text-primary mr-2" />
+                    <TarotLogo className="h-5 w-5 text-primary mr-2" />
                     <h3 className="font-medium">AI Interpretation</h3>
                   </div>
                   <button onClick={() => setShowAIMode(false)}>

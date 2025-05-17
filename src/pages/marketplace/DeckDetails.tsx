@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Deck, Card } from '../../types';
 import { supabase } from '../../lib/supabase';
 import JoinByLinkModal from '../../components/video/JoinByLinkModal';
+import TarotLogo from '../../components/ui/TarotLogo';
 
 const DeckDetails = () => {
   const { deckId } = useParams<{ deckId: string }>();
