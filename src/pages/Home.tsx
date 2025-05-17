@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Sparkles,Wand2, ShoppingBag, BookOpen, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { Sparkles, Wand2, ShoppingBag, BookOpen, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import DeckPreview from '../components/ui/DeckPreview';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
