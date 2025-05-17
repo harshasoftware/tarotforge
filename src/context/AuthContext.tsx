@@ -185,8 +185,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('Signing up user with email:', email);
       
-      // Generate a random secure password - the user never needs to know this
-      // as they'll always use magic links to sign in
+      // Generate a random secure password
       const password = generateSecurePassword();
       
       // Create the account with email and password
@@ -250,23 +249,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
-      console.log('Starting Google sign-in flow');
+      console.log('Starting Google sign-in flow (Implicit Grant)');
       
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          }
-        }
-      });
+      // Construct the Google OAuth URL manually for implicit flow
+      const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      const redirectUri = `${window.location.origin}/auth/callback`;
+      const scope = 'openid profile email'; // Adjust scopes as needed
+      const responseType = 'token id_token'; // Request tokens directly (implicit flow)
       
-      if (error) throw error;
+      // Construct full URL
+      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=${responseType}&scope=${encodeURIComponent(scope)}`;
       
-      // Google sign-in redirect initiated
-      console.log('Google sign-in redirect initiated');
+      // Redirect the user to Google for authentication
+      window.location.href = googleAuthUrl;
       
       return { error: null };
     } catch (error) {

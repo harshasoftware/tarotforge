@@ -18,45 +18,51 @@ const AuthCallback = () => {
       try {
         console.log('Auth callback triggered');
         
-        // First check if we're processing a hash fragment from magic link
+        // First check if we're processing a hash fragment from implicit flow
         if (window.location.hash && window.location.hash.includes('access_token=')) {
-          console.log('Processing URL hash with access token');
+          console.log('Processing URL hash with access token (Implicit Flow)');
           setProcessingStep('Processing access token...');
           
           try {
-            // Directly extract the tokens manually to avoid race conditions
+            // Extract the tokens from the URL fragment
             const params = new URLSearchParams(window.location.hash.substring(1));
             const accessToken = params.get('access_token');
-            const refreshToken = params.get('refresh_token');
+            const idToken = params.get('id_token'); // Also get the ID token from Google
             
-            if (!accessToken || !refreshToken) {
-              throw new Error('Missing access or refresh token');
+            if (!accessToken) {
+              throw new Error('No access token found in URL hash');
             }
             
-            // Manually set the session in Supabase
+            // Use the token with Google identity provider
             setProcessingStep('Setting up your session...');
-            console.log('Setting session with extracted tokens');
+            console.log('Authenticating with Google token');
             
-            await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken
+            // Use the token from Google to authenticate with Supabase
+            const { data, error: signInError } = await supabase.auth.signInWithIdToken({
+              provider: 'google',
+              token: idToken || accessToken,
             });
+            
+            if (signInError) {
+              console.error('Error signing in with ID token:', signInError);
+              throw signInError;
+            }
             
             // Force refresh the auth state
             setProcessingStep('Syncing your profile...');
-            console.log('Checking auth state after setting session');
+            console.log('Checking auth state after Google sign-in');
             await checkAuth();
             
             setProcessedAuth(true);
             setProcessingStep('Authentication successful! Redirecting...');
             
             // Clear the hash from URL for security
-            window.history.replaceState(null, '', window.location.pathname);
+            window.history.replaceState(null, '', '/');
             
-            // Navigate after a small delay to ensure state updates
+            // Navigate to root after a small delay
             setTimeout(() => {
-              console.log('Redirecting to marketplace after auth');
-              navigate('/marketplace');
+              console.log('Redirecting to root URL after auth');
+              navigate('/');
             }, 500);
             return;
           } catch (hashError) {
@@ -92,9 +98,9 @@ const AuthCallback = () => {
               setProcessedAuth(true);
               setProcessingStep('Authentication successful! Redirecting...');
               
-              // Navigate to marketplace
+              // Navigate to root
               setTimeout(() => {
-                navigate('/marketplace');
+                navigate('/');
               }, 500);
               return;
             }
