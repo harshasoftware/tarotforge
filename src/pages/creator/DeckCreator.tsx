@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Sparkles, 
@@ -60,7 +60,7 @@ interface CardToGenerate {
   name: string;
   order: number;
   cardType: 'major' | 'minor';
-  suit?: string;
+  suit?: 'wands' | 'cups' | 'swords' | 'pentacles' | null;
 }
 
 interface GeneratingCard {
@@ -69,7 +69,7 @@ interface GeneratingCard {
   imageInProgress: boolean;
   order: number;
   cardType: 'major' | 'minor';
-  suit?: string;
+  suit?: 'wands' | 'cups' | 'swords' | 'pentacles' | null;
   descriptionProgress: number;
   imageProgress: number;
   description?: string;
@@ -80,7 +80,16 @@ const MAX_CONCURRENT_GENERATIONS = 3;
 
 const DeckCreator = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  
+  // Extract parameters from location state if provided
+  const locationState = location.state as {
+    initialTheme?: string;
+    autoGenerate?: boolean;
+    skipFormStep?: boolean;
+    startGenerating?: boolean;
+  } | null;
   
   // Deck details state
   const [deckTitle, setDeckTitle] = useState('');
@@ -115,6 +124,51 @@ const DeckCreator = () => {
   
   // Reference for tracking active generation tasks
   const activeGenerationTasks = useRef<number>(0);
+  
+  // Handle initial theme setup and auto-generation from home page
+  useEffect(() => {
+    if (locationState?.initialTheme) {
+      // Use the theme from home page
+      const theme = locationState.initialTheme;
+      
+      // Auto-generate details from the theme
+      if (locationState.autoGenerate) {
+        // Extract theme and style from the prompt
+        const themeWords = theme.split(/\s+/);
+        
+        // Generate a title based on the theme
+        const titleWords = themeWords
+          .filter(word => word.length > 3)
+          .slice(0, 3)
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1));
+        const generatedTitle = titleWords.length > 0 
+          ? titleWords.join(' ') + ' Tarot'
+          : 'Mystic Journey Tarot';
+          
+        // Set theme components
+        const mainTheme = themeWords.length > 2 ? themeWords.slice(0, 2).join(' ') : theme;
+        const styleHint = themeWords.length > 3 ? themeWords.slice(-2).join(' ') : 'mystical';
+        
+        // Auto-populate the fields
+        setDeckTitle(generatedTitle);
+        setDeckTheme(mainTheme);
+        setDeckStyle(styleHint);
+        setDeckDescription(`A tarot deck exploring ${theme}. Each card captures the essence of ${mainTheme} with a ${styleHint} artistic style.`);
+        
+        // Skip to card generation if requested
+        if (locationState.skipFormStep && locationState.startGenerating) {
+          // Skip the details form entirely and start generating
+          setTimeout(() => {
+            setCurrentStep('cards');
+            prepareCardGenerationQueue(false);
+          }, 500); // Small delay to allow state to update
+        }
+      } else {
+        // Just set the theme but stay on details page
+        setDeckTheme(theme);
+      }
+    }
+  }, [locationState]);
   
   // Check if the user is logged in
   useEffect(() => {
@@ -174,7 +228,7 @@ const DeckCreator = () => {
             name,
             order: order++,
             cardType: 'minor',
-            suit: suit.toLowerCase()
+            suit: suit.toLowerCase() as 'wands' | 'cups' | 'swords' | 'pentacles'
           });
         }
         
@@ -184,7 +238,7 @@ const DeckCreator = () => {
             name: `${court} of ${suit}`,
             order: order++,
             cardType: 'minor',
-            suit: suit.toLowerCase()
+            suit: suit.toLowerCase() as 'wands' | 'cups' | 'swords' | 'pentacles'
           });
         });
       });
@@ -343,7 +397,7 @@ const DeckCreator = () => {
         description,
         image_url: imageUrl,
         card_type: cardType,
-        suit: suit,
+        suit: suit, // This is now safely typed because we've updated the CardToGenerate interface
         keywords,
         order
       };
@@ -1208,14 +1262,36 @@ const DeckCreator = () => {
                   </div>
                   
                   <div className="md:w-2/3">
-                    <h4 className="text-xl font-serif font-bold">{deckTitle}</h4>
-                    <p className="text-muted-foreground text-sm mt-1">
+                    <div className="mb-4">
+                      <label htmlFor="deckTitle" className="block text-sm font-medium mb-1">
+                        Deck Name
+                      </label>
+                      <input
+                        id="deckTitle"
+                        type="text"
+                        value={deckTitle}
+                        onChange={(e) => setDeckTitle(e.target.value)}
+                        className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Enter deck name"
+                      />
+                    </div>
+                    
+                    <p className="text-muted-foreground text-sm mb-4">
                       {deckTheme} • {deckStyle}
                     </p>
                     
-                    <p className="mt-4">
-                      {deckDescription}
-                    </p>
+                    <div className="mb-4">
+                      <label htmlFor="deckDescription" className="block text-sm font-medium mb-1">
+                        Deck Description
+                      </label>
+                      <textarea
+                        id="deckDescription"
+                        value={deckDescription}
+                        onChange={(e) => setDeckDescription(e.target.value)}
+                        className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary min-h-[100px]"
+                        placeholder="Describe your deck"
+                      />
+                    </div>
                     
                     <div className="grid grid-cols-2 gap-4 mt-6">
                       <div className="border border-border p-3 rounded-lg">

@@ -303,8 +303,15 @@ const Home = () => {
       }
       
       // User is already authenticated, proceed immediately to deck creation
-      // No need for delay, just go straight to preview generation
-      navigate('/create', { state: { initialTheme: themePrompt, startGenerating: true } });
+      // Skip the manual form input step and auto-generate deck details from the prompt
+      navigate('/create', { 
+        state: { 
+          initialTheme: themePrompt, 
+          autoGenerate: true,  // Signal to auto-generate deck details
+          skipFormStep: true,   // Skip the manual form step
+          startGenerating: true // Start generating images immediately
+        } 
+      });
     }
   };
 
