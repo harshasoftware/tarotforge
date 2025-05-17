@@ -1,0 +1,1298 @@
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { 
+  Sparkles, 
+  Save, 
+  AlertTriangle, 
+  CreditCard, 
+  RefreshCcw, 
+  Check, 
+  Loader,
+  Info,
+  ArrowRight,
+  X,
+  Zap,
+  Eye,
+  EyeOff,
+  DollarSign
+} from 'lucide-react';
+import PromptEditor from '../../components/creator/PromptEditor';
+import CardGallery from '../../components/creator/CardGallery';
+import { generateCardDescription, generateCardImage } from '../../lib/gemini-ai';
+import { Deck, Card } from '../../types';
+import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '../../lib/supabase';
+import { uploadImageFromUrl } from '../lib/storage-utils';
+
+// Traditional tarot card names for major arcana
+const MAJOR_ARCANA_CARDS = [
+  'The Fool', 
+  'The Magician', 
+  'The High Priestess', 
+  'The Empress', 
+  'The Emperor',
+  'The Hierophant', 
+  'The Lovers', 
+  'The Chariot', 
+  'Strength', 
+  'The Hermit',
+  'Wheel of Fortune', 
+  'Justice', 
+  'The Hanged Man', 
+  'Death', 
+  'Temperance',
+  'The Devil', 
+  'The Tower', 
+  'The Star', 
+  'The Moon', 
+  'The Sun',
+  'Judgment', 
+  'The World'
+];
+
+// Minor arcana suits and courts
+const MINOR_ARCANA_SUITS = ['Wands', 'Cups', 'Swords', 'Pentacles'];
+const COURT_CARDS = ['Page', 'Knight', 'Queen', 'King'];
+
+interface CardToGenerate {
+  name: string;
+  order: number;
+  cardType: 'major' | 'minor';
+  suit?: string;
+}
+
+interface GeneratingCard {
+  name: string;
+  descriptionInProgress: boolean;
+  imageInProgress: boolean;
+  order: number;
+  cardType: 'major' | 'minor';
+  suit?: string;
+  descriptionProgress: number;
+  imageProgress: number;
+  description?: string;
+}
+
+// Maximum number of concurrent generation tasks
+const MAX_CONCURRENT_GENERATIONS = 3;
+
+const DeckCreator = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  // Deck details state
+  const [deckTitle, setDeckTitle] = useState('');
+  const [deckDescription, setDeckDescription] = useState('');
+  const [deckTheme, setDeckTheme] = useState('');
+  const [deckStyle, setDeckStyle] = useState('');
+  
+  // New visibility and sellability options
+  const [isListed, setIsListed] = useState(true);
+  const [isSellable, setIsSellable] = useState(false);
+  const [deckPrice, setDeckPrice] = useState(9.99);
+  
+  // Card generation state
+  const [generatedCards, setGeneratedCards] = useState<Card[]>([]);
+  const [currentStep, setCurrentStep] = useState<'details' | 'cards' | 'customize'>('details');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [promptValue, setPromptValue] = useState('');
+  const [fullDeck, setFullDeck] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [activeCard, setActiveCard] = useState<string | null>(null);
+  const [deckId, setDeckId] = useState<string | null>(null);
+  const [savingDeck, setSavingDeck] = useState(false);
+  const [creationSuccess, setCreationSuccess] = useState(false);
+  const [needsSignIn, setNeedsSignIn] = useState(false);
+  
+  // Progress tracking
+  const [generationQueue, setGenerationQueue] = useState<CardToGenerate[]>([]);
+  const [currentlyGenerating, setCurrentlyGenerating] = useState<GeneratingCard[]>([]);
+  const [totalCardsToGenerate, setTotalCardsToGenerate] = useState(0);
+  const [completedCards, setCompletedCards] = useState(0);
+  
+  // Reference for tracking active generation tasks
+  const activeGenerationTasks = useRef<number>(0);
+  
+  // Check if the user is logged in
+  useEffect(() => {
+    if (!user && currentStep !== 'details') {
+      setNeedsSignIn(true);
+    }
+  }, [user, currentStep]);
+  
+  // Create deck ID upfront for storage purposes
+  useEffect(() => {
+    if (!deckId && user) {
+      setDeckId(uuidv4());
+    }
+  }, [user, deckId]);
+  
+  // Handle deck creation
+  const createDeck = async () => {
+    if (!deckTitle || !deckTheme || !deckStyle) {
+      setGenerationError('Please fill in all required fields.');
+      return;
+    }
+    
+    setGenerationError(null);
+    setCurrentStep('cards');
+    
+    // Generate a new deck ID if needed
+    if (!deckId) {
+      const newDeckId = uuidv4();
+      setDeckId(newDeckId);
+    }
+    
+    // Prepare card generation queue - only major arcana by default
+    prepareCardGenerationQueue(false);
+  };
+  
+  // Prepare the queue of cards to generate
+  const prepareCardGenerationQueue = (includeMinor: boolean) => {
+    let queue: CardToGenerate[] = [];
+    let order = 0;
+    
+    // Add major arcana to the queue
+    MAJOR_ARCANA_CARDS.forEach(name => {
+      queue.push({
+        name,
+        order: order++,
+        cardType: 'major'
+      });
+    });
+    
+    // Add minor arcana if fullDeck is true
+    if (includeMinor) {
+      MINOR_ARCANA_SUITS.forEach(suit => {
+        // Pip cards (Ace through 10)
+        for (let i = 1; i <= 10; i++) {
+          const name = i === 1 ? `Ace of ${suit}` : `${i} of ${suit}`;
+          queue.push({
+            name,
+            order: order++,
+            cardType: 'minor',
+            suit: suit.toLowerCase()
+          });
+        }
+        
+        // Court cards (Page, Knight, Queen, King)
+        COURT_CARDS.forEach(court => {
+          queue.push({
+            name: `${court} of ${suit}`,
+            order: order++,
+            cardType: 'minor',
+            suit: suit.toLowerCase()
+          });
+        });
+      });
+    }
+    
+    setGenerationQueue(queue);
+    setTotalCardsToGenerate(queue.length);
+    setFullDeck(includeMinor);
+    
+    // Start generating cards
+    setIsGenerating(true);
+  };
+  
+  // Process generation queue when it changes
+  useEffect(() => {
+    const startNextGenerations = async () => {
+      if (!isGenerating || generationQueue.length === 0 || !deckId) return;
+      
+      // Calculate how many new generations we can start
+      const availableSlots = MAX_CONCURRENT_GENERATIONS - activeGenerationTasks.current;
+      
+      if (availableSlots <= 0) return;
+      
+      // Take cards to fill available slots
+      const cardsToGenerate = generationQueue.slice(0, availableSlots);
+      
+      if (cardsToGenerate.length === 0) return;
+      
+      // Update queue by removing the cards we're about to process
+      setGenerationQueue(prevQueue => prevQueue.slice(availableSlots));
+      
+      // Update currently generating list
+      const newGeneratingCards: GeneratingCard[] = cardsToGenerate.map(card => ({
+        name: card.name,
+        descriptionInProgress: true,
+        imageInProgress: false,
+        order: card.order,
+        cardType: card.cardType,
+        suit: card.suit,
+        descriptionProgress: 0,
+        imageProgress: 0
+      }));
+      
+      setCurrentlyGenerating(prev => [...prev, ...newGeneratingCards]);
+      
+      // Increment counter for active generation tasks
+      activeGenerationTasks.current += cardsToGenerate.length;
+      
+      // Start generation for each card
+      cardsToGenerate.forEach(card => {
+        generateCard(card);
+      });
+    };
+    
+    startNextGenerations();
+  }, [generationQueue, isGenerating, currentlyGenerating, deckId]);
+  
+  // Generate a single card
+  const generateCard = async (cardToGenerate: CardToGenerate) => {
+    const { name, order, cardType, suit } = cardToGenerate;
+    
+    try {
+      // Update progress state
+      const updateGeneratingCardState = (
+        updates: Partial<GeneratingCard>,
+        cardName: string
+      ) => {
+        setCurrentlyGenerating(prev => 
+          prev.map(card => 
+            card.name === cardName 
+              ? { ...card, ...updates } 
+              : card
+          )
+        );
+      };
+      
+      // Simulate progress updates (in a real app, these would come from the API)
+      const simulateProgress = async (
+        stage: 'description' | 'image',
+        cardName: string
+      ) => {
+        const progressKey = stage === 'description' ? 'descriptionProgress' : 'imageProgress';
+        const steps = 5; // Number of progress updates to simulate
+        
+        for (let i = 1; i <= steps; i++) {
+          // Artificial delay to simulate processing time
+          await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300));
+          
+          updateGeneratingCardState(
+            { [progressKey]: Math.floor((i / steps) * 100) }, 
+            cardName
+          );
+        }
+      };
+      
+      // Generate card description
+      await simulateProgress('description', name);
+      const description = await generateCardDescription(name, deckTheme);
+      
+      updateGeneratingCardState({
+        descriptionInProgress: false,
+        descriptionProgress: 100,
+        description,
+        imageInProgress: true
+      }, name);
+      
+      // Generate card image
+      await simulateProgress('image', name);
+      
+      // Generate randomized keywords based on card name and description
+      const descriptionWords = description.split(/\s+/);
+      const keywordsCount = 3 + Math.floor(Math.random() * 3); // 3-5 keywords
+      const keywordsSet = new Set<string>();
+      
+      // Add standard keywords based on card type
+      if (name === 'The Fool') {
+        keywordsSet.add('beginnings');
+        keywordsSet.add('spontaneity');
+      } else if (name === 'Death') {
+        keywordsSet.add('transformation');
+        keywordsSet.add('change');
+      } else if (name === 'The Lovers') {
+        keywordsSet.add('harmony');
+        keywordsSet.add('connection');
+      }
+      
+      // Add some keywords from description
+      while (keywordsSet.size < keywordsCount) {
+        const word = descriptionWords[Math.floor(Math.random() * descriptionWords.length)]
+          .toLowerCase()
+          .replace(/[^a-z]/g, '');
+          
+        if (word.length > 4) {
+          keywordsSet.add(word);
+        }
+      }
+      
+      const keywords = Array.from(keywordsSet);
+      
+      // Generate image URL and save to Supabase Storage
+      // If deckId is available, the image will be stored in Supabase
+      const imageUrl = await generateCardImage({
+        cardName: name,
+        theme: deckTheme,
+        style: deckStyle,
+        description,
+        additionalPrompt: promptValue,
+        deckId: deckId || undefined
+      });
+      
+      // Create card object
+      const newCard: Card = {
+        id: uuidv4(),
+        deck_id: deckId || '',
+        name,
+        description,
+        image_url: imageUrl,
+        card_type: cardType,
+        suit: suit,
+        keywords,
+        order
+      };
+      
+      // Add the new card to generated cards
+      setGeneratedCards(prev => [...prev, newCard]);
+      
+      // Remove from currently generating
+      setCurrentlyGenerating(prev => prev.filter(card => card.name !== name));
+      
+      // Update completed count
+      setCompletedCards(prev => prev + 1);
+      
+      // Decrement active generation tasks counter
+      activeGenerationTasks.current -= 1;
+      
+    } catch (error) {
+      console.error(`Error generating card ${name}:`, error);
+      
+      // Remove from currently generating
+      setCurrentlyGenerating(prev => prev.filter(card => card.name !== name));
+      
+      // Decrement active generation tasks counter
+      activeGenerationTasks.current -= 1;
+      
+      setGenerationError(`Failed to generate ${name}. Please try again.`);
+    }
+  };
+  
+  // Regenerate a specific card
+  const regenerateCard = async (cardId: string) => {
+    // Find the card to regenerate
+    const cardToRegenerate = generatedCards.find(card => card.id === cardId);
+    if (!cardToRegenerate) return;
+    
+    // Set active card for UI indication
+    setActiveCard(cardId);
+    
+    try {
+      // Generate new description and image
+      const description = await generateCardDescription(cardToRegenerate.name, deckTheme);
+      
+      const imageUrl = await generateCardImage({
+        cardName: cardToRegenerate.name,
+        theme: deckTheme,
+        style: deckStyle,
+        description,
+        additionalPrompt: promptValue,
+        deckId: deckId || undefined
+      });
+      
+      // Update the card in the state
+      setGeneratedCards(prev => 
+        prev.map(card => 
+          card.id === cardId 
+            ? { ...card, description, image_url: imageUrl } 
+            : card
+        )
+      );
+    } catch (error) {
+      console.error('Error regenerating card:', error);
+      setGenerationError('Failed to regenerate card. Please try again.');
+    } finally {
+      // Clear active card
+      setActiveCard(null);
+    }
+  };
+  
+  // Apply prompt to all cards
+  const applyGlobalPrompt = () => {
+    // This would regenerate images for all cards
+    // For implementation purposes, we'll show an upgrade modal
+    if (generatedCards.length > 5) {
+      setShowPaymentModal(true);
+    } else {
+      setGenerationError('Please generate some cards first before applying a global prompt.');
+    }
+  };
+  
+  // Check if all cards are generated
+  const isGenerationCompleted = useEffect(() => {
+    if (isGenerating && generationQueue.length === 0 && currentlyGenerating.length === 0 && generatedCards.length > 0) {
+      setIsGenerating(false);
+      
+      // Move to customize step when generation is complete
+      if (!isGenerating && generatedCards.length > 0) {
+        setCurrentStep('customize');
+      }
+    }
+  }, [isGenerating, generationQueue, currentlyGenerating, generatedCards]);
+  
+  // Save deck to database
+  const saveDeck = async () => {
+    if (!user) {
+      setNeedsSignIn(true);
+      return;
+    }
+    
+    if (generatedCards.length === 0) {
+      setGenerationError('Please generate at least one card before saving your deck.');
+      return;
+    }
+    
+    if (!deckId) {
+      setGenerationError('Failed to create deck ID. Please try again.');
+      return;
+    }
+    
+    setSavingDeck(true);
+    
+    try {
+      // Create or update deck record
+      let deckToSave: Deck = {
+        id: deckId,
+        creator_id: user.id,
+        creator_name: user.username || user.email.split('@')[0],
+        title: deckTitle,
+        description: deckDescription,
+        theme: deckTheme,
+        style: deckStyle,
+        card_count: generatedCards.length,
+        price: isSellable ? deckPrice : 0,
+        is_free: !isSellable,
+        is_listed: isListed, // New property
+        is_sellable: isSellable, // New property
+        is_public: true, // Always public (can be viewed by direct link)
+        cover_image: generatedCards[0]?.image_url || '',
+        sample_images: generatedCards.slice(0, 3).map(card => card.image_url),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        purchase_count: 0
+      };
+      
+      // Check if deck already exists
+      const { data: existingDeck, error: checkError } = await supabase
+        .from('decks')
+        .select('id')
+        .eq('id', deckId)
+        .single();
+      
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = 'Not Found'
+        throw checkError;
+      }
+      
+      if (!existingDeck) {
+        // Create new deck
+        const { error: insertError } = await supabase
+          .from('decks')
+          .insert([deckToSave]);
+          
+        if (insertError) throw insertError;
+        
+        // Update cards with deck_id
+        const cardsToInsert = generatedCards.map(card => ({
+          ...card,
+          deck_id: deckId
+        }));
+        
+        // Insert cards
+        const { error: cardsError } = await supabase
+          .from('cards')
+          .insert(cardsToInsert);
+          
+        if (cardsError) throw cardsError;
+      } else {
+        // Update existing deck
+        const { error: updateError } = await supabase
+          .from('decks')
+          .update(deckToSave)
+          .eq('id', deckId);
+          
+        if (updateError) throw updateError;
+        
+        // First delete existing cards to avoid conflicts
+        const { error: deleteError } = await supabase
+          .from('cards')
+          .delete()
+          .eq('deck_id', deckId);
+          
+        if (deleteError) throw deleteError;
+        
+        // Insert updated cards
+        const { error: insertError } = await supabase
+          .from('cards')
+          .insert(generatedCards.map(card => ({
+            ...card,
+            deck_id: deckId
+          })));
+          
+        if (insertError) throw insertError;
+      }
+      
+      setCreationSuccess(true);
+      
+    } catch (error) {
+      console.error('Error saving deck:', error);
+      setGenerationError('Failed to save deck. Please try again.');
+    } finally {
+      setSavingDeck(false);
+    }
+  };
+  
+  // Calculate overall progress
+  const calculateProgress = (): number => {
+    const total = totalCardsToGenerate;
+    const completed = completedCards;
+    if (total === 0) return 0;
+    return Math.round((completed / total) * 100);
+  };
+  
+  // Handle upgrade to full deck
+  const handleFullDeckUpgrade = () => {
+    setShowPaymentModal(true);
+  };
+  
+  // Mock payment process
+  const processMockPayment = () => {
+    setShowPaymentModal(false);
+    // Continue with generating the full deck
+    prepareCardGenerationQueue(true);
+  };
+  
+  // Reset creator
+  const resetCreator = () => {
+    setDeckTitle('');
+    setDeckDescription('');
+    setDeckTheme('');
+    setDeckStyle('');
+    setGeneratedCards([]);
+    setCurrentStep('details');
+    setIsGenerating(false);
+    setGenerationError(null);
+    setPromptValue('');
+    setFullDeck(false);
+    setActiveCard(null);
+    setDeckId(null);
+    setCreationSuccess(false);
+    setTotalCardsToGenerate(0);
+    setCompletedCards(0);
+    setGenerationQueue([]);
+    setCurrentlyGenerating([]);
+    setIsListed(true);
+    setIsSellable(false);
+    setDeckPrice(9.99);
+    activeGenerationTasks.current = 0;
+  };
+  
+  // Navigation after successful creation
+  const goToCollection = () => {
+    navigate('/collection');
+  };
+  
+  // Move to customize step
+  const goToCustomizeStep = () => {
+    if (generatedCards.length === 0) {
+      setGenerationError('Please generate cards first before customizing your deck.');
+      return;
+    }
+    
+    setCurrentStep('customize');
+  };
+  
+  // Go back to cards step
+  const goToCardsStep = () => {
+    setCurrentStep('cards');
+  };
+  
+  return (
+    <div className="min-h-screen pt-12 pb-20">
+      <div className="container mx-auto px-4">
+        <div className="mx-auto max-w-5xl">
+          {/* Header */}
+          <div className="mt-8 mb-10 text-center">
+            <h1 className="text-3xl md:text-4xl font-serif font-bold mb-2">
+              {currentStep === 'details' 
+                ? 'Create Your Custom Tarot Deck' 
+                : currentStep === 'cards'
+                ? 'Generating Your Mystical Deck'
+                : 'Customize Your Deck Settings'}
+            </h1>
+            <p className="text-muted-foreground max-w-xl mx-auto">
+              {currentStep === 'details'
+                ? 'Define your deck\'s theme and style to begin generating unique AI tarot imagery.'
+                : currentStep === 'cards'
+                ? 'Your tarot cards are being conjured with AI magic. You can customize each card as it appears.'
+                : 'Control how your deck appears to others and set your preferences.'}
+            </p>
+          </div>
+          
+          {/* Sign In Modal for Anonymous Users */}
+          {needsSignIn && (
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+              <motion.div 
+                className="bg-card rounded-xl overflow-hidden max-w-md w-full"
+                initial={{ opacity: 0, y: -50 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <div className="p-6">
+                  <h2 className="text-xl font-serif font-bold mb-4">Sign In to Continue</h2>
+                  <p className="mb-4">
+                    You need to be signed in to create and save decks. Would you like to sign in or create an account?
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={() => {
+                        navigate('/login');
+                      }}
+                      className="btn btn-secondary flex-1 py-2"
+                    >
+                      Sign In
+                    </button>
+                    <button 
+                      onClick={() => {
+                        navigate('/signup');
+                      }}
+                      className="btn btn-primary flex-1 py-2"
+                    >
+                      Create Account
+                    </button>
+                  </div>
+                  
+                  <button
+                    onClick={() => setNeedsSignIn(false)}
+                    className="w-full text-muted-foreground hover:text-foreground text-sm mt-4"
+                  >
+                    Continue as Guest (Limited Features)
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+          
+          {/* Success Modal */}
+          {creationSuccess && (
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+              <motion.div 
+                className="bg-card rounded-xl overflow-hidden max-w-md w-full"
+                initial={{ opacity: 0, y: -50 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <div className="p-6 text-center">
+                  <div className="w-20 h-20 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-4">
+                    <Check className="h-10 w-10 text-success" />
+                  </div>
+                  
+                  <h2 className="text-2xl font-serif font-bold mb-2">Deck Created!</h2>
+                  <p className="mb-6 text-muted-foreground">
+                    Your new deck "{deckTitle}" has been successfully saved to your collection.
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <button
+                      onClick={() => setCreationSuccess(false)}
+                      className="btn btn-ghost border border-input px-6 py-2"
+                    >
+                      Keep Editing
+                    </button>
+                    <button 
+                      onClick={goToCollection}
+                      className="btn btn-primary px-6 py-2"
+                    >
+                      View in Collection
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+          
+          {/* Payment Modal for Full Deck */}
+          {showPaymentModal && (
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+              <motion.div 
+                className="bg-card rounded-xl overflow-hidden max-w-md w-full"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+              >
+                <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
+                  <h3 className="font-serif font-bold">Upgrade to Full Deck</h3>
+                  <button onClick={() => setShowPaymentModal(false)}>
+                    <X className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+                  </button>
+                </div>
+                
+                <div className="p-6">
+                  <div className="flex items-start gap-3 mb-6 bg-muted/30 p-4 rounded-lg">
+                    <Info className="h-5 w-5 text-accent mt-0.5" />
+                    <div>
+                      <h4 className="font-medium mb-1">Premium Feature</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Unlock the complete 78-card deck with all minor arcana. This includes cards for all four suits: Wands, Cups, Swords, and Pentacles.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="border border-border p-4 rounded-lg">
+                      <h4 className="font-medium mb-2">Basic Deck</h4>
+                      <ul className="text-sm space-y-2 text-muted-foreground">
+                        <li className="flex items-center">
+                          <Check className="h-4 w-4 text-success mr-2" />
+                          22 Major Arcana Cards
+                        </li>
+                        <li className="flex items-center">
+                          <X className="h-4 w-4 text-muted-foreground mr-2" />
+                          Minor Arcana Cards
+                        </li>
+                        <li className="flex items-center">
+                          <Check className="h-4 w-4 text-success mr-2" />
+                          Custom Theme & Style
+                        </li>
+                      </ul>
+                      <p className="text-lg font-bold mt-4">Free</p>
+                    </div>
+                    
+                    <div className="border border-primary p-4 rounded-lg bg-primary/5">
+                      <h4 className="font-medium mb-2">Full Deck</h4>
+                      <ul className="text-sm space-y-2 text-muted-foreground">
+                        <li className="flex items-center">
+                          <Check className="h-4 w-4 text-success mr-2" />
+                          22 Major Arcana Cards
+                        </li>
+                        <li className="flex items-center">
+                          <Check className="h-4 w-4 text-success mr-2" />
+                          56 Minor Arcana Cards
+                        </li>
+                        <li className="flex items-center">
+                          <Check className="h-4 w-4 text-success mr-2" />
+                          Custom Theme & Style
+                        </li>
+                      </ul>
+                      <p className="text-lg font-bold mt-4">$9.99</p>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={processMockPayment}
+                    className="w-full btn btn-primary py-2 flex items-center justify-center"
+                  >
+                    <CreditCard className="mr-2 h-5 w-5" />
+                    Upgrade to Full Deck
+                  </button>
+                  
+                  <p className="text-xs text-center text-muted-foreground mt-4">
+                    For demo purposes, clicking the button will simulate a payment and unlock the full deck without an actual charge.
+                  </p>
+                </div>
+              </motion.div>
+            </div>
+          )}
+          
+          {/* Deck Details Step */}
+          {currentStep === 'details' && (
+            <motion.div 
+              className="bg-card border border-border p-8 rounded-xl"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <h2 className="text-xl font-serif font-bold mb-6">Define Your Deck</h2>
+              
+              {generationError && (
+                <div className="mb-6 p-4 border border-destructive/30 bg-destructive/10 rounded-lg flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-destructive">{generationError}</p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div>
+                  <label htmlFor="deckTitle" className="block text-sm font-medium mb-2">
+                    Deck Title <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    id="deckTitle"
+                    type="text"
+                    value={deckTitle}
+                    onChange={(e) => setDeckTitle(e.target.value)}
+                    placeholder="e.g., Cosmic Journeys, Mystic Elementals"
+                    className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="deckTheme" className="block text-sm font-medium mb-2">
+                    Deck Theme <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    id="deckTheme"
+                    type="text"
+                    value={deckTheme}
+                    onChange={(e) => setDeckTheme(e.target.value)}
+                    placeholder="e.g., cosmic, nature, steampunk, mythology"
+                    className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="deckStyle" className="block text-sm font-medium mb-2">
+                    Art Style <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    id="deckStyle"
+                    type="text"
+                    value={deckStyle}
+                    onChange={(e) => setDeckStyle(e.target.value)}
+                    placeholder="e.g., watercolor, digital, minimalist"
+                    className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="deckDescription" className="block text-sm font-medium mb-2">
+                    Description <span className="text-destructive">*</span>
+                  </label>
+                  <textarea
+                    id="deckDescription"
+                    value={deckDescription}
+                    onChange={(e) => setDeckDescription(e.target.value)}
+                    placeholder="Describe your deck concept and theme..."
+                    className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary resize-none h-24"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  <span className="text-destructive">*</span> Required fields
+                </div>
+                
+                <button 
+                  onClick={createDeck}
+                  className="btn btn-primary px-6 py-2 flex items-center"
+                >
+                  <Sparkles className="mr-2 h-5 w-5" />
+                  Generate Cards
+                </button>
+              </div>
+            </motion.div>
+          )}
+          
+          {/* Card Generation Step */}
+          {currentStep === 'cards' && (
+            <div className="space-y-8">
+              {/* Progress and Controls Header */}
+              <div className="bg-card border border-border p-6 rounded-xl">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                  <div>
+                    <h2 className="text-xl font-serif font-bold">{deckTitle}</h2>
+                    <p className="text-sm text-muted-foreground mt-1">{deckTheme} • {deckStyle}</p>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    {!isGenerating && generatedCards.length > 0 && (
+                      <>
+                        <button 
+                          onClick={goToCustomizeStep}
+                          className="btn btn-secondary px-4 py-2 flex items-center"
+                        >
+                          <ArrowRight className="mr-2 h-4 w-4" />
+                          Next: Customize
+                        </button>
+                        
+                        {!fullDeck && (
+                          <button 
+                            onClick={handleFullDeckUpgrade}
+                            className="btn btn-secondary px-4 py-2 flex items-center"
+                          >
+                            <CreditCard className="mr-2 h-5 w-5" />
+                            Upgrade to Full Deck
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Generation Progress */}
+                {isGenerating && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm text-muted-foreground">Generating cards...</div>
+                      <div className="text-sm font-medium">
+                        {completedCards} of {totalCardsToGenerate} cards
+                      </div>
+                    </div>
+                    <div className="w-full bg-muted/30 rounded-full h-2.5 overflow-hidden">
+                      <div 
+                        className="bg-primary h-2.5 rounded-full transition-all duration-300"
+                        style={{ width: `${calculateProgress()}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Error Message */}
+                {generationError && (
+                  <div className="p-3 border border-destructive/30 bg-destructive/10 rounded-lg flex items-start gap-2 mt-4">
+                    <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <p className="text-sm text-destructive">{generationError}</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Cards Currently Being Generated */}
+              {currentlyGenerating.length > 0 && (
+                <div className="bg-card border border-border p-6 rounded-xl">
+                  <h3 className="text-lg font-serif font-medium mb-4 flex items-center">
+                    <Loader className="h-4 w-4 text-primary animate-spin mr-2" />
+                    Cards in Progress
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {currentlyGenerating.map((card, index) => (
+                      <div key={index} className="bg-muted/20 rounded-lg p-4 border border-input">
+                        <h4 className="font-medium text-center mb-3">{card.name}</h4>
+                        
+                        <div className="space-y-3">
+                          {/* Description Progress */}
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span>Description</span>
+                              <span>{card.descriptionProgress}%</span>
+                            </div>
+                            <div className="w-full bg-muted/30 rounded-full h-1.5 overflow-hidden">
+                              <div 
+                                className="bg-primary h-1.5 rounded-full transition-all duration-300"
+                                style={{ width: `${card.descriptionProgress}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          
+                          {/* Image Progress - only show if description is done */}
+                          {!card.descriptionInProgress && (
+                            <div>
+                              <div className="flex justify-between text-xs mb-1">
+                                <span>Image</span>
+                                <span>{card.imageProgress}%</span>
+                              </div>
+                              <div className="w-full bg-muted/30 rounded-full h-1.5 overflow-hidden">
+                                <div 
+                                  className="bg-accent h-1.5 rounded-full transition-all duration-300"
+                                  style={{ width: `${card.imageProgress}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Enhancement Prompt */}
+              <div className="bg-card border border-border p-6 rounded-xl">
+                <h3 className="text-lg font-serif font-medium mb-4">Enhance Your Cards</h3>
+                <PromptEditor
+                  initialValue={promptValue}
+                  onChange={setPromptValue}
+                  onSubmit={applyGlobalPrompt}
+                  disabled={isGenerating || generatedCards.length === 0}
+                />
+              </div>
+              
+              {/* Generated Cards Gallery */}
+              {generatedCards.length > 0 ? (
+                <div className="bg-card border border-border p-6 rounded-xl">
+                  <h3 className="text-lg font-serif font-medium mb-6 flex items-center justify-between">
+                    <span>Generated Cards ({generatedCards.length})</span>
+                    
+                    {!fullDeck && generatedCards.length >= MAJOR_ARCANA_CARDS.length && (
+                      <button
+                        onClick={handleFullDeckUpgrade}
+                        className="text-sm btn btn-accent flex items-center"
+                      >
+                        <Zap className="mr-1 h-4 w-4" />
+                        Upgrade to Full 78-Card Deck
+                      </button>
+                    )}
+                  </h3>
+                  
+                  <CardGallery 
+                    cards={generatedCards} 
+                    onRegenerateCard={regenerateCard}
+                    isRegenerating={!!activeCard}
+                    activeCardId={activeCard}
+                  />
+                </div>
+              ) : (
+                <div className="bg-card border border-border p-6 rounded-xl text-center">
+                  <div className="py-8">
+                    <Loader className="h-10 w-10 text-primary animate-spin mx-auto mb-4" />
+                    <p className="text-muted-foreground">
+                      Your mystical deck is being crafted...
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Customize Step */}
+          {currentStep === 'customize' && (
+            <div className="space-y-8">
+              <div className="bg-card border border-border p-6 rounded-xl">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                  <div>
+                    <h2 className="text-xl font-serif font-bold">Deck Settings</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Control how your deck appears to others</p>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={goToCardsStep}
+                      className="btn btn-ghost border border-input px-4 py-2 flex items-center"
+                    >
+                      Back to Cards
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Visibility and Sellability Options */}
+                <div className="space-y-6 mb-6">
+                  <div className="p-4 border border-border rounded-lg">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        {isListed ? (
+                          <Eye className="h-5 w-5 text-success" />
+                        ) : (
+                          <EyeOff className="h-5 w-5 text-muted-foreground" />
+                        )}
+                        <div>
+                          <h3 className="font-medium">Visibility</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Control whether your deck appears in the marketplace
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only peer" 
+                          checked={isListed}
+                          onChange={() => setIsListed(!isListed)}
+                        />
+                        <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-muted after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                      </label>
+                    </div>
+                    
+                    <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
+                      {isListed ? (
+                        <p>Your deck will be visible in the marketplace for others to discover.</p>
+                      ) : (
+                        <p>Your deck will be hidden from the marketplace, but still accessible via direct link.</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 border border-border rounded-lg">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        {isSellable ? (
+                          <DollarSign className="h-5 w-5 text-success" />
+                        ) : (
+                          <Zap className="h-5 w-5 text-accent" />
+                        )}
+                        <div>
+                          <h3 className="font-medium">Pricing</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Set whether your deck is free or paid
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only peer" 
+                          checked={isSellable}
+                          onChange={() => setIsSellable(!isSellable)}
+                        />
+                        <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-muted after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                      </label>
+                    </div>
+                    
+                    <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg mb-4">
+                      {isSellable ? (
+                        <p>Your deck will be available for purchase at the price you set.</p>
+                      ) : (
+                        <p>Your deck will be free for anyone to use.</p>
+                      )}
+                    </div>
+                    
+                    {isSellable && (
+                      <div className="mt-4">
+                        <label htmlFor="deckPrice" className="block text-sm font-medium mb-2">
+                          Price (USD)
+                        </label>
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                            <DollarSign className="h-4 w-4" />
+                          </div>
+                          <input
+                            id="deckPrice"
+                            type="number"
+                            min="0.99"
+                            step="0.01"
+                            value={deckPrice}
+                            onChange={(e) => setDeckPrice(parseFloat(e.target.value))}
+                            className="w-full pl-9 pr-4 py-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                            placeholder="9.99"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Save Deck Button */}
+                <div className="flex justify-end">
+                  <button 
+                    onClick={saveDeck}
+                    disabled={savingDeck}
+                    className="btn btn-primary px-6 py-2 flex items-center"
+                  >
+                    {savingDeck ? (
+                      <>
+                        <span className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-5 w-5" />
+                        Save Deck
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+              
+              {/* Preview Section */}
+              <div className="bg-card border border-border p-6 rounded-xl">
+                <h3 className="text-lg font-serif font-medium mb-6">Deck Preview</h3>
+                
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="md:w-1/3">
+                    <div className="rounded-lg overflow-hidden aspect-[3/4]">
+                      <img 
+                        src={generatedCards[0]?.image_url}
+                        alt="Deck Cover"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="md:w-2/3">
+                    <h4 className="text-xl font-serif font-bold">{deckTitle}</h4>
+                    <p className="text-muted-foreground text-sm mt-1">
+                      {deckTheme} • {deckStyle}
+                    </p>
+                    
+                    <p className="mt-4">
+                      {deckDescription}
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-4 mt-6">
+                      <div className="border border-border p-3 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                            {isListed ? (
+                              <Eye className="h-4 w-4 text-primary" />
+                            ) : (
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div>
+                            <h5 className="text-sm font-medium">{isListed ? 'Listed' : 'Not Listed'}</h5>
+                            <p className="text-xs text-muted-foreground">
+                              {isListed ? 'Visible in marketplace' : 'Hidden from marketplace'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="border border-border p-3 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                            {isSellable ? (
+                              <DollarSign className="h-4 w-4 text-primary" />
+                            ) : (
+                              <Zap className="h-4 w-4 text-accent" />
+                            )}
+                          </div>
+                          <div>
+                            <h5 className="text-sm font-medium">{isSellable ? `$${deckPrice.toFixed(2)}` : 'Free'}</h5>
+                            <p className="text-xs text-muted-foreground">
+                              {isSellable ? 'Paid deck' : 'Free to use'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Generated Cards Preview */}
+              <div className="bg-card border border-border p-6 rounded-xl">
+                <h3 className="text-lg font-serif font-medium mb-4">Card Gallery</h3>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                  {generatedCards.slice(0, 12).map((card, index) => (
+                    <div key={card.id} className="relative aspect-[2/3] rounded-md overflow-hidden">
+                      <img 
+                        src={card.image_url} 
+                        alt={card.name}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                        <h4 className="text-white text-xs font-medium truncate">{card.name}</h4>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {generatedCards.length > 12 && (
+                    <div className="relative aspect-[2/3] rounded-md overflow-hidden bg-black/50 flex items-center justify-center">
+                      <div className="text-center text-white">
+                        <p className="text-lg font-bold">+{generatedCards.length - 12}</p>
+                        <p className="text-xs">more cards</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DeckCreator;

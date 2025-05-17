@@ -1,0 +1,89 @@
+import { useEffect, lazy, Suspense } from 'react';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
+import Layout from './components/layout/Layout';
+import LoadingScreen from './components/ui/LoadingScreen';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+
+// Lazy loaded components
+const Home = lazy(() => import('./pages/Home'));
+const Login = lazy(() => import('./pages/auth/Login'));
+const Signup = lazy(() => import('./pages/auth/Signup'));
+const DeckCreator = lazy(() => import('./pages/creator/DeckCreator'));
+const Marketplace = lazy(() => import('./pages/marketplace/Marketplace'));
+const DeckDetails = lazy(() => import('./pages/marketplace/DeckDetails'));
+const Collection = lazy(() => import('./pages/user/Collection')); 
+const ReadingRoom = lazy(() => import('./pages/reading/ReadingRoom'));
+const Profile = lazy(() => import('./pages/user/Profile'));
+const Checkout = lazy(() => import('./pages/marketplace/Checkout'));
+const AuthCallback = lazy(() => import('./pages/auth/AuthCallback'));
+
+function App() {
+  const { checkAuth, loading, user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Initial auth check - only run once on component mount
+  useEffect(() => {
+    // Run auth check once when the component mounts
+    checkAuth();
+  }, []); // Empty dependency array ensures it only runs once
+
+  // Handle auth redirect from URL params for deep linking
+  useEffect(() => {
+    // Only process auth redirects when auth state is settled (not loading)
+    if (!loading) {
+      // If "auth=required" is in the URL and user is not authenticated,
+      // store the current path and redirect to login
+      const params = new URLSearchParams(location.search);
+      if (params.get('auth') === 'required' && !user) {
+        // Store the intended destination
+        localStorage.setItem('authRedirectTo', location.pathname);
+        navigate('/login');
+      }
+      
+      // If user is authenticated and there's a stored redirect path, go there
+      if (user) {
+        const redirectTo = localStorage.getItem('authRedirectTo');
+        if (redirectTo) {
+          localStorage.removeItem('authRedirectTo');
+          navigate(redirectTo);
+        }
+      }
+    }
+  }, [location, loading, user, navigate]);
+
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Home />} />
+          <Route path="login" element={<Login />} />
+          <Route path="signup" element={<Signup />} />
+          <Route path="marketplace" element={<Marketplace />} />
+          <Route path="marketplace/:deckId" element={<DeckDetails />} />
+          
+          {/* Authentication callback route */}
+          <Route path="auth/callback" element={<AuthCallback />} />
+          
+          {/* Make reading room directly accessible */}
+          <Route path="reading-room/:deckId?" element={<ReadingRoom />} />
+          
+          <Route element={<ProtectedRoute />}>
+            <Route path="create" element={<DeckCreator />} />
+            <Route path="collection" element={<Collection />} />
+            <Route path="profile" element={<Profile />} />
+            <Route path="checkout/:deckId" element={<Checkout />} />
+          </Route>
+        </Route>
+      </Routes>
+    </Suspense>
+  );
+}
+
+export default App;

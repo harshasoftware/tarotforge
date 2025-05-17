@@ -1,0 +1,331 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { uploadImageFromUrl } from './storage-utils';
+import type { AIModel } from '../types';
+
+// Google Generative AI configuration
+const apiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY || '';
+
+// Log warning instead of error to avoid breaking the application
+if (!apiKey) {
+  console.warn('Google AI API key is missing. Tarot readings and descriptions will use fallback content.');
+}
+
+// Initialize Google Generative AI with a fallback for missing API key
+const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+
+export const getGeminiModel = (modelName: AIModel = 'gemini-pro') => {
+  if (!genAI) {
+    throw new Error('Google AI API key is not configured. Please add your API key to the .env file.');
+  }
+  return genAI.getGenerativeModel({ model: modelName });
+};
+
+export const generateCardDescription = async (
+  cardName: string,
+  deckTheme: string
+) => {
+  if (!apiKey) {
+    // Return a fallback description when API key is missing
+    return `The ${cardName} represents a powerful symbol in tarot. In the context of ${deckTheme}, it connects to themes of transformation and insight. Key symbols include mystical elements that resonate with the card's traditional meanings. When this card appears in a reading, consider how its energy might be guiding you forward.`;
+  }
+  
+  try {
+    const model = getGeminiModel();
+    
+    const prompt = `
+      Create a mystical and evocative description for the "${cardName}" tarot card 
+      that fits within a deck with the theme: "${deckTheme}".
+      
+      Include:
+      - The card's traditional meaning
+      - How it relates specifically to the "${deckTheme}" theme
+      - Key symbols that should be included in the imagery
+      - A short interpretation for readings
+      
+      Keep the response under 150 words and focus on imagery and symbolism.
+    `;
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
+  } catch (error) {
+    console.error('Error generating card description:', error);
+    return `The ${cardName} represents a powerful symbol in tarot. In the context of ${deckTheme}, it connects to themes of transformation and insight. Key symbols include mystical elements that resonate with the card's traditional meanings. When this card appears in a reading, consider how its energy might be guiding you forward.`;
+  }
+};
+
+export const generateCardImage = async (
+  details: {
+    cardName: string;
+    theme: string;
+    style: string;
+    description: string;
+    additionalPrompt?: string;
+    deckId?: string; // Added for storage
+  }
+) => {
+  if (!apiKey) {
+    // Return a placeholder image URL if API key is missing
+    const placeholderUrl = generatePlaceholderImageUrl(details.cardName, details.theme);
+    
+    // If deckId is provided, try to store the placeholder image
+    if (details.deckId) {
+      try {
+        return await uploadImageFromUrl(
+          placeholderUrl,
+          details.deckId,
+          details.cardName
+        );
+      } catch (error) {
+        console.error('Error uploading placeholder image to storage:', error);
+        return placeholderUrl;
+      }
+    }
+    
+    return placeholderUrl;
+  }
+  
+  try {
+    const model = getGeminiModel("gemini-pro-vision");
+    
+    // Create a detailed prompt for the image generation
+    const prompt = `
+      Generate a high-quality, detailed tarot card image for "${details.cardName}" with these specifications:
+      
+      THEME: ${details.theme}
+      STYLE: ${details.style}
+      
+      CARD DESCRIPTION: ${details.description}
+      
+      ${details.additionalPrompt ? `ADDITIONAL DETAILS: ${details.additionalPrompt}` : ''}
+      
+      The image should be in portrait orientation (aspect ratio 2:3) suitable for a tarot card.
+      Include traditional symbolic elements associated with this card while maintaining the specified theme and style.
+      Use rich, vibrant colors and clear composition with a central focal point.
+      
+      Do NOT include any text or card name in the image itself.
+    `;
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    
+    // In a production app, this would process the images from the Gemini response
+    // For demo purposes, we'll use a placeholder based on the card name
+    const placeholderUrl = generatePlaceholderImageUrl(details.cardName, details.theme);
+    
+    // If deckId is provided, store the image in Supabase
+    if (details.deckId) {
+      try {
+        return await uploadImageFromUrl(
+          placeholderUrl,
+          details.deckId,
+          details.cardName
+        );
+      } catch (error) {
+        console.error('Error uploading image to storage:', error);
+        return placeholderUrl;
+      }
+    }
+    
+    return placeholderUrl;
+  } catch (error) {
+    console.error('Error generating card image:', error);
+    return generatePlaceholderImageUrl(details.cardName, details.theme);
+  }
+};
+
+// Helper function to generate placeholder image URLs based on card names
+// In a real implementation, this would be replaced with actual Gemini image responses
+function generatePlaceholderImageUrl(cardName: string, theme: string) {
+  // Clean the card name to be URL-friendly
+  const cleanName = cardName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+  
+  // Create a custom seed based on card name and theme
+  const seed = `${cleanName}-${theme.toLowerCase().replace(/\s+/g, '-')}`;
+  
+  // Map of card names to thematically appropriate Pexels image URLs
+  const cardImageMap: {[key: string]: string} = {
+    'the-fool': 'https://images.pexels.com/photos/1619317/pexels-photo-1619317.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-magician': 'https://images.pexels.com/photos/2693529/pexels-photo-2693529.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-high-priestess': 'https://images.pexels.com/photos/3617457/pexels-photo-3617457.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-empress': 'https://images.pexels.com/photos/936048/pexels-photo-936048.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-emperor': 'https://images.pexels.com/photos/2559941/pexels-photo-2559941.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-hierophant': 'https://images.pexels.com/photos/262771/pexels-photo-262771.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-lovers': 'https://images.pexels.com/photos/888899/pexels-photo-888899.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-chariot': 'https://images.pexels.com/photos/3408744/pexels-photo-3408744.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'strength': 'https://images.pexels.com/photos/1252126/pexels-photo-1252126.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-hermit': 'https://images.pexels.com/photos/2389157/pexels-photo-2389157.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'wheel-of-fortune': 'https://images.pexels.com/photos/1727684/pexels-photo-1727684.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'justice': 'https://images.pexels.com/photos/3765035/pexels-photo-3765035.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-hanged-man': 'https://images.pexels.com/photos/2171283/pexels-photo-2171283.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'death': 'https://images.pexels.com/photos/3651022/pexels-photo-3651022.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'temperance': 'https://images.pexels.com/photos/2647933/pexels-photo-2647933.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-devil': 'https://images.pexels.com/photos/2832046/pexels-photo-2832046.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-tower': 'https://images.pexels.com/photos/2499846/pexels-photo-2499846.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-star': 'https://images.pexels.com/photos/1252890/pexels-photo-1252890.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-moon': 'https://images.pexels.com/photos/2670898/pexels-photo-2670898.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-sun': 'https://images.pexels.com/photos/1275413/pexels-photo-1275413.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'judgment': 'https://images.pexels.com/photos/315191/pexels-photo-315191.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    'the-world': 'https://images.pexels.com/photos/1851164/pexels-photo-1851164.jpeg?auto=compress&cs=tinysrgb&w=1600'
+  };
+  
+  // Return the mapped image URL if it exists
+  if (cardImageMap[cleanName]) {
+    return cardImageMap[cleanName];
+  }
+  
+  // Default placeholder using a cosmic theme from Pexels
+  return 'https://images.pexels.com/photos/1274260/pexels-photo-1274260.jpeg?auto=compress&cs=tinysrgb&w=1600';
+}
+
+export const getReadingInterpretation = async (
+  question: string,
+  cards: { name: string, position: string, isReversed: boolean }[],
+  deckTheme: string
+) => {
+  if (!apiKey) {
+    // Return a fallback reading interpretation when API key is missing
+    return `
+      # Tarot Reading for: "${question}"
+      
+      ## Overall Energy
+      The cards you've drawn suggest a period of reflection and potential change. The energies present encourage thoughtful consideration of your path forward.
+      
+      ## Key Insights
+      ${cards.map(card => 
+        `For the ${card.position} position, ${card.name} ${card.isReversed ? '(reversed)' : ''} indicates a need to examine your relationship with ${card.isReversed ? 'challenges' : 'opportunities'} in this area.`
+      ).join('\n\n')}
+      
+      ## Guidance Moving Forward
+      Consider how these energies interact in your life currently. Reflection and mindfulness will serve you well as you navigate the path ahead.
+    `;
+  }
+  
+  try {
+    const model = getGeminiModel();
+    
+    const cardsInfo = cards.map(card => 
+      `${card.name} (${card.isReversed ? 'reversed' : 'upright'}) in the ${card.position} position`
+    ).join(', ');
+    
+    const prompt = `
+      As an experienced tarot reader, interpret this ${cards.length}-card reading 
+      for the question: "${question}"
+      
+      Cards drawn: ${cardsInfo}
+      
+      Deck Theme: ${deckTheme}
+      
+      Provide a cohesive interpretation that connects the cards together and addresses
+      the question. Include both practical advice and spiritual insights.
+      Format your response as a professional tarot reading with sections for:
+      1. Overall Energy
+      2. Key Insights (for each card position)
+      3. Guidance Moving Forward
+      
+      Keep the total response under 600 words and use language that is mystical but accessible.
+    `;
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
+  } catch (error) {
+    console.error('Error generating reading interpretation:', error);
+    return `
+      # Tarot Reading for: "${question}"
+      
+      ## Overall Energy
+      The cards you've drawn suggest a period of reflection and potential change. The energies present encourage thoughtful consideration of your path forward.
+      
+      ## Key Insights
+      ${cards.map(card => 
+        `For the ${card.position} position, ${card.name} ${card.isReversed ? '(reversed)' : ''} indicates a need to examine your relationship with ${card.isReversed ? 'challenges' : 'opportunities'} in this area.`
+      ).join('\n\n')}
+      
+      ## Guidance Moving Forward
+      Consider how these energies interact in your life currently. Reflection and mindfulness will serve you well as you navigate the path ahead.
+    `;
+  }
+};
+
+// NEW FUNCTIONS FOR THEME SUGGESTIONS
+
+export const generateThemeSuggestions = async (count: number = 10): Promise<string[]> => {
+  if (!apiKey) {
+    // Return fallback theme suggestions when API key is missing
+    return [
+      "Celestial Voyage", "Ancient Mythology", "Enchanted Forest", 
+      "Cybernetic Dreams", "Elemental Forces", "Oceanic Mysteries",
+      "Astral Projections", "Crystal Energies", "Gothic Shadows", 
+      "Shamanic Vision"
+    ];
+  }
+  
+  try {
+    const model = getGeminiModel();
+    
+    const prompt = `
+      Generate ${count} unique and creative theme ideas for tarot decks. 
+      Each theme should be a short, evocative phrase (2-3 words) that could inspire 
+      a beautiful and mystical tarot deck design.
+      
+      The themes should span different aesthetics, mythologies, and spiritual traditions.
+      
+      Format your response as a simple list with each theme on a new line.
+      Do not include numbering or bullet points.
+    `;
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    
+    // Parse the response into individual themes
+    const themes = response.text().split('\n')
+      .map(theme => theme.trim())
+      .filter(theme => theme.length > 0);
+    
+    return themes.slice(0, count);
+  } catch (error) {
+    console.error('Error generating theme suggestions:', error);
+    return [
+      "Celestial Voyage", "Ancient Mythology", "Enchanted Forest", 
+      "Cybernetic Dreams", "Elemental Forces", "Oceanic Mysteries",
+      "Astral Projections", "Crystal Energies", "Gothic Shadows", 
+      "Shamanic Vision"
+    ];
+  }
+};
+
+export const generateElaborateTheme = async (themeTitle: string): Promise<string> => {
+  if (!apiKey) {
+    // Return fallback elaborate theme when API key is missing
+    return `A mystical ${themeTitle} tarot deck featuring rich symbolism and evocative imagery. The deck explores the profound connection between consciousness and the spiritual realm, with elements of cosmic energies, ancient wisdom, and transformative journeys. Each card contains detailed symbolism that reflects both traditional tarot meanings and the unique essence of the ${themeTitle} theme.`;
+  }
+  
+  try {
+    const model = getGeminiModel();
+    
+    const prompt = `
+      Create an elaborate and detailed description for a tarot deck with the theme "${themeTitle}".
+      The description should be useful as a creative prompt for generating tarot card imagery.
+      
+      Include:
+      - The overall aesthetic and mood of the deck
+      - Key visual elements and symbols that should appear throughout the cards
+      - Color palette suggestions
+      - Stylistic inspiration (e.g., art movements, cultural influences)
+      - Thematic connections to the tarot's spiritual meanings
+      
+      Make the description evocative, detailed, and specific enough to guide the creation of a cohesive deck.
+      The description should be 2-3 sentences, focused and rich in imagery.
+    `;
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
+  } catch (error) {
+    console.error('Error generating elaborate theme:', error);
+    return `A mystical ${themeTitle} tarot deck featuring rich symbolism and evocative imagery. The deck explores the profound connection between consciousness and the spiritual realm, with elements of cosmic energies, ancient wisdom, and transformative journeys. Each card contains detailed symbolism that reflects both traditional tarot meanings and the unique essence of the ${themeTitle} theme.`;
+  }
+};
+
+export default genAI;

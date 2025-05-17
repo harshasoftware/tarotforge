@@ -1,0 +1,234 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 20% 3%;
+    --foreground: 0 0% 95%;
+    
+    --card: 240 10% 4%;
+    --card-foreground: 0 0% 95%;
+    
+    --popover: 240 10% 4%;
+    --popover-foreground: 0 0% 95%;
+    
+    --primary: 280 70% 25%;
+    --primary-foreground: 0 0% 98%;
+    
+    --secondary: 240 30% 20%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --accent: 36 100% 50%;
+    --accent-foreground: 240 10% 3.9%;
+    
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 5% 65%;
+    
+    --success: 142 70% 45%;
+    --success-foreground: 210 40% 98%;
+    
+    --warning: 38 92% 50%;
+    --warning-foreground: 240 5% 10%;
+    
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 210 40% 98%;
+
+    --teal: 174 100% 24%;
+    --teal-foreground: 0 0% 98%;
+    
+    --border: 240 5% 15%;
+    --input: 240 5% 15%;
+    --ring: 240 5% 65%;
+    
+    --radius: 0.75rem;
+  }
+
+  .light-theme {
+    --background: 0 0% 98%;
+    --foreground: 240 10% 3.9%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    
+    --primary: 280 70% 35%;
+    --primary-foreground: 0 0% 98%;
+    
+    --secondary: 240 5% 95%;
+    --secondary-foreground: 240 5% 10%;
+    
+    --accent: 36 100% 50%;
+    --accent-foreground: 240 10% 3.9%;
+    
+    --muted: 240 5% 95%;
+    --muted-foreground: 240 5% 40%;
+    
+    --success: 142 70% 45%;
+    --success-foreground: 210 40% 98%;
+    
+    --warning: 38 92% 50%;
+    --warning-foreground: 240 5% 10%;
+    
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 210 40% 98%;
+
+    --teal: 174 100% 29%;
+    --teal-foreground: 0 0% 98%;
+    
+    --border: 240 5% 88%;
+    --input: 240 5% 88%;
+    --ring: 240 5% 40%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Cinzel', serif;
+  }
+}
+
+@layer components {
+  .card-container {
+    @apply relative aspect-[2/3] rounded-xl overflow-hidden bg-card cursor-pointer;
+    perspective: 1000px;
+    transform-style: preserve-3d;
+    transition: transform 0.5s;
+  }
+  
+  .card-container:hover {
+    @apply shadow-lg shadow-primary/20;
+  }
+  
+  .card-front,
+  .card-back {
+    @apply absolute inset-0 w-full h-full;
+    backface-visibility: hidden;
+    transition: transform 0.6s;
+  }
+  
+  .card-back {
+    transform: rotateY(180deg);
+  }
+  
+  .card-container.flipped .card-front {
+    transform: rotateY(180deg);
+  }
+  
+  .card-container.flipped .card-back {
+    transform: rotateY(0deg);
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors 
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 
+    disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/90;
+  }
+
+  .btn-accent {
+    @apply bg-accent text-accent-foreground hover:bg-accent/90;
+  }
+
+  .btn-teal {
+    @apply bg-teal text-teal-foreground hover:bg-teal/90;
+  }
+
+  .btn-ghost {
+    @apply hover:bg-secondary hover:text-secondary-foreground;
+  }
+
+  .btn-outline {
+    @apply bg-transparent border;
+  }
+
+  .gradient-bg {
+    @apply bg-gradient-to-br from-primary via-teal to-secondary;
+  }
+
+  .animated-gradient {
+    background-size: 200% 200%;
+    animation: gradientAnimation 15s ease infinite;
+  }
+
+  @keyframes gradientAnimation {
+    0% {
+      background-position: 0% 0%;
+    }
+    50% {
+      background-position: 100% 100%;
+    }
+    100% {
+      background-position: 0% 0%;
+    }
+  }
+
+  .sparkles {
+    position: relative;
+  }
+
+  .sparkles::after {
+    content: "";
+    position: absolute;
+    top: -10%;
+    left: -10%;
+    width: 120%;
+    height: 120%;
+    background-image: 
+      radial-gradient(circle, var(--tw-color-accent) 1px, transparent 1px),
+      radial-gradient(circle, var(--tw-color-accent) 1px, transparent 1px);
+    background-size: 30px 30px;
+    background-position: 0 0, 15px 15px;
+    opacity: 0.1;
+    pointer-events: none;
+    animation: sparkleAnimation 20s linear infinite;
+  }
+
+  @keyframes sparkleAnimation {
+    0% {
+      opacity: 0.05;
+      transform: translateY(0) rotate(0deg);
+    }
+    25% {
+      opacity: 0.1;
+    }
+    50% {
+      opacity: 0.05;
+      transform: translateY(-10px) rotate(180deg);
+    }
+    75% {
+      opacity: 0.1;
+    }
+    100% {
+      opacity: 0.05;
+      transform: translateY(0) rotate(360deg);
+    }
+  }
+  
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+}
