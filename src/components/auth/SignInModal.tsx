@@ -15,9 +15,10 @@ interface SignInFormData {
 }
 
 const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
-  const { signIn, signUp, magicLinkSent, setMagicLinkSent } = useAuth();
+  const { signIn, signUp, signInWithGoogle, magicLinkSent, setMagicLinkSent } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const { 
@@ -53,6 +54,24 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
     } catch (err: any) {
       setError(err.message || 'An error occurred');
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setGoogleLoading(true);
+      setError(null);
+      
+      const { error } = await signInWithGoogle();
+      
+      if (error) {
+        throw new Error(error.message || 'Failed to sign in with Google');
+      }
+      
+      // The Google flow will redirect to Google's auth page
+    } catch (err: any) {
+      setError(err.message || 'An error occurred with Google sign-in');
+      setGoogleLoading(false);
     }
   };
   
@@ -95,77 +114,110 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit(onSubmit)}>
-              <div className="space-y-6">
-                {error && (
-                  <div className="p-3 border border-destructive/30 bg-destructive/10 rounded-lg flex items-start gap-2">
-                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                    <p className="text-sm text-destructive">{error}</p>
-                  </div>
+            <>
+              {/* Google Sign In Button */}
+              <button
+                onClick={handleGoogleSignIn}
+                disabled={googleLoading}
+                className="w-full btn btn-outline border-input hover:bg-secondary/50 py-2 mb-6 flex items-center justify-center relative"
+              >
+                {googleLoading ? (
+                  <span className="flex items-center justify-center">
+                    <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2"></span>
+                    Connecting...
+                  </span>
+                ) : (
+                  <>
+                    <svg viewBox="0 0 24 24" width="24" height="24" className="absolute left-3">
+                      <g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)">
+                        <path fill="#4285F4" d="M -3.264 51.509 C -3.264 50.719 -3.334 49.969 -3.454 49.239 L -14.754 49.239 L -14.754 53.749 L -8.284 53.749 C -8.574 55.229 -9.424 56.479 -10.684 57.329 L -10.684 60.329 L -6.824 60.329 C -4.564 58.239 -3.264 55.159 -3.264 51.509 Z" />
+                        <path fill="#34A853" d="M -14.754 63.239 C -11.514 63.239 -8.804 62.159 -6.824 60.329 L -10.684 57.329 C -11.764 58.049 -13.134 58.489 -14.754 58.489 C -17.884 58.489 -20.534 56.379 -21.484 53.529 L -25.464 53.529 L -25.464 56.619 C -23.494 60.539 -19.444 63.239 -14.754 63.239 Z" />
+                        <path fill="#FBBC05" d="M -21.484 53.529 C -21.734 52.809 -21.864 52.039 -21.864 51.239 C -21.864 50.439 -21.724 49.669 -21.484 48.949 L -21.484 45.859 L -25.464 45.859 C -26.284 47.479 -26.754 49.299 -26.754 51.239 C -26.754 53.179 -26.284 54.999 -25.464 56.619 L -21.484 53.529 Z" />
+                        <path fill="#EA4335" d="M -14.754 43.989 C -12.984 43.989 -11.404 44.599 -10.154 45.789 L -6.734 42.369 C -8.804 40.429 -11.514 39.239 -14.754 39.239 C -19.444 39.239 -23.494 41.939 -25.464 45.859 L -21.484 48.949 C -20.534 46.099 -17.884 43.989 -14.754 43.989 Z" />
+                      </g>
+                    </svg>
+                    <span>Continue with Google</span>
+                  </>
                 )}
-                
-                <div className="space-y-2">
-                  <label htmlFor="modal-email" className="block text-sm font-medium">
-                    Email
-                  </label>
-                  <div className="relative">
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-                      <Mail className="h-5 w-5" />
-                    </div>
-                    <input
-                      id="modal-email"
-                      type="email"
-                      {...register('email', { 
-                        required: 'Email is required', 
-                        pattern: {
-                          value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                          message: 'Invalid email address'
-                        }
-                      })}
-                      className={`w-full pl-10 pr-4 py-2 rounded-md bg-card border ${
-                        errors.email ? 'border-destructive' : 'border-input'
-                      } focus:outline-none focus:ring-2 focus:ring-primary`}
-                      placeholder="you@example.com"
-                    />
-                  </div>
-                  {errors.email && (
-                    <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
-                  )}
-                </div>
-                
-                <p className="text-sm text-muted-foreground">
-                  We'll send you a magic link to {isSignUp ? 'create your account' : 'sign in'}. No password needed!
-                </p>
-                
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full btn btn-primary py-2 mt-2 disabled:opacity-70"
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center">
-                      <span className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
-                      {isSignUp ? 'Creating Account...' : 'Sending Link...'}
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center">
-                      {isSignUp ? 'Create Account' : 'Send Magic Link'}
-                      <ArrowRight className="ml-2 h-5 w-5" />
-                    </span>
-                  )}
-                </button>
-                
-                <div className="text-center">
-                  <button
-                    type="button" 
-                    onClick={() => setIsSignUp(!isSignUp)}
-                    className="text-primary hover:underline text-sm"
-                  >
-                    {isSignUp ? 'Already have an account? Sign in' : 'Need an account? Create one'}
-                  </button>
-                </div>
+              </button>
+              
+              <div className="relative flex items-center justify-center mb-6">
+                <div className="border-t border-border w-full"></div>
+                <span className="bg-card px-2 text-xs text-muted-foreground absolute">or</span>
               </div>
-            </form>
+              
+              <form onSubmit={handleSubmit(onSubmit)}>
+                <div className="space-y-6">
+                  {error && (
+                    <div className="p-3 border border-destructive/30 bg-destructive/10 rounded-lg flex items-start gap-2">
+                      <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                      <p className="text-sm text-destructive">{error}</p>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-2">
+                    <label htmlFor="modal-email" className="block text-sm font-medium">
+                      Email
+                    </label>
+                    <div className="relative">
+                      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                        <Mail className="h-5 w-5" />
+                      </div>
+                      <input
+                        id="modal-email"
+                        type="email"
+                        {...register('email', { 
+                          required: 'Email is required', 
+                          pattern: {
+                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                            message: 'Invalid email address'
+                          }
+                        })}
+                        className={`w-full pl-10 pr-4 py-2 rounded-md bg-card border ${
+                          errors.email ? 'border-destructive' : 'border-input'
+                        } focus:outline-none focus:ring-2 focus:ring-primary`}
+                        placeholder="you@example.com"
+                      />
+                    </div>
+                    {errors.email && (
+                      <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
+                    )}
+                  </div>
+                  
+                  <p className="text-sm text-muted-foreground">
+                    We'll send you a magic link to {isSignUp ? 'create your account' : 'sign in'}. No password needed!
+                  </p>
+                  
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full btn btn-primary py-2 mt-2 disabled:opacity-70"
+                  >
+                    {loading ? (
+                      <span className="flex items-center justify-center">
+                        <span className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
+                        {isSignUp ? 'Creating Account...' : 'Sending Link...'}
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center">
+                        {isSignUp ? 'Create Account' : 'Send Magic Link'}
+                        <ArrowRight className="ml-2 h-5 w-5" />
+                      </span>
+                    )}
+                  </button>
+                  
+                  <div className="text-center">
+                    <button
+                      type="button" 
+                      onClick={() => setIsSignUp(!isSignUp)}
+                      className="text-primary hover:underline text-sm"
+                    >
+                      {isSignUp ? 'Already have an account? Sign in' : 'Need an account? Create one'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </>
           )}
         </div>
       </motion.div>

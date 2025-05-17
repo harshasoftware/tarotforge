@@ -7,6 +7,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, username?: string) => Promise<{ error: any }>;
   signIn: (email: string) => Promise<{ error: any }>;
+  signInWithGoogle: () => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   checkAuth: () => Promise<void>;
   magicLinkSent: boolean;
@@ -20,6 +21,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   signUp: async () => ({ error: null }),
   signIn: async () => ({ error: null }),
+  signInWithGoogle: async () => ({ error: null }),
   signOut: async () => {},
   checkAuth: async () => {},
   magicLinkSent: false,
@@ -202,7 +204,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) throw error;
       
-      // Now send a magic link for this new user to sign in
+      // Send magic link
       const { error: signInError } = await supabase.auth.signInWithOtp({
         email,
         options: {
@@ -242,6 +244,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { error: null };
     } catch (error) {
       console.error('Sign in error:', error);
+      return { error };
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      console.log('Starting Google sign-in flow');
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
+        }
+      });
+      
+      if (error) throw error;
+      
+      // Google sign-in redirect initiated
+      console.log('Google sign-in redirect initiated');
+      
+      return { error: null };
+    } catch (error) {
+      console.error('Google sign-in error:', error);
       return { error };
     }
   };
@@ -335,6 +364,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signUp,
     signIn,
+    signInWithGoogle,
     signOut,
     checkAuth,
     magicLinkSent,
