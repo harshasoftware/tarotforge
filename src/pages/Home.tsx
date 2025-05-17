@@ -417,7 +417,7 @@ const Home = () => {
           transition={{ duration: 0.6 }}
           className="text-center mb-8 z-10"
         >
-          <h2 className="text-4xl md:text-5xl font-serif font-bold mb-4">
+          <h2 className="text-4xl md:text-5xl font-serif font-bold mb-2">
             Create Your Tarot Deck Now
           </h2>
         </motion.div>
