@@ -88,7 +88,7 @@ export const generateCardImage = async (
   try {
     const model = getGeminiModel("gemini-pro-vision");
     
-    // Create a detailed prompt for the image generation using the imagen-3.0-generate-002 model
+    // Create a detailed prompt for the imagen-3.0-generate-002 model
     const prompt = `
       ${details.cardName} tarot card in ${details.style} style with a ${details.theme} theme. 
       
@@ -103,13 +103,12 @@ export const generateCardImage = async (
       The image should have a decorative border and "${details.cardName}" written at the bottom.
     `;
     
-    // Execute image generation call
+    // Execute image generation call to Gemini
     const result = await model.generateContent(prompt);
     const response = await result.response;
     
-    // In a real implementation, we would extract the image from the response
-    // However, for this implementation, we'll continue using placeholders since the actual
-    // imagen-3.0-generate-002 model integration would require additional setup
+    // In a production app, this would get the image directly from the Gemini response
+    // As we are mocking with Gemini Pro Vision which doesn't return images, we'll use placeholders
     const placeholderUrl = generatePlaceholderImageUrl(details.cardName, details.theme);
     
     // If deckId is provided, store the image in Supabase
