@@ -8,6 +8,8 @@ const apiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY || '';
 // Log warning instead of error to avoid breaking the application
 if (!apiKey) {
   console.warn('Google AI API key is missing. Tarot readings and descriptions will use fallback content.');
+} else {
+  console.log('Google AI API key is configured, length:', apiKey.length);
 }
 
 // Initialize Google Generative AI with a fallback for missing API key
@@ -91,6 +93,8 @@ export const generateCardImage = async (
       console.warn('Google AI client not initialized. Using placeholder images.');
       return generatePlaceholderImageUrl(details.cardName, details.theme);
     }
+    
+    console.log('Starting image generation for:', details.cardName);
     
     // Create a detailed, theme-driven prompt using the provided template structure
     // Format: [Card Name] tarot card in [Theme/Style], featuring [main subject, symbolism, mood, key elements]. Include [colors, background, motifs]. Artistic, mystical, detailed, with border and card name at bottom.
@@ -436,9 +440,12 @@ export const generateCardImage = async (
     
     // Use Gemini's Imagen model for image generation
     // We need to use the imagen-3.0-generate-002 model which is available through the generativeModel call
+    console.log('Initializing Imagen model: imagen-3.0-generate-002');
     const model = genAI.getGenerativeModel({ model: 'imagen-3.0-generate-002' });
+    console.log('Imagen model initialized successfully');
     
     // Generate the image using Imagen
+    console.log('Sending prompt to Imagen API:', prompt.substring(0, 100) + '...');
     const imageResult = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: {
@@ -468,16 +475,28 @@ export const generateCardImage = async (
     });
     
     // Extract the image data from the response
+    console.log('Received response from Imagen API');
     const responseData = imageResult.response;
+    console.log('Response structure:', JSON.stringify(responseData, null, 2).substring(0, 200) + '...');
     
     // Add null checks to ensure candidates exists and has at least one element
     if (!responseData.candidates || responseData.candidates.length === 0) {
+      console.error('No candidates found in the response');
       throw new Error('No candidates found in the image generation response');
     }
     
+    console.log('Found candidates in response, count:', responseData.candidates.length);
+    
     // Store the verified candidate to help TypeScript understand the null check
     const candidate = responseData.candidates[0];
-    const imageParts = candidate.content.parts.filter((part: any) => part.inlineData && part.inlineData.mimeType.startsWith('image/'));
+    console.log('Examining candidate content parts:', candidate.content.parts.length);
+    
+    const imageParts = candidate.content.parts.filter((part: any) => {
+      console.log('Part type:', part.type, 'Has inlineData:', !!part.inlineData);
+      return part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.startsWith('image/');
+    });
+    
+    console.log('Found image parts:', imageParts.length);
     
     let imageUrl = '';
     

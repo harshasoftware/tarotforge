@@ -335,7 +335,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await checkAuth();
           // Close sign in modal if it's open
           setShowSignInModal(false);
-        } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+        } else if (event === 'SIGNED_OUT' || (event as string) === 'USER_DELETED') {
           console.log('User signed out or deleted');
           setUser(null);
           setLoading(false);
