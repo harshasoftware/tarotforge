@@ -586,7 +586,7 @@ const Home = () => {
                   to="/create" 
                   className="mt-auto inline-flex items-center text-primary hover:underline group-hover:translate-x-1 transition-transform"
                 >
-                  Create Your Deck <ArrowRight className="ml-1 h-4 w-4" />
+                  Forge Your Deck <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
               </div>
             </motion.div>
