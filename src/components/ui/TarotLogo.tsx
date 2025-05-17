@@ -4,7 +4,7 @@ interface TarotLogoProps {
   className?: string;
 }
 
-const TarotLogo: React.FC<TarotLogoProps> = ({ className = "h-6 w-6" }) => {
+const TarotLogo: React.FC<TarotLogoProps> = ({ className = "h-8 w-8" }) => {
   return (
     <img 
       src="/tarot-icon.svg" 
