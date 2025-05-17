@@ -92,7 +92,7 @@ export interface ReadingLayout {
   }[];
 }
 
-export type AIModel = 'gemini-pro' | 'gemini-pro-vision';
+export type AIModel = 'gemini-pro' | 'gemini-pro-vision' | 'gemini-flash' | 'gemini-2.0-flash' | 'imagen-3' | 'imagen-3.0-fast-generate-001';
 
 export interface ThemeOption {
   id: string;

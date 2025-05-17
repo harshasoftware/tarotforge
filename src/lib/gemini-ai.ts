@@ -15,7 +15,7 @@ if (!apiKey) {
 // Initialize Google Generative AI with a fallback for missing API key
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
-export const getGeminiModel = (modelName: AIModel = 'gemini-pro') => {
+export const getGeminiModel = (modelName: AIModel = 'gemini-2.0-flash') => {
   if (!genAI) {
     throw new Error('Google AI API key is not configured. Please add your API key to the .env file.');
   }
@@ -32,7 +32,8 @@ export const generateCardDescription = async (
   }
   
   try {
-    const model = getGeminiModel();
+    // Explicitly use gemini-2.0-flash model
+    const model = getGeminiModel('gemini-2.0-flash');
     
     const prompt = `
       Create a mystical and evocative description for the "${cardName}" tarot card 
@@ -438,22 +439,34 @@ export const generateCardImage = async (
     // Construct the final prompt following the template structure
     const prompt = `${details.cardName} tarot card in ${details.style} style with a ${details.theme} theme, featuring ${mainSubject} in a ${mood} atmosphere. ${keySymbols}. Include ${details.additionalPrompt ? details.additionalPrompt : 'rich symbolic colors and mystical elements'}. Artistic, mystical, detailed, with a decorative border and "${details.cardName}" written at the bottom.`;
     
-    // Use Gemini's Imagen model for image generation
-    // We need to use the imagen-3.0-generate-002 model which is available through the generativeModel call
-    console.log('Initializing Imagen model: imagen-3.0-generate-002');
-    const model = genAI.getGenerativeModel({ model: 'imagen-3.0-generate-002' });
-    console.log('Imagen model initialized successfully');
+    // Use Gemini's Imagen 3 Fast model for optimal generation speed
+    // Create an instance of the Imagen 3.0 Fast Generate model
+    const model = getGeminiModel('imagen-3.0-fast-generate-001');
+    console.log('Imagen 3.0 Fast Generate model initialized successfully');
     
-    // Generate the image using Imagen
+    // Generate the image using Imagen 3
     console.log('Sending prompt to Imagen API:', prompt.substring(0, 100) + '...');
+    
+    // For Imagen 3.0 Fast Generate, enhance the prompt with specific parameters
+    // Create a text prompt that includes the image generation parameters in natural language
+    const enhancedPrompt = `${prompt}
+
+Create a high-quality tarot card with portrait orientation (3:4 aspect ratio). Include rich colors, clear lines, and sharp details with vibrant contrast. Add decorative borders typical of traditional tarot cards. Make the text at the bottom clear and legible.`;
+    
+    // Use the standard generateContent method which is compatible with the SDK
     const imageResult = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      contents: [{ 
+        role: 'user', 
+        parts: [{ text: enhancedPrompt }]
+      }],
+      // Standard generation parameters that are compatible with the TypeScript definitions
       generationConfig: {
         temperature: 0.4,
         topK: 32,
-        topP: 1,
-        maxOutputTokens: 2048
+        topP: 1
       },
+      // For Imagen 3.0 Fast, we'll handle the specific parameters through the prompt
+      // and rely on enhanced prompt to specify aspect ratio and other details
       safetySettings: [
         {
           category: HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -537,7 +550,8 @@ export const generateCardImage = async (
 
 // Helper function to generate placeholder image URLs based on card names
 // In a real implementation, this would be replaced with actual Gemini image responses
-function generatePlaceholderImageUrl(cardName: string, theme: string): string {
+function generatePlaceholderImageUrl(cardName: string, _theme: string): string {
+  // Note: theme parameter is kept for API consistency but prefixed with underscore to indicate it's not used
   // Clean the card name to be URL-friendly
   const cleanName = cardName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
   
@@ -660,7 +674,8 @@ export const generateThemeSuggestions = async (count: number = 10): Promise<stri
   }
   
   try {
-    const model = getGeminiModel();
+    // Explicitly use gemini-2.0-flash model
+    const model = getGeminiModel('gemini-2.0-flash');
     
     const prompt = `
       Generate ${count} unique and creative theme ideas for tarot decks. 
@@ -700,7 +715,8 @@ export const generateElaborateTheme = async (themeTitle: string): Promise<string
   }
   
   try {
-    const model = getGeminiModel();
+    // Explicitly use gemini-2.0-flash model
+    const model = getGeminiModel('gemini-2.0-flash');
     
     const prompt = `
       Create an elaborate and detailed description for a tarot deck with the theme "${themeTitle}".
