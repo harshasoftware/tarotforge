@@ -7,7 +7,7 @@ import { AlertCircle } from 'lucide-react';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
-  const { checkAuth } = useAuth();
+  const { checkAuth, handleGoogleRedirect } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [processedAuth, setProcessedAuth] = useState(false);
   const [processingStep, setProcessingStep] = useState<string>('Initializing authentication...');
@@ -24,40 +24,19 @@ const AuthCallback = () => {
           setProcessingStep('Processing access token...');
           
           try {
-            // Extract the tokens from the URL fragment
-            const params = new URLSearchParams(window.location.hash.substring(1));
-            const accessToken = params.get('access_token');
-            const idToken = params.get('id_token'); // Also get the ID token from Google
+            // Use our enhanced handleGoogleRedirect function which includes security validations
+            const { error: googleAuthError } = await handleGoogleRedirect();
             
-            if (!accessToken) {
-              throw new Error('No access token found in URL hash');
+            if (googleAuthError) {
+              console.error('Error in Google authentication:', googleAuthError);
+              throw new Error(typeof googleAuthError === 'string' ? 
+                googleAuthError : 
+                'Authentication failed. Please try again.');
             }
             
-            // Use the token with Google identity provider
-            setProcessingStep('Setting up your session...');
-            console.log('Authenticating with Google token');
-            
-            // Use the token from Google to authenticate with Supabase
-            const { data, error: signInError } = await supabase.auth.signInWithIdToken({
-              provider: 'google',
-              token: idToken || accessToken,
-            });
-            
-            if (signInError) {
-              console.error('Error signing in with ID token:', signInError);
-              throw signInError;
-            }
-            
-            // Force refresh the auth state
-            setProcessingStep('Syncing your profile...');
-            console.log('Checking auth state after Google sign-in');
-            await checkAuth();
-            
+            // Success path - Google auth was processed securely
             setProcessedAuth(true);
             setProcessingStep('Authentication successful! Redirecting...');
-            
-            // Clear the hash from URL for security
-            window.history.replaceState(null, '', '/');
             
             // Navigate to root after a small delay
             setTimeout(() => {
