@@ -28,29 +28,24 @@ export const uploadImageFromUrl = async (
     const fileName = `${cleanCardName}-${uuidv4()}.${getFileExtension(blob.type)}`;
     const filePath = `${deckId}/${fileName}`;
     
-    // Configure the storage client to use the S3 protocol and us-east-2 region
-    const storageOptions = {
-      contentType: blob.type,
-      cacheControl: '3600',
-      upsert: true
-    };
-    
-    // Upload to Supabase Storage using S3 protocol
+    // Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from('card-images')
-      .upload(filePath, blob, storageOptions);
+      .upload(filePath, blob, {
+        contentType: blob.type,
+        cacheControl: '3600',
+        upsert: true
+      });
     
     if (error) {
       console.error('Error uploading image to Supabase Storage:', error);
       return imageUrl; // Fallback to original URL on error
     }
     
-    // Get public URL for the uploaded file using S3 protocol
+    // Get public URL for the uploaded file
     const { data: { publicUrl } } = supabase.storage
       .from('card-images')
-      .getPublicUrl(data.path, {
-        download: false
-      });
+      .getPublicUrl(data.path);
     
     return publicUrl;
   } catch (error) {
@@ -103,12 +98,10 @@ export const getCardImageUrl = async (
       return null;
     }
     
-    // Get public URL for the file using S3 protocol
+    // Get public URL for the file
     const { data: { publicUrl } } = supabase.storage
       .from('card-images')
-      .getPublicUrl(`${deckId}/${file.name}`, {
-        download: false
-      });
+      .getPublicUrl(`${deckId}/${file.name}`);
     
     return publicUrl;
   } catch (error) {
