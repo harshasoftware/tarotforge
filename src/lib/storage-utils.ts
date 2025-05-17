@@ -1,6 +1,15 @@
 import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 
+// Get environment variables for S3 storage configuration
+const S3_STORAGE_URL = import.meta.env.VITE_SUPABASE_S3_STORAGE || '';
+const S3_REGION = import.meta.env.VITE_SUPABASE_S3_STORAGE_REGION || '';
+
+// Log configuration status
+if (!S3_STORAGE_URL || !S3_REGION) {
+  console.warn('S3 storage configuration incomplete. Using default Supabase storage.');
+}
+
 /**
  * Uploads an image from a URL to Supabase Storage
  * @param imageUrl The external image URL to upload
@@ -43,11 +52,17 @@ export const uploadImageFromUrl = async (
     }
     
     // Get public URL for the uploaded file
-    const { data: { publicUrl } } = supabase.storage
-      .from('card-images')
-      .getPublicUrl(data.path);
-    
-    return publicUrl;
+    // Use the S3 configuration if available
+    if (S3_STORAGE_URL && S3_REGION) {
+      return `https://${S3_STORAGE_URL}.s3.${S3_REGION}.amazonaws.com/card-images/${data.path}`;
+    } else {
+      // Default to Supabase's getPublicUrl method
+      const { data: { publicUrl } } = supabase.storage
+        .from('card-images')
+        .getPublicUrl(data.path);
+      
+      return publicUrl;
+    }
   } catch (error) {
     console.error('Error in uploadImageFromUrl:', error);
     return imageUrl; // Fallback to original URL on error
@@ -98,12 +113,16 @@ export const getCardImageUrl = async (
       return null;
     }
     
-    // Get public URL for the file
-    const { data: { publicUrl } } = supabase.storage
-      .from('card-images')
-      .getPublicUrl(`${deckId}/${file.name}`);
-    
-    return publicUrl;
+    // Get URL for the file - use S3 if configured, otherwise use Supabase
+    if (S3_STORAGE_URL && S3_REGION) {
+      return `https://${S3_STORAGE_URL}.s3.${S3_REGION}.amazonaws.com/card-images/${deckId}/${file.name}`;
+    } else {
+      const { data: { publicUrl } } = supabase.storage
+        .from('card-images')
+        .getPublicUrl(`${deckId}/${file.name}`);
+      
+      return publicUrl;
+    }
   } catch (error) {
     console.error('Error in getCardImageUrl:', error);
     return null;

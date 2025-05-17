@@ -107,14 +107,20 @@ export const generateCardImage = async (
     const result = await model.generateContent(prompt);
     const response = await result.response;
     
-    // In a real implementation, we would extract the image from the response
-    // However, for this implementation, we'll continue using placeholders since the actual
-    // imagen-3.0-generate-002 model integration would require additional setup
+    // In a real implementation with imagen-3.0-generate-002, we would extract the image URL here
+    // For now, we'll use placeholders until full integration is possible
+    
+    // Extract any image URLs from the response if available
+    // This is a placeholder for where actual image extraction would happen
     const placeholderUrl = generatePlaceholderImageUrl(details.cardName, details.theme);
     
     // If deckId is provided, store the image in Supabase
     if (details.deckId) {
       try {
+        // In a production version with full imagen integration, we would use:
+        // return await uploadImageFromUrl(actualImageUrlFromResponse, details.deckId, details.cardName);
+        
+        // For now, we'll use our placeholder system
         return await uploadImageFromUrl(
           placeholderUrl,
           details.deckId,
