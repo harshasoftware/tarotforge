@@ -10,6 +10,9 @@ if (!S3_STORAGE_URL || !S3_REGION) {
   console.warn('S3 storage configuration incomplete. Using default Supabase storage.');
 }
 
+// Note: Authentication is handled by the Supabase client which includes the user's JWT token
+// This follows the Session Token authentication method from the Supabase S3 documentation
+
 /**
  * Uploads an image from a URL to Supabase Storage
  * @param imageUrl The external image URL to upload
@@ -51,18 +54,13 @@ export const uploadImageFromUrl = async (
       return imageUrl; // Fallback to original URL on error
     }
     
-    // Get public URL for the uploaded file
-    // Use the S3 configuration if available
-    if (S3_STORAGE_URL && S3_REGION) {
-      return `https://${S3_STORAGE_URL}.s3.${S3_REGION}.amazonaws.com/card-images/${data.path}`;
-    } else {
-      // Default to Supabase's getPublicUrl method
-      const { data: { publicUrl } } = supabase.storage
-        .from('card-images')
-        .getPublicUrl(data.path);
-      
-      return publicUrl;
-    }
+    // Get public URL for the uploaded file using Supabase's built-in methods
+    // This automatically handles authentication and proper URL formatting whether using S3 or not
+    const { data: { publicUrl } } = supabase.storage
+      .from('card-images')
+      .getPublicUrl(data.path);
+    
+    return publicUrl;
   } catch (error) {
     console.error('Error in uploadImageFromUrl:', error);
     return imageUrl; // Fallback to original URL on error
@@ -113,16 +111,13 @@ export const getCardImageUrl = async (
       return null;
     }
     
-    // Get URL for the file - use S3 if configured, otherwise use Supabase
-    if (S3_STORAGE_URL && S3_REGION) {
-      return `https://${S3_STORAGE_URL}.s3.${S3_REGION}.amazonaws.com/card-images/${deckId}/${file.name}`;
-    } else {
-      const { data: { publicUrl } } = supabase.storage
-        .from('card-images')
-        .getPublicUrl(`${deckId}/${file.name}`);
-      
-      return publicUrl;
-    }
+    // Get URL for the file using Supabase's built-in methods
+    // This automatically handles authentication and proper URL formatting
+    const { data: { publicUrl } } = supabase.storage
+      .from('card-images')
+      .getPublicUrl(`${deckId}/${file.name}`);
+    
+    return publicUrl;
   } catch (error) {
     console.error('Error in getCardImageUrl:', error);
     return null;
