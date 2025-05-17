@@ -16,6 +16,7 @@ const ReadingRoom = lazy(() => import('./pages/reading/ReadingRoom'));
 const Profile = lazy(() => import('./pages/user/Profile'));
 const Checkout = lazy(() => import('./pages/marketplace/Checkout'));
 const AuthCallback = lazy(() => import('./pages/auth/AuthCallback'));
+const DeckCreator = lazy(() => import('./pages/creator/DeckCreator'));
 
 function App() {
   const { checkAuth, loading, user } = useAuth();
@@ -77,6 +78,7 @@ function App() {
             <Route path="collection" element={<Collection />} />
             <Route path="profile" element={<Profile />} />
             <Route path="checkout/:deckId" element={<Checkout />} />
+            <Route path="create-deck" element={<DeckCreator />} />
           </Route>
         </Route>
       </Routes>

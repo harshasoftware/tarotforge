@@ -87,6 +87,15 @@ const DeckCreator = () => {
     startGenerating?: boolean;
   } | null;
   
+  // Navigation guard - redirect if accessed directly via URL
+  useEffect(() => {
+    // If there's no location state, it means the user is trying to access this page directly
+    if (!locationState) {
+      // Redirect to home page
+      navigate('/');
+    }
+  }, [locationState, navigate]);
+  
   // Deck details state - these will be auto-generated
   const [deckTitle, setDeckTitle] = useState('Auto-Generated Tarot');
   const [deckDescription, setDeckDescription] = useState('A beautifully generated tarot deck with unique art style.');

@@ -304,7 +304,7 @@ const Home = () => {
       
       // User is already authenticated, proceed immediately to deck creation
       // Skip the manual form input step and auto-generate deck details from the prompt
-      navigate('/create', { 
+      navigate('/create-deck', { 
         state: { 
           initialTheme: themePrompt, 
           autoGenerate: true,  // Signal to auto-generate deck details
