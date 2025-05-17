@@ -9,7 +9,6 @@ const AuthCallback = () => {
   const navigate = useNavigate();
   const { checkAuth, handleGoogleRedirect } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  const [processedAuth, setProcessedAuth] = useState(false);
   const [processingStep, setProcessingStep] = useState<string>('Initializing authentication...');
   
   // Handle auth callback
@@ -17,86 +16,59 @@ const AuthCallback = () => {
     const handleAuthCallback = async () => {
       try {
         console.log('Auth callback triggered');
+        setProcessingStep('Processing authentication...');
         
-        // First check if we're processing a hash fragment from implicit flow
-        if (window.location.hash && window.location.hash.includes('access_token=')) {
-          console.log('Processing URL hash with access token (Implicit Flow)');
-          setProcessingStep('Processing access token...');
-          
+        if (window.location.hash || window.location.search) {
           try {
-            // Use our enhanced handleGoogleRedirect function which includes security validations
-            const { error: googleAuthError } = await handleGoogleRedirect();
-            
-            if (googleAuthError) {
-              console.error('Error in Google authentication:', googleAuthError);
-              throw new Error(typeof googleAuthError === 'string' ? 
-                googleAuthError : 
-                'Authentication failed. Please try again.');
+            // Process authentication callback data
+            if (window.location.search) {
+              console.log('Processing code exchange from query parameters');
+              const { data, error } = await supabase.auth.exchangeCodeForSession(window.location.search);
+              
+              if (error) {
+                throw error;
+              }
+              
+              if (data.session) {
+                console.log('Successfully authenticated via code exchange');
+              }
+            } else if (window.location.hash) {
+              // For callbacks with hash fragments
+              console.log('Processing authentication with hash fragment');
+              const { error: redirectError } = await handleGoogleRedirect();
+              
+              if (redirectError) {
+                throw new Error(typeof redirectError === 'string' ? 
+                  redirectError : 
+                  'Authentication failed. Please try again.');
+              }
             }
             
-            // Success path - Google auth was processed securely
-            setProcessedAuth(true);
+            // Force refresh the auth state
+            setProcessingStep('Syncing your profile...');
+            await checkAuth();
+            
             setProcessingStep('Authentication successful! Redirecting...');
+            
+            // Clear URL parameters for security
+            window.history.replaceState(null, '', '/');
             
             // Navigate to root after a small delay
             setTimeout(() => {
               console.log('Redirecting to root URL after auth');
               navigate('/');
             }, 500);
-            return;
-          } catch (hashError) {
-            console.error('Error processing auth hash:', hashError);
-            setError('Failed to process authentication tokens. Please try again.');
-          }
-        } 
-        // Then check for query params from other auth flows
-        else if (window.location.search) {
-          console.log('Processing code exchange');
-          setProcessingStep('Processing authentication code...');
-          
-          try {
-            const { data, error } = await supabase.auth.exchangeCodeForSession(window.location.search);
+          } catch (authError) {
+            console.error('Error processing authentication:', authError);
+            setError(authError instanceof Error ? authError.message : 'Authentication failed. Please try again.');
             
-            if (error) {
-              console.error('Error exchanging code for session:', error);
-              setError(error.message || 'Authentication failed. Please try again.');
-              
-              // Wait a moment before redirecting to login
-              setTimeout(() => {
-                navigate('/login?error=auth');
-              }, 3000);
-              return;
-            }
-            
-            if (data.session) {
-              console.log('Successfully authenticated via code exchange');
-              // Force refresh the auth state
-              setProcessingStep('Syncing your profile...');
-              await checkAuth();
-              
-              setProcessedAuth(true);
-              setProcessingStep('Authentication successful! Redirecting...');
-              
-              // Navigate to root
-              setTimeout(() => {
-                navigate('/');
-              }, 500);
-              return;
-            }
-          } catch (codeError) {
-            console.error('Error in code exchange:', codeError);
-            setError('Failed to complete authentication. Please try again.');
-            
-            // Wait a moment before redirecting
+            // Wait a moment before redirecting to login
             setTimeout(() => {
               navigate('/login?error=auth');
             }, 3000);
-            return;
           }
-        }
-        
-        // If we get here and haven't processed anything, something went wrong
-        if (!processedAuth) {
+        } else {
+          // No authentication data found
           console.error('Auth callback reached but no valid tokens or code found');
           setError('No authentication data found. Please try signing in again.');
           
@@ -117,7 +89,7 @@ const AuthCallback = () => {
     };
     
     handleAuthCallback();
-  }, [navigate, checkAuth, processedAuth]);
+  }, [navigate, checkAuth, handleGoogleRedirect]);
   
   if (error) {
     return (

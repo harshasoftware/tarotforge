@@ -249,66 +249,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Helper function to generate a cryptographically secure random string
-  const generateSecureNonce = () => {
-    if (window.crypto && window.crypto.getRandomValues) {
-      const array = new Uint32Array(4);
-      window.crypto.getRandomValues(array);
-      return Array.from(array, dec => ('0' + dec.toString(16)).slice(-2)).join('');
-    }
-    
-    // Fallback to less secure but still reasonable random string
-    return Math.random().toString(36).substring(2, 15) + 
-           Math.random().toString(36).substring(2, 15);
+  // Helper function to log OAuth process steps for debugging
+  const logAuthProcess = (step: string, data?: any) => {
+    console.log(`Auth process: ${step}`, data || '');
   };
   
-  // Helper function to parse JWT without a library
-  const parseJwt = (token: string) => {
-    try {
-      const base64Url = token.split('.')[1];
-      if (!base64Url) return {};
-      
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(
-        window.atob(base64)
-          .split('')
-          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-          .join('')
-      );
-      
-      return JSON.parse(jsonPayload);
-    } catch (error) {
-      console.error('Error parsing JWT:', error);
-      return {};
-    }
-  };
 
   const signInWithGoogle = async () => {
     try {
-      console.log('Starting Google sign-in flow (Implicit Grant)');
+      logAuthProcess('Starting Google sign-in flow');
       
-      // Construct the Google OAuth URL manually for implicit flow
-      const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-      const redirectUri = import.meta.env.VITE_GOOGLE_CLIENT_REDIRECT_URI;
-      const scope = 'openid profile email'; // Adjust scopes as needed
-      const responseType = 'token id_token'; // Request tokens directly (implicit flow)
+      // Use Supabase's built-in OAuth flow for Google
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: import.meta.env.VITE_GOOGLE_CLIENT_REDIRECT_URI,
+          scopes: 'email profile openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+            response_type: 'code',
+            include_granted_scopes: 'true'
+          }
+        }
+      });
       
-      // Generate a cryptographically secure random nonce
-      const nonce = generateSecureNonce();
-      
-      // Generate a cryptographically secure random state
-      const state = generateSecureNonce();
-      
-      // Store nonce and state in localStorage to verify later
-      localStorage.setItem('google_auth_nonce', nonce);
-      localStorage.setItem('google_auth_state', state);
-      localStorage.setItem('google_auth_timestamp', Date.now().toString());
-      
-      // Construct full URL with nonce and state parameters
-      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=${responseType}&scope=${encodeURIComponent(scope)}&nonce=${nonce}&state=${state}`;
-      
-      // Redirect the user to Google for authentication
-      window.location.href = googleAuthUrl;
+      if (error) throw error;
       
       return { error: null };
     } catch (error) {
@@ -317,81 +283,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
   
-  // Handle the redirect from Google
+  // Handle auth callback from any provider
   const handleGoogleRedirect = async () => {
-    // Only process if we have a hash fragment (which contains tokens)
-    if (!window.location.hash) return { error: 'No authentication data received' };
+    logAuthProcess('Processing authentication callback');
     
     try {
-      // Parse the URL fragment
-      const fragmentString = window.location.hash.substring(1);
-      const params: Record<string, string> = {};
-      
-      // Extract parameters from the fragment
-      const regex = /([^&=]+)=([^&]*)/g;
-      let m;
-      while (m = regex.exec(fragmentString)) {
-        params[decodeURIComponent(m[1])] = decodeURIComponent(m[2]);
+      // This method works for all providers including Google
+      // Supabase automatically handles tokens and session creation
+      if (window.location.hash || window.location.search) {
+        logAuthProcess('Authentication data found in URL');        
+        // Let Supabase handle the callback
+        await checkAuth();
+        return { error: null };
+      } else {
+        logAuthProcess('No authentication data found in URL');
+        return { error: 'No authentication data received' };
       }
-      
-      // Verify state parameter to prevent CSRF attacks
-      const storedState = localStorage.getItem('google_auth_state');
-      if (!params.state || params.state !== storedState) {
-        console.error('State mismatch. Possible CSRF attack');
-        return { error: 'State validation failed' };
-      }
-      
-      // Get the ID token and access token from the response
-      const idToken = params.id_token;
-      const accessToken = params.access_token;
-      
-      if (!idToken || !accessToken) {
-        console.error('Missing tokens in response');
-        return { error: 'Authentication failed' };
-      }
-      
-      // Decode the ID token to verify nonce
-      const payload = parseJwt(idToken);
-      
-      // Verify the nonce to prevent replay attacks
-      const storedNonce = localStorage.getItem('google_auth_nonce');
-      if (!payload.nonce || payload.nonce !== storedNonce) {
-        console.error('Nonce mismatch. Possible replay attack');
-        return { error: 'Nonce validation failed' };
-      }
-      
-      // Check timestamp to prevent stale authentication attempts
-      const timestamp = localStorage.getItem('google_auth_timestamp');
-      const authTime = timestamp ? parseInt(timestamp) : 0;
-      const now = Date.now();
-      const MAX_AUTH_AGE = 10 * 60 * 1000; // 10 minutes
-      
-      if (now - authTime > MAX_AUTH_AGE) {
-        console.error('Authentication attempt expired');
-        return { error: 'Authentication expired' };
-      }
-      
-      // Clean up stored values
-      localStorage.removeItem('google_auth_nonce');
-      localStorage.removeItem('google_auth_state');
-      localStorage.removeItem('google_auth_timestamp');
-      
-      // Now that we've validated the tokens on the client side,
-      // sign in with Supabase using the validated Google token
-      const { data, error } = await supabase.auth.signInWithIdToken({
-        provider: 'google',
-        token: idToken,
-        access_token: accessToken,
-      });
-      
-      if (error) throw error;
-      
-      // Trigger auth check to update user state
-      await checkAuth();
-      
-      return { data, error: null };
     } catch (error) {
-      console.error('Error handling Google redirect:', error);
+      console.error('Error handling authentication callback:', error);
       return { error };
     }
   };
