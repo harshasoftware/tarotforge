@@ -10,7 +10,9 @@ const AuthCallback = () => {
   const { checkAuth } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [processedAuth, setProcessedAuth] = useState(false);
+  const [processingStep, setProcessingStep] = useState<string>('Initializing authentication...');
   
+  // Handle auth callback
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
@@ -19,40 +21,54 @@ const AuthCallback = () => {
         // First check if we're processing a hash fragment from magic link
         if (window.location.hash && window.location.hash.includes('access_token=')) {
           console.log('Processing URL hash with access token');
+          setProcessingStep('Processing access token...');
           
           try {
-            // Directly extract the session manually to avoid race conditions
+            // Directly extract the tokens manually to avoid race conditions
             const params = new URLSearchParams(window.location.hash.substring(1));
             const accessToken = params.get('access_token');
             const refreshToken = params.get('refresh_token');
             
-            if (accessToken && refreshToken) {
-              // Manually set the session in Supabase
-              await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken
-              });
-              
-              // Force refresh the auth state
-              await checkAuth();
-              
-              setProcessedAuth(true);
-              
-              // Navigate after a small delay to ensure state updates
-              setTimeout(() => {
-                console.log('Redirecting to marketplace after auth');
-                navigate('/marketplace');
-              }, 500);
-              return;
+            if (!accessToken || !refreshToken) {
+              throw new Error('Missing access or refresh token');
             }
+            
+            // Manually set the session in Supabase
+            setProcessingStep('Setting up your session...');
+            console.log('Setting session with extracted tokens');
+            
+            await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            });
+            
+            // Force refresh the auth state
+            setProcessingStep('Syncing your profile...');
+            console.log('Checking auth state after setting session');
+            await checkAuth();
+            
+            setProcessedAuth(true);
+            setProcessingStep('Authentication successful! Redirecting...');
+            
+            // Clear the hash from URL for security
+            window.history.replaceState(null, '', window.location.pathname);
+            
+            // Navigate after a small delay to ensure state updates
+            setTimeout(() => {
+              console.log('Redirecting to marketplace after auth');
+              navigate('/marketplace');
+            }, 500);
+            return;
           } catch (hashError) {
             console.error('Error processing auth hash:', hashError);
-            setError('Failed to process authentication. Please try again.');
+            setError('Failed to process authentication tokens. Please try again.');
           }
         } 
         // Then check for query params from other auth flows
         else if (window.location.search) {
           console.log('Processing code exchange');
+          setProcessingStep('Processing authentication code...');
+          
           try {
             const { data, error } = await supabase.auth.exchangeCodeForSession(window.location.search);
             
@@ -70,12 +86,16 @@ const AuthCallback = () => {
             if (data.session) {
               console.log('Successfully authenticated via code exchange');
               // Force refresh the auth state
+              setProcessingStep('Syncing your profile...');
               await checkAuth();
               
               setProcessedAuth(true);
+              setProcessingStep('Authentication successful! Redirecting...');
               
               // Navigate to marketplace
-              navigate('/marketplace');
+              setTimeout(() => {
+                navigate('/marketplace');
+              }, 500);
               return;
             }
           } catch (codeError) {
@@ -127,7 +147,18 @@ const AuthCallback = () => {
     );
   }
   
-  return <LoadingScreen />;
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4">
+      <LoadingScreen />
+      <div className="mt-8 max-w-md text-center">
+        <h2 className="text-xl font-medium mb-2">Setting Up Your Account</h2>
+        <p className="text-muted-foreground mb-4">{processingStep}</p>
+        <div className="h-2 w-full bg-muted/30 rounded-full overflow-hidden">
+          <div className="h-2 bg-primary rounded-full animate-pulse" style={{ width: '75%' }}></div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default AuthCallback;

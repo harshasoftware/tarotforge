@@ -44,12 +44,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkAuth = useCallback(async () => {
     // Prevent concurrent auth checks
     if (isCheckingRef.current) {
+      console.log('Auth check already in progress, skipping...');
       return;
     }
     
     // Debounce rapid auth checks (minimum 2 seconds between checks)
     const now = Date.now();
     if (now - lastCheckTimeRef.current < 2000) {
+      console.log('Auth check debounced, too soon since last check');
       return;
     }
     
@@ -181,7 +183,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('Signing up user with email:', email);
       
-      // Use password-based signup instead of OTP for more reliable auth
       // Generate a random secure password - the user never needs to know this
       // as they'll always use magic links to sign in
       const password = generateSecurePassword();
@@ -194,6 +195,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data: {
             username: generatedUsername,
           },
+          // Set the redirect URL for the magic link
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         }
       });
       
@@ -223,16 +226,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Signing in user with email:', email);
       
-      // First check if user exists
-      const { data, error: userCheckError } = await supabase.auth.admin.listUsers({ 
-        filter: { email: email }
-      }).catch(() => ({ data: null, error: null }));
-      
-      if (userCheckError) {
-        console.log('Error checking user existence, proceeding with OTP sign-in');
-      }
-      
-      // If using admin functions didn't work (permissions/config), try to sign in directly
+      // Send magic link directly
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
@@ -300,6 +294,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       authCheckTimeoutRef.current = setTimeout(() => {
+        console.log('Safety timeout triggered - forcing loading state to false');
         setLoading(false);
       }, 8000);
     };

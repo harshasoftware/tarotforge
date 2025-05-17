@@ -13,7 +13,27 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    flowType: 'pkce' // Use PKCE flow for more secure auth
+  },
+  global: {
+    fetch: (...args) => {
+      // Add logging for debugging auth requests
+      const [url, config] = args;
+      if (typeof url === 'string' && url.includes('auth')) {
+        console.log('Auth request to:', url);
+      }
+      return fetch(...args);
+    }
+  }
+});
+
+// Add listener to catch global fetch errors
+window.addEventListener('unhandledrejection', (event) => {
+  if (event.reason instanceof Error) {
+    if (event.reason.message.includes('fetch') && event.reason.message.includes('auth')) {
+      console.error('Unhandled Supabase fetch error:', event.reason);
+    }
   }
 });
 
