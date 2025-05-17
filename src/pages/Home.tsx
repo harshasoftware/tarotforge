@@ -395,7 +395,7 @@ const Home = () => {
           <div className="bg-background/95 backdrop-blur-sm border border-border rounded-xl shadow-xl overflow-hidden">
             <div className="p-6 pb-4">
               <div className="flex justify-center mb-4">
-                <TarotLogo className="h-6 w-6 text-primary" />
+                <TarotLogo />
               </div>
               
               <form onSubmit={handleThemeSubmit}>
