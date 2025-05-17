@@ -7,7 +7,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, username?: string) => Promise<{ error: any }>;
   signIn: (email: string) => Promise<{ error: any }>;
-  signInWithGoogle: () => Promise<{ error: any }>;
+  signInWithGoogle: (returnToHome?: boolean) => Promise<{ error: any }>;
   handleGoogleRedirect: () => Promise<{ data?: any, error: any }>;
   signOut: () => Promise<void>;
   checkAuth: () => Promise<void>;
@@ -255,9 +255,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (returnToHome = false) => {
     try {
       logAuthProcess('Starting Google sign-in flow');
+      
+      // Store the current path and any deck creation intent
+      if (returnToHome) {
+        // Store that we want to return to home page with deck creation intent
+        localStorage.setItem('auth_return_to_home', 'true');
+        localStorage.setItem('auth_with_deck_creation', 'true');
+      } else {
+        // Store current path for regular flow
+        localStorage.setItem('auth_return_path', window.location.pathname + window.location.search);
+      }
       
       // Use Supabase's built-in OAuth flow for Google
       const { error } = await supabase.auth.signInWithOAuth({

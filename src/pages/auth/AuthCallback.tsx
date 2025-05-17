@@ -53,10 +53,33 @@ const AuthCallback = () => {
             // Clear URL parameters for security
             window.history.replaceState(null, '', '/');
             
-            // Navigate to root after a small delay
+            // Check for stored return preferences
+            const returnToHome = localStorage.getItem('auth_return_to_home');
+            const withDeckCreation = localStorage.getItem('auth_with_deck_creation');
+            const returnPath = localStorage.getItem('auth_return_path');
+            
+            // Clear stored preferences
+            localStorage.removeItem('auth_return_to_home');
+            localStorage.removeItem('auth_with_deck_creation');
+            localStorage.removeItem('auth_return_path');
+            
+            // Navigate based on stored preferences
             setTimeout(() => {
-              console.log('Redirecting to root URL after auth');
-              navigate('/');
+              if (returnToHome === 'true') {
+                console.log('Redirecting to home with deck creation intent');
+                if (withDeckCreation === 'true') {
+                  // Navigate to home with intent to create a deck
+                  navigate('/?createDeck=true');
+                } else {
+                  navigate('/');
+                }
+              } else if (returnPath) {
+                console.log('Redirecting to previously stored path:', returnPath);
+                navigate(returnPath);
+              } else {
+                console.log('No specific redirect found, going to home');
+                navigate('/');
+              }
             }, 500);
           } catch (authError) {
             console.error('Error processing authentication:', authError);

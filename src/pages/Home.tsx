@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import DeckPreview from '../components/ui/DeckPreview';
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import TarotLogo from '../components/ui/TarotLogo';
+import { useAuth } from '../context/AuthContext';
 
 // Featured decks data
 const featuredDecks = [
@@ -195,12 +196,32 @@ const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
 
 const Home = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
   const [themePrompt, setThemePrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [themeSuggestions, setThemeSuggestions] = useState<string[]>(allThemeSuggestions.slice(0, 12));
   const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
   const [lastLoadedIndex, setLastLoadedIndex] = useState(12);
+  
+  // Check for createDeck query parameter on load
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const shouldCreateDeck = params.get('createDeck') === 'true';
+    
+    if (shouldCreateDeck) {
+      // Focus the input and scroll to it
+      const inputElement = document.getElementById('deck-theme-input');
+      if (inputElement) {
+        inputElement.focus();
+        inputElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      
+      // Remove the query parameter without triggering a navigation
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, [location]);
   
   // Reference for the scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -270,11 +291,20 @@ const Home = () => {
   const handleThemeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (themePrompt.trim()) {
-      setIsGenerating(true);
-      // Simulate processing and then navigate
-      setTimeout(() => {
-        navigate('/create', { state: { initialTheme: themePrompt } });
-      }, 1500);
+      // Check if user is authenticated
+      if (!user) {
+        // Show generating state for UI feedback
+        setIsGenerating(true);
+        // Store deck creation intent and redirect to Google sign in
+        localStorage.setItem('pending_deck_theme', themePrompt);
+        // Return to home page with deck creation after auth
+        navigate('/login', { state: { redirectAfterAuth: '/?createDeck=true' } });
+        return;
+      }
+      
+      // User is already authenticated, proceed immediately to deck creation
+      // No need for delay, just go straight to preview generation
+      navigate('/create', { state: { initialTheme: themePrompt, startGenerating: true } });
     }
   };
 
@@ -405,6 +435,7 @@ const Home = () => {
                   </p>
                   
                   <input
+                    id="deck-theme-input"
                     type="text"
                     value={themePrompt}
                     onChange={(e) => setThemePrompt(e.target.value)}
