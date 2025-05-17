@@ -4,7 +4,7 @@ import { Wand2, ShoppingBag, BookOpen, ArrowRight, Zap, Video, Star, Camera, Use
 import DeckPreview from '../components/ui/DeckPreview';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import TarotLogo from '../../components/ui/TarotLogo';
+import TarotLogo from '../components/ui/TarotLogo';
 
 // Featured decks data
 const featuredDecks = [
