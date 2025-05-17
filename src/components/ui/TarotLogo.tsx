@@ -9,7 +9,7 @@ const TarotLogo: React.FC<TarotLogoProps> = ({ className = "h-8 w-8" }) => {
     <img 
       src="/tarot-icon.svg" 
       alt="Tarot Forge Logo" 
-      className={className} 
+      className={`transition-transform duration-700 hover:rotate-360 ${className}`} 
     />
   );
 };

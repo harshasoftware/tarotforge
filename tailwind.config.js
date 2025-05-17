@@ -56,6 +56,9 @@ export default {
       backdropBlur: {
         xs: '2px',
       },
+      rotate: {
+        '360': '360deg',
+      },
     },
   },
   plugins: [],
