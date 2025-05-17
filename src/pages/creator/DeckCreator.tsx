@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
-  Sparkles, 
   Save, 
   AlertTriangle, 
   CreditCard, 
-  RefreshCcw, 
   Check, 
   Loader,
   Info,
@@ -24,7 +22,6 @@ import { generateCardDescription, generateCardImage } from '../../lib/gemini-ai'
 import { Deck, Card } from '../../types';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../../lib/supabase';
-import { uploadImageFromUrl } from '../lib/storage-utils';
 
 // Traditional tarot card names for major arcana
 const MAJOR_ARCANA_CARDS = [
@@ -87,24 +84,23 @@ const DeckCreator = () => {
   const locationState = location.state as {
     initialTheme?: string;
     autoGenerate?: boolean;
-    skipFormStep?: boolean;
     startGenerating?: boolean;
   } | null;
   
-  // Deck details state
-  const [deckTitle, setDeckTitle] = useState('');
-  const [deckDescription, setDeckDescription] = useState('');
-  const [deckTheme, setDeckTheme] = useState('');
-  const [deckStyle, setDeckStyle] = useState('');
+  // Deck details state - these will be auto-generated
+  const [deckTitle, setDeckTitle] = useState('Auto-Generated Tarot');
+  const [deckDescription, setDeckDescription] = useState('A beautifully generated tarot deck with unique art style.');
+  const [deckTheme, setDeckTheme] = useState('mystical');
+  const [deckStyle, setDeckStyle] = useState('vibrant');
   
-  // New visibility and sellability options
+  // Visibility and sellability options
   const [isListed, setIsListed] = useState(true);
   const [isSellable, setIsSellable] = useState(false);
   const [deckPrice, setDeckPrice] = useState(9.99);
   
   // Card generation state
   const [generatedCards, setGeneratedCards] = useState<Card[]>([]);
-  const [currentStep, setCurrentStep] = useState<'details' | 'cards' | 'customize'>('details');
+  const [currentStep, setCurrentStep] = useState<'cards' | 'customize'>('cards');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [promptValue, setPromptValue] = useState('');
@@ -125,57 +121,44 @@ const DeckCreator = () => {
   // Reference for tracking active generation tasks
   const activeGenerationTasks = useRef<number>(0);
   
-  // Handle initial theme setup and auto-generation from home page
+  // Auto-generate theme based on location state or use defaults
   useEffect(() => {
     if (locationState?.initialTheme) {
-      // Use the theme from home page
       const theme = locationState.initialTheme;
+      const themeWords = theme.split(/\s+/);
       
-      // Auto-generate details from the theme
-      if (locationState.autoGenerate) {
-        // Extract theme and style from the prompt
-        const themeWords = theme.split(/\s+/);
+      // Generate a title based on the theme
+      const titleWords = themeWords
+        .filter(word => word.length > 3)
+        .slice(0, 3)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1));
+      const generatedTitle = titleWords.length > 0 
+        ? titleWords.join(' ') + ' Tarot'
+        : 'Mystic Journey Tarot';
         
-        // Generate a title based on the theme
-        const titleWords = themeWords
-          .filter(word => word.length > 3)
-          .slice(0, 3)
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1));
-        const generatedTitle = titleWords.length > 0 
-          ? titleWords.join(' ') + ' Tarot'
-          : 'Mystic Journey Tarot';
-          
-        // Set theme components
-        const mainTheme = themeWords.length > 2 ? themeWords.slice(0, 2).join(' ') : theme;
-        const styleHint = themeWords.length > 3 ? themeWords.slice(-2).join(' ') : 'mystical';
-        
-        // Auto-populate the fields
-        setDeckTitle(generatedTitle);
-        setDeckTheme(mainTheme);
-        setDeckStyle(styleHint);
-        setDeckDescription(`A tarot deck exploring ${theme}. Each card captures the essence of ${mainTheme} with a ${styleHint} artistic style.`);
-        
-        // Skip to card generation if requested
-        if (locationState.skipFormStep && locationState.startGenerating) {
-          // Skip the details form entirely and start generating
-          setTimeout(() => {
-            setCurrentStep('cards');
-            prepareCardGenerationQueue(false);
-          }, 500); // Small delay to allow state to update
-        }
-      } else {
-        // Just set the theme but stay on details page
-        setDeckTheme(theme);
-      }
+      // Set theme components
+      const mainTheme = themeWords.length > 2 ? themeWords.slice(0, 2).join(' ') : theme;
+      const styleHint = themeWords.length > 3 ? themeWords.slice(-2).join(' ') : 'mystical';
+      
+      // Auto-populate the fields
+      setDeckTitle(generatedTitle);
+      setDeckTheme(mainTheme);
+      setDeckStyle(styleHint);
+      setDeckDescription(`A tarot deck exploring ${theme}. Each card captures the essence of ${mainTheme} with a ${styleHint} artistic style.`);
     }
+    
+    // Start card generation automatically
+    setTimeout(() => {
+      prepareCardGenerationQueue(false);
+    }, 500); // Delay to ensure state is properly set
   }, [locationState]);
   
   // Check if the user is logged in
   useEffect(() => {
-    if (!user && currentStep !== 'details') {
+    if (!user) {
       setNeedsSignIn(true);
     }
-  }, [user, currentStep]);
+  }, [user]);
   
   // Create deck ID upfront for storage purposes
   useEffect(() => {
@@ -184,25 +167,7 @@ const DeckCreator = () => {
     }
   }, [user, deckId]);
   
-  // Handle deck creation
-  const createDeck = async () => {
-    if (!deckTitle || !deckTheme || !deckStyle) {
-      setGenerationError('Please fill in all required fields.');
-      return;
-    }
-    
-    setGenerationError(null);
-    setCurrentStep('cards');
-    
-    // Generate a new deck ID if needed
-    if (!deckId) {
-      const newDeckId = uuidv4();
-      setDeckId(newDeckId);
-    }
-    
-    // Prepare card generation queue - only major arcana by default
-    prepareCardGenerationQueue(false);
-  };
+
   
   // Prepare the queue of cards to generate
   const prepareCardGenerationQueue = (includeMinor: boolean) => {
@@ -478,7 +443,7 @@ const DeckCreator = () => {
   };
   
   // Check if all cards are generated
-  const isGenerationCompleted = useEffect(() => {
+  useEffect(() => {
     if (isGenerating && generationQueue.length === 0 && currentlyGenerating.length === 0 && generatedCards.length > 0) {
       setIsGenerating(false);
       
@@ -488,7 +453,6 @@ const DeckCreator = () => {
       }
     }
   }, [isGenerating, generationQueue, currentlyGenerating, generatedCards]);
-  
   // Save deck to database
   const saveDeck = async () => {
     if (!user) {
@@ -600,56 +564,6 @@ const DeckCreator = () => {
     }
   };
   
-  // Calculate overall progress
-  const calculateProgress = (): number => {
-    const total = totalCardsToGenerate;
-    const completed = completedCards;
-    if (total === 0) return 0;
-    return Math.round((completed / total) * 100);
-  };
-  
-  // Handle upgrade to full deck
-  const handleFullDeckUpgrade = () => {
-    setShowPaymentModal(true);
-  };
-  
-  // Mock payment process
-  const processMockPayment = () => {
-    setShowPaymentModal(false);
-    // Continue with generating the full deck
-    prepareCardGenerationQueue(true);
-  };
-  
-  // Reset creator
-  const resetCreator = () => {
-    setDeckTitle('');
-    setDeckDescription('');
-    setDeckTheme('');
-    setDeckStyle('');
-    setGeneratedCards([]);
-    setCurrentStep('details');
-    setIsGenerating(false);
-    setGenerationError(null);
-    setPromptValue('');
-    setFullDeck(false);
-    setActiveCard(null);
-    setDeckId(null);
-    setCreationSuccess(false);
-    setTotalCardsToGenerate(0);
-    setCompletedCards(0);
-    setGenerationQueue([]);
-    setCurrentlyGenerating([]);
-    setIsListed(true);
-    setIsSellable(false);
-    setDeckPrice(9.99);
-    activeGenerationTasks.current = 0;
-  };
-  
-  // Navigation after successful creation
-  const goToCollection = () => {
-    navigate('/collection');
-  };
-  
   // Move to customize step
   const goToCustomizeStep = () => {
     if (generatedCards.length === 0) {
@@ -664,7 +578,52 @@ const DeckCreator = () => {
   const goToCardsStep = () => {
     setCurrentStep('cards');
   };
+
+  // Calculate overall progress
+  const calculateProgress = (): number => {
+    const total = totalCardsToGenerate;
+    const completed = completedCards;
+    if (total === 0) return 0;
+    return Math.round((completed / total) * 100);
+  };
   
+  // Handle 'Create Another Deck' action
+  const handleCreateAnother = () => {
+    // Reset all states
+    setGeneratedCards([]);
+    setDeckTitle('Auto-Generated Tarot');
+    setDeckDescription('A beautifully generated tarot deck with unique art style.');
+    setDeckTheme('mystical');
+    setDeckStyle('vibrant');
+    setGenerationError(null);
+    setGenerationQueue([]);
+    setCurrentlyGenerating([]);
+    setCompletedCards(0);
+    setTotalCardsToGenerate(0);
+    setActiveCard(null);
+    setIsGenerating(false);
+    setFullDeck(false);
+    setDeckId(null);
+    setCreationSuccess(false);
+    
+    // Start card generation for the new deck
+    setTimeout(() => {
+      prepareCardGenerationQueue(false);
+    }, 100);
+  };
+  
+  // Handle upgrade to full deck
+  const handleFullDeckUpgrade = () => {
+    setShowPaymentModal(true);
+  };
+  
+  // Mock payment process
+  const processMockPayment = () => {
+    setShowPaymentModal(false);
+    // Continue with generating the full deck
+    prepareCardGenerationQueue(true);
+  };
+
   return (
     <div className="min-h-screen pt-12 pb-20">
       <div className="container mx-auto px-4">
@@ -672,62 +631,47 @@ const DeckCreator = () => {
           {/* Header */}
           <div className="mt-8 mb-10 text-center">
             <h1 className="text-3xl md:text-4xl font-serif font-bold mb-2">
-              {currentStep === 'details' 
-                ? 'Create Your Custom Tarot Deck' 
-                : currentStep === 'cards'
-                ? 'Generating Your Mystical Deck'
-                : 'Customize Your Deck Settings'}
+              {currentStep === 'cards'
+                ? 'Generating Your Tarot Cards' 
+                : 'Customize Your Deck'}
             </h1>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              {currentStep === 'details'
-                ? 'Define your deck\'s theme and style to begin generating unique AI tarot imagery.'
-                : currentStep === 'cards'
-                ? 'Your tarot cards are being conjured with AI magic. You can customize each card as it appears.'
-                : 'Control how your deck appears to others and set your preferences.'}
+              {currentStep === 'cards' 
+                ? 'AI is generating unique cards based on your theme' 
+                : 'Add finishing touches to your deck before publishing'}
             </p>
           </div>
           
-          {/* Sign In Modal for Anonymous Users */}
+          {/* Sign In Modal */}
           {needsSignIn && (
-            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-              <motion.div 
-                className="bg-card rounded-xl overflow-hidden max-w-md w-full"
-                initial={{ opacity: 0, y: -50 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <div className="p-6">
-                  <h2 className="text-xl font-serif font-bold mb-4">Sign In to Continue</h2>
-                  <p className="mb-4">
-                    You need to be signed in to create and save decks. Would you like to sign in or create an account?
-                  </p>
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-card border border-border p-8 rounded-xl max-w-md w-full">
+                <h2 className="text-xl font-medium mb-4">Sign In Required</h2>
+                <p className="mb-6 text-muted-foreground">Please sign in to create and save your tarot deck.</p>
+                
+                <div className="flex flex-col gap-3">
+                  <button 
+                    onClick={() => navigate('/login')}
+                    className="btn btn-primary w-full py-2"
+                  >
+                    Sign In
+                  </button>
                   
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                      onClick={() => {
-                        navigate('/login');
-                      }}
-                      className="btn btn-secondary flex-1 py-2"
-                    >
-                      Sign In
-                    </button>
-                    <button 
-                      onClick={() => {
-                        navigate('/signup');
-                      }}
-                      className="btn btn-primary flex-1 py-2"
-                    >
-                      Create Account
-                    </button>
-                  </div>
+                  <button 
+                    onClick={() => navigate('/signup')}
+                    className="btn btn-outline w-full py-2"
+                  >
+                    Create Account
+                  </button>
                   
-                  <button
+                  <button 
                     onClick={() => setNeedsSignIn(false)}
-                    className="w-full text-muted-foreground hover:text-foreground text-sm mt-4"
+                    className="text-sm text-muted-foreground hover:underline mt-2"
                   >
                     Continue as Guest (Limited Features)
                   </button>
                 </div>
-              </motion.div>
+              </div>
             </div>
           )}
           
@@ -736,31 +680,38 @@ const DeckCreator = () => {
             <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
               <motion.div 
                 className="bg-card rounded-xl overflow-hidden max-w-md w-full"
-                initial={{ opacity: 0, y: -50 }}
+                initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <div className="p-6 text-center">
-                  <div className="w-20 h-20 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-4">
-                    <Check className="h-10 w-10 text-success" />
+                <div className="p-8">
+                  <div className="flex flex-col items-center mb-6">
+                    <div className="w-16 h-16 flex items-center justify-center rounded-full bg-success/20 text-success mb-4">
+                      <Check className="h-8 w-8" />
+                    </div>
+                    <h2 className="text-2xl font-serif font-bold">Deck Created!</h2>
+                    <p className="text-muted-foreground text-center mt-2">
+                      Your {deckTitle} deck has been successfully saved.
+                    </p>
                   </div>
                   
-                  <h2 className="text-2xl font-serif font-bold mb-2">Deck Created!</h2>
-                  <p className="mb-6 text-muted-foreground">
-                    Your new deck "{deckTitle}" has been successfully saved to your collection.
-                  </p>
-                  
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    <button
-                      onClick={() => setCreationSuccess(false)}
-                      className="btn btn-ghost border border-input px-6 py-2"
-                    >
-                      Keep Editing
-                    </button>
+                  <div className="flex flex-col gap-4">
                     <button 
-                      onClick={goToCollection}
-                      className="btn btn-primary px-6 py-2"
+                      onClick={() => {
+                        setCreationSuccess(false);
+                        navigate('/collection');
+                      }}
+                      className="btn btn-primary w-full py-2.5 flex items-center justify-center"
                     >
-                      View in Collection
+                      <Eye className="mr-2 h-5 w-5" />
+                      View My Collection
+                    </button>
+                    
+                    <button 
+                      onClick={handleCreateAnother}
+                      className="btn btn-secondary w-full py-2.5 flex items-center justify-center"
+                    >
+                      <Zap className="mr-2 h-5 w-5" />
+                      Create Another Deck
                     </button>
                   </div>
                 </div>
@@ -850,100 +801,7 @@ const DeckCreator = () => {
             </div>
           )}
           
-          {/* Deck Details Step */}
-          {currentStep === 'details' && (
-            <motion.div 
-              className="bg-card border border-border p-8 rounded-xl"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <h2 className="text-xl font-serif font-bold mb-6">Define Your Deck</h2>
-              
-              {generationError && (
-                <div className="mb-6 p-4 border border-destructive/30 bg-destructive/10 rounded-lg flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-destructive">{generationError}</p>
-                  </div>
-                </div>
-              )}
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div>
-                  <label htmlFor="deckTitle" className="block text-sm font-medium mb-2">
-                    Deck Title <span className="text-destructive">*</span>
-                  </label>
-                  <input
-                    id="deckTitle"
-                    type="text"
-                    value={deckTitle}
-                    onChange={(e) => setDeckTitle(e.target.value)}
-                    placeholder="e.g., Cosmic Journeys, Mystic Elementals"
-                    className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="deckTheme" className="block text-sm font-medium mb-2">
-                    Deck Theme <span className="text-destructive">*</span>
-                  </label>
-                  <input
-                    id="deckTheme"
-                    type="text"
-                    value={deckTheme}
-                    onChange={(e) => setDeckTheme(e.target.value)}
-                    placeholder="e.g., cosmic, nature, steampunk, mythology"
-                    className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="deckStyle" className="block text-sm font-medium mb-2">
-                    Art Style <span className="text-destructive">*</span>
-                  </label>
-                  <input
-                    id="deckStyle"
-                    type="text"
-                    value={deckStyle}
-                    onChange={(e) => setDeckStyle(e.target.value)}
-                    placeholder="e.g., watercolor, digital, minimalist"
-                    className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="deckDescription" className="block text-sm font-medium mb-2">
-                    Description <span className="text-destructive">*</span>
-                  </label>
-                  <textarea
-                    id="deckDescription"
-                    value={deckDescription}
-                    onChange={(e) => setDeckDescription(e.target.value)}
-                    placeholder="Describe your deck concept and theme..."
-                    className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary resize-none h-24"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  <span className="text-destructive">*</span> Required fields
-                </div>
-                
-                <button 
-                  onClick={createDeck}
-                  className="btn btn-primary px-6 py-2 flex items-center"
-                >
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Generate Cards
-                </button>
-              </div>
-            </motion.div>
-          )}
+          {/* Cards are automatically generated */}
           
           {/* Card Generation Step */}
           {currentStep === 'cards' && (
@@ -1339,13 +1197,12 @@ const DeckCreator = () => {
                 <h3 className="text-lg font-serif font-medium mb-4">Card Gallery</h3>
                 
                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                  {generatedCards.slice(0, 12).map((card, index) => (
+                  {generatedCards.map((card) => (
                     <div key={card.id} className="relative aspect-[2/3] rounded-md overflow-hidden">
                       <img 
                         src={card.image_url} 
                         alt={card.name}
                         className="w-full h-full object-cover"
-                        loading="lazy"
                       />
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
                         <h4 className="text-white text-xs font-medium truncate">{card.name}</h4>
