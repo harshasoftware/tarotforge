@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Menu, X, Moon, Sun, User } from 'lucide-react';
+import { Menu, X, Sparkles, Moon, Sun, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import SignInModal from '../auth/SignInModal';
 
@@ -47,7 +47,7 @@ const Navbar = () => {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <img src="/tarot-forge-logo.svg" alt="Tarot Forge" className="h-8 w-8" />
+            <Sparkles className="h-6 w-6 text-accent" />
             <span className="text-xl font-serif font-bold">Tarot Forge</span>
           </Link>
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Plus, ShoppingBag, Filter, Package, Edit, Trash2, Eye, EyeOff, DollarSign } from 'lucide-react';
+import { Search, Plus, ShoppingBag, Filter, Package, Zap, Edit, Trash2, Eye, EyeOff, DollarSign } from 'lucide-react';
 import DeckPreview from '../../components/ui/DeckPreview';
 import { Deck } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -294,7 +294,7 @@ const Collection = () => {
               }`}
               onClick={() => setActiveTab('free')}
             >
-              <img src="/tarot-forge-logo.svg" alt="" className="h-4 w-4 mr-1" />
+              <Zap className="mr-1 h-4 w-4" />
               Free Decks ({freeDecks.length})
             </button>
           </div>

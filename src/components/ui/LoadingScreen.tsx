@@ -1,3 +1,4 @@
+import { Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const LoadingScreen = () => {
@@ -15,7 +16,7 @@ const LoadingScreen = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background">
       <div className="relative">
-        <img src="/tarot-forge-logo.svg" alt="Tarot Forge" className="h-16 w-16 animate-pulse" />
+        <Sparkles className="h-16 w-16 text-accent animate-pulse" />
         <div className="absolute inset-0 rounded-full bg-accent/10 animate-ping"></div>
       </div>
       <h2 className="mt-6 text-2xl font-serif">Tarot Forge</h2>
