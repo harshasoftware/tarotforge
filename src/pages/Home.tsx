@@ -502,8 +502,8 @@ const Home = () => {
                     </>
                   ) : (
                     <>
-                      Create Deck
-                      <ArrowRight className="ml-2 h-4 w-4" />
+                      Forge a Deck
+                      <Hammer className="ml-2 h-4 w-4" />
                     </>
                   )}
                 </button>
