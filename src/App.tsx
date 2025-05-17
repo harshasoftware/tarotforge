@@ -9,7 +9,6 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 const Home = lazy(() => import('./pages/Home'));
 const Login = lazy(() => import('./pages/auth/Login'));
 const Signup = lazy(() => import('./pages/auth/Signup'));
-const DeckCreator = lazy(() => import('./pages/creator/DeckCreator'));
 const Marketplace = lazy(() => import('./pages/marketplace/Marketplace'));
 const DeckDetails = lazy(() => import('./pages/marketplace/DeckDetails'));
 const Collection = lazy(() => import('./pages/user/Collection')); 
@@ -75,7 +74,6 @@ function App() {
           <Route path="reading-room/:deckId?" element={<ReadingRoom />} />
           
           <Route element={<ProtectedRoute />}>
-            <Route path="create" element={<DeckCreator />} />
             <Route path="collection" element={<Collection />} />
             <Route path="profile" element={<Profile />} />
             <Route path="checkout/:deckId" element={<Checkout />} />

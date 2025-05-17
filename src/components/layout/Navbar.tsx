@@ -57,18 +57,11 @@ const Navbar = () => {
             <NavLink to="/marketplace">Marketplace</NavLink>
             {user ? (
               <>
-                <NavLink to="/create">Create Deck</NavLink>
                 <NavLink to="/reading-room">Reading Room</NavLink>
                 <NavLink to="/collection">My Collection</NavLink>
               </>
             ) : (
               <>
-                <button 
-                  onClick={() => setShowSignInModal(true)}
-                  className="px-3 py-2 rounded-md text-sm hover:text-accent transition-colors"
-                >
-                  Create Deck
-                </button>
                 <button 
                   onClick={() => setShowSignInModal(true)}
                   className="px-3 py-2 rounded-md text-sm hover:text-accent transition-colors"
@@ -179,9 +172,6 @@ const Navbar = () => {
               </Link>
               {user ? (
                 <>
-                  <Link to="/create" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
-                    Create Deck
-                  </Link>
                   <Link to="/reading-room" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                     Reading Room
                   </Link>
