@@ -123,24 +123,7 @@ const Navbar = () => {
                   </button>
                 </div>
               </div>
-            ) : (
-              <div className="flex space-x-2">
-                <button 
-                  onClick={() => setShowSignInModal(true)}
-                  className="px-3 py-1.5 text-sm rounded-md hover:bg-secondary/50 transition-colors"
-                >
-                  Log In
-                </button>
-                <button 
-                  onClick={() => {
-                    setShowSignInModal(true);
-                  }}
-                  className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                >
-                  Sign Up
-                </button>
-              </div>
-            )}
+            ) : null}
 
             {/* Mobile menu button */}
             <button 
@@ -189,26 +172,17 @@ const Navbar = () => {
                   </button>
                 </>
               ) : (
-                <div className="flex flex-col space-y-2">
+                <>
                   <button 
                     onClick={() => {
                       setIsOpen(false);
                       setShowSignInModal(true);
                     }} 
-                    className="py-2 px-4 rounded-md hover:bg-secondary/50 text-center"
+                    className="block w-full text-left py-2 px-4 rounded-md hover:bg-secondary/50"
                   >
-                    Log In
+                    Reading Room
                   </button>
-                  <button 
-                    onClick={() => {
-                      setIsOpen(false);
-                      setShowSignInModal(true);
-                    }} 
-                    className="py-2 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-center"
-                  >
-                    Sign Up
-                  </button>
-                </div>
+                </>
               )}
             </div>
           </motion.div>

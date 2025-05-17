@@ -197,7 +197,7 @@ const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
 const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, setShowSignInModal } = useAuth();
   const [themePrompt, setThemePrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [themeSuggestions, setThemeSuggestions] = useState<string[]>(allThemeSuggestions.slice(0, 12));
@@ -293,12 +293,10 @@ const Home = () => {
     if (themePrompt.trim()) {
       // Check if user is authenticated
       if (!user) {
-        // Show generating state for UI feedback
-        setIsGenerating(true);
-        // Store deck creation intent and redirect to Google sign in
+        // Store deck creation intent in localStorage
         localStorage.setItem('pending_deck_theme', themePrompt);
-        // Return to home page with deck creation after auth
-        navigate('/login', { state: { redirectAfterAuth: '/?createDeck=true' } });
+        // Show the sign-in modal instead of redirecting
+        setShowSignInModal(true);
         return;
       }
       
@@ -353,7 +351,7 @@ const Home = () => {
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
       <motion.section 
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 overflow-hidden"
+        className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-4 pb-12 md:py-12 overflow-hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
@@ -415,7 +413,7 @@ const Home = () => {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-8 z-10"
+          className="text-center mb-6 md:mb-8 z-10 mt-0 md:mt-4"
         >
           <h2 className="text-4xl md:text-5xl font-serif font-bold mb-4">
             Create Your Tarot Deck Now
@@ -530,20 +528,13 @@ const Home = () => {
                 
                 <button
                   type="submit"
-                  disabled={isGenerating || !themePrompt.trim()}
+                  disabled={!themePrompt.trim()}
                   className="w-full btn btn-primary py-3 disabled:opacity-70"
                 >
-                  {isGenerating ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      Forge a Deck
-                      <Hammer className="ml-2 h-4 w-4" />
-                    </>
-                  )}
+                  <>
+                    Forge a Deck
+                    <Hammer className="ml-2 h-4 w-4" />
+                  </>
                 </button>
               </form>
             </div>
@@ -557,13 +548,23 @@ const Home = () => {
                 <ShoppingBag className="h-4 w-4 mr-2" />
                 Browse Marketplace
               </Link>
-              <Link 
-                to="/reading-room" 
-                className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
-              >
-                <BookOpen className="h-4 w-4 mr-2" />
-                Try Free Reading
-              </Link>
+              {user ? (
+                <Link 
+                  to="/reading-room" 
+                  className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Try Free Reading
+                </Link>
+              ) : (
+                <button 
+                  onClick={() => setShowSignInModal(true)}
+                  className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Try Free Reading
+                </button>
+              )}
             </div>
           </div>
         </motion.div>
