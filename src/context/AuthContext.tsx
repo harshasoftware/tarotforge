@@ -253,7 +253,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Construct the Google OAuth URL manually for implicit flow
       const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-      const redirectUri = `${window.location.origin}/auth/callback`;
+      const redirectUri = import.meta.env.VITE_GOOGLE_CLIENT_REDIRECT_URI;
       const scope = 'openid profile email'; // Adjust scopes as needed
       const responseType = 'token id_token'; // Request tokens directly (implicit flow)
       
