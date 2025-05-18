@@ -1,9 +1,45 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
-import { uploadImageFromUrl } from './storage-utils';
+import { createClient } from '@supabase/supabase-js';
 import type { AIModel } from '../types';
+
+// Generate a placeholder image URL for cards when image generation fails
+export function generatePlaceholderImageUrl(cardName: string, theme: string): string {
+  // Simple implementation - in a real app, you might want to use a more sophisticated approach
+  const baseUrl = 'https://placehold.co/600x900';
+  const params = new URLSearchParams({
+    text: `${cardName} (${theme} theme)`,
+    font: 'montserrat',
+    fontSize: '16',
+    textColor: '333333',
+    bgColor: 'f0f0f0',
+    border: '1px solid #ccc'
+  });
+  return `${baseUrl}?${params.toString()}`;
+}
+
+// Initialize Supabase client
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('Supabase URL or Anon Key is missing. Image uploads will fail.');
+}
+
+const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
+  auth: { persistSession: false }
+});
 
 // Google Generative AI configuration
 const apiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY || '';
+
+// Debug log environment variables
+console.log('Environment variables:', {
+  VITE_GOOGLE_AI_API_KEY: import.meta.env.VITE_GOOGLE_AI_API_KEY ? '***' : 'Not set',
+  VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL ? 'Set' : 'Not set',
+  VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY ? '***' : 'Not set',
+  VITE_SUPABASE_S3_STORAGE: import.meta.env.VITE_SUPABASE_S3_STORAGE ? 'Set' : 'Not set',
+  MODE: import.meta.env.MODE
+});
 
 // Log warning instead of error to avoid breaking the application
 if (!apiKey) {
@@ -22,19 +58,34 @@ export const getGeminiModel = (modelName: AIModel = 'gemini-2.0-flash') => {
   return genAI.getGenerativeModel({ model: modelName });
 };
 
-export const generateCardDescription = async (
-  cardName: string,
-  deckTheme: string
-) => {
+interface GenerateCardDescriptionParams {
+  cardName: string;
+  deckTheme: string;
+  onProgress?: (progress: number) => void;
+}
+
+export const generateCardDescription = async ({
+  cardName,
+  deckTheme,
+  onProgress
+}: GenerateCardDescriptionParams): Promise<string> => {
+  // Update progress - starting
+  onProgress?.(5);
+  
   if (!apiKey) {
     // Return a fallback description when API key is missing
+    onProgress?.(100);
     return `The ${cardName} represents a powerful symbol in tarot. In the context of ${deckTheme}, it connects to themes of transformation and insight. Key symbols include mystical elements that resonate with the card's traditional meanings. When this card appears in a reading, consider how its energy might be guiding you forward.`;
   }
+  
+  // Update progress - API key check passed
+  onProgress?.(15);
   
   try {
     // Explicitly use gemini-2.0-flash model
     const model = getGeminiModel('gemini-2.0-flash');
     
+    // Define the prompt
     const prompt = `
       Create a mystical and evocative description for the "${cardName}" tarot card 
       that fits within a deck with the theme: "${deckTheme}".
@@ -48,51 +99,78 @@ export const generateCardDescription = async (
       Keep the response under 150 words and focus on imagery and symbolism.
     `;
     
-    const result = await model.generateContent(prompt);
+    // Update progress - starting generation
+    onProgress?.(25);
+    
+    // Split the generation into chunks to track progress
+    const generationSteps = [
+      { progress: 40, message: 'Analyzing card symbolism...' },
+      { progress: 55, message: 'Connecting to theme...' },
+      { progress: 70, message: 'Generating meanings...' },
+      { progress: 85, message: 'Finalizing description...' }
+    ];
+    
+    // Simulate progress for each step
+    for (const step of generationSteps) {
+      await new Promise(resolve => setTimeout(resolve, 200)); // Small delay between steps
+      console.log(step.message);
+      onProgress?.(step.progress);
+    }
+    
+    // Make the actual API call
+    const result = await model.generateContent({ contents: [{ role: 'user', parts: [{ text: prompt }] }] });
     const response = await result.response;
-    return response.text();
+    const text = response.text();
+    
+    // Update progress - generation complete
+    onProgress?.(95);
+    
+    // Small delay to ensure smooth progress bar animation
+    await new Promise(resolve => setTimeout(resolve, 200));
+    onProgress?.(100);
+    
+    return text;
   } catch (error) {
     console.error('Error generating card description:', error);
-    return `The ${cardName} represents a powerful symbol in tarot. In the context of ${deckTheme}, it connects to themes of transformation and insight. Key symbols include mystical elements that resonate with the card's traditional meanings. When this card appears in a reading, consider how its energy might be guiding you forward.`;
+    onProgress?.(100);
+    return `The ${cardName} card in the ${deckTheme} deck represents powerful forces at play. Its traditional meanings include transformation, change, and new beginnings. In the context of ${deckTheme}, it may indicate significant shifts or revelations.`;
   }
 };
 
-export const generateCardImage = async (
-  details: {
-    cardName: string;
-    theme: string;
-    style: string;
-    description: string;
-    additionalPrompt?: string;
-    deckId?: string; // Added for storage
-  }
-) => {
+interface GenerateCardImageParams {
+  cardName: string;
+  theme: string;
+  style: string;
+  description: string;
+  additionalPrompt?: string;
+  deckId?: string;
+  onProgress?: (progress: number, stage: 'generating' | 'uploading') => void;
+}
+
+export const generateCardImage = async (details: GenerateCardImageParams): Promise<string> => {
+  const { onProgress } = details;
+  
+  // Helper function to update progress
+  const updateProgress = (progress: number, stage: 'generating' | 'uploading') => {
+    if (onProgress) {
+      onProgress(progress, stage);
+    }
+  };
+  
+  // Initial progress update
+  updateProgress(5, 'generating');
   if (!apiKey) {
     // Return a placeholder image URL if API key is missing
-    const placeholderUrl = generatePlaceholderImageUrl(details.cardName, details.theme);
-    
-    // If deckId is provided, try to store the placeholder image
-    if (details.deckId) {
-      try {
-        return await uploadImageFromUrl(
-          placeholderUrl,
-          details.deckId,
-          details.cardName
-        );
-      } catch (error) {
-        console.error('Error uploading placeholder image to storage:', error);
-        return placeholderUrl;
-      }
-    }
-    
-    return placeholderUrl;
+    console.warn('Google AI API key is missing. Using placeholder image.');
+    return generatePlaceholderImageUrl(details.cardName, details.theme);
   }
   
   try {
     // Initialize the generative AI client with your API key - no need to recreate it if we already have genAI
     if (!genAI) {
-      console.warn('Google AI client not initialized. Using placeholder images.');
-      return generatePlaceholderImageUrl(details.cardName, details.theme);
+      const errorMsg = 'Google AI client not initialized. Check if VITE_GOOGLE_AI_API_KEY is properly set in your .env file.';
+      console.error(errorMsg);
+      throw new Error(errorMsg);
     }
     
     console.log('Starting image generation for:', details.cardName);
@@ -455,11 +533,14 @@ Create a high-quality tarot card with portrait orientation (3:4 aspect ratio). I
     
     // Use the standard generateContent method which is compatible with the SDK
     const imageResult = await model.generateContent({
-      contents: [{ 
-        role: 'user', 
-        parts: [{ text: enhancedPrompt }]
-      }],
-      // Standard generation parameters that are compatible with the TypeScript definitions
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: enhancedPrompt },
+          ],
+        },
+      ],
       generationConfig: {
         temperature: 0.4,
         topK: 32,
@@ -487,108 +568,210 @@ Create a high-quality tarot card with portrait orientation (3:4 aspect ratio). I
       ]
     });
     
+    // Update progress after generation
+    updateProgress(90, 'generating');
+    
     // Extract the image data from the response
     console.log('Received response from Imagen API');
-    const responseData = imageResult.response;
-    console.log('Response structure:', JSON.stringify(responseData, null, 2).substring(0, 200) + '...');
+    const response = imageResult.response;
     
-    // Add null checks to ensure candidates exists and has at least one element
-    if (!responseData.candidates || responseData.candidates.length === 0) {
-      console.error('No candidates found in the response');
-      throw new Error('No candidates found in the image generation response');
+    // Debug log the full response structure
+    console.log('Full response structure:', JSON.stringify(response, null, 2));
+    
+    // Define types for the response data structure
+    interface InlineData {
+      mimeType: string;
+      data: string;
+    }
+
+    interface Part {
+      inlineData?: InlineData;
+      text?: string;
+    }
+
+    interface Content {
+      role: string;
+      parts: Part[];
+    }
+
+    interface Candidate {
+      content: Content;
+      finishReason: string;
+      index: number;
+      safetyRatings: Array<{
+        category: string;
+        probability: string;
+      }>;
+    }
+
+    // Type guard to check if the response has the expected structure
+    function isCandidateArray(candidates: unknown): candidates is Candidate[] {
+      return Array.isArray(candidates) && 
+             candidates.every(candidate => 
+               candidate && 
+               typeof candidate === 'object' &&
+               'content' in candidate &&
+               Array.isArray((candidate as any).content?.parts)
+             );
+    }
+
+    // Safely extract candidates from the response
+    const candidates = (response as { candidates?: unknown })?.candidates;
+    
+    // Validate the candidates array
+    if (!isCandidateArray(candidates) || candidates.length === 0) {
+      const errorMsg = 'No valid candidates found in the image generation response. Check if the API key has the correct permissions.';
+      console.error(errorMsg, { response });
+      throw new Error(errorMsg);
     }
     
-    console.log('Found candidates in response, count:', responseData.candidates.length);
+    console.log('Found candidates in response, count:', candidates.length);
     
     // Store the verified candidate to help TypeScript understand the null check
-    const candidate = responseData.candidates[0];
+    const candidate = candidates[0];
+    
+    // Verify the candidate has the expected structure
+    if (!candidate?.content?.parts?.[0]?.inlineData) {
+      const errorMsg = 'Invalid response format from image generation API. Missing inlineData in the response.';
+      console.error(errorMsg, { candidate });
+      throw new Error(errorMsg);
+    }
+    
     console.log('Examining candidate content parts:', candidate.content.parts.length);
     
-    const imageParts = candidate.content.parts.filter((part: any) => {
-      console.log('Part type:', part.type, 'Has inlineData:', !!part.inlineData);
-      return part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.startsWith('image/');
-    });
+    // Type guard to check if a part has inline data
+    const hasInlineData = (part: Part): part is { inlineData: InlineData } => {
+      return !!(part.inlineData?.mimeType && part.inlineData?.data);
+    };
     
-    console.log('Found image parts:', imageParts.length);
+    // Filter parts to find those with inline data
+    const imageParts = candidate.content.parts.filter(hasInlineData);
     
-    let imageUrl = '';
+    console.log(`Found ${imageParts.length} image parts in response`);
     
-    if (imageParts.length > 0) {
-      // Convert base64 data to a URL or store directly
-      const imageData = imageParts[0]?.inlineData?.data;
-      // For browser display, we can use a data URL
-      imageUrl = `data:${imageParts[0]?.inlineData?.mimeType};base64,${imageData}`;
-      
-      // If deckId is provided, store the image in Supabase or S3 based on environment configuration
-      if (details.deckId) {
-        try {
-          // uploadImageFromUrl will handle S3 storage if environment variables are available
-          // Using VITE_SUPABASE_S3_STORAGE and VITE_SUPABASE_S3_STORAGE_REGION
-          const storageUrl = await uploadImageFromUrl(
-            imageUrl,
-            details.deckId,
-            details.cardName
-          );
+    if (imageParts.length === 0) {
+      const errorMsg = 'No valid image data found in the response. Check if the API key has the correct permissions.';
+      console.error(errorMsg, { parts: candidate.content.parts });
+      throw new Error(errorMsg);
+    }
+    
+    // Process the first valid image part
+    const imagePart = imageParts[0];
+    const imageData = imagePart.inlineData;
+    
+    // Create a data URL from the base64-encoded image data
+    const imageUrl = `data:${imageData.mimeType};base64,${imageData.data}`;
+    console.log('Generated data URL for image');
+    
+    // If we have a deckId, upload the image to Supabase Storage
+    if (details.deckId) {
+      try {
+        // Update progress - starting upload
+        updateProgress(5, 'uploading');
+        
+        // First, convert the data URL to a blob
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        
+        // Update progress - blob created
+        updateProgress(20, 'uploading');
+        
+        // Upload to Supabase Storage
+        const fileExt = imageData.mimeType.split('/')[1] || 'png';
+        const fileName = `${details.deckId}/${details.cardName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${fileExt}`;
+        
+        // Update progress - starting upload
+        updateProgress(30, 'uploading');
+        
+        // Upload with progress tracking using the Supabase Storage API directly
+        const formData = new FormData();
+        formData.append('file', blob, fileName);
+        
+        // Track upload progress using XMLHttpRequest for better progress tracking
+        const xhr = new XMLHttpRequest();
+        
+        // Create a promise to handle the upload
+        const uploadPromise = new Promise<{error: any, publicUrl: string}>((resolve) => {
+          xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+              // Calculate progress percentage (30% to 90% of upload phase)
+              const uploadProgress = 30 + (event.loaded / event.total * 60);
+              updateProgress(Math.floor(uploadProgress), 'uploading');
+            }
+          });
           
-          return storageUrl;
-        } catch (error) {
-          console.error('Error uploading image to storage:', error);
-          return imageUrl; // Return the data URL if upload fails
+          xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              // Get the public URL after successful upload
+              const { data: { publicUrl } } = supabase.storage
+                .from('card-images')
+                .getPublicUrl(fileName);
+              resolve({ error: null, publicUrl });
+            } else {
+              resolve({ error: new Error('Upload failed'), publicUrl: '' });
+            }
+          });
+          
+          xhr.addEventListener('error', () => {
+            resolve({ error: new Error('Upload failed'), publicUrl: '' });
+          });
+        });
+        
+        // Get the upload URL
+        const { data: uploadData, error: urlError } = await supabase.storage
+          .from('card-images')
+          .createSignedUrl(fileName, 3600);
+          
+        if (urlError || !uploadData?.signedUrl) {
+          throw urlError || new Error('Failed to get upload URL');
         }
+        
+        // Start the upload
+        xhr.open('PUT', uploadData.signedUrl, true);
+        xhr.setRequestHeader('Content-Type', 'image/png');
+        xhr.setRequestHeader('x-upsert', 'true');
+        xhr.send(blob);
+        
+        // Wait for upload to complete
+        const uploadResult = await uploadPromise;
+          
+        if (uploadResult.error || !uploadResult.publicUrl) {
+          console.error('Error uploading image to Supabase:', uploadResult.error);
+          // Fallback to data URL if upload fails
+          updateProgress(100, 'uploading');
+          return imageUrl;
+        }
+        
+        console.log('Image uploaded to Supabase:', uploadResult.publicUrl);
+        
+        // Final progress update
+        updateProgress(100, 'uploading');
+        return uploadResult.publicUrl;
+        
+      } catch (error) {
+        console.error('Error uploading image to Supabase:', error);
+        // Fallback to data URL if upload fails
+        return imageUrl;
       }
-      
-      return imageUrl;
-    } else {
-      console.warn('No image data returned from Imagen model, using placeholder');
+    }
+    
+    return imageUrl;
+  } catch (error) {
+    const errorMsg = `Error generating card image for ${details.cardName}: ${error instanceof Error ? error.message : String(error)}`;
+    console.error(errorMsg, error);
+    
+    // Only use placeholder if explicitly configured to do so
+    if (import.meta.env.VITE_USE_PLACEHOLDER_IMAGES !== 'false') {
+      console.warn('Falling back to placeholder image');
       return generatePlaceholderImageUrl(details.cardName, details.theme);
     }
-  } catch (error) {
-    console.error('Error generating card image with Imagen:', error);
-    return generatePlaceholderImageUrl(details.cardName, details.theme);
+    
+    // Re-throw the error to be handled by the caller
+    throw new Error(errorMsg);
   }
 };
 
-// Helper function to generate placeholder image URLs based on card names
-// In a real implementation, this would be replaced with actual Gemini image responses
-function generatePlaceholderImageUrl(cardName: string, _theme: string): string {
-  // Note: theme parameter is kept for API consistency but prefixed with underscore to indicate it's not used
-  // Clean the card name to be URL-friendly
-  const cleanName = cardName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
-  
-  // Map of card names to thematically appropriate Pexels image URLs
-  const cardImageMap: {[key: string]: string} = {
-    'the-fool': 'https://images.pexels.com/photos/1619317/pexels-photo-1619317.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-magician': 'https://images.pexels.com/photos/2693529/pexels-photo-2693529.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-high-priestess': 'https://images.pexels.com/photos/3617457/pexels-photo-3617457.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-empress': 'https://images.pexels.com/photos/936048/pexels-photo-936048.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-emperor': 'https://images.pexels.com/photos/2559941/pexels-photo-2559941.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-hierophant': 'https://images.pexels.com/photos/262771/pexels-photo-262771.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-lovers': 'https://images.pexels.com/photos/888899/pexels-photo-888899.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-chariot': 'https://images.pexels.com/photos/3408744/pexels-photo-3408744.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'strength': 'https://images.pexels.com/photos/1252126/pexels-photo-1252126.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-hermit': 'https://images.pexels.com/photos/2389157/pexels-photo-2389157.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'wheel-of-fortune': 'https://images.pexels.com/photos/1727684/pexels-photo-1727684.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'justice': 'https://images.pexels.com/photos/3765035/pexels-photo-3765035.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-hanged-man': 'https://images.pexels.com/photos/2171283/pexels-photo-2171283.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'death': 'https://images.pexels.com/photos/3651022/pexels-photo-3651022.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'temperance': 'https://images.pexels.com/photos/2647933/pexels-photo-2647933.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-devil': 'https://images.pexels.com/photos/2832046/pexels-photo-2832046.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-tower': 'https://images.pexels.com/photos/2499846/pexels-photo-2499846.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-star': 'https://images.pexels.com/photos/1252890/pexels-photo-1252890.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-moon': 'https://images.pexels.com/photos/2670898/pexels-photo-2670898.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-sun': 'https://images.pexels.com/photos/1275413/pexels-photo-1275413.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'judgment': 'https://images.pexels.com/photos/315191/pexels-photo-315191.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    'the-world': 'https://images.pexels.com/photos/1851164/pexels-photo-1851164.jpeg?auto=compress&cs=tinysrgb&w=1600'
-  };
-  
-  // Return the mapped image URL if it exists
-  if (cardImageMap[cleanName]) {
-    return cardImageMap[cleanName];
-  }
-  
-  // Default placeholder using a cosmic theme from Pexels
-  return 'https://images.pexels.com/photos/1274260/pexels-photo-1274260.jpeg?auto=compress&cs=tinysrgb&w=1600';
-}
+// The generatePlaceholderImageUrl function is now defined at the top of the file
 
 export const getReadingInterpretation = async (
   question: string,

@@ -18,9 +18,10 @@ import {
 } from 'lucide-react';
 import PromptEditor from '../../components/creator/PromptEditor';
 import CardGallery from '../../components/creator/CardGallery';
-import { generateCardDescription, generateCardImage } from '../../lib/gemini-ai';
+import { generateCardDescription, generateCardImage, generatePlaceholderImageUrl } from '../../lib/gemini-ai';
 import { Deck, Card } from '../../types';
 import { v4 as uuidv4 } from 'uuid';
+import { SHA256 } from 'crypto-js';
 import { supabase } from '../../lib/supabase';
 
 // Traditional tarot card names for major arcana
@@ -181,10 +182,18 @@ const DeckCreator = () => {
     }
   }, [user]);
   
+  // Function to generate a unique deck ID based on timestamp and user ID
+  const generateDeckId = (userId: string): string => {
+    const timestamp = Date.now().toString();
+    // Create a simple hash of user ID + timestamp using SHA256
+    const hash = SHA256(`${userId}_${timestamp}`).toString().substring(0, 12); // Take first 12 chars of the hash
+    return `deck_${timestamp}_${hash}`;
+  };
+
   // Create deck ID upfront for storage purposes
   useEffect(() => {
     if (!deckId && user) {
-      setDeckId(uuidv4());
+      setDeckId(generateDeckId(user.id));
     }
   }, [user, deckId]);
   
@@ -302,38 +311,44 @@ const DeckCreator = () => {
         );
       };
       
-      // Simulate progress updates (in a real app, these would come from the API)
-      const simulateProgress = async (
-        stage: 'description' | 'image',
-        cardName: string
-      ) => {
-        const progressKey = stage === 'description' ? 'descriptionProgress' : 'imageProgress';
-        const steps = 5; // Number of progress updates to simulate
-        
-        for (let i = 1; i <= steps; i++) {
-          // Artificial delay to simulate processing time
-          await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300));
-          
-          updateGeneratingCardState(
-            { [progressKey]: Math.floor((i / steps) * 100) }, 
-            cardName
-          );
-        }
+      // Generate card description with progress tracking
+      updateGeneratingCardState({
+        descriptionInProgress: true,
+        descriptionProgress: 0
+      }, name);
+      
+      // Add progress callback for description generation
+      const onDescriptionProgress = (progress: number) => {
+        updateGeneratingCardState({
+          descriptionProgress: progress
+        }, name);
       };
       
-      // Generate card description
-      await simulateProgress('description', name);
-      const description = await generateCardDescription(name, deckTheme);
+      const description = await generateCardDescription({
+        cardName: name,
+        deckTheme,
+        onProgress: onDescriptionProgress
+      });
       
       updateGeneratingCardState({
         descriptionInProgress: false,
         descriptionProgress: 100,
         description,
-        imageInProgress: true
+        imageInProgress: true,
+        imageProgress: 0
       }, name);
       
-      // Generate card image
-      await simulateProgress('image', name);
+      // Generate card image with progress tracking
+      const onImageProgress = (progress: number, stage: 'generating' | 'uploading') => {
+        // Map the progress to a range (0-90 for generating, 90-100 for uploading)
+        const mappedProgress = stage === 'generating' 
+          ? Math.floor(progress * 0.9)  // First 90% for generation
+          : 90 + Math.floor(progress * 0.1);  // Last 10% for upload
+          
+        updateGeneratingCardState({
+          imageProgress: mappedProgress
+        }, name);
+      };
       
       // Generate randomized keywords based on card name and description
       const descriptionWords = description.split(/\s+/);
@@ -365,52 +380,39 @@ const DeckCreator = () => {
       
       const keywords = Array.from(keywordsSet);
       
-      // Generate image URL using Gemini AI
-      const imagePrompt = await generateCardImage({
-        cardName: name,
-        theme: deckTheme,
-        style: deckStyle,
-        description: description
-      });
-
+      // Generate image URL using Gemini AI with progress tracking
+      console.log(`Generating image for card: ${name} with theme: ${deckTheme}`);
       let imageUrl = '';
       
-      // If we have a deckId, upload the image to Supabase Storage
-      if (deckId) {
-        try {
-          // First, convert the data URL to a blob
-          const response = await fetch(imagePrompt);
-          const blob = await response.blob();
-          
-          // Upload to Supabase Storage
-          const fileExt = 'png';
-          const fileName = `${deckId}/${name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${fileExt}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from('card-images')
-            .upload(fileName, blob, {
-              cacheControl: '3600',
-              upsert: true,
-              contentType: 'image/png'
-            });
-            
-          if (uploadError) {
-            throw uploadError;
-          }
-          
-          // Get the public URL
-          const { data: { publicUrl } } = supabase.storage
-            .from('card-images')
-            .getPublicUrl(fileName);
-            
-          imageUrl = publicUrl;
-        } catch (error) {
-          console.error('Error uploading image to Supabase:', error);
-          // Fallback to the generated URL if upload fails
-          imageUrl = imagePrompt;
-        }
-      } else {
+      try {
+        const imagePrompt = await generateCardImage({
+          cardName: name,
+          theme: deckTheme,
+          style: deckStyle,
+          description: description,
+          deckId: deckId || undefined,
+          onProgress: onImageProgress
+        });
+        
+        console.log(`Image generation successful for ${name}`, { imageUrl: imagePrompt });
         imageUrl = imagePrompt;
+        
+        // Ensure we show 100% progress when complete
+        updateGeneratingCardState({
+          imageProgress: 100,
+          imageInProgress: false
+        }, name);
+        
+      } catch (error) {
+        console.error(`Error generating image for ${name}:`, error);
+        
+        // Only use placeholder if we don't have a deck ID
+        if (!deckId) {
+          throw error; // Re-throw to be caught by the outer catch
+        }
+        
+        // Try to use a placeholder image
+        imageUrl = generatePlaceholderImageUrl(name, deckTheme);
       }
       
       // Create the completed card
@@ -461,9 +463,24 @@ const DeckCreator = () => {
     setActiveCard(cardId);
     
     try {
-      // Generate new description and image
-      const description = await generateCardDescription(cardToRegenerate.name, deckTheme);
+      // Generate new description with progress tracking
+      const onDescriptionProgress = (progress: number) => {
+        setCurrentlyGenerating(prev => 
+          prev.map(card => 
+            card.name === cardToRegenerate.name
+              ? { ...card, descriptionProgress: progress }
+              : card
+          )
+        );
+      };
       
+      const description = await generateCardDescription({
+        cardName: cardToRegenerate.name,
+        deckTheme,
+        onProgress: onDescriptionProgress
+      });
+      
+      // Generate new image
       const imageUrl = await generateCardImage({
         cardName: cardToRegenerate.name,
         theme: deckTheme,
