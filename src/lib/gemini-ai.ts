@@ -32,6 +32,9 @@ const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
 // Google Generative AI configuration
 const apiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY || '';
 
+// Initialize Google Generative AI client
+const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+
 // Debug log environment variables
 console.log('Environment variables:', {
   VITE_GOOGLE_AI_API_KEY: import.meta.env.VITE_GOOGLE_AI_API_KEY ? '***' : 'Not set',
@@ -48,14 +51,30 @@ if (!apiKey) {
   console.log('Google AI API key is configured, length:', apiKey.length);
 }
 
-// Initialize Google Generative AI with a fallback for missing API key
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
-
+// Helper function to get the appropriate model
 export const getGeminiModel = (modelName: AIModel = 'gemini-2.0-flash') => {
   if (!genAI) {
     throw new Error('Google AI API key is not configured. Please add your API key to the .env file.');
   }
   return genAI.getGenerativeModel({ model: modelName });
+};
+
+// Function to check available models - note: direct listModels is not available in the client API
+// This is a simplified version that logs the model we're trying to use
+export const logModelInfo = (modelName: string): void => {
+  if (!genAI) {
+    console.warn('Google AI client not initialized. Cannot check models.');
+    return;
+  }
+  
+  console.log(`Attempting to use model: ${modelName}`);
+  try {
+    // Just get the model to see if it's available
+    genAI.getGenerativeModel({ model: modelName });
+    console.log(`Successfully initialized model: ${modelName}`);
+  } catch (error) {
+    console.error(`Error initializing model ${modelName}:`, error);
+  }
 };
 
 interface GenerateCardDescriptionParams {
@@ -517,15 +536,25 @@ export const generateCardImage = async (details: GenerateCardImageParams): Promi
     // Construct the final prompt following the template structure
     const prompt = `${details.cardName} tarot card in ${details.style} style with a ${details.theme} theme, featuring ${mainSubject} in a ${mood} atmosphere. ${keySymbols}. Include ${details.additionalPrompt ? details.additionalPrompt : 'rich symbolic colors and mystical elements'}. Artistic, mystical, detailed, with a decorative border and "${details.cardName}" written at the bottom.`;
     
-    // Use Gemini's Imagen 3 Fast model for optimal generation speed
-    // Create an instance of the Imagen 3.0 Fast Generate model
-    const model = getGeminiModel('imagen-3.0-fast-generate-001');
-    console.log('Imagen 3.0 Fast Generate model initialized successfully');
+    // Update progress after starting model initialization
+    updateProgress(20, 'generating');
+    
+    // Log model info to help with debugging
+    if (import.meta.env.DEV) {
+      // Use the specified imagen model
+      logModelInfo('imagen-3.0-generate-002');
+    }
+    
+    // Use the imagen-3.0-generate-002 model for image generation as specified
+    const modelName: AIModel = 'imagen-3.0-generate-002';
+    const model = getGeminiModel(modelName);
+    
+    console.log('Imagen 3.0 Generate 002 model initialized successfully');
     
     // Generate the image using Imagen 3
     console.log('Sending prompt to Imagen API:', prompt.substring(0, 100) + '...');
     
-    // For Imagen 3.0 Fast Generate, enhance the prompt with specific parameters
+    // For Imagen 3.0 Fast, enhance the prompt with specific parameters
     // Create a text prompt that includes the image generation parameters in natural language
     const enhancedPrompt = `${prompt}
 
@@ -857,7 +886,7 @@ export const generateThemeSuggestions = async (count: number = 10): Promise<stri
   }
   
   try {
-    // Explicitly use gemini-2.0-flash model
+    // Explicitly use gemini-2.0-flash model for theme suggestions
     const model = getGeminiModel('gemini-2.0-flash');
     
     const prompt = `
