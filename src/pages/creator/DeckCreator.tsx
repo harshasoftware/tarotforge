@@ -365,31 +365,68 @@ const DeckCreator = () => {
       
       const keywords = Array.from(keywordsSet);
       
-      // Generate image URL and save to Supabase Storage
-      // If deckId is available, the image will be stored in Supabase
-      const imageUrl = await generateCardImage({
+      // Generate image URL using Gemini AI
+      const imagePrompt = await generateCardImage({
         cardName: name,
         theme: deckTheme,
         style: deckStyle,
-        description,
-        additionalPrompt: promptValue,
-        deckId: deckId || undefined
+        description: description
       });
+
+      let imageUrl = '';
       
-      // Create card object
+      // If we have a deckId, upload the image to Supabase Storage
+      if (deckId) {
+        try {
+          // First, convert the data URL to a blob
+          const response = await fetch(imagePrompt);
+          const blob = await response.blob();
+          
+          // Upload to Supabase Storage
+          const fileExt = 'png';
+          const fileName = `${deckId}/${name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('card-images')
+            .upload(fileName, blob, {
+              cacheControl: '3600',
+              upsert: true,
+              contentType: 'image/png'
+            });
+            
+          if (uploadError) {
+            throw uploadError;
+          }
+          
+          // Get the public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('card-images')
+            .getPublicUrl(fileName);
+            
+          imageUrl = publicUrl;
+        } catch (error) {
+          console.error('Error uploading image to Supabase:', error);
+          // Fallback to the generated URL if upload fails
+          imageUrl = imagePrompt;
+        }
+      } else {
+        imageUrl = imagePrompt;
+      }
+      
+      // Create the completed card
       const newCard: Card = {
         id: uuidv4(),
-        deck_id: deckId || '',
+        deck_id: deckId || 'temp-deck-id', // This should be set before generating cards
         name,
         description,
         image_url: imageUrl,
         card_type: cardType,
-        suit: suit, // This is now safely typed because we've updated the CardToGenerate interface
+        suit: suit || null,
         keywords,
         order
       };
       
-      // Add the new card to generated cards
+      // Add to generated cards
       setGeneratedCards(prev => [...prev, newCard]);
       
       // Remove from currently generating
