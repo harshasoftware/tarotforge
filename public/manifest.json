@@ -1,0 +1,60 @@
+{
+  "name": "Tarot Forge",
+  "short_name": "TarotForge",
+  "description": "Create and collect unique AI-generated tarot decks. Buy, sell, and experience professional readings with custom decks.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "ios/192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "ios/512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "windows11/Square44x44Logo.altform-lightunplated_targetsize-256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "windows11/Square44x44Logo.altform-unplated_targetsize-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "gcm_sender_id": "103953800507",
+  "permissions": [
+    "periodic-background-sync",
+    "notifications",
+    "push"
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Daily Card",
+      "url": "/daily-card",
+      "description": "View today's tarot card"
+    },
+    {
+      "name": "Create Deck",
+      "url": "/create",
+      "description": "Design a new tarot deck"
+    }
+  ],
+  "categories": ["entertainment", "lifestyle"],
+  "lang": "en-US",
+  "dir": "ltr"
+}
