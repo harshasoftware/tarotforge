@@ -199,44 +199,14 @@ const Home = () => {
   const location = useLocation();
   const { user, setShowSignInModal } = useAuth();
   const [themePrompt, setThemePrompt] = useState("");
-  const [isInputFocused, setIsInputFocused] = useState(false);
-  const [sparkles, setSparkles] = useState<Array<{id: number, x: number, y: number, size: number, delay: number}>>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const controls = useAnimation();
 
-  // Generate random sparkles
-  const generateSparkles = useCallback(() => {
-    if (!inputRef.current) return [];
-    
-    const rect = inputRef.current.getBoundingClientRect();
-    const newSparkles = [];
-    
-    for (let i = 0; i < 12; i++) {
-      newSparkles.push({
-        id: Math.random(),
-        x: Math.random() * (rect.width - 30),
-        y: Math.random() * (rect.height - 30),
-        size: 4 + Math.random() * 6,
-        delay: Math.random() * 0.5
-      });
-    }
-    
-    return newSparkles;
-  }, []);
-
-  // Update sparkles on focus
+  // Focus effect for input
   useEffect(() => {
-    if (isInputFocused) {
-      setSparkles(generateSparkles());
-      const interval = setInterval(() => {
-        setSparkles(generateSparkles());
-      }, 1500);
-      return () => clearInterval(interval);
-    } else {
-      setSparkles([]);
-    }
-  }, [isInputFocused, generateSparkles]);
+    // Focus management can go here if needed
+  }, []);
 
   // Animate button on hover
   const handleButtonHover = () => {
@@ -409,8 +379,8 @@ const Home = () => {
           <div className="absolute inset-0 sparkles"></div>
         </div>
         
-        {/* Floating Tarot Cards in Background */}
-        {tarotCardImages.map((imageUrl, index) => (
+        {/* Floating Tarot Cards in Background - Memoized */}
+        {useMemo(() => tarotCardImages.map((imageUrl, index) => (
           <motion.div
             key={`tarot-card-${index}`}
             className="absolute hidden sm:block"
@@ -453,7 +423,7 @@ const Home = () => {
               <div className="absolute inset-0 bg-background/30 backdrop-blur-sm"></div>
             </div>
           </motion.div>
-        ))}
+        )), [tarotCardImages])}
         
         {/* Main Heading */}
         <motion.div
