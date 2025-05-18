@@ -1,8 +1,8 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import DeckPreview from '../components/ui/DeckPreview';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TarotLogo from '../components/ui/TarotLogo';
 import { useAuth } from '../context/AuthContext';
@@ -199,6 +199,53 @@ const Home = () => {
   const location = useLocation();
   const { user, setShowSignInModal } = useAuth();
   const [themePrompt, setThemePrompt] = useState("");
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [sparkles, setSparkles] = useState<Array<{id: number, x: number, y: number, size: number, delay: number}>>([]);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const controls = useAnimation();
+
+  // Generate random sparkles
+  const generateSparkles = useCallback(() => {
+    if (!inputRef.current) return [];
+    
+    const rect = inputRef.current.getBoundingClientRect();
+    const newSparkles = [];
+    
+    for (let i = 0; i < 12; i++) {
+      newSparkles.push({
+        id: Math.random(),
+        x: Math.random() * (rect.width - 30),
+        y: Math.random() * (rect.height - 30),
+        size: 4 + Math.random() * 6,
+        delay: Math.random() * 0.5
+      });
+    }
+    
+    return newSparkles;
+  }, []);
+
+  // Update sparkles on focus
+  useEffect(() => {
+    if (isInputFocused) {
+      setSparkles(generateSparkles());
+      const interval = setInterval(() => {
+        setSparkles(generateSparkles());
+      }, 1500);
+      return () => clearInterval(interval);
+    } else {
+      setSparkles([]);
+    }
+  }, [isInputFocused, generateSparkles]);
+
+  // Animate button on hover
+  const handleButtonHover = () => {
+    controls.start({
+      backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
+      transition: { duration: 3, repeat: Infinity, ease: 'linear' }
+    });
+  };
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [themeSuggestions, setThemeSuggestions] = useState<string[]>(allThemeSuggestions.slice(0, 12));
   const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
@@ -351,7 +398,7 @@ const Home = () => {
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
       <motion.section 
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-4 pb-12 md:py-12 overflow-hidden"
+        className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-0 pb-12 md:py-6 overflow-hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
@@ -413,39 +460,34 @@ const Home = () => {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-6 md:mb-8 z-10 mt-0 md:mt-4"
+          className="text-center mb-2 md:mb-4 z-10"
         >
-          <h2 className="text-4xl md:text-5xl font-serif font-bold mb-4">
-            Create Your Tarot Deck Now
-          </h2>
+          <div className="flex justify-center mb-2">
+            <TarotLogo className="h-12 w-12 md:h-16 md:w-16" />
+          </div>
         </motion.div>
         
         {/* Bento-style Deck Creation Prompt Box */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.6 }}
-          className="w-full max-w-xl mx-auto z-10"
+          transition={{ delay: 0.1, duration: 0.5 }}
+          className="w-full max-w-xl mx-auto z-10 mt-1"
         >
           <div className="bg-background/95 backdrop-blur-sm border border-border rounded-xl shadow-xl overflow-hidden">
-            <div className="p-6 pb-4">
-              <div className="flex justify-center mb-4">
-                <TarotLogo />
-              </div>
+            <div className="p-4 pb-3">
+              <h4 className="text-xl md:text-2xl font-serif font-bold mb-2 text-center">
+                Create Your Tarot Deck Now
+              </h4>
               
               <form onSubmit={handleThemeSubmit}>
                 <div className="mb-5">
-                  <p className="text-sm text-muted-foreground text-center mb-2">
-                    Describe your deck's theme or concept
-                  </p>
-                  
-                  <input
+                  <textarea
                     id="deck-theme-input"
-                    type="text"
                     value={themePrompt}
                     onChange={(e) => setThemePrompt(e.target.value)}
-                    placeholder="e.g., Cosmic journey through ancient mythology..."
-                    className="w-full p-3 rounded-lg bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Describe your deck's theme or concept (e.g., Cosmic journey through ancient mythology...)"
+                    className="w-full p-3 rounded-lg bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px] resize-none"
                   />
                 </div>
                 
