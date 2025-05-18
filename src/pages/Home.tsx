@@ -1,8 +1,7 @@
-import { motion, AnimatePresence, useAnimation } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
-import DeckPreview from '../components/ui/DeckPreview';
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TarotLogo from '../components/ui/TarotLogo';
 import { useAuth } from '../context/AuthContext';
@@ -199,24 +198,6 @@ const Home = () => {
   const location = useLocation();
   const { user, setShowSignInModal } = useAuth();
   const [themePrompt, setThemePrompt] = useState("");
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const controls = useAnimation();
-
-  // Focus effect for input
-  useEffect(() => {
-    // Focus management can go here if needed
-  }, []);
-
-  // Animate button on hover
-  const handleButtonHover = () => {
-    controls.start({
-      backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
-      transition: { duration: 3, repeat: Infinity, ease: 'linear' }
-    });
-  };
-
-  const [isGenerating, setIsGenerating] = useState(false);
   const [themeSuggestions, setThemeSuggestions] = useState<string[]>(allThemeSuggestions.slice(0, 12));
   const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
@@ -1161,76 +1142,6 @@ const Home = () => {
         </div>
       </section>
     </div>
-  );
-};
-
-// Feature Card Component
-const FeatureCard = ({ 
-  icon, 
-  title, 
-  description, 
-  accent = false 
-}: { 
-  icon: React.ReactNode; 
-  title: string; 
-  description: string; 
-  accent?: boolean;
-}) => {
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
-      whileHover={{ y: -10, transition: { duration: 0.2 } }}
-      className={`rounded-xl border ${accent ? 'border-accent/30' : 'border-border'} 
-      ${accent ? 'bg-accent/5' : 'bg-card'} p-6 relative overflow-hidden h-full`}
-    >
-      <div className={`w-12 h-12 rounded-lg flex items-center justify-center mb-4 
-      ${accent ? 'bg-accent/20 text-accent' : 'bg-primary/20 text-primary'}`}>
-        {icon}
-      </div>
-      <h3 className="text-xl font-serif font-medium mb-3">{title}</h3>
-      <p className="text-muted-foreground">{description}</p>
-    </motion.div>
-  );
-};
-
-// Testimonial Card Component
-const TestimonialCard = ({ 
-  quote, 
-  name, 
-  role, 
-  avatarUrl, 
-  primary = false 
-}: { 
-  quote: string; 
-  name: string; 
-  role: string; 
-  avatarUrl: string; 
-  primary?: boolean;
-}) => {
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
-      whileHover={{ y: -5, transition: { duration: 0.2 } }}
-      className={`rounded-xl border ${primary ? 'border-primary/30' : 'border-border'} 
-      ${primary ? 'bg-primary/5' : 'bg-card'} p-6 relative overflow-hidden h-full`}
-    >
-      <div className="flex items-center mb-4">
-        <div className="w-12 h-12 rounded-full overflow-hidden mr-4">
-          <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
-        </div>
-        <div>
-          <h4 className="font-medium">{name}</h4>
-          <p className="text-sm text-muted-foreground">{role}</p>
-        </div>
-      </div>
-      <p className="text-muted-foreground italic">"{quote}"</p>
-    </motion.div>
   );
 };
 
