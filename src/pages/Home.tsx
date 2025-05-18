@@ -128,67 +128,44 @@ const allThemeSuggestions = [
   "Metamorphosis"
 ];
 
-// Mock function to simulate AI generating theme suggestions
+import { generateThemeSuggestions, generateElaborateTheme } from '../lib/gemini-ai';
+
+// Generate theme suggestions using Gemini AI
 const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
-  // In a real implementation, this would call the Gemini AI API
-  // For now, we'll just return theme suggestions based on input
-  
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  
-  // Sample themes based loosely on input
-  if (input.toLowerCase().includes('cosmic') || input.toLowerCase().includes('space')) {
+  try {
+    // Generate a larger number of suggestions to ensure variety
+    const allSuggestions = await generateThemeSuggestions(15);
+    
+    // If there's input, try to find relevant suggestions
+    if (input.trim()) {
+      // Convert input to lowercase for case-insensitive matching
+      const inputLower = input.toLowerCase();
+      
+      // Filter suggestions that contain any word from the input
+      const relevantSuggestions = allSuggestions.filter(suggestion => 
+        inputLower.split(' ').some(word => 
+          word.length > 3 && // Only consider words longer than 3 characters
+          suggestion.toLowerCase().includes(word)
+        )
+      );
+      
+      // If we found relevant suggestions, return them (up to 10)
+      if (relevantSuggestions.length > 0) {
+        return relevantSuggestions.slice(0, 10);
+      }
+    }
+    
+    // If no input or no relevant suggestions found, return the first 10 suggestions
+    return allSuggestions.slice(0, 10);
+    
+  } catch (error) {
+    console.error('Error generating theme suggestions:', error);
+    // Fallback to default suggestions if there's an error
     return [
-      "Galactic Pathways",
-      "Celestial Odyssey", 
-      "Astral Projection",
-      "Quantum Multiverse",
-      "Nebula Whispers",
-      "Event Horizon",
-      "Star Children",
-      "Void Explorers",
-      "Solar Mythology",
-      "Constellation Guides"
-    ];
-  } else if (input.toLowerCase().includes('nature') || input.toLowerCase().includes('forest')) {
-    return [
-      "Ancient Groves",
-      "Whispers of the Wild",
-      "Elemental Forest",
-      "Mycological Mysteries",
-      "Botanical Wisdom",
-      "Fae Wilderness",
-      "Sacred Plants",
-      "Forest Spirits",
-      "Natural Cycles",
-      "Earth Magic"
-    ];
-  } else if (input.toLowerCase().includes('myth') || input.toLowerCase().includes('legend')) {
-    return [
-      "Forgotten Pantheons",
-      "Mythic Heroes Journey",
-      "Divine Archetypes",
-      "Legendary Realms",
-      "Primordial Tales",
-      "Ancestral Wisdom",
-      "Creation Myths",
-      "Cultural Legends",
-      "Trickster Gods",
-      "Origin Stories"
-    ];
-  } else {
-    // Generic suggestions
-    return [
-      "Dreamscape Visions",
-      "Shadow & Light",
-      "Alchemical Transformation",
-      "Spirit Guides",
-      "Elemental Wisdom",
-      "Mystic Geometry",
-      "Inner Journey",
-      "Symbolic Language",
-      "Ethereal Beings",
-      "Soul Path"
+      "Celestial Voyage", "Ancient Mythology", "Enchanted Forest", 
+      "Cybernetic Dreams", "Elemental Forces", "Oceanic Mysteries",
+      "Astral Projections", "Crystal Energies", "Gothic Shadows", 
+      "Shamanic Vision"
     ];
   }
 };
@@ -200,6 +177,7 @@ const Home = () => {
   const [themePrompt, setThemePrompt] = useState("");
   const [themeSuggestions, setThemeSuggestions] = useState<string[]>(allThemeSuggestions.slice(0, 12));
   const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
+  const [isGeneratingElaboration, setIsGeneratingElaboration] = useState(false);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
   const [lastLoadedIndex, setLastLoadedIndex] = useState(12);
   
@@ -311,8 +289,22 @@ const Home = () => {
     }
   };
 
-  const selectSuggestion = (suggestion: string) => {
+  const selectSuggestion = async (suggestion: string) => {
+    // First set the basic suggestion
     setThemePrompt(suggestion);
+    
+    // Then generate and append an elaboration
+    try {
+      setIsGeneratingElaboration(true);
+      const elaboration = await generateElaborateTheme(suggestion);
+      setThemePrompt(`${suggestion}: ${elaboration}`);
+    } catch (error) {
+      console.error('Error generating theme elaboration:', error);
+      // If there's an error, just keep the basic suggestion
+      setThemePrompt(suggestion);
+    } finally {
+      setIsGeneratingElaboration(false);
+    }
   };
   
   const handleGenerateThemes = async () => {
@@ -496,11 +488,13 @@ const Home = () => {
                           key={`${suggestion}-${index}`}
                           type="button"
                           onClick={() => selectSuggestion(suggestion)}
-                          className="whitespace-nowrap text-sm px-3 py-1.5 rounded-full 
+                          disabled={isGeneratingElaboration}
+                          className={`whitespace-nowrap text-sm px-3 py-1.5 rounded-full 
                                     bg-primary/10 hover:bg-primary/20 text-primary transition-colors
-                                    border border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                    border border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/40
+                                    ${isGeneratingElaboration ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
-                          {suggestion}
+                          {isGeneratingElaboration ? '...' : suggestion}
                         </button>
                       ))}
                     </div>
