@@ -221,7 +221,7 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
           <div
             ref={certificateRef}
             className="w-full max-w-4xl aspect-[1.414/1] bg-gradient-to-b from-black to-primary/20 rounded-xl p-8 relative overflow-hidden"
-            style={{ fontFamily: 'Arial, sans-serif' }} {/* Ensure certificate text uses standard fonts for export */}
+            style={{ fontFamily: 'Arial, sans-serif' }} 
           >
             {/* Certificate Border */}
             <div className="absolute inset-0 border-[12px] border-accent/20 rounded-xl pointer-events-none"></div>
