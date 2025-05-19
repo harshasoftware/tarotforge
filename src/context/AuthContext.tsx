@@ -17,7 +17,7 @@ interface AuthContextType {
   setMagicLinkSent: (sent: boolean) => void;
   showSignInModal: boolean;
   setShowSignInModal: (show: boolean) => void;
-  handleGoogleOneTap: () => void;
+  handleGoogleOneTap: () => Promise<void>;
 }
 
 // Google One Tap interface
@@ -57,7 +57,7 @@ const AuthContext = createContext<AuthContextType>({
   setMagicLinkSent: () => {},
   showSignInModal: false,
   setShowSignInModal: () => {},
-  handleGoogleOneTap: () => {}
+  handleGoogleOneTap: async () => {}
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -413,83 +413,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Generate a cryptographically secure random nonce
-  const generateNonce = () => {
-    const array = new Uint8Array(16);
-    crypto.getRandomValues(array);
-    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-  };
-
-  // Handle Google One Tap sign in
-  const handleGoogleOneTapCallback = async (response: GoogleOneTapResponse) => {
-    try {
-      console.log('Google One Tap response received');
-      
-      // Verify and decode the JWT token
-      const credential = response.credential;
-      
-      // Sign in with Supabase using the ID token
-      const { data, error } = await supabase.auth.signInWithIdToken({
-        provider: 'google',
-        token: credential,
-        nonce: nonceRef.current, // Use the stored nonce for verification
-      });
-      
-      if (error) {
-        console.error('Error signing in with Google One Tap:', error);
-        return;
-      }
-      
-      console.log('Successfully signed in with Google One Tap');
-      await checkAuth();
-    } catch (err) {
-      console.error('Error processing Google One Tap response:', err);
-    }
-  };
-
-  // Initialize Google One Tap
-  const initGoogleOneTap = () => {
-    if (googleOneTapInitializedRef.current || user) return;
-    googleOneTapInitializedRef.current = true;
-    
-    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!googleClientId) {
-      console.error('Google Client ID is not configured. One Tap sign-in is disabled.');
-      return;
-    }
-
-    // Generate a secure nonce for this sign-in attempt
-    nonceRef.current = generateNonce();
-
-    // Make sure google is defined before trying to use it
-    if (typeof window !== 'undefined' && window.google && window.google.accounts) {
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: handleGoogleOneTapCallback,
-        auto_select: false, // Don't auto-select to avoid conflicts with FedCM
-        cancel_on_tap_outside: true,
-        use_fedcm_for_prompt: true, // Explicitly opt-in to FedCM
-      });
-      
-      // Display the One Tap prompt using FedCM compatible approach
-      window.google.accounts.id.prompt(); // No callback to avoid using deprecated methods
-    } else {
-      console.warn('Google accounts API not available yet. Will try again later.');
-      // Try again later when the script might be loaded
-      setTimeout(() => {
-        googleOneTapInitializedRef.current = false;
-        initGoogleOneTap();
-      }, 2000);
-    }
-  };
-
-  // Manually trigger Google One Tap dialog
-  const handleGoogleOneTap = () => {
-    // Reset the initialization flag so we can show it again
-    googleOneTapInitializedRef.current = false;
-    initGoogleOneTap();
-  };
-
   const signOut = async () => {
     try {
       console.log('Signing out user');
@@ -526,6 +449,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return password;
   };
 
+  // Generate a cryptographically secure random nonce
+  const generateNonce = () => {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  };
+
+  // Handle Google One Tap sign in
+  const handleGoogleOneTapCallback = async (response: GoogleOneTapResponse) => {
+    try {
+      console.log('Google One Tap response received');
+      
+      // Sign in with Supabase using the ID token
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: response.credential,
+        nonce: nonceRef.current, // Use the stored nonce for verification
+      });
+      
+      if (error) {
+        console.error('Error signing in with Google One Tap:', error);
+        return;
+      }
+      
+      console.log('Successfully signed in with Google One Tap');
+      await checkAuth();
+    } catch (err) {
+      console.error('Error processing Google One Tap response:', err);
+    }
+  };
+
+  // Handle Google One Tap initialization
+  const handleGoogleOneTap = async () => {
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!googleClientId) {
+      console.error('Google Client ID is not configured');
+      return;
+    }
+
+    // Generate a secure nonce for this sign-in attempt
+    nonceRef.current = generateNonce();
+    
+    // Make sure google is defined
+    if (window.google?.accounts?.id) {
+      // Reset initialization flag
+      googleOneTapInitializedRef.current = false;
+      
+      // Initialize with FedCM
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleOneTapCallback,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+        use_fedcm_for_prompt: true, // Explicitly opt-in to FedCM
+      });
+      
+      // Display the One Tap prompt using FedCM compatible approach
+      // No callback to avoid deprecated methods
+      window.google.accounts.id.prompt();
+      
+      googleOneTapInitializedRef.current = true;
+    }
+  };
+
   // Set up auth state listener
   useEffect(() => {
     console.log('Setting up auth state listener');
@@ -534,13 +521,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initAuth = async () => {
       try {
         await checkAuth();
-        
-        // Initialize Google One Tap if user is not logged in
-        if (!user) {
-          setTimeout(() => {
-            initGoogleOneTap();
-          }, 1000);
-        }
       } catch (error) {
         console.error('Error during initial auth check:', error);
         setLoading(false);
@@ -580,7 +560,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Reset One Tap state when signed out
           googleOneTapInitializedRef.current = false;
           setTimeout(() => {
-            initGoogleOneTap();
+            handleGoogleOneTap();
           }, 1000);
         }
       }
@@ -597,21 +577,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [checkAuth, user]);
 
-  // Add global window type for TypeScript
-  declare global {
-    interface Window {
-      google?: {
-        accounts: {
-          id: {
-            initialize: (config: any) => void;
-            prompt: (callback?: (notification: any) => void) => void;
-            renderButton: (element: HTMLElement, config: any) => void;
-            disableAutoSelect: () => void;
-          };
-        };
-      };
+  // Initialize Google One Tap when user is not logged in
+  useEffect(() => {
+    if (!user && !googleOneTapInitializedRef.current) {
+      handleGoogleOneTap();
     }
-  }
+  }, [user]);
 
   const value = {
     user,

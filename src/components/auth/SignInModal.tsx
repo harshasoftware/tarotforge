@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { X, Mail, ArrowRight, AlertCircle, Check, User } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../../context/AuthContext';
+import GoogleOneTap from './GoogleOneTap';
 
 interface SignInModalProps {
   isOpen: boolean;
@@ -116,7 +117,10 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
             </div>
           ) : (
             <>
-              {/* Google Sign In Button */}
+              {/* Google One Tap component */}
+              <GoogleOneTap />
+              
+              {/* Traditional Google Sign In Button */}
               <button
                 onClick={handleGoogleSignIn}
                 disabled={googleLoading}

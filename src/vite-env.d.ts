@@ -32,12 +32,13 @@ interface Window {
           use_fedcm_for_prompt?: boolean;
         }) => void;
         prompt: (callback?: (notification: {
-          isNotDisplayed: () => boolean;
-          getNotDisplayedReason: () => string;
-          isSkippedMoment: () => boolean;
-          getSkippedReason: () => string;
-          isDismissedMoment: () => boolean;
-          getDismissedReason: () => string;
+          isNotDisplayed?: () => boolean;
+          getNotDisplayedReason?: () => string;
+          isSkippedMoment?: () => boolean;
+          getSkippedReason?: () => string;
+          isDismissedMoment?: () => boolean;
+          getDismissedReason?: () => string;
+          getMomentType?: () => string;
         }) => void) => void;
         renderButton: (
           element: HTMLElement, 
@@ -52,6 +53,7 @@ interface Window {
           }
         ) => void;
         disableAutoSelect: () => void;
+        cancel: () => void;
       };
     };
   };
