@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Filter, Zap, TrendingUp, Clock, Star, XCircle, AlertCircle } from 'lucide-react';
+import { Search, Filter, Zap, TrendingUp, Clock, Star, XCircle, AlertCircle, Loader } from 'lucide-react';
 import DeckPreview from '../../components/ui/DeckPreview';
 import { Deck } from '../../types';
 import { supabase } from '../../lib/supabase';
@@ -36,13 +36,24 @@ const themeStarters = [
 
 const Marketplace = () => {
   const [decks, setDecks] = useState<Deck[]>([]);
+  const [displayedDecks, setDisplayedDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [themeSuggestions, setThemeSuggestions] = useState<string[]>(themeStarters.slice(0, 10));
   const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
   const [promptEngineValue, setPromptEngineValue] = useState('');
   const [isGeneratingElaborateTheme, setIsGeneratingElaborateTheme] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  
+  // Refs for infinite scrolling
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastDeckElementRef = useRef<HTMLDivElement | null>(null);
+  
+  // Pagination constants
+  const DECKS_PER_PAGE = 12;
   
   // Refs for infinite scrolling of theme suggestions
   const suggestionsRef = useRef<HTMLDivElement>(null);
@@ -152,6 +163,7 @@ const Marketplace = () => {
     }
   }, [isGeneratingThemes, themeSuggestions.length]);
   
+  // Initial decks load
   useEffect(() => {
     const fetchDecks = async () => {
       try {
@@ -215,54 +227,130 @@ const Marketplace = () => {
   }, []);
   
   // Filter and search logic
-  const filteredDecks = decks.filter(deck => {
-    const matchesSearch = deck.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  useEffect(() => {
+    const filteredDecks = decks.filter(deck => {
+      const matchesSearch = deck.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           deck.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           deck.creator_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           deck.theme.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           deck.style.toLowerCase().includes(searchQuery.toLowerCase());
                           
-    if (activeFilter === 'all') return matchesSearch;
-    if (activeFilter === 'nft') return matchesSearch && deck.is_nft;
-    if (activeFilter === 'free') return matchesSearch && deck.is_free;
-    if (activeFilter === 'popular') return matchesSearch && (deck.purchase_count || 0) > 100;
-    if (activeFilter === 'new') {
-      const deckDate = new Date(deck.created_at);
-      const oneMonthAgo = new Date();
-      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-      return matchesSearch && deckDate > oneMonthAgo;
-    }
+      if (activeFilter === 'all') return matchesSearch;
+      if (activeFilter === 'nft') return matchesSearch && deck.is_nft;
+      if (activeFilter === 'free') return matchesSearch && deck.is_free;
+      if (activeFilter === 'popular') return matchesSearch && (deck.purchase_count || 0) > 100;
+      if (activeFilter === 'new') {
+        const deckDate = new Date(deck.created_at);
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+        return matchesSearch && deckDate > oneMonthAgo;
+      }
+      
+      return matchesSearch;
+    });
     
-    return matchesSearch;
-  });
+    // Reset pagination when filters change
+    setPage(0);
+    setHasMore(filteredDecks.length > DECKS_PER_PAGE);
+    setDisplayedDecks(filteredDecks.slice(0, DECKS_PER_PAGE));
+  }, [activeFilter, searchQuery, decks]);
   
-  const displayDecks = loading ? placeholderDecks : filteredDecks;
+  // Intersection observer for infinite scrolling
+  const lastDeckRef = useCallback((node: HTMLDivElement | null) => {
+    if (loading || loadingMore) return;
+    
+    if (observer.current) observer.current.disconnect();
+    
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        loadMoreDecks();
+      }
+    });
+    
+    if (node) {
+      observer.current.observe(node);
+      lastDeckElementRef.current = node;
+    }
+  }, [loading, loadingMore, hasMore]);
+  
+  // Load more decks
+  const loadMoreDecks = useCallback(() => {
+    if (!hasMore || loadingMore) return;
+    
+    setLoadingMore(true);
+    
+    // Get filtered decks
+    const filteredDecks = decks.filter(deck => {
+      const matchesSearch = deck.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          deck.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          deck.creator_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          deck.theme.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          deck.style.toLowerCase().includes(searchQuery.toLowerCase());
+                          
+      if (activeFilter === 'all') return matchesSearch;
+      if (activeFilter === 'nft') return matchesSearch && deck.is_nft;
+      if (activeFilter === 'free') return matchesSearch && deck.is_free;
+      if (activeFilter === 'popular') return matchesSearch && (deck.purchase_count || 0) > 100;
+      if (activeFilter === 'new') {
+        const deckDate = new Date(deck.created_at);
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+        return matchesSearch && deckDate > oneMonthAgo;
+      }
+      
+      return matchesSearch;
+    });
+    
+    // Simulate loading delay
+    setTimeout(() => {
+      const nextPage = page + 1;
+      const start = nextPage * DECKS_PER_PAGE;
+      const end = start + DECKS_PER_PAGE;
+      const newItems = filteredDecks.slice(start, end);
+      
+      if (newItems.length > 0) {
+        setDisplayedDecks(prev => [...prev, ...newItems]);
+        setPage(nextPage);
+        setHasMore(end < filteredDecks.length);
+      } else {
+        setHasMore(false);
+      }
+      
+      setLoadingMore(false);
+    }, 600);
+  }, [page, decks, hasMore, loadingMore, activeFilter, searchQuery]);
+  
+  // Helper function to get random decks from displayed decks
+  const getRandomDecks = (count: number) => {
+    const shuffled = [...displayedDecks].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, count);
+  };
   
   // Helper function to sort decks by popularity
   const getPopularDecks = () => {
-    return [...displayDecks].sort((a, b) => (b.purchase_count || 0) - (a.purchase_count || 0)).slice(0, 3);
+    return [...displayedDecks].sort((a, b) => (b.purchase_count || 0) - (a.purchase_count || 0)).slice(0, 3);
   };
   
   // Helper function to sort decks by rating
   const getTopRatedDecks = () => {
-    return [...displayDecks].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 2);
+    return [...displayedDecks].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 2);
   };
   
   // Helper function to sort decks by most recent
   const getNewestDecks = () => {
-    return [...displayDecks].sort((a, b) => 
+    return [...displayedDecks].sort((a, b) => 
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     ).slice(0, 4);
   };
   
   // Helper function to get free decks
   const getFreeDecks = () => {
-    return displayDecks.filter(deck => deck.is_free).slice(0, 2);
+    return displayedDecks.filter(deck => deck.is_free).slice(0, 2);
   };
   
   // Helper function to get NFT decks
   const getNftDecks = () => {
-    return displayDecks.filter(deck => deck.is_nft).slice(0, 2);
+    return displayedDecks.filter(deck => deck.is_nft).slice(0, 2);
   };
   
   // Apply a theme suggestion to search
@@ -417,7 +505,7 @@ const Marketplace = () => {
         </div>
         
         {/* Bento Grid Layout */}
-        {!loading && filteredDecks.length > 0 ? (
+        {!loading && displayedDecks.length > 0 ? (
           <>
             {/* Featured Section */}
             <section className="mb-12">
@@ -515,15 +603,59 @@ const Marketplace = () => {
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-serif font-bold">All Decks</h2>
                 <span className="text-sm text-muted-foreground">
-                  {filteredDecks.length} {filteredDecks.length === 1 ? 'deck' : 'decks'} found
+                  Showing {displayedDecks.length} of {decks.filter(deck => {
+                    const matchesSearch = deck.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                      deck.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                      deck.creator_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                      deck.theme.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                      deck.style.toLowerCase().includes(searchQuery.toLowerCase());
+                                      
+                    if (activeFilter === 'all') return matchesSearch;
+                    if (activeFilter === 'nft') return matchesSearch && deck.is_nft;
+                    if (activeFilter === 'free') return matchesSearch && deck.is_free;
+                    if (activeFilter === 'popular') return matchesSearch && (deck.purchase_count || 0) > 100;
+                    if (activeFilter === 'new') {
+                      const deckDate = new Date(deck.created_at);
+                      const oneMonthAgo = new Date();
+                      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+                      return matchesSearch && deckDate > oneMonthAgo;
+                    }
+                    
+                    return matchesSearch;
+                  }).length} decks
                 </span>
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {filteredDecks.map((deck) => (
-                  <DeckPreview key={deck.id} deck={deck} />
-                ))}
+                {displayedDecks.map((deck, index) => {
+                  // Add ref to last item for infinite scrolling
+                  if (index === displayedDecks.length - 1) {
+                    return (
+                      <div ref={lastDeckRef} key={deck.id}>
+                        <DeckPreview deck={deck} />
+                      </div>
+                    );
+                  }
+                  return <DeckPreview key={deck.id} deck={deck} />;
+                })}
               </div>
+              
+              {/* Loading more indicator */}
+              {loadingMore && (
+                <div className="text-center py-8">
+                  <div className="flex items-center justify-center">
+                    <Loader className="h-6 w-6 text-primary animate-spin mr-2" />
+                    <span>Loading more decks...</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* No more decks indicator */}
+              {!hasMore && displayedDecks.length > 0 && !loadingMore && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>You've reached the end of the marketplace</p>
+                </div>
+              )}
             </section>
           </>
         ) : loading ? (

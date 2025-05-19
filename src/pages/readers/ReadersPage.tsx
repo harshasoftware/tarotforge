@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, UserCheck, Users, Filter, Clock, CrownIcon, Star, Flame, Sparkles, Heart, Sun, SortAsc, SortDesc, DollarSign } from 'lucide-react';
+import { Search, UserCheck, Users, Filter, Clock, CrownIcon, Star, Flame, Sparkles, Heart, Sun, SortAsc, SortDesc, DollarSign, Loader } from 'lucide-react';
 import ReaderCard from '../../components/readers/ReaderCard';
 import { User } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -15,23 +15,36 @@ const ReadersPage: React.FC = () => {
   const { user } = useAuth();
   const [readers, setReaders] = useState<User[]>([]);
   const [filteredReaders, setFilteredReaders] = useState<User[]>([]);
+  const [displayedReaders, setDisplayedReaders] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'new' | 'top-rated' | 'advanced'>('all');
   const [sortOption, setSortOption] = useState<SortOption>('none');
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   
+  // Refs for intersection observer
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastReaderElementRef = useRef<HTMLDivElement | null>(null);
+
+  const ITEMS_PER_PAGE = 9;
+  
+  // Initial data load
   useEffect(() => {
     const loadReaders = async () => {
       try {
         setLoading(true);
         const readersData = await fetchAllReaders();
         setReaders(readersData);
-        setFilteredReaders(readersData);
+        setLoading(false);
+        setInitialLoad(false);
       } catch (err: any) {
         setError(err.message || 'Failed to load readers');
-      } finally {
         setLoading(false);
+        setInitialLoad(false);
       }
     };
     
@@ -109,7 +122,53 @@ const ReadersPage: React.FC = () => {
     }
     
     setFilteredReaders(filtered);
+    setPage(0);
+    setHasMore(filtered.length > ITEMS_PER_PAGE);
+    setDisplayedReaders(filtered.slice(0, ITEMS_PER_PAGE));
   }, [searchQuery, activeFilter, readers, sortOption]);
+  
+  // Intersection observer for infinite scrolling
+  const lastReaderRef = useCallback((node: HTMLDivElement | null) => {
+    if (loading || loadingMore) return;
+    
+    if (observer.current) observer.current.disconnect();
+    
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        loadMoreReaders();
+      }
+    });
+    
+    if (node) {
+      observer.current.observe(node);
+      lastReaderElementRef.current = node;
+    }
+  }, [loading, loadingMore, hasMore]);
+
+  // Load more readers
+  const loadMoreReaders = useCallback(() => {
+    if (!hasMore || loadingMore) return;
+    
+    setLoadingMore(true);
+    
+    // Simulate loading delay
+    setTimeout(() => {
+      const nextPage = page + 1;
+      const start = nextPage * ITEMS_PER_PAGE;
+      const end = start + ITEMS_PER_PAGE;
+      const newItems = filteredReaders.slice(start, end);
+      
+      if (newItems.length > 0) {
+        setDisplayedReaders(prev => [...prev, ...newItems]);
+        setPage(nextPage);
+        setHasMore(end < filteredReaders.length);
+      } else {
+        setHasMore(false);
+      }
+      
+      setLoadingMore(false);
+    }, 600);
+  }, [page, filteredReaders, hasMore, loadingMore]);
   
   // Filter button component
   const FilterButton: React.FC<{
@@ -255,7 +314,7 @@ const ReadersPage: React.FC = () => {
           </div>
         </div>
         
-        {loading ? (
+        {initialLoad ? (
           // Loading state
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map(i => (
@@ -362,7 +421,7 @@ const ReadersPage: React.FC = () => {
             {/* Results count and active filters */}
             <div className="mb-4 flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
-                Showing {filteredReaders.length} {filteredReaders.length === 1 ? 'reader' : 'readers'}
+                Showing {displayedReaders.length} of {filteredReaders.length} {filteredReaders.length === 1 ? 'reader' : 'readers'}
                 {sortOption !== 'none' && (
                   <span> • Sorted by: {
                     sortOption === 'level-asc' ? 'Level (Low to High)' :
@@ -390,10 +449,35 @@ const ReadersPage: React.FC = () => {
             
             {/* Readers grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredReaders.map(reader => (
-                <ReaderCard key={reader.id} reader={reader} />
-              ))}
+              {displayedReaders.map((reader, index) => {
+                // Add ref to last item for infinite scrolling
+                if (index === displayedReaders.length - 1) {
+                  return (
+                    <div ref={lastReaderRef} key={reader.id}>
+                      <ReaderCard reader={reader} />
+                    </div>
+                  );
+                }
+                return <ReaderCard key={reader.id} reader={reader} />;
+              })}
             </div>
+            
+            {/* Loading more indicator */}
+            {loadingMore && (
+              <div className="text-center py-8">
+                <div className="flex items-center justify-center">
+                  <Loader className="h-6 w-6 text-primary animate-spin mr-2" />
+                  <span>Loading more readers...</span>
+                </div>
+              </div>
+            )}
+            
+            {/* No more readers indicator */}
+            {!hasMore && displayedReaders.length > 0 && !loadingMore && (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No more readers to load</p>
+              </div>
+            )}
             
             {/* Become a reader CTA - only show if user is not already a reader */}
             {user && !user.is_reader && (
