@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import type { User, QuizAttempt, QuizQuestion, ReaderLevel, ReaderReview, QuizDifficultyLevel } from '../types';
-import { getQuizQuestions } from './quiz-data';
+import { generateTarotQuiz } from './gemini-ai';
 
 /**
  * Check if a user can take the tarot reader certification quiz
@@ -117,9 +117,8 @@ export const startTarotQuiz = async (userId: string): Promise<{
     // Determine the quiz difficulty based on the user's current level
     const difficulty = await getQuizDifficultyForUser(userId);
     
-    // Generate quiz questions - using static questions for now
-    // In a production environment, this would use the AI-generated questions
-    const questions = getQuizQuestions(15, difficulty);
+    // Generate dynamic quiz questions using Gemini 1.5 Pro
+    const questions = await generateTarotQuiz(15, difficulty);
     
     // Setting time limit as 20 minutes (1200 seconds)
     const timeLimit = 1200;
