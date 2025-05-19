@@ -39,14 +39,16 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
   // Get the certification ID (using date for now)
   const certificationId = `TF-${Date.now().toString().substring(0, 10)}`;
   
-  // Get the appropriate color for the reader level
+  // Get the appropriate color for the reader level based on chakra system
   const getLevelColor = () => {
     switch (readerLevel?.color_theme) {
-      case 'blue': return 'from-blue-500 to-purple-700';
-      case 'purple': return 'from-purple-500 to-indigo-700';
-      case 'teal': return 'from-teal-500 to-emerald-700';
-      case 'gold': return 'from-amber-500 to-orange-700';
-      case 'crimson': return 'from-rose-500 to-red-700';
+      case 'red': return 'from-red-500 to-orange-500';
+      case 'orange': return 'from-orange-500 to-yellow-500';
+      case 'yellow': return 'from-yellow-500 to-green-500';
+      case 'green': return 'from-green-500 to-teal-500';
+      case 'blue': return 'from-blue-500 to-indigo-500';
+      case 'indigo': return 'from-indigo-500 to-purple-500';
+      case 'violet': return 'from-violet-500 to-purple-700';
       default: return 'from-primary to-indigo-700';
     }
   };

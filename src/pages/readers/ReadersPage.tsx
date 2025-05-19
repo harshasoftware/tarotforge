@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, UserCheck, Users, Filter, Clock, CrownIcon, Star } from 'lucide-react';
+import { Search, UserCheck, Users, Filter, Clock, CrownIcon, Star, Flame, Sparkles, Heart, Sun } from 'lucide-react';
 import ReaderCard from '../../components/readers/ReaderCard';
 import { User } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -112,7 +112,7 @@ const ReadersPage: React.FC = () => {
             </div>
             <h1 className="text-3xl md:text-4xl font-serif font-bold mb-3">Certified Tarot Readers</h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Connect with our community of certified tarot readers for personalized insights and guidance on your spiritual journey.
+              Connect with our community of certified readers for personalized insights and guidance on your spiritual journey.
             </p>
           </motion.div>
           
@@ -234,28 +234,28 @@ const ReadersPage: React.FC = () => {
           </div>
         ) : (
           <>
-            {/* Reader levels legend */}
+            {/* Reader levels legend - Using chakra colors */}
             <div className="mb-8 bg-card/50 border border-border rounded-lg p-4">
               <h2 className="font-medium mb-3">Reader Certification Levels</h2>
               <div className="flex flex-wrap gap-4">
                 <div className="flex items-center">
-                  <div className="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
+                  <div className="w-4 h-4 bg-red-500 rounded-full mr-2"></div>
                   <span className="text-sm">Novice Seer</span>
                 </div>
                 <div className="flex items-center">
-                  <div className="w-4 h-4 bg-purple-500 rounded-full mr-2"></div>
+                  <div className="w-4 h-4 bg-orange-500 rounded-full mr-2"></div>
                   <span className="text-sm">Mystic Adept</span>
                 </div>
                 <div className="flex items-center">
-                  <div className="w-4 h-4 bg-teal-500 rounded-full mr-2"></div>
+                  <div className="w-4 h-4 bg-yellow-500 rounded-full mr-2"></div>
                   <span className="text-sm">Ethereal Guide</span>
                 </div>
                 <div className="flex items-center">
-                  <div className="w-4 h-4 bg-amber-500 rounded-full mr-2"></div>
+                  <div className="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
                   <span className="text-sm">Celestial Oracle</span>
                 </div>
                 <div className="flex items-center">
-                  <div className="w-4 h-4 bg-rose-500 rounded-full mr-2"></div>
+                  <div className="w-4 h-4 bg-violet-500 rounded-full mr-2"></div>
                   <span className="text-sm">Arcane Hierophant</span>
                 </div>
               </div>

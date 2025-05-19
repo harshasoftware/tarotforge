@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
-import { Award, Calendar, Clock, MessageSquare, UserCheck, Users, BarChart4, BookOpen, ChevronRight, Star, ArrowUp, Sparkles } from 'lucide-react';
+import { Award, Calendar, Clock, MessageSquare, UserCheck, Users, BarChart4, BookOpen, ChevronRight, Star, ArrowUp, Sparkles, Flame, Heart, Crown, Sun } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getReaderDetails, getReaderReviews } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
@@ -41,27 +41,30 @@ const ReaderDashboard: React.FC = () => {
     });
   };
   
-  // Get level color
-  const getLevelColor = (theme: string = 'blue') => {
+  // Get level color based on chakra colors
+  const getLevelColor = (theme: string = 'red') => {
     switch (theme) {
+      case 'red': return 'text-red-500 bg-red-500/20';
+      case 'orange': return 'text-orange-500 bg-orange-500/20';
+      case 'yellow': return 'text-yellow-500 bg-yellow-500/20';
+      case 'green': return 'text-green-500 bg-green-500/20';
       case 'blue': return 'text-blue-500 bg-blue-500/20';
-      case 'purple': return 'text-purple-500 bg-purple-500/20';
-      case 'teal': return 'text-teal-500 bg-teal-500/20';
-      case 'gold': return 'text-amber-500 bg-amber-500/20';
-      case 'crimson': return 'text-rose-500 bg-rose-500/20';
+      case 'indigo': return 'text-indigo-500 bg-indigo-500/20';
+      case 'violet': return 'text-violet-500 bg-violet-500/20';
       default: return 'text-primary bg-primary/20';
     }
   };
   
-  // Get level icon
-  const getLevelIcon = (iconName: string = 'star') => {
+  // Get level icon based on chakra themes
+  const getLevelIcon = (iconName: string = 'flame') => {
     switch (iconName) {
-      case 'star': return <Star className="h-6 w-6" />;
-      case 'moon': return <Moon className="h-6 w-6" />;
-      case 'sun': return <Sun className="h-6 w-6" />;
+      case 'flame': return <Flame className="h-6 w-6" />;
       case 'sparkles': return <Sparkles className="h-6 w-6" />;
+      case 'sun': return <Sun className="h-6 w-6" />;
+      case 'heart': return <Heart className="h-6 w-6" />;
       case 'crown': return <Crown className="h-6 w-6" />;
-      default: return <Star className="h-6 w-6" />;
+      case 'star': return <Star className="h-6 w-6" />;
+      default: return <Flame className="h-6 w-6" />;
     }
   };
   
@@ -412,6 +415,13 @@ const ReaderDashboard: React.FC = () => {
                     </span>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </button>
+                  <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-muted/30 transition-colors flex items-center justify-between">
+                    <span className="flex items-center">
+                      <BarChart4 className="h-5 w-5 text-primary mr-3" />
+                      View Analytics
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
                   <button 
                     onClick={() => setShowCertificate(true)}
                     className="w-full text-left px-4 py-3 rounded-lg hover:bg-muted/30 transition-colors flex items-center justify-between"
@@ -419,13 +429,6 @@ const ReaderDashboard: React.FC = () => {
                     <span className="flex items-center">
                       <Award className="h-5 w-5 text-accent mr-3" />
                       View Certificate
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                  <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-muted/30 transition-colors flex items-center justify-between">
-                    <span className="flex items-center">
-                      <BarChart4 className="h-5 w-5 text-primary mr-3" />
-                      View Analytics
                     </span>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </button>
@@ -599,10 +602,6 @@ const ReaderDashboard: React.FC = () => {
 
 // Additional component imports for icons
 const Moon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>;
-
-const Sun = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>;
-
-const Crown = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></svg>;
 
 // Needed for imports
 const supabase = { from: () => ({ select: () => ({ eq: () => ({ single: () => ({ data: null }) }) }) }) };

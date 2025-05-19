@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, Award, CheckCircle, XCircle, Clock, Star, Moon, Sun, Sparkles, Crown } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Award, CheckCircle, XCircle, Clock, Star, Moon, Sun, Sparkles, Crown, Flame, Heart } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import QuizQuestion from '../../components/quiz/QuizQuestion';
 import QuizTimer from '../../components/quiz/QuizTimer';
@@ -189,11 +189,11 @@ const TarotQuiz: React.FC = () => {
   // Get the appropriate level icon based on difficulty
   const getDifficultyIcon = () => {
     switch (difficultyLevel) {
-      case 'novice': return <Star className="h-10 w-10 text-blue-500" />;
-      case 'adept': return <Moon className="h-10 w-10 text-purple-500" />;
-      case 'mystic': return <Sun className="h-10 w-10 text-teal-500" />;
-      case 'oracle': return <Sparkles className="h-10 w-10 text-amber-500" />;
-      case 'archmage': return <Crown className="h-10 w-10 text-rose-500" />;
+      case 'novice': return <Flame className="h-10 w-10 text-red-500" />;
+      case 'adept': return <Sparkles className="h-10 w-10 text-orange-500" />;
+      case 'mystic': return <Sun className="h-10 w-10 text-yellow-500" />;
+      case 'oracle': return <Heart className="h-10 w-10 text-green-500" />;
+      case 'archmage': return <Crown className="h-10 w-10 text-violet-500" />;
       default: return <TarotLogo className="h-10 w-10 text-primary" />;
     }
   };
@@ -201,11 +201,11 @@ const TarotQuiz: React.FC = () => {
   // Get the color theme based on difficulty
   const getDifficultyColor = () => {
     switch (difficultyLevel) {
-      case 'novice': return 'from-blue-500/20 to-purple-500/10';
-      case 'adept': return 'from-purple-500/20 to-teal-500/10';
-      case 'mystic': return 'from-teal-500/20 to-indigo-500/10';
-      case 'oracle': return 'from-amber-500/20 to-red-500/10';
-      case 'archmage': return 'from-rose-500/20 to-purple-500/10';
+      case 'novice': return 'from-red-500/20 to-orange-500/10';
+      case 'adept': return 'from-orange-500/20 to-yellow-500/10';
+      case 'mystic': return 'from-yellow-500/20 to-green-500/10';
+      case 'oracle': return 'from-green-500/20 to-blue-500/10';
+      case 'archmage': return 'from-violet-500/20 to-purple-500/10';
       default: return 'from-primary/20 to-accent/10';
     }
   };
@@ -218,8 +218,8 @@ const TarotQuiz: React.FC = () => {
           id: 'novice',
           name: 'Novice Seer',
           rank_order: 1,
-          color_theme: 'blue',
-          icon: 'star',
+          color_theme: 'red',
+          icon: 'flame',
           description: 'Beginning your journey into tarot with foundational knowledge',
           base_price_per_minute: 0.25,
           required_quiz_score: 75
@@ -229,8 +229,8 @@ const TarotQuiz: React.FC = () => {
           id: 'adept',
           name: 'Mystic Adept',
           rank_order: 2,
-          color_theme: 'purple',
-          icon: 'moon',
+          color_theme: 'orange',
+          icon: 'sparkles',
           description: 'Developing deeper insight and intuition with tarot symbolism',
           base_price_per_minute: 0.5,
           required_quiz_score: 80
@@ -240,7 +240,7 @@ const TarotQuiz: React.FC = () => {
           id: 'mystic',
           name: 'Ethereal Guide',
           rank_order: 3,
-          color_theme: 'teal',
+          color_theme: 'yellow',
           icon: 'sun',
           description: 'Advanced understanding of complex tarot interpretations',
           base_price_per_minute: 0.75,
@@ -251,8 +251,8 @@ const TarotQuiz: React.FC = () => {
           id: 'oracle',
           name: 'Celestial Oracle',
           rank_order: 4,
-          color_theme: 'gold',
-          icon: 'sparkles',
+          color_theme: 'green',
+          icon: 'heart',
           description: 'Mastery of esoteric knowledge and profound wisdom',
           base_price_per_minute: 1.0,
           required_quiz_score: 90
@@ -262,7 +262,7 @@ const TarotQuiz: React.FC = () => {
           id: 'archmage',
           name: 'Arcane Hierophant',
           rank_order: 5,
-          color_theme: 'crimson',
+          color_theme: 'violet',
           icon: 'crown',
           description: 'Supreme level of tarot mastery and enlightenment',
           base_price_per_minute: 1.5,
@@ -273,8 +273,8 @@ const TarotQuiz: React.FC = () => {
           id: 'novice',
           name: 'Novice Seer',
           rank_order: 1,
-          color_theme: 'blue',
-          icon: 'star',
+          color_theme: 'red',
+          icon: 'flame',
           description: 'Beginning your journey into tarot with foundational knowledge',
           base_price_per_minute: 0.25,
           required_quiz_score: 75
