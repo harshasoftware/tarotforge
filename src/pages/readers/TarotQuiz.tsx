@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, Award, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Award, CheckCircle, XCircle, Clock, Star, Moon, Sun, Sparkles, Crown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import QuizQuestion from '../../components/quiz/QuizQuestion';
 import QuizTimer from '../../components/quiz/QuizTimer';
@@ -25,6 +25,7 @@ const TarotQuiz: React.FC = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<(number | null)[]>([]);
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [difficultyLevel, setDifficultyLevel] = useState('novice');
   const [quizResults, setQuizResults] = useState<{
     score: number;
     passed: boolean;
@@ -158,6 +159,30 @@ const TarotQuiz: React.FC = () => {
   // Check if all questions have been answered
   const allQuestionsAnswered = userAnswers.every(a => a !== null);
   
+  // Get the appropriate level icon based on difficulty
+  const getDifficultyIcon = () => {
+    switch (difficultyLevel) {
+      case 'novice': return <Star className="h-10 w-10 text-blue-500" />;
+      case 'adept': return <Moon className="h-10 w-10 text-purple-500" />;
+      case 'mystic': return <Sun className="h-10 w-10 text-teal-500" />;
+      case 'oracle': return <Sparkles className="h-10 w-10 text-amber-500" />;
+      case 'archmage': return <Crown className="h-10 w-10 text-rose-500" />;
+      default: return <TarotLogo className="h-10 w-10 text-primary" />;
+    }
+  };
+  
+  // Get the color theme based on difficulty
+  const getDifficultyColor = () => {
+    switch (difficultyLevel) {
+      case 'novice': return 'from-blue-500/20 to-purple-500/10';
+      case 'adept': return 'from-purple-500/20 to-teal-500/10';
+      case 'mystic': return 'from-teal-500/20 to-indigo-500/10';
+      case 'oracle': return 'from-amber-500/20 to-red-500/10';
+      case 'archmage': return 'from-rose-500/20 to-purple-500/10';
+      default: return 'from-primary/20 to-accent/10';
+    }
+  };
+  
   // Render different content based on quiz state
   const renderContent = () => {
     switch (quizState) {
@@ -181,14 +206,17 @@ const TarotQuiz: React.FC = () => {
           >
             <div className="text-center mb-8">
               <div className="flex justify-center mb-4">
-                <div className="rounded-full bg-primary/20 p-3">
-                  <TarotLogo className="h-10 w-10 text-primary" />
+                <div className={`rounded-full bg-gradient-to-br ${getDifficultyColor()} p-3`}>
+                  {getDifficultyIcon()}
                 </div>
               </div>
               <h2 className="text-2xl font-serif font-bold mb-3">Tarot Reader Certification Quiz</h2>
               <p className="text-muted-foreground">
                 Demonstrate your knowledge of tarot to become a certified reader.
               </p>
+              <div className="inline-block px-3 py-1 bg-muted/30 rounded-full text-sm mt-2">
+                Difficulty Level: <span className="font-medium capitalize">{difficultyLevel}</span>
+              </div>
             </div>
             
             <div className="mb-6">
@@ -223,7 +251,7 @@ const TarotQuiz: React.FC = () => {
             
             <div className="bg-muted/30 p-4 rounded-lg mb-6">
               <div className="flex items-start gap-2">
-                <Info className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                <AlertCircle className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-medium">Important Note:</p>
                   <p className="text-sm text-muted-foreground">
@@ -414,7 +442,7 @@ const TarotQuiz: React.FC = () => {
             
             <div className="flex justify-center gap-4">
               <button
-                onClick={goBack}
+                onClick={() => navigate(quizResults.passed ? '/reader-dashboard' : '/become-reader')}
                 className="btn btn-primary py-2 px-6"
               >
                 {quizResults.passed ? 'Go to Reader Dashboard' : 'Return to Overview'}

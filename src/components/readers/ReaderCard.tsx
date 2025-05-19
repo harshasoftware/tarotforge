@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { User, Star, Calendar, Clock, Eye, MessageSquare, BookOpen } from 'lucide-react';
+import { User, Star, Calendar, Clock, Video, MessageSquare, BookOpen, Crown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { User as UserType } from '../../types';
 import TarotLogo from '../ui/TarotLogo';
@@ -52,6 +52,51 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
 
   const specialties = getReaderSpecialties();
   
+  // Get reader level information
+  const getReaderLevelInfo = () => {
+    if (!reader.readerLevel) {
+      return {
+        name: 'Novice Seer',
+        colorTheme: 'blue',
+        icon: 'star',
+        pricePerMinute: 0.25
+      };
+    }
+    
+    return {
+      name: reader.readerLevel.name,
+      colorTheme: reader.readerLevel.color_theme || 'blue',
+      icon: reader.readerLevel.icon || 'star',
+      pricePerMinute: reader.readerLevel.base_price_per_minute
+    };
+  };
+  
+  const levelInfo = getReaderLevelInfo();
+  
+  // Get appropriate color based on reader level
+  const getLevelColor = () => {
+    switch (levelInfo.colorTheme) {
+      case 'blue': return 'text-blue-500 border-blue-500';
+      case 'purple': return 'text-purple-500 border-purple-500';
+      case 'teal': return 'text-teal-500 border-teal-500';
+      case 'gold': return 'text-amber-500 border-amber-500';
+      case 'crimson': return 'text-rose-500 border-rose-500';
+      default: return 'text-accent border-accent';
+    }
+  };
+  
+  // Get appropriate icon based on reader level
+  const getLevelIcon = () => {
+    switch (levelInfo.icon) {
+      case 'star': return <Star className="h-4 w-4" />;
+      case 'moon': return <Moon className="h-4 w-4" />;
+      case 'sun': return <Sun className="h-4 w-4" />;
+      case 'sparkles': return <Sparkles className="h-4 w-4" />;
+      case 'crown': return <Crown className="h-4 w-4" />;
+      default: return <Star className="h-4 w-4" />;
+    }
+  };
+  
   return (
     <motion.div
       className="bg-card border border-border rounded-xl overflow-hidden hover:border-accent/50 transition-all group"
@@ -80,6 +125,13 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
           {/* Reader Details */}
           <div className="flex-1">
             <h3 className="text-xl font-serif font-bold">{reader.username || reader.email.split('@')[0]}</h3>
+            
+            {/* Reader Level Badge */}
+            <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border mt-1 ${getLevelColor()}`}>
+              {getLevelIcon()}
+              <span className="ml-1">{levelInfo.name}</span>
+            </div>
+            
             <div className="flex items-center text-muted-foreground text-sm mt-1 space-x-4">
               <div className="flex items-center">
                 <Calendar className="h-3 w-3 mr-1" />
@@ -88,7 +140,7 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
               
               <div className="flex items-center">
                 <Star className="h-3 w-3 fill-accent text-accent mr-1" />
-                <span>5.0</span>
+                <span>{reader.average_rating ? reader.average_rating.toFixed(1) : '5.0'}</span>
               </div>
             </div>
           </div>
@@ -110,20 +162,38 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
           </div>
         </div>
         
+        {/* Price */}
+        <div className="mb-4 flex items-center">
+          <span className="text-sm font-medium mr-1">Rate:</span>
+          <span className="text-accent font-bold">${levelInfo.pricePerMinute.toFixed(2)}</span>
+          <span className="text-xs text-muted-foreground ml-1">/ min</span>
+        </div>
+        
         {/* Reading Options */}
         <div className="flex gap-2 mt-4 pt-4 border-t border-border">
           <Link to="#" className="flex-1 btn btn-secondary p-2 text-xs flex items-center justify-center">
             <MessageSquare className="h-3 w-3 mr-1" />
             Message
           </Link>
+          <Link to="#" className="flex-1 btn btn-secondary p-2 text-xs flex items-center justify-center">
+            <Video className="h-3 w-3 mr-1" />
+            Video
+          </Link>
           <Link to="#" className="flex-1 btn btn-primary p-2 text-xs flex items-center justify-center">
             <BookOpen className="h-3 w-3 mr-1" />
-            Book Reading
+            Book
           </Link>
         </div>
       </div>
     </motion.div>
   );
 };
+
+// Needed for import to work
+const Moon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>;
+
+const Sun = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>;
+
+const Sparkles = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>;
 
 export default ReaderCard;

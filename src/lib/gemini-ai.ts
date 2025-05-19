@@ -1052,9 +1052,10 @@ const generateFallbackUsername = (baseName: string): string => {
 /**
  * Generates tarot quiz questions for the reader certification exam
  * @param count Number of questions to generate
+ * @param difficulty Difficulty level of the quiz
  * @returns Array of quiz questions
  */
-export const generateTarotQuiz = async (count: number = 10): Promise<QuizQuestion[]> => {
+export const generateTarotQuiz = async (count: number = 10, difficulty: string = 'novice'): Promise<QuizQuestion[]> => {
   if (!apiKey) {
     // Return fallback quiz questions when API key is missing
     return Array(count).fill(null).map((_, index) => ({
@@ -1075,8 +1076,19 @@ export const generateTarotQuiz = async (count: number = 10): Promise<QuizQuestio
     // Use Gemini 2.5 Pro for the best quiz generation
     const model = getGeminiModel('gemini-2.5-pro-preview-05-06');
     
+    // Create a difficulty-appropriate prompt
+    const difficultyDescriptions = {
+      novice: 'beginners with basic knowledge of major arcana cards',
+      adept: 'intermediate readers familiar with all cards and basic spreads',
+      mystic: 'experienced readers with solid knowledge of symbolism and card interactions',
+      oracle: 'advanced readers with deep knowledge of tarot history and complex interpretations',
+      archmage: 'master-level readers with expert knowledge of esoteric systems and advanced techniques'
+    };
+    
+    const difficultyDescription = difficultyDescriptions[difficulty as keyof typeof difficultyDescriptions] || difficultyDescriptions.novice;
+    
     const prompt = `
-      Generate ${count} challenging multiple-choice quiz questions to test advanced knowledge of tarot reading.
+      Generate ${count} challenging multiple-choice quiz questions to test ${difficultyDescription}.
       
       Include questions about:
       - Traditional tarot card meanings (Major and Minor Arcana)
@@ -1084,11 +1096,14 @@ export const generateTarotQuiz = async (count: number = 10): Promise<QuizQuestio
       - Reading techniques and spreads
       - Card symbolism and interpretations
       - Reversed card meanings
-      - Ethical considerations in tarot reading
+      - ${difficulty === 'novice' ? 'Basic' : difficulty === 'adept' ? 'Intermediate' : 'Advanced'} ethical considerations in tarot reading
+      ${difficulty !== 'novice' ? '- Card combinations and interactions' : ''}
+      ${difficulty === 'oracle' || difficulty === 'archmage' ? '- Esoteric systems like Kabbalah, astrology, and numerology in tarot' : ''}
+      ${difficulty === 'archmage' ? '- Advanced psychological frameworks in tarot interpretation' : ''}
       
       For each question:
       - Ensure there is only one clearly correct answer
-      - Make it challenging but fair for someone with intermediate tarot knowledge
+      - Make it appropriate for ${difficultyDescription}
       - Include 4 plausible answer choices
       - Provide a brief explanation for the correct answer
       

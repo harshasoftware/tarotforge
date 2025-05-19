@@ -15,7 +15,7 @@ const ReadersPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'new' | 'popular'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'new' | 'top-rated' | 'advanced'>('all');
   
   useEffect(() => {
     const loadReaders = async () => {
@@ -56,9 +56,17 @@ const ReadersPage: React.FC = () => {
           (a, b) => new Date(b.reader_since || '').getTime() - new Date(a.reader_since || '').getTime()
         );
         break;
-      case 'popular':
-        // For now, just randomize this since we don't have real popularity metrics
-        filtered = [...filtered].sort(() => 0.5 - Math.random());
+      case 'top-rated':
+        // Sort by average rating, highest first
+        filtered = [...filtered].sort(
+          (a, b) => (b.average_rating || 5) - (a.average_rating || 5)
+        );
+        break;
+      case 'advanced':
+        // Filter to show only readers with higher levels (rank 3+)
+        filtered = filtered.filter(
+          r => r.readerLevel && r.readerLevel.rank_order >= 3
+        );
         break;
       default:
         // Keep default order
@@ -139,11 +147,18 @@ const ReadersPage: React.FC = () => {
                 Newest
               </FilterButton>
               <FilterButton 
-                active={activeFilter === 'popular'} 
-                onClick={() => setActiveFilter('popular')} 
+                active={activeFilter === 'top-rated'} 
+                onClick={() => setActiveFilter('top-rated')} 
                 icon={<Star />}
               >
-                Popular
+                Top Rated
+              </FilterButton>
+              <FilterButton 
+                active={activeFilter === 'advanced'} 
+                onClick={() => setActiveFilter('advanced')} 
+                icon={<CrownIcon />}
+              >
+                Advanced Levels
               </FilterButton>
             </div>
           </div>
@@ -219,6 +234,36 @@ const ReadersPage: React.FC = () => {
           </div>
         ) : (
           <>
+            {/* Reader levels legend */}
+            <div className="mb-8 bg-card/50 border border-border rounded-lg p-4">
+              <h2 className="font-medium mb-3">Reader Certification Levels</h2>
+              <div className="flex flex-wrap gap-4">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
+                  <span className="text-sm">Novice Seer</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-purple-500 rounded-full mr-2"></div>
+                  <span className="text-sm">Mystic Adept</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-teal-500 rounded-full mr-2"></div>
+                  <span className="text-sm">Ethereal Guide</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-amber-500 rounded-full mr-2"></div>
+                  <span className="text-sm">Celestial Oracle</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-rose-500 rounded-full mr-2"></div>
+                  <span className="text-sm">Arcane Hierophant</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Readers progress through levels by demonstrating expertise, maintaining high ratings, and completing readings.
+              </p>
+            </div>
+            
             {/* Readers grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredReaders.map(reader => (

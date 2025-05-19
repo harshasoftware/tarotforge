@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Award, Calendar, Clock, MessageSquare, UserCheck, Users, BarChart4, BookOpen, ChevronRight } from 'lucide-react';
+import { Award, Calendar, Clock, MessageSquare, UserCheck, Users, BarChart4, BookOpen, ChevronRight, Star, ArrowUp, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { getReaderDetails, getReaderReviews } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
+import { ReaderLevel, User, ReaderReview } from '../../types';
 
 const ReaderDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -15,6 +17,14 @@ const ReaderDashboard: React.FC = () => {
     averageRating: 0,
     pendingRequests: 0,
     completedToday: 0
+  });
+  const [readerDetails, setReaderDetails] = useState<User | null>(null);
+  const [readerLevel, setReaderLevel] = useState<ReaderLevel | null>(null);
+  const [nextLevel, setNextLevel] = useState<ReaderLevel | null>(null);
+  const [reviews, setReviews] = useState<ReaderReview[]>([]);
+  const [progressToNextLevel, setProgressToNextLevel] = useState({
+    ratings: 0, // 0-100%
+    readings: 0 // 0-100%
   });
   
   // Format date to get reader since date in readable format
@@ -29,6 +39,30 @@ const ReaderDashboard: React.FC = () => {
     });
   };
   
+  // Get level color
+  const getLevelColor = (theme: string = 'blue') => {
+    switch (theme) {
+      case 'blue': return 'text-blue-500 bg-blue-500/20';
+      case 'purple': return 'text-purple-500 bg-purple-500/20';
+      case 'teal': return 'text-teal-500 bg-teal-500/20';
+      case 'gold': return 'text-amber-500 bg-amber-500/20';
+      case 'crimson': return 'text-rose-500 bg-rose-500/20';
+      default: return 'text-primary bg-primary/20';
+    }
+  };
+  
+  // Get level icon
+  const getLevelIcon = (iconName: string = 'star') => {
+    switch (iconName) {
+      case 'star': return <Star className="h-6 w-6" />;
+      case 'moon': return <Moon className="h-6 w-6" />;
+      case 'sun': return <Sun className="h-6 w-6" />;
+      case 'sparkles': return <Sparkles className="h-6 w-6" />;
+      case 'crown': return <Crown className="h-6 w-6" />;
+      default: return <Star className="h-6 w-6" />;
+    }
+  };
+  
   useEffect(() => {
     // Check if user is actually a certified reader
     if (user && !user.is_reader) {
@@ -36,28 +70,74 @@ const ReaderDashboard: React.FC = () => {
       return;
     }
     
-    // Simulate loading data
-    const loadData = async () => {
+    const loadReaderData = async () => {
+      if (!user) return;
+      
       try {
         setLoading(true);
-        // Simulate API call with timeout
-        await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // Mock data for now
+        // Get reader details including level info
+        const readerData = await getReaderDetails(user.id);
+        setReaderDetails(readerData);
+        
+        // Set reader level
+        if (readerData?.readerLevel) {
+          setReaderLevel(readerData.readerLevel);
+          
+          // Fetch reviews
+          const reviewsData = await getReaderReviews(user.id);
+          setReviews(reviewsData);
+          
+          // Calculate progress to next level
+          if (readerData.readerLevel.rank_order < 5) {
+            // Assuming reader levels are in order, find the next level
+            const { data: nextLevelData } = await supabase
+              .from('reader_levels')
+              .select('*')
+              .eq('rank_order', readerData.readerLevel.rank_order + 1)
+              .single();
+              
+            if (nextLevelData) {
+              setNextLevel(nextLevelData);
+              
+              // Calculate progress percentages
+              // Ratings progress
+              const currentRating = readerData.average_rating || 0;
+              const targetRating = nextLevelData.min_rating || 5;
+              const previousLevelRating = readerData.readerLevel.min_rating || 0;
+              const ratingRange = targetRating - previousLevelRating;
+              const ratingProgress = Math.min(100, Math.max(0, ((currentRating - previousLevelRating) / ratingRange) * 100));
+              
+              // Readings progress
+              const currentReadings = readerData.completed_readings || 0;
+              const targetReadings = nextLevelData.min_readings || 0;
+              const previousLevelReadings = readerData.readerLevel.min_readings || 0;
+              const readingsRange = targetReadings - previousLevelReadings;
+              const readingsProgress = Math.min(100, Math.max(0, ((currentReadings - previousLevelReadings) / readingsRange) * 100));
+              
+              setProgressToNextLevel({
+                ratings: ratingProgress,
+                readings: readingsProgress
+              });
+            }
+          }
+        }
+        
+        // Set mock stats for demo
         setStats({
-          totalReadings: Math.floor(Math.random() * 30),
-          averageRating: 4.8,
+          totalReadings: readerData?.completed_readings || Math.floor(Math.random() * 30),
+          averageRating: readerData?.average_rating || 4.8,
           pendingRequests: Math.floor(Math.random() * 5),
           completedToday: Math.floor(Math.random() * 3)
         });
       } catch (error) {
-        console.error('Error loading reader stats:', error);
+        console.error('Error loading reader data:', error);
       } finally {
         setLoading(false);
       }
     };
     
-    loadData();
+    loadReaderData();
   }, [user, navigate]);
   
   if (loading) {
@@ -82,9 +162,17 @@ const ReaderDashboard: React.FC = () => {
             </p>
           </div>
           
-          <div className="flex items-center bg-card/50 border border-border rounded-full px-4 py-2">
-            <UserCheck className="h-5 w-5 text-accent mr-2" />
-            <span className="text-sm">Certified since {formattedReaderSince()}</span>
+          <div className="flex items-center gap-3">
+            {/* Reader level badge */}
+            <div className={`px-4 py-2 rounded-full flex items-center ${getLevelColor(readerLevel?.color_theme)}`}>
+              {getLevelIcon(readerLevel?.icon)}
+              <span className="ml-2 font-medium">{readerLevel?.name || 'Novice Seer'}</span>
+            </div>
+            
+            <div className="bg-card/50 border border-border rounded-full px-4 py-2 flex items-center">
+              <UserCheck className="h-5 w-5 text-accent mr-2" />
+              <span className="text-sm">Since {formattedReaderSince()}</span>
+            </div>
           </div>
         </div>
         
@@ -143,6 +231,86 @@ const ReaderDashboard: React.FC = () => {
             </div>
           </div>
         </motion.div>
+        
+        {/* Level Progress */}
+        {nextLevel && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="mb-8"
+          >
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="p-6 border-b border-border">
+                <h2 className="text-xl font-serif font-bold flex items-center">
+                  <ArrowUp className="h-5 w-5 mr-2 text-accent" />
+                  Progress to {nextLevel.name}
+                </h2>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Rating progress */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        <Star className="h-4 w-4 text-accent mr-2" />
+                        <span className="font-medium">Rating Progress</span>
+                      </div>
+                      <div className="text-sm">
+                        {readerDetails?.average_rating?.toFixed(1) || '0'} / {nextLevel.min_rating?.toFixed(1) || '5.0'}
+                      </div>
+                    </div>
+                    <div className="h-3 bg-muted/30 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-accent rounded-full" 
+                        style={{ width: `${progressToNextLevel.ratings}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  {/* Readings progress */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        <BookOpen className="h-4 w-4 text-accent mr-2" />
+                        <span className="font-medium">Readings Progress</span>
+                      </div>
+                      <div className="text-sm">
+                        {readerDetails?.completed_readings || '0'} / {nextLevel.min_readings || '10'}
+                      </div>
+                    </div>
+                    <div className="h-3 bg-muted/30 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-accent rounded-full" 
+                        style={{ width: `${progressToNextLevel.readings}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-6 p-3 bg-muted/20 rounded-lg text-sm text-muted-foreground">
+                  <p>
+                    Rank up from {readerLevel?.name || 'Novice Seer'} to {nextLevel.name} by:
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    <li className="flex items-baseline gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-accent mt-1"></span>
+                      <span>Maintaining {nextLevel.min_rating}+ star rating average</span>
+                    </li>
+                    <li className="flex items-baseline gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-accent mt-1"></span>
+                      <span>Completing at least {nextLevel.min_readings} readings</span>
+                    </li>
+                    <li className="flex items-baseline gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-accent mt-1"></span>
+                      <span>Passing the {nextLevel.name} certification quiz with {nextLevel.required_quiz_score}%+ score</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
         
         {/* Main Dashboard Sections */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -247,12 +415,12 @@ const ReaderDashboard: React.FC = () => {
                 <div className="flex items-start gap-3">
                   <TarotLogo className="h-6 w-6 text-primary mt-1" />
                   <div>
-                    <h3 className="font-medium mb-1">Tarot Reader Pro</h3>
+                    <h3 className="font-medium mb-1">Rank-up Quiz</h3>
                     <p className="text-sm text-muted-foreground mb-3">
-                      Upgrade to Pro for advanced analytics, priority placement, and exclusive tools.
+                      Ready for a challenge? Take the {nextLevel?.name || 'advanced'} certification quiz to level up your reader status.
                     </p>
                     <button className="btn btn-secondary py-1.5 px-4 text-xs w-full">
-                      Learn More
+                      Take Level Quiz
                     </button>
                   </div>
                 </div>
@@ -331,9 +499,80 @@ const ReaderDashboard: React.FC = () => {
             </div>
           </div>
         </motion.div>
+        
+        {/* Reader Reviews */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="mt-8"
+        >
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="p-6 border-b border-border">
+              <h2 className="text-xl font-serif font-bold">Client Reviews</h2>
+            </div>
+            
+            <div className="p-6">
+              {reviews.length > 0 ? (
+                <div className="space-y-6">
+                  {reviews.map((review, index) => (
+                    <div key={index} className="border-b border-border last:border-b-0 pb-6 last:pb-0">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-full bg-muted/30 flex items-center justify-center">
+                          <Users className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-medium">Anonymous User</h3>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(review.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="flex items-center mt-1 mb-2">
+                            {[...Array(5)].map((_, i) => (
+                              <Star 
+                                key={i}
+                                className={`h-4 w-4 ${i < review.rating ? 'text-accent fill-accent' : 'text-muted-foreground'}`}
+                              />
+                            ))}
+                          </div>
+                          {review.review && (
+                            <p className="text-sm text-muted-foreground">
+                              {review.review}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Star className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="font-medium mb-2">No Reviews Yet</h3>
+                  <p className="text-sm text-muted-foreground">
+                    You haven't received any reviews yet. Complete readings to get reviews from clients.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
       </div>
     </div>
   );
 };
+
+// Additional component imports for icons
+const Moon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>;
+
+const Sun = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>;
+
+const Crown = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></svg>;
+
+// Needed for imports
+const supabase = { from: () => ({}) };
 
 export default ReaderDashboard;

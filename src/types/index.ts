@@ -9,6 +9,10 @@ export interface User {
   is_reader?: boolean;
   bio?: string;
   reader_since?: string;
+  level_id?: string;
+  average_rating?: number;
+  completed_readings?: number;
+  readerLevel?: ReaderLevel;
 }
 
 export interface Deck {
@@ -103,6 +107,35 @@ export interface QuizAttempt {
   passed: boolean;
   taken_at: string;
   expires_at: string;
+  difficulty_level: QuizDifficultyLevel;
+}
+
+// Reader levels for ranking system
+export interface ReaderLevel {
+  id: string;
+  name: string;
+  description: string;
+  min_rating?: number;
+  min_readings?: number;
+  base_price_per_minute: number;
+  color_theme: string;
+  icon: string;
+  required_quiz_score: number;
+  rank_order: number;
+}
+
+// Quiz difficulty levels
+export type QuizDifficultyLevel = 'novice' | 'adept' | 'mystic' | 'oracle' | 'archmage';
+
+// Interface for reader reviews
+export interface ReaderReview {
+  id: string;
+  reader_id: string;
+  client_id: string;
+  rating: number;
+  review?: string;
+  reading_id?: string;
+  created_at: string;
 }
 
 // Tarot quiz question format
