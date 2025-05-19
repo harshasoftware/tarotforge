@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { Mail, AlertCircle, ArrowRight, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import GoogleOneTap from '../../components/auth/GoogleOneTap';
 
 interface LoginFormData {
   email: string;
@@ -115,7 +116,10 @@ const Login = () => {
           </div>
         ) : (
           <>
-            {/* Google Sign In */}
+            {/* Google One Tap component */}
+            <GoogleOneTap />
+            
+            {/* Traditional Google Sign In */}
             <button
               onClick={handleGoogleSignIn}
               disabled={isGoogleLoading}
