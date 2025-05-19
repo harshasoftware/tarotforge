@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Mail, ArrowRight, AlertCircle, Check } from 'lucide-react';
+import { X, Mail, ArrowRight, AlertCircle, Check, User } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../../context/AuthContext';
 
@@ -12,6 +12,7 @@ interface SignInModalProps {
 
 interface SignInFormData {
   email: string;
+  fullName?: string;
 }
 
 const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
@@ -35,7 +36,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
       let result;
       if (isSignUp) {
         // Sign up with auto-generated username
-        result = await signUp(data.email);
+        result = await signUp(data.email, undefined, data.fullName);
       } else {
         // Sign in
         result = await signIn(data.email);
@@ -184,8 +185,30 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
                     )}
                   </div>
                   
+                  {/* Only show full name field when creating account */}
+                  {isSignUp && (
+                    <div className="space-y-2">
+                      <label htmlFor="modal-fullName" className="block text-sm font-medium">
+                        Full Name <span className="text-xs text-muted-foreground">(optional)</span>
+                      </label>
+                      <div className="relative">
+                        <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                          <User className="h-5 w-5" />
+                        </div>
+                        <input
+                          id="modal-fullName"
+                          type="text"
+                          {...register('fullName')}
+                          className="w-full pl-10 pr-4 py-2 rounded-md bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="Your Name"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
                   <p className="text-sm text-muted-foreground">
-                    We'll send you a magic link to {isSignUp ? 'create your account' : 'sign in'}. No password needed!
+                    We'll send you a magic link to {isSignUp ? 'create your account' : 'sign in'}. 
+                    {isSignUp && " A mystical username will be automatically generated for you, which you can change later."}
                   </p>
                   
                   <button

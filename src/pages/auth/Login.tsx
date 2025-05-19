@@ -2,12 +2,11 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
-import { Mail, AlertCircle, ArrowRight, Check, Lock } from 'lucide-react';
+import { Mail, AlertCircle, ArrowRight, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface LoginFormData {
   email: string;
-  password: string;
 }
 
 const Login = () => {

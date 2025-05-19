@@ -954,4 +954,98 @@ export const generateElaborateTheme = async (themeTitle: string): Promise<string
   }
 };
 
+/**
+ * Generate a mystical username for a new user based on their email or name
+ * @param emailOrName The user's email address or name to use as inspiration
+ * @returns A mystical-themed username
+ */
+export const generateMysticalUsername = async (emailOrName: string): Promise<string> => {
+  // Extract base name from email if it's an email address
+  const baseName = emailOrName.includes('@') 
+    ? emailOrName.split('@')[0]
+    : emailOrName;
+    
+  // Remove numbers and special characters for cleaner input
+  const cleanName = baseName.replace(/[^a-zA-Z]/g, '');
+  
+  if (!apiKey) {
+    // Fallback to basic username generation if API key is missing
+    const mysticalPrefixes = ['Mystic', 'Cosmic', 'Arcane', 'Ethereal', 'Astral', 'Crystal', 'Moon', 'Star', 'Divine', 'Sacred'];
+    const mysticalSuffixes = ['Seeker', 'Voyager', 'Oracle', 'Seer', 'Sage', 'Guardian', 'Keeper', 'Walker', 'Weaver', 'Reader'];
+    
+    const prefix = mysticalPrefixes[Math.floor(Math.random() * mysticalPrefixes.length)];
+    const suffix = mysticalSuffixes[Math.floor(Math.random() * mysticalSuffixes.length)];
+    
+    // Use first letter of cleanName if available
+    const firstLetter = cleanName.charAt(0).toUpperCase();
+    
+    // Generate random username with first letter and mystical terms
+    return `${prefix}${firstLetter}${suffix}`;
+  }
+  
+  try {
+    // Use Gemini 2.0 Flash for faster response
+    const model = getGeminiModel('gemini-2.0-flash');
+    
+    const prompt = `
+      Create a unique, mystical-sounding username for a user of a tarot app.
+      
+      Use this name or email as inspiration: "${baseName}"
+      
+      Guidelines:
+      - Create a single, unique username (not a list of options)
+      - The username should have mystical, spiritual, or cosmic themes
+      - Make it 5-15 characters long
+      - No spaces allowed, but can use underscores or hyphens
+      - Should be pronounceable
+      - No numbers unless they have mystical significance (like 7, 9, or 13)
+      - Related to tarot, divination, spirituality, or mysticism
+      - Do not simply reuse the original name
+      
+      Respond with ONLY the username, nothing else.
+    `;
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    
+    // Clean up the response to ensure it's a valid username
+    let username = response.text().trim().replace(/\s+/g, '_');
+    
+    // If the username is empty or too long, fallback to a simpler approach
+    if (!username || username.length > 20 || username.length < 3) {
+      return generateFallbackUsername(cleanName);
+    }
+    
+    return username;
+  } catch (error) {
+    console.error('Error generating mystical username:', error);
+    // Fallback to a simpler approach if Gemini fails
+    return generateFallbackUsername(cleanName);
+  }
+};
+
+/**
+ * Generate a fallback username if AI generation fails
+ * @param baseName The user's base name to use as inspiration
+ * @returns A mystical-themed username
+ */
+const generateFallbackUsername = (baseName: string): string => {
+  const mysticalAdjectives = ['Mystic', 'Cosmic', 'Astral', 'Ethereal', 'Divine', 'Arcane', 'Celestial', 'Enchanted', 'Sacred', 'Crystal'];
+  const mysticalNouns = ['Voyager', 'Oracle', 'Seeker', 'Guardian', 'Reader', 'Seer', 'Keeper', 'Diviner', 'Sage', 'Weaver'];
+  
+  // Get first letter of base name if available
+  const firstLetter = baseName.charAt(0).toUpperCase();
+  
+  // Choose random elements
+  const adjective = mysticalAdjectives[Math.floor(Math.random() * mysticalAdjectives.length)];
+  const noun = mysticalNouns[Math.floor(Math.random() * mysticalNouns.length)];
+  
+  // Include first letter if available, otherwise use fixed style
+  if (firstLetter) {
+    return `${adjective}${firstLetter}${noun}`;
+  } else {
+    return `${adjective}${noun}${Math.floor(Math.random() * 1000)}`;
+  }
+};
+
 export default genAI;

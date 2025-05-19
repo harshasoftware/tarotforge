@@ -2,11 +2,12 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
 import { processGoogleProfileImage } from '../lib/user-profile';
+import { generateMysticalUsername } from '../lib/gemini-ai';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signUp: (email: string, username?: string) => Promise<{ error: any }>;
+  signUp: (email: string, username?: string, fullName?: string) => Promise<{ error: any }>;
   signIn: (email: string) => Promise<{ error: any }>;
   signInWithGoogle: (returnToHome?: boolean) => Promise<{ error: any }>;
   handleGoogleRedirect: () => Promise<{ data?: any, error: any }>;
@@ -97,12 +98,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               // Extract information from Google provider if available
               const userMetadata = session.user.user_metadata || {};
               const avatarUrl = userMetadata.avatar_url || userMetadata.picture;
+              const fullName = userMetadata.full_name || userMetadata.name || '';
+              
+              // Generate a mystical username if none provided
+              let username = userMetadata.username;
+              if (!username) {
+                try {
+                  // Use email, name, or a combination for username generation
+                  const nameSource = fullName || session.user.email || '';
+                  username = await generateMysticalUsername(nameSource);
+                  console.log('Generated mystical username:', username);
+                } catch (usernameError) {
+                  console.error('Error generating username:', usernameError);
+                  username = session.user.email?.split('@')[0] || 'User';
+                }
+              }
               
               // Prepare user data for insertion
               const userData = {
                 id: session.user.id,
                 email: session.user.email || '',
-                username: userMetadata.username || userMetadata.name || session.user.email?.split('@')[0] || 'User',
+                username: username,
+                full_name: fullName,
                 avatar_url: null, // We'll update this later if we have a Google image
                 created_at: new Date().toISOString()
               };
@@ -133,6 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   id: session.user.id,
                   email: session.user.email || '',
                   username: newProfile.username,
+                  full_name: newProfile.full_name,
                   avatar_url: newProfile.avatar_url,
                   created_at: newProfile.created_at,
                   is_creator: newProfile.is_creator || false,
@@ -145,6 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   id: session.user.id,
                   email: session.user.email || '',
                   username: userMetadata.username || userMetadata.name || session.user.email?.split('@')[0] || 'User',
+                  full_name: fullName,
                   avatar_url: userData.avatar_url,
                   created_at: new Date().toISOString(),
                   is_creator: false,
@@ -159,6 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 id: session.user.id,
                 email: session.user.email || '',
                 username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
+                full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
                 created_at: new Date().toISOString(),
                 is_creator: false,
                 is_reader: false,
@@ -171,6 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               id: session.user.id,
               email: session.user.email || '',
               username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
+              full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
               created_at: new Date().toISOString(),
               is_creator: false,
               is_reader: false,
@@ -183,6 +204,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: session.user.id,
             email: session.user.email || '',
             username: profile?.username,
+            full_name: profile?.full_name,
             avatar_url: profile?.avatar_url,
             created_at: profile?.created_at || new Date().toISOString(),
             is_creator: profile?.is_creator || false,
@@ -203,10 +225,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const signUp = async (email: string, username?: string) => {
+  const signUp = async (email: string, username?: string, fullName?: string) => {
     try {
-      // Generate a random username if not provided
-      const generatedUsername = username || generateRandomUsername(email);
+      // Generate a mystical username if not provided
+      let mysticalUsername = username;
+      if (!mysticalUsername) {
+        try {
+          mysticalUsername = await generateMysticalUsername(email || fullName || '');
+        } catch (usernameError) {
+          console.error('Error generating mystical username:', usernameError);
+          mysticalUsername = generateBasicUsername(email);
+        }
+      }
       
       console.log('Signing up user with email:', email);
       
@@ -219,7 +249,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password,
         options: {
           data: {
-            username: generatedUsername,
+            username: mysticalUsername,
+            full_name: fullName || '',
           },
           // Set the redirect URL for the magic link
           emailRedirectTo: `${window.location.origin}/auth/callback`,
@@ -349,8 +380,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
   
-  // Helper function to generate a random username based on email
-  const generateRandomUsername = (email: string) => {
+  // Helper function to generate a basic username from email if AI generation fails
+  const generateBasicUsername = (email: string): string => {
     const prefix = email.split('@')[0];
     const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
     return `${prefix}${randomSuffix}`;
