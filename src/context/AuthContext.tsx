@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
-import { processGoogleProfileImage } from '../lib/user-profile';
 
 interface AuthContextType {
   user: User | null;
@@ -94,32 +93,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('User profile not found, creating it...');
             
             try {
-              // Extract information from OAuth user_metadata if available
-              const userMetadata = session.user.user_metadata || {};
-              const username = userMetadata.username || userMetadata.name || userMetadata.full_name || session.user.email?.split('@')[0] || 'User';
-              let avatarUrl = userMetadata.avatar_url || userMetadata.picture || null;
-              
-              // Create initial profile
               await supabase
                 .from('users')
                 .insert([{
                   id: session.user.id,
                   email: session.user.email || '',
-                  username: username,
-                  created_at: new Date().toISOString(),
-                  avatar_url: null // We'll update this after uploading to our storage
+                  username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
+                  created_at: new Date().toISOString()
                 }]);
               
               console.log('User profile created successfully');
-              
-              // If there is an avatar URL from OAuth, process it
-              if (avatarUrl && session.user.id) {
-                console.log('Processing OAuth profile image...');
-                const processedUrl = await processGoogleProfileImage(session.user.id, avatarUrl);
-                if (processedUrl) {
-                  avatarUrl = processedUrl;
-                }
-              }
               
               // Retry profile fetch
               const { data: newProfile } = await supabase
@@ -133,23 +116,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   id: session.user.id,
                   email: session.user.email || '',
                   username: newProfile.username,
-                  avatar_url: avatarUrl || newProfile.avatar_url,
+                  avatar_url: newProfile.avatar_url,
                   created_at: newProfile.created_at,
                   is_creator: newProfile.is_creator || false,
                   is_reader: newProfile.is_reader || false,
-                  bio: newProfile.bio || '',
                 });
               } else {
                 // Fallback if profile fetch fails after creation
                 setUser({
                   id: session.user.id,
                   email: session.user.email || '',
-                  username: username,
-                  avatar_url: avatarUrl,
+                  username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
                   created_at: new Date().toISOString(),
                   is_creator: false,
                   is_reader: false,
-                  bio: '',
                 });
               }
             } catch (insertError) {
@@ -162,7 +142,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 created_at: new Date().toISOString(),
                 is_creator: false,
                 is_reader: false,
-                bio: '',
               });
             }
           } else {
@@ -174,7 +153,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               created_at: new Date().toISOString(),
               is_creator: false,
               is_reader: false,
-              bio: '',
             });
           }
         } else if (profile) {
@@ -187,7 +165,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             created_at: profile?.created_at || new Date().toISOString(),
             is_creator: profile?.is_creator || false,
             is_reader: profile?.is_reader || false,
-            bio: profile?.bio || '',
           });
         }
       } else {
@@ -276,6 +253,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logAuthProcess = (step: string, data?: any) => {
     console.log(`Auth process: ${step}`, data || '');
   };
+  
 
   const signInWithGoogle = async (returnToHome = false) => {
     try {
