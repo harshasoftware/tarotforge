@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import type { User, QuizAttempt, QuizQuestion, ReaderLevel, ReaderReview, QuizDifficultyLevel } from '../types';
-import { generateTarotQuiz } from './gemini-ai';
+import { getQuizQuestions } from './quiz-data';
 
 /**
  * Check if a user can take the tarot reader certification quiz
@@ -117,8 +117,9 @@ export const startTarotQuiz = async (userId: string): Promise<{
     // Determine the quiz difficulty based on the user's current level
     const difficulty = await getQuizDifficultyForUser(userId);
     
-    // Generate quiz questions
-    const questions = await generateTarotQuiz(15);
+    // Generate quiz questions - using static questions for now
+    // In a production environment, this would use the AI-generated questions
+    const questions = getQuizQuestions(15, difficulty);
     
     // Setting time limit as 20 minutes (1200 seconds)
     const timeLimit = 1200;
@@ -403,7 +404,7 @@ export const getUserQuizAttempts = async (userId: string): Promise<QuizAttempt[]
       .from('quiz_attempts')
       .select('*')
       .eq('user_id', userId)
-      .order('taken_at', { ascending: false });
+      .order('started_at', { ascending: false });
     
     if (error) {
       console.error('Error fetching quiz attempts:', error);
