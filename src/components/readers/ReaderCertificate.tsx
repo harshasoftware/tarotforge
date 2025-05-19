@@ -276,7 +276,7 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
               </div>
               
               {/* Footer */}
-              <div className="w-full flex items-center justify-between">
+              <div className="w-full flex items-center justify-between mt-4">
                 <div className="text-center">
                   <div className="font-serif text-xl font-bold italic text-accent mb-1" style={{ fontFamily: 'Arial, serif' }}>Tarot Forge</div>
                   <p className="text-xs" style={{ fontFamily: 'Arial, sans-serif' }}>Official Certification Authority</p>
@@ -285,7 +285,7 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
                 <div className="flex flex-col items-center">
                   <QRCodeSVG 
                     value={`https://tarotforge.xyz/verify/${certificationId}`} 
-                    size={60}
+                    size={80}
                     bgColor="transparent"
                     fgColor="white"
                     level="H"
