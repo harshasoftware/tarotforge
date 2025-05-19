@@ -87,7 +87,7 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
     }
   };
   
-  // Get appropriate icon based on reader level
+  // Get appropriate icon based on chakra themes
   const getLevelIcon = () => {
     switch (levelInfo.icon) {
       case 'flame': return <Flame className="h-4 w-4" />;

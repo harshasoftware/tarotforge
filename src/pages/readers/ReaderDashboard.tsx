@@ -28,6 +28,7 @@ const ReaderDashboard: React.FC = () => {
     readings: 0 // 0-100%
   });
   const [showCertificate, setShowCertificate] = useState(false);
+  const [allLevels, setAllLevels] = useState<ReaderLevel[]>([]);
   
   // Format date to get reader since date in readable format
   const formattedReaderSince = () => {
@@ -92,6 +93,16 @@ const ReaderDashboard: React.FC = () => {
           // Fetch reviews
           const reviewsData = await getReaderReviews(user.id);
           setReviews(reviewsData);
+          
+          // Fetch all levels for milestone progress bar
+          const { data: allLevelsData } = await supabase
+            .from('reader_levels')
+            .select('*')
+            .order('rank_order', { ascending: true });
+            
+          if (allLevelsData && allLevelsData.length > 0) {
+            setAllLevels(allLevelsData);
+          }
           
           // Calculate progress to next level
           if (readerData.readerLevel.rank_order < 5) {
@@ -262,6 +273,106 @@ const ReaderDashboard: React.FC = () => {
                 </h2>
               </div>
               <div className="p-6">
+                {/* Chakra Color System Milestone Progress Bar */}
+                {allLevels.length > 0 && (
+                  <div className="mb-8">
+                    <h3 className="font-medium mb-3">Reader Level Progression</h3>
+                    <div className="relative">
+                      {/* Background Track */}
+                      <div className="h-6 bg-muted/30 rounded-full overflow-hidden relative">
+                        {/* Milestone Markers */}
+                        <div className="absolute inset-0 flex items-center">
+                          {allLevels.map((level, index) => (
+                            <React.Fragment key={level.id}>
+                              {/* Divider except for first item */}
+                              {index > 0 && (
+                                <div className="h-6 w-0.5 bg-background/80 relative z-10"></div>
+                              )}
+                              
+                              {/* Level Section */}
+                              <div 
+                                className={`flex-grow h-full relative ${
+                                  index < (readerLevel?.rank_order || 1) 
+                                    ? getProgressBarColor(level.color_theme) 
+                                    : ''
+                                }`}
+                              >
+                                {/* Level Icon */}
+                                <div 
+                                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20"
+                                  title={`${level.name}: ${level.description}`}
+                                >
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${
+                                    index < (readerLevel?.rank_order || 1) 
+                                      ? getBorderColor(level.color_theme) + ' shadow-md' 
+                                      : 'border-muted-foreground'
+                                  } ${
+                                    index === (readerLevel?.rank_order || 1) - 1 
+                                      ? 'ring-2 ring-accent/50' 
+                                      : ''
+                                  } bg-background`}
+                                  >
+                                    <div className={`w-5 h-5 ${
+                                      index < (readerLevel?.rank_order || 1) 
+                                        ? getIconColor(level.color_theme)
+                                        : 'text-muted-foreground'
+                                    }`}>
+                                      {getLevelIconSmall(level.icon)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Level Names */}
+                      <div className="mt-3 flex justify-between">
+                        {allLevels.map((level, index) => (
+                          <div 
+                            key={`label-${level.id}`} 
+                            className={`text-xs ${
+                              index === (readerLevel?.rank_order || 1) - 1
+                                ? getTextColor(level.color_theme) + ' font-medium'
+                                : 'text-muted-foreground'
+                            }`}
+                            style={{ 
+                              width: `${100 / allLevels.length}%`, 
+                              textAlign: index === 0 ? 'left' : index === allLevels.length - 1 ? 'right' : 'center' 
+                            }}
+                          >
+                            {level.name}
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Milestone Tooltips */}
+                      <div className="mt-1">
+                        {allLevels.map((level, index) => (
+                          <div 
+                            key={`requirement-${level.id}`} 
+                            className="text-xs text-muted-foreground"
+                            style={{ 
+                              width: `${100 / allLevels.length}%`, 
+                              display: 'inline-block',
+                              textAlign: index === 0 ? 'left' : index === allLevels.length - 1 ? 'right' : 'center',
+                              paddingLeft: index === 0 ? 0 : 8,
+                              paddingRight: index === allLevels.length - 1 ? 0 : 8
+                            }}
+                          >
+                            {index === (readerLevel?.rank_order || 1) - 1 
+                              ? 'Current Level' 
+                              : index === readerLevel?.rank_order
+                                ? 'Next Level'
+                                : ''}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Rating progress */}
                   <div>
@@ -600,8 +711,69 @@ const ReaderDashboard: React.FC = () => {
   );
 };
 
-// Additional component imports for icons
-const Moon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>;
+// Helper functions for milestone progress bar
+const getProgressBarColor = (colorTheme: string) => {
+  switch (colorTheme) {
+    case 'red': return 'bg-red-500';
+    case 'orange': return 'bg-orange-500';
+    case 'yellow': return 'bg-yellow-500';
+    case 'green': return 'bg-green-500';
+    case 'blue': return 'bg-blue-500';
+    case 'indigo': return 'bg-indigo-500';
+    case 'violet': return 'bg-violet-500';
+    default: return 'bg-primary';
+  }
+};
+
+const getBorderColor = (colorTheme: string) => {
+  switch (colorTheme) {
+    case 'red': return 'border-red-500';
+    case 'orange': return 'border-orange-500';
+    case 'yellow': return 'border-yellow-500';
+    case 'green': return 'border-green-500';
+    case 'blue': return 'border-blue-500';
+    case 'indigo': return 'border-indigo-500';
+    case 'violet': return 'border-violet-500';
+    default: return 'border-primary';
+  }
+};
+
+const getIconColor = (colorTheme: string) => {
+  switch (colorTheme) {
+    case 'red': return 'text-red-500';
+    case 'orange': return 'text-orange-500';
+    case 'yellow': return 'text-yellow-500';
+    case 'green': return 'text-green-500';
+    case 'blue': return 'text-blue-500';
+    case 'indigo': return 'text-indigo-500';
+    case 'violet': return 'text-violet-500';
+    default: return 'text-primary';
+  }
+};
+
+const getTextColor = (colorTheme: string) => {
+  switch (colorTheme) {
+    case 'red': return 'text-red-500';
+    case 'orange': return 'text-orange-500';
+    case 'yellow': return 'text-yellow-500';
+    case 'green': return 'text-green-500';
+    case 'blue': return 'text-blue-500';
+    case 'indigo': return 'text-indigo-500';
+    case 'violet': return 'text-violet-500';
+    default: return 'text-primary';
+  }
+};
+
+const getLevelIconSmall = (iconName: string = 'flame') => {
+  switch (iconName) {
+    case 'flame': return <Flame className="h-4 w-4" />;
+    case 'sparkles': return <Sparkles className="h-4 w-4" />;
+    case 'sun': return <Sun className="h-4 w-4" />;
+    case 'heart': return <Heart className="h-4 w-4" />;
+    case 'crown': return <Crown className="h-4 w-4" />;
+    default: return <Flame className="h-4 w-4" />;
+  }
+};
 
 // Needed for imports
 const supabase = { from: () => ({ select: () => ({ eq: () => ({ single: () => ({ data: null }) }) }) }) };
