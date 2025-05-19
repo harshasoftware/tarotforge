@@ -8,6 +8,7 @@ export interface User {
   is_creator?: boolean;
   is_reader?: boolean;
   bio?: string;
+  reader_since?: string;
 }
 
 export interface Deck {
@@ -92,6 +93,25 @@ export interface ReadingLayout {
     y: number;
     rotation?: number;
   }[];
+}
+
+// Interface for tarot quiz attempts
+export interface QuizAttempt {
+  id: string;
+  user_id: string;
+  score: number;
+  passed: boolean;
+  taken_at: string;
+  expires_at: string;
+}
+
+// Tarot quiz question format
+export interface QuizQuestion {
+  id: number;
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation?: string;
 }
 
 /**

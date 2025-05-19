@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Menu, X, Moon, Sun, User } from 'lucide-react';
+import { Menu, X, Moon, Sun, User, UserCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import SignInModal from '../auth/SignInModal';
 import TarotLogo from '../ui/TarotLogo';
@@ -55,6 +55,7 @@ const Navbar = () => {
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-1">
             <NavLink to="/marketplace">Marketplace</NavLink>
+            <NavLink to="/readers">Readers</NavLink>
             {user ? (
               <>
                 <NavLink to="/reading-room">Reading Room</NavLink>
@@ -115,6 +116,16 @@ const Navbar = () => {
                   <Link to="/collection" className="block px-4 py-2 text-sm hover:bg-secondary/50">
                     My Collection
                   </Link>
+                  {user.is_reader ? (
+                    <Link to="/reader-dashboard" className="block px-4 py-2 text-sm hover:bg-secondary/50 flex items-center">
+                      <UserCheck className="h-4 w-4 mr-2 text-accent" />
+                      Reader Dashboard
+                    </Link>
+                  ) : (
+                    <Link to="/become-reader" className="block px-4 py-2 text-sm hover:bg-secondary/50">
+                      Become a Reader
+                    </Link>
+                  )}
                   <button 
                     onClick={signOut} 
                     className="block w-full text-left px-4 py-2 text-sm hover:bg-secondary/50 text-destructive"
@@ -123,7 +134,14 @@ const Navbar = () => {
                   </button>
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <button
+                onClick={() => setShowSignInModal(true)}
+                className="btn btn-primary py-1.5 px-4 text-sm"
+              >
+                Sign In
+              </button>
+            )}
 
             {/* Mobile menu button */}
             <button 
@@ -153,6 +171,9 @@ const Navbar = () => {
               <Link to="/marketplace" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                 Marketplace
               </Link>
+              <Link to="/readers" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
+                Readers
+              </Link>
               {user ? (
                 <>
                   <Link to="/reading-room" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
@@ -164,6 +185,16 @@ const Navbar = () => {
                   <Link to="/profile" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                     Profile
                   </Link>
+                  {user.is_reader ? (
+                    <Link to="/reader-dashboard" className="block py-2 px-4 rounded-md hover:bg-secondary/50 flex items-center">
+                      <UserCheck className="h-4 w-4 mr-2 text-accent" />
+                      Reader Dashboard
+                    </Link>
+                  ) : (
+                    <Link to="/become-reader" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
+                      Become a Reader
+                    </Link>
+                  )}
                   <button 
                     onClick={signOut} 
                     className="block w-full text-left py-2 px-4 rounded-md hover:bg-destructive/20 text-destructive"
@@ -181,6 +212,15 @@ const Navbar = () => {
                     className="block w-full text-left py-2 px-4 rounded-md hover:bg-secondary/50"
                   >
                     Reading Room
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsOpen(false);
+                      setShowSignInModal(true);
+                    }}
+                    className="block w-full text-left py-2 px-4 rounded-md bg-primary text-primary-foreground"
+                  >
+                    Sign In
                   </button>
                 </>
               )}

@@ -18,6 +18,12 @@ const Checkout = lazy(() => import('./pages/marketplace/Checkout'));
 const AuthCallback = lazy(() => import('./pages/auth/AuthCallback'));
 const DeckCreator = lazy(() => import('./pages/creator/DeckCreator'));
 
+// New components for Readers and Reader Quiz
+const ReadersPage = lazy(() => import('./pages/readers/ReadersPage'));
+const BecomeReader = lazy(() => import('./pages/readers/BecomeReader'));
+const TarotQuiz = lazy(() => import('./pages/readers/TarotQuiz'));
+const ReaderDashboard = lazy(() => import('./pages/readers/ReaderDashboard'));
+
 function App() {
   const { checkAuth, loading, user } = useAuth();
   const location = useLocation();
@@ -67,6 +73,7 @@ function App() {
           <Route path="signup" element={<Signup />} />
           <Route path="marketplace" element={<Marketplace />} />
           <Route path="marketplace/:deckId" element={<DeckDetails />} />
+          <Route path="readers" element={<ReadersPage />} />
           
           {/* Authentication callback route */}
           <Route path="auth/callback" element={<AuthCallback />} />
@@ -79,6 +86,9 @@ function App() {
             <Route path="profile" element={<Profile />} />
             <Route path="checkout/:deckId" element={<Checkout />} />
             <Route path="create-deck" element={<DeckCreator />} />
+            <Route path="become-reader" element={<BecomeReader />} />
+            <Route path="tarot-quiz" element={<TarotQuiz />} />
+            <Route path="reader-dashboard" element={<ReaderDashboard />} />
           </Route>
         </Route>
       </Routes>

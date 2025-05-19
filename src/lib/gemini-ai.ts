@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
-import type { AIModel } from '../types';
+import type { AIModel, QuizQuestion } from '../types';
 
 // Generate a placeholder image URL for cards when image generation fails
 export function generatePlaceholderImageUrl(cardName: string, theme: string): string {
@@ -1013,6 +1013,7 @@ export const generateMysticalUsername = async (emailOrName: string): Promise<str
     
     // If the username is empty or too long, fallback to a simpler approach
     if (!username || username.length > 20 || username.length < 3) {
+      console.warn('Generated username was empty or invalid, using fallback');
       return generateFallbackUsername(cleanName);
     }
     
@@ -1046,6 +1047,131 @@ const generateFallbackUsername = (baseName: string): string => {
   } else {
     return `${adjective}${noun}${Math.floor(Math.random() * 1000)}`;
   }
+};
+
+/**
+ * Generates tarot quiz questions for the reader certification exam
+ * @param count Number of questions to generate
+ * @returns Array of quiz questions
+ */
+export const generateTarotQuiz = async (count: number = 10): Promise<QuizQuestion[]> => {
+  if (!apiKey) {
+    // Return fallback quiz questions when API key is missing
+    return Array(count).fill(null).map((_, index) => ({
+      id: index,
+      question: `What is the traditional meaning of ${getRandomTarotCard()}?`,
+      options: [
+        'Transformation and renewal',
+        'Joy and fulfillment',
+        'Conflict and challenges',
+        'Intuition and mystery'
+      ],
+      correctAnswer: Math.floor(Math.random() * 4),
+      explanation: 'Understanding traditional tarot meanings is essential for providing accurate readings.'
+    }));
+  }
+  
+  try {
+    // Use Gemini 2.5 Pro for the best quiz generation
+    const model = getGeminiModel('gemini-2.5-pro-preview-05-06');
+    
+    const prompt = `
+      Generate ${count} challenging multiple-choice quiz questions to test advanced knowledge of tarot reading.
+      
+      Include questions about:
+      - Traditional tarot card meanings (Major and Minor Arcana)
+      - Tarot history and traditions
+      - Reading techniques and spreads
+      - Card symbolism and interpretations
+      - Reversed card meanings
+      - Ethical considerations in tarot reading
+      
+      For each question:
+      - Ensure there is only one clearly correct answer
+      - Make it challenging but fair for someone with intermediate tarot knowledge
+      - Include 4 plausible answer choices
+      - Provide a brief explanation for the correct answer
+      
+      Format your response as a JSON array that can be parsed directly:
+      [
+        {
+          "id": 0,
+          "question": "What is the traditional meaning of The Fool?",
+          "options": ["Endings", "New beginnings", "Confusion", "Success"],
+          "correctAnswer": 1,
+          "explanation": "The Fool traditionally represents new beginnings, innocence, and stepping into the unknown."
+        },
+        ...more questions
+      ]
+    `;
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    
+    // Parse the response as JSON
+    try {
+      const quizData = JSON.parse(response.text());
+      
+      // Validate and clean the data
+      if (Array.isArray(quizData) && quizData.length > 0) {
+        // Ensure each question has all required properties
+        const validQuestions = quizData.filter((q: any, idx: number) => {
+          const valid = q.question && 
+                       Array.isArray(q.options) && 
+                       q.options.length === 4 &&
+                       typeof q.correctAnswer === 'number';
+          
+          if (!valid) {
+            console.warn(`Filtering out invalid question at index ${idx}`);
+          }
+          
+          return valid;
+        }).map((q: any, idx: number) => ({
+          ...q,
+          id: idx  // Ensure IDs are sequential
+        }));
+        
+        // Take only the requested number of questions
+        return validQuestions.slice(0, count);
+      }
+      
+      throw new Error('Invalid response format');
+    } catch (parseError) {
+      console.error('Error parsing quiz questions:', parseError);
+      throw new Error('Failed to parse generated quiz questions');
+    }
+  } catch (error) {
+    console.error('Error generating tarot quiz questions:', error);
+    // Return fallback questions
+    return Array(count).fill(null).map((_, index) => ({
+      id: index,
+      question: `What is the traditional meaning of ${getRandomTarotCard()}?`,
+      options: [
+        'Transformation and renewal',
+        'Joy and fulfillment',
+        'Conflict and challenges',
+        'Intuition and mystery'
+      ],
+      correctAnswer: Math.floor(Math.random() * 4),
+      explanation: 'Understanding traditional tarot meanings is essential for providing accurate readings.'
+    }));
+  }
+};
+
+/**
+ * Helper function to get a random tarot card name
+ * @returns A random tarot card name
+ */
+const getRandomTarotCard = (): string => {
+  const majorArcana = [
+    'The Fool', 'The Magician', 'The High Priestess', 'The Empress', 'The Emperor',
+    'The Hierophant', 'The Lovers', 'The Chariot', 'Strength', 'The Hermit',
+    'Wheel of Fortune', 'Justice', 'The Hanged Man', 'Death', 'Temperance',
+    'The Devil', 'The Tower', 'The Star', 'The Moon', 'The Sun',
+    'Judgement', 'The World'
+  ];
+  
+  return majorArcana[Math.floor(Math.random() * majorArcana.length)];
 };
 
 export default genAI;
