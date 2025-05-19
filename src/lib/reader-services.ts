@@ -207,6 +207,7 @@ export const fetchQuizById = async (quizId: string): Promise<{
   questions: QuizQuestion[];
   timeRemaining: number; // in seconds
   startedAt: string;
+  difficultyLevel: string; // Added to return the difficulty level
 }> => {
   try {
     // Fetch the quiz from the database
@@ -232,7 +233,8 @@ export const fetchQuizById = async (quizId: string): Promise<{
     return {
       questions,
       timeRemaining,
-      startedAt: quizData.started_at
+      startedAt: quizData.started_at,
+      difficultyLevel: quizData.difficulty_level || 'novice'
     };
   } catch (error) {
     console.error('Error in fetchQuizById:', error);
@@ -298,20 +300,38 @@ export const submitQuizAnswers = async (
     
     const score = (correctAnswers / questions.length) * 100;
     
-    // Get the required passing score (now based on quiz difficulty)
-    const { data: levelData, error: levelError } = await supabase
+    // Get the difficulty level from the quiz
+    const difficultyLevel = quizData.difficulty_level || 'novice';
+    
+    // Get the reader levels to determine required score and next level
+    const { data: levels, error: levelsError } = await supabase
       .from('reader_levels')
       .select('*')
-      .eq('name', 'Novice Seer') // Default level for new readers
-      .single();
+      .order('rank_order', { ascending: true });
       
-    if (levelError) {
-      console.error('Error fetching level data:', levelError);
-      throw levelError;
+    if (levelsError) {
+      console.error('Error fetching reader levels:', levelsError);
+      throw levelsError;
     }
     
-    // Determine if the user passed (using required score from level)
-    const requiredScore = levelData?.required_quiz_score || 75;
+    // Find the next level based on the current difficulty
+    const levelMapping = {
+      'novice': 1,
+      'adept': 2,
+      'mystic': 3,
+      'oracle': 4,
+      'archmage': 5
+    };
+    
+    const currentRankOrder = levelMapping[difficultyLevel as keyof typeof levelMapping] || 1;
+    
+    // Get level data for current difficulty
+    const currentLevel = levels?.find(level => 
+      level.rank_order === currentRankOrder
+    );
+    
+    // Determine required score from the correct level
+    const requiredScore = currentLevel?.required_quiz_score || 75;
     const passed = score >= requiredScore;
     
     // Calculate time elapsed
@@ -336,19 +356,52 @@ export const submitQuizAnswers = async (
       throw updateError;
     }
     
-    // If the user passed, update their reader status
+    // If the user passed, update their reader status and level
     if (passed) {
-      const { error: userUpdateError } = await supabase
+      // Get user data to check current level
+      const { data: userData, error: userError } = await supabase
         .from('users')
-        .update({
-          is_reader: true,
-          reader_since: new Date().toISOString()
-        })
-        .eq('id', userId);
+        .select('is_reader, level_id')
+        .eq('id', userId)
+        .single();
         
-      if (userUpdateError) {
-        console.error('Error updating user reader status:', userUpdateError);
-        // Don't fail the whole operation if this part fails
+      if (userError) {
+        console.error('Error fetching user data:', userError);
+        throw userError;
+      }
+      
+      // Find the appropriate level to set based on the passed quiz difficulty
+      const nextLevel = levels?.find(level => level.rank_order === currentRankOrder);
+      
+      if (!nextLevel) {
+        console.error('Could not find appropriate level for rank order:', currentRankOrder);
+        throw new Error('Level data not found');
+      }
+      
+      // If user is not a reader yet, or is upgrading to a higher level
+      const isNewReader = !userData?.is_reader;
+      const isUpgrade = userData?.level_id !== nextLevel.id;
+      
+      if (isNewReader || isUpgrade) {
+        const updateData: any = {
+          is_reader: true,
+          level_id: nextLevel.id
+        };
+        
+        // Only set reader_since if this is their first time becoming a reader
+        if (isNewReader) {
+          updateData.reader_since = new Date().toISOString();
+        }
+        
+        const { error: userUpdateError } = await supabase
+          .from('users')
+          .update(updateData)
+          .eq('id', userId);
+          
+        if (userUpdateError) {
+          console.error('Error updating user reader status:', userUpdateError);
+          // Don't fail the whole operation if this part fails
+        }
       }
     }
     

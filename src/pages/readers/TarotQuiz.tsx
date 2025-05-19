@@ -25,7 +25,7 @@ const TarotQuiz: React.FC = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<(number | null)[]>([]);
   const [timeRemaining, setTimeRemaining] = useState(0);
-  const [difficultyLevel, setDifficultyLevel] = useState('novice');
+  const [difficultyLevel, setDifficultyLevel] = useState<string>('novice');
   const [quizResults, setQuizResults] = useState<{
     score: number;
     passed: boolean;
@@ -56,6 +56,11 @@ const TarotQuiz: React.FC = () => {
           setQuestions(quizData.questions);
           setTimeRemaining(quizData.timeRemaining);
           
+          // Update the difficulty level from the quiz data
+          if (quizData.difficultyLevel) {
+            setDifficultyLevel(quizData.difficultyLevel);
+          }
+          
           // Initialize answer array
           setUserAnswers(Array(quizData.questions.length).fill(null));
           
@@ -67,6 +72,13 @@ const TarotQuiz: React.FC = () => {
           setQuizId(newQuiz.quizId);
           setQuestions(newQuiz.questions);
           setTimeRemaining(newQuiz.timeLimit);
+          
+          // Get the difficulty level from the quiz metadata
+          // Need to fetch the quiz details since startTarotQuiz doesn't return difficulty
+          const quizDetails = await fetchQuizById(newQuiz.quizId);
+          if (quizDetails.difficultyLevel) {
+            setDifficultyLevel(quizDetails.difficultyLevel);
+          }
           
           // Initialize answer array
           setUserAnswers(Array(newQuiz.questions.length).fill(null));
