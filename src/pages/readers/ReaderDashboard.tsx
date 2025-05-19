@@ -182,7 +182,7 @@ const ReaderDashboard: React.FC = () => {
               className="btn btn-secondary py-2 px-4 flex items-center"
             >
               <Award className="h-5 w-5 mr-2" />
-              Certificate
+              View Certificate
             </button>
           </div>
         </div>
@@ -412,6 +412,16 @@ const ReaderDashboard: React.FC = () => {
                     </span>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </button>
+                  <button 
+                    onClick={() => setShowCertificate(true)}
+                    className="w-full text-left px-4 py-3 rounded-lg hover:bg-muted/30 transition-colors flex items-center justify-between"
+                  >
+                    <span className="flex items-center">
+                      <Award className="h-5 w-5 text-accent mr-3" />
+                      View Certificate
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
                   <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-muted/30 transition-colors flex items-center justify-between">
                     <span className="flex items-center">
                       <BarChart4 className="h-5 w-5 text-primary mr-3" />
@@ -595,6 +605,6 @@ const Sun = ({ className }: { className?: string }) => <svg xmlns="http://www.w3
 const Crown = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></svg>;
 
 // Needed for imports
-const supabase = { from: () => ({}) };
+const supabase = { from: () => ({ select: () => ({ eq: () => ({ single: () => ({ data: null }) }) }) }) };
 
 export default ReaderDashboard;

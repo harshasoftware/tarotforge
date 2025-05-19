@@ -149,7 +149,7 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
       
       // Upload to storage and get URL
       const shareableUrl = await uploadCertificate(user.id, blob, {
-        username: user.username || '',
+        username: user.username || user.full_name || '',
         level: readerLevel.name,
         certificationId,
         score: quizScore,
@@ -161,11 +161,19 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
         
         // Check if native share is available
         if (navigator.share) {
-          await navigator.share({
-            title: `${user.username || 'Tarot Reader'}'s Certification`,
-            text: `I've achieved ${readerLevel.name} certification on Tarot Forge!`,
-            url: shareableUrl
-          });
+          try {
+            await navigator.share({
+              title: `${user.username || 'Tarot Reader'}'s Certification`,
+              text: `I've achieved ${readerLevel.name} certification on Tarot Forge!`,
+              url: shareableUrl
+            });
+          } catch (shareError) {
+            console.error('Error sharing:', shareError);
+            // Fallback - copy to clipboard
+            await navigator.clipboard.writeText(shareableUrl);
+            setShowShareSuccess(true);
+            setTimeout(() => setShowShareSuccess(false), 3000);
+          }
         } else {
           // Fallback - copy to clipboard
           await navigator.clipboard.writeText(shareableUrl);

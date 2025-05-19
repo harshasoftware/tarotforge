@@ -664,8 +664,8 @@ const TarotQuiz: React.FC = () => {
         </div>
       </div>
       
-      {/* Certificate Modal */}
-      {showCertificate && quizResults && user && (
+      {/* Certificate Modal - Only show when quiz is passed */}
+      {showCertificate && quizResults && quizResults.passed && user && (
         <ReaderCertificate
           user={user}
           readerLevel={getReaderLevel()}
