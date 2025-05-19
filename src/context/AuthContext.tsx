@@ -307,7 +307,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logAuthProcess = (step: string, data?: any) => {
     console.log(`Auth process: ${step}`, data || '');
   };
-  
 
   const signInWithGoogle = async (returnToHome = false) => {
     try {
@@ -327,13 +326,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: import.meta.env.VITE_GOOGLE_CLIENT_REDIRECT_URI,
+          redirectTo: `${window.location.origin}/auth/callback`,
           scopes: 'email profile openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
-            response_type: 'code',
-            include_granted_scopes: 'true'
+            response_type: 'code'
           }
         }
       });
@@ -353,9 +351,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       // This method works for all providers including Google
-      // Supabase automatically handles tokens and session creation
       if (window.location.hash || window.location.search) {
-        logAuthProcess('Authentication data found in URL');        
+        logAuthProcess('Authentication data found in URL');
+        
+        if (window.location.search) {
+          // Handle code exchange if we have a code parameter
+          const { data, error } = await supabase.auth.exchangeCodeForSession(window.location.search);
+          
+          if (error) {
+            throw error;
+          }
+          
+          if (data.session) {
+            logAuthProcess('Successfully authenticated via code exchange');
+          }
+        }
+        
         // Let Supabase handle the callback
         await checkAuth();
         return { error: null };

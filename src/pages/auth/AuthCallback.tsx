@@ -21,27 +21,9 @@ const AuthCallback = () => {
         if (window.location.hash || window.location.search) {
           try {
             // Process authentication callback data
-            if (window.location.search) {
+            if (window.location.search && window.location.search.includes('code=')) {
               console.log('Processing code exchange from query parameters');
-              const { data, error } = await supabase.auth.exchangeCodeForSession(window.location.search);
-              
-              if (error) {
-                throw error;
-              }
-              
-              if (data.session) {
-                console.log('Successfully authenticated via code exchange');
-              }
-            } else if (window.location.hash) {
-              // For callbacks with hash fragments
-              console.log('Processing authentication with hash fragment');
-              const { error: redirectError } = await handleGoogleRedirect();
-              
-              if (redirectError) {
-                throw new Error(typeof redirectError === 'string' ? 
-                  redirectError : 
-                  'Authentication failed. Please try again.');
-              }
+              await handleGoogleRedirect();
             }
             
             // Force refresh the auth state
@@ -116,7 +98,7 @@ const AuthCallback = () => {
   
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full text-center">
           <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
           <h2 className="text-2xl font-serif mb-2">Authentication Error</h2>
@@ -128,7 +110,7 @@ const AuthCallback = () => {
   }
   
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <LoadingScreen />
       <div className="mt-8 max-w-md text-center">
         <h2 className="text-xl font-medium mb-2">Setting Up Your Account</h2>
