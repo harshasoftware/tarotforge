@@ -6,6 +6,7 @@ export interface User {
   created_at: string;
   is_creator?: boolean;
   is_reader?: boolean;
+  bio?: string;
 }
 
 export interface Deck {

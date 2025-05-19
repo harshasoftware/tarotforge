@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
+import { processGoogleProfileImage } from '../lib/user-profile';
 
 interface AuthContextType {
   user: User | null;
@@ -93,16 +94,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('User profile not found, creating it...');
             
             try {
-              await supabase
-                .from('users')
-                .insert([{
-                  id: session.user.id,
-                  email: session.user.email || '',
-                  username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
-                  created_at: new Date().toISOString()
-                }]);
+              // Extract information from Google provider if available
+              const userMetadata = session.user.user_metadata || {};
+              const avatarUrl = userMetadata.avatar_url || userMetadata.picture;
+              
+              // Prepare user data for insertion
+              const userData = {
+                id: session.user.id,
+                email: session.user.email || '',
+                username: userMetadata.username || userMetadata.name || session.user.email?.split('@')[0] || 'User',
+                avatar_url: null, // We'll update this later if we have a Google image
+                created_at: new Date().toISOString()
+              };
+              
+              // Insert the user profile
+              await supabase.from('users').insert([userData]);
               
               console.log('User profile created successfully');
+              
+              // If we have an avatar from Google, process and upload it
+              if (avatarUrl) {
+                console.log('Processing Google profile image...');
+                const newAvatarUrl = await processGoogleProfileImage(session.user.id, avatarUrl);
+                if (newAvatarUrl) {
+                  userData.avatar_url = newAvatarUrl;
+                }
+              }
               
               // Retry profile fetch
               const { data: newProfile } = await supabase
@@ -120,16 +137,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   created_at: newProfile.created_at,
                   is_creator: newProfile.is_creator || false,
                   is_reader: newProfile.is_reader || false,
+                  bio: newProfile.bio || '',
                 });
               } else {
                 // Fallback if profile fetch fails after creation
                 setUser({
                   id: session.user.id,
                   email: session.user.email || '',
-                  username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
+                  username: userMetadata.username || userMetadata.name || session.user.email?.split('@')[0] || 'User',
+                  avatar_url: userData.avatar_url,
                   created_at: new Date().toISOString(),
                   is_creator: false,
                   is_reader: false,
+                  bio: '',
                 });
               }
             } catch (insertError) {
@@ -142,6 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 created_at: new Date().toISOString(),
                 is_creator: false,
                 is_reader: false,
+                bio: '',
               });
             }
           } else {
@@ -153,6 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               created_at: new Date().toISOString(),
               is_creator: false,
               is_reader: false,
+              bio: '',
             });
           }
         } else if (profile) {
@@ -165,6 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             created_at: profile?.created_at || new Date().toISOString(),
             is_creator: profile?.is_creator || false,
             is_reader: profile?.is_reader || false,
+            bio: profile?.bio || '',
           });
         }
       } else {

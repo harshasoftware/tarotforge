@@ -1,8 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
-import { User, Mail, Lock, Upload, Check, Save, Shield } from 'lucide-react';
+import { Mail, Save, Shield, AlertCircle, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import ProfileImageUpload from '../../components/profile/ProfileImageUpload';
+import { getUserProfile, updateUserProfile } from '../../lib/user-profile';
+import { supabase } from '../../lib/supabase';
+import { User } from '../../types';
 
 interface ProfileFormData {
   username: string;
@@ -13,49 +17,135 @@ interface ProfileFormData {
 }
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, checkAuth } = useAuth();
   
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [profileData, setProfileData] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [deckStats, setDeckStats] = useState({ created: 0, purchased: 0 });
   
   const { 
     register, 
-    handleSubmit, 
+    handleSubmit,
+    reset,
     formState: { errors } 
-  } = useForm<ProfileFormData>({
-    defaultValues: {
-      username: user?.username || '',
-      email: user?.email || '',
-      bio: '',
-      isCreator: user?.is_creator || false,
-      isReader: user?.is_reader || false,
-    }
-  });
+  } = useForm<ProfileFormData>();
   
+  // Load user profile data
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (!user?.id) return;
+      
+      try {
+        setLoading(true);
+        setSaveError(null);
+        
+        // Fetch profile data
+        const profile = await getUserProfile(user.id);
+        
+        if (profile) {
+          setProfileData(profile);
+          
+          // Set form defaults
+          reset({
+            username: profile.username || '',
+            email: profile.email || '',
+            bio: profile.bio || '',
+            isCreator: profile.is_creator || false,
+            isReader: profile.is_reader || false,
+          });
+        }
+        
+        // Fetch deck stats
+        const { data: createdDecks, error: createdError } = await supabase
+          .from('decks')
+          .select('id', { count: 'exact' })
+          .eq('creator_id', user.id);
+          
+        if (!createdError) {
+          setDeckStats(prev => ({ ...prev, created: createdDecks?.length || 0 }));
+        }
+        
+      } catch (error) {
+        console.error('Error fetching profile data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProfileData();
+  }, [user?.id, reset]);
+  
+  // Handle form submission
   const onSubmit = async (data: ProfileFormData) => {
+    if (!user?.id) return;
+    
     try {
       setSaving(true);
+      setSaveError(null);
       
-      // In a real app, this would update the Supabase profile
-      console.log('Updating profile:', data);
+      // Prepare data for update
+      const updateData: Partial<User> = {
+        username: data.username,
+        // Don't update email as it's managed by Auth
+        bio: data.bio,
+        is_creator: data.isCreator,
+        is_reader: data.isReader
+      };
       
-      // Simulate API delay
+      // Update profile in Supabase
+      const { success, error } = await updateUserProfile(user.id, updateData);
+      
+      if (!success) {
+        throw new Error(error || 'Failed to update profile');
+      }
+      
+      // Update local state
+      setProfileData(prev => prev ? { ...prev, ...updateData } : null);
+      
+      // Show success message
+      setSaveSuccess(true);
+      setIsEditing(false);
+      
+      // Refresh auth context
+      await checkAuth();
+      
+      // Reset success message after delay
       setTimeout(() => {
-        setSaving(false);
-        setSaveSuccess(true);
-        setIsEditing(false);
-        
-        // Reset success message after 3 seconds
-        setTimeout(() => setSaveSuccess(false), 3000);
-      }, 1500);
+        setSaveSuccess(false);
+      }, 3000);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating profile:', error);
+      setSaveError(error.message || 'Failed to update profile. Please try again.');
+    } finally {
       setSaving(false);
     }
   };
   
+  // Handle profile image update
+  const handleProfileImageUpdate = (newImageUrl: string) => {
+    // Update local state
+    setProfileData(prev => prev ? { ...prev, avatar_url: newImageUrl } : null);
+    
+    // Refresh auth context to reflect changes
+    checkAuth();
+  };
+  
+  if (loading && !profileData) {
+    return (
+      <div className="min-h-screen pt-16 pb-20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading profile data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen pt-12 pb-20">
       <div className="container mx-auto px-4">
@@ -71,35 +161,30 @@ const Profile = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
               >
-                <div className="aspect-square bg-primary/20 relative flex items-center justify-center">
-                  {user?.avatar_url ? (
-                    <img 
-                      src={user.avatar_url} 
-                      alt={user.username || 'User'} 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="h-24 w-24 text-muted-foreground" />
-                  )}
-                  {isEditing && (
-                    <button className="absolute bottom-3 right-3 bg-primary text-primary-foreground p-2 rounded-full">
-                      <Upload className="h-5 w-5" />
-                    </button>
-                  )}
+                {/* Profile Image with Upload */}
+                <div className="p-8 flex justify-center">
+                  <ProfileImageUpload 
+                    user={profileData || user || { id: '', email: '' }}
+                    onUpdate={handleProfileImageUpdate}
+                  />
                 </div>
                 
                 <div className="p-4">
-                  <h2 className="font-serif font-bold text-xl">{user?.username || 'User'}</h2>
-                  <p className="text-muted-foreground text-sm mt-1">Member since {new Date(user?.created_at || '').toLocaleDateString()}</p>
+                  <h2 className="font-serif font-bold text-xl text-center">
+                    {profileData?.username || user?.username || user?.email?.split('@')[0] || 'User'}
+                  </h2>
+                  <p className="text-muted-foreground text-sm mt-1 text-center">
+                    Member since {new Date(user?.created_at || '').toLocaleDateString()}
+                  </p>
                   
-                  <div className="mt-4 pt-4 border-t border-border">
+                  <div className="mt-6 pt-4 border-t border-border">
                     <div className="grid grid-cols-2 gap-3 text-center">
-                      <div>
-                        <p className="text-2xl font-bold">{mockCreatedDecks.length}</p>
+                      <div className="p-3 bg-muted/10 rounded-lg">
+                        <p className="text-2xl font-bold">{deckStats.created}</p>
                         <p className="text-sm text-muted-foreground">Created</p>
                       </div>
-                      <div>
-                        <p className="text-2xl font-bold">{mockOwnedDecks.length}</p>
+                      <div className="p-3 bg-muted/10 rounded-lg">
+                        <p className="text-2xl font-bold">{deckStats.purchased}</p>
                         <p className="text-sm text-muted-foreground">Purchased</p>
                       </div>
                     </div>
@@ -108,7 +193,7 @@ const Profile = () => {
                   {!isEditing && (
                     <button 
                       onClick={() => setIsEditing(true)}
-                      className="w-full btn btn-primary mt-4 py-2"
+                      className="w-full btn btn-primary mt-6 py-2"
                     >
                       Edit Profile
                     </button>
@@ -129,15 +214,18 @@ const Profile = () => {
                     <h3 className="font-medium">Account Security</h3>
                   </div>
                   
-                  <button className="w-full btn btn-secondary py-2 mb-3 flex items-center justify-center">
-                    <Mail className="mr-2 h-4 w-4" />
-                    Change Email
-                  </button>
-                  
-                  <button className="w-full btn btn-secondary py-2 flex items-center justify-center">
-                    <Lock className="mr-2 h-4 w-4" />
-                    Change Password
-                  </button>
+                  <div className="p-4 bg-muted/10 rounded-lg mb-4">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Your account is secured using:
+                    </p>
+                    <div className="flex items-center space-x-2 mb-1">
+                      <Mail className="h-4 w-4 text-accent" />
+                      <p className="text-sm">{user?.email}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Sign in with magic link or Google
+                    </p>
+                  </div>
                 </div>
               </motion.div>
             </div>
@@ -154,6 +242,13 @@ const Profile = () => {
                   <div className="mb-6 p-4 border border-success/30 bg-success/10 rounded-lg flex items-start gap-3">
                     <Check className="h-5 w-5 text-success shrink-0 mt-0.5" />
                     <p className="text-sm text-success">Your profile has been updated successfully.</p>
+                  </div>
+                )}
+                
+                {saveError && (
+                  <div className="mb-6 p-4 border border-destructive/30 bg-destructive/10 rounded-lg flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <p className="text-sm text-destructive">{saveError}</p>
                   </div>
                 )}
                 
@@ -184,21 +279,13 @@ const Profile = () => {
                       <input
                         id="email"
                         type="email"
-                        disabled={!isEditing}
-                        className={`w-full p-2 rounded-md border ${
-                          errors.email ? 'border-destructive' : 'border-input'
-                        } bg-background focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-70 disabled:cursor-not-allowed`}
-                        {...register('email', { 
-                          required: 'Email is required',
-                          pattern: {
-                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                            message: 'Invalid email address'
-                          }
-                        })}
+                        disabled={true} // Always disabled as email is managed by Auth
+                        className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-70 disabled:cursor-not-allowed"
+                        {...register('email')}
                       />
-                      {errors.email && (
-                        <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
-                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Email cannot be changed directly. It's connected to your authentication method.
+                      </p>
                     </div>
                     
                     <div className="space-y-2">
@@ -277,6 +364,20 @@ const Profile = () => {
                   </div>
                 </form>
               </div>
+              
+              {/* Joined Readings History */}
+              <motion.div
+                className="bg-card rounded-xl border border-border p-6 mt-6"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+              >
+                <h2 className="text-xl font-serif font-bold mb-4">Recent Activity</h2>
+                
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Your recent tarot readings and deck activities will appear here.</p>
+                </div>
+              </motion.div>
             </motion.div>
           </div>
         </div>
@@ -284,9 +385,5 @@ const Profile = () => {
     </div>
   );
 };
-
-// Mock data for profile page
-const mockOwnedDecks = [1, 2];
-const mockCreatedDecks = [1];
 
 export default Profile;
