@@ -8,6 +8,7 @@ import QuizTimer from '../../components/quiz/QuizTimer';
 import { QuizQuestion as QuizQuestionType } from '../../types';
 import { startTarotQuiz, fetchQuizById, submitQuizAnswers } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
+import ReaderCertificate from '../../components/readers/ReaderCertificate';
 
 // Quiz states
 type QuizState = 'loading' | 'instructions' | 'active' | 'submitting' | 'results' | 'error' | 'timeout';
@@ -33,6 +34,10 @@ const TarotQuiz: React.FC = () => {
     totalQuestions: number;
     timeElapsed: number;
   } | null>(null);
+  
+  // New states for non-cheating certification and certificate
+  const [agreedToHonesty, setAgreedToHonesty] = useState(false);
+  const [showCertificate, setShowCertificate] = useState(false);
   
   // Initialize the quiz
   useEffect(() => {
@@ -97,6 +102,11 @@ const TarotQuiz: React.FC = () => {
   
   // Handle quiz start
   const startQuiz = () => {
+    if (!agreedToHonesty) {
+      alert('Please certify that you will not cheat during the quiz.');
+      return;
+    }
+    
     setQuizState('active');
   };
   
@@ -168,6 +178,11 @@ const TarotQuiz: React.FC = () => {
     navigate('/become-reader');
   };
   
+  // Show the reader certificate
+  const showReaderCertificate = () => {
+    setShowCertificate(true);
+  };
+  
   // Check if all questions have been answered
   const allQuestionsAnswered = userAnswers.every(a => a !== null);
   
@@ -192,6 +207,78 @@ const TarotQuiz: React.FC = () => {
       case 'oracle': return 'from-amber-500/20 to-red-500/10';
       case 'archmage': return 'from-rose-500/20 to-purple-500/10';
       default: return 'from-primary/20 to-accent/10';
+    }
+  };
+  
+  // Get reader level information based on difficulty
+  const getReaderLevel = () => {
+    switch (difficultyLevel) {
+      case 'novice': 
+        return {
+          id: 'novice',
+          name: 'Novice Seer',
+          rank_order: 1,
+          color_theme: 'blue',
+          icon: 'star',
+          description: 'Beginning your journey into tarot with foundational knowledge',
+          base_price_per_minute: 0.25,
+          required_quiz_score: 75
+        };
+      case 'adept': 
+        return {
+          id: 'adept',
+          name: 'Mystic Adept',
+          rank_order: 2,
+          color_theme: 'purple',
+          icon: 'moon',
+          description: 'Developing deeper insight and intuition with tarot symbolism',
+          base_price_per_minute: 0.5,
+          required_quiz_score: 80
+        };
+      case 'mystic': 
+        return {
+          id: 'mystic',
+          name: 'Ethereal Guide',
+          rank_order: 3,
+          color_theme: 'teal',
+          icon: 'sun',
+          description: 'Advanced understanding of complex tarot interpretations',
+          base_price_per_minute: 0.75,
+          required_quiz_score: 85
+        };
+      case 'oracle': 
+        return {
+          id: 'oracle',
+          name: 'Celestial Oracle',
+          rank_order: 4,
+          color_theme: 'gold',
+          icon: 'sparkles',
+          description: 'Mastery of esoteric knowledge and profound wisdom',
+          base_price_per_minute: 1.0,
+          required_quiz_score: 90
+        };
+      case 'archmage': 
+        return {
+          id: 'archmage',
+          name: 'Arcane Hierophant',
+          rank_order: 5,
+          color_theme: 'crimson',
+          icon: 'crown',
+          description: 'Supreme level of tarot mastery and enlightenment',
+          base_price_per_minute: 1.5,
+          required_quiz_score: 95
+        };
+      default: 
+        return {
+          id: 'novice',
+          name: 'Novice Seer',
+          rank_order: 1,
+          color_theme: 'blue',
+          icon: 'star',
+          description: 'Beginning your journey into tarot with foundational knowledge',
+          base_price_per_minute: 0.25,
+          required_quiz_score: 75
+        };
     }
   };
   
@@ -243,7 +330,7 @@ const TarotQuiz: React.FC = () => {
                 <li className="flex items-start gap-2">
                   <Award className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
                   <span>
-                    You need to score <strong>75% or higher</strong> to pass and become certified.
+                    You need to score <strong>{getReaderLevel().required_quiz_score}% or higher</strong> to pass and become certified at the {getReaderLevel().name} level.
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
@@ -274,6 +361,23 @@ const TarotQuiz: React.FC = () => {
               </div>
             </div>
             
+            {/* Honesty certification */}
+            <div className="mb-6 p-4 bg-card/50 border border-border rounded-lg">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreedToHonesty}
+                  onChange={(e) => setAgreedToHonesty(e.target.checked)}
+                  className="mt-1"
+                />
+                <span className="text-sm">
+                  I certify that I will complete this quiz honestly, without referring to external resources, 
+                  notes, or assistance from others. I understand that my certification depends on 
+                  demonstrating my own knowledge of tarot.
+                </span>
+              </label>
+            </div>
+            
             <div className="flex flex-col sm:flex-row justify-end gap-3">
               <button
                 onClick={goBack}
@@ -284,6 +388,7 @@ const TarotQuiz: React.FC = () => {
               </button>
               <button
                 onClick={startQuiz}
+                disabled={!agreedToHonesty}
                 className="btn btn-primary py-2 flex items-center justify-center"
               >
                 <TarotLogo className="h-4 w-4 mr-2" />
@@ -420,8 +525,8 @@ const TarotQuiz: React.FC = () => {
                 
                 <p className="text-lg mb-2">
                   {quizResults.passed 
-                    ? "You've passed the certification quiz and are now a certified reader!" 
-                    : "You didn't pass this time, but you can try again."}
+                    ? `You've passed the ${difficultyLevel} certification quiz and are now a certified ${getReaderLevel().name}!` 
+                    : `You didn't pass this time, but you can try again.`}
                 </p>
                 
                 <div className="inline-block bg-card py-2 px-4 rounded-full font-medium mb-2">
@@ -453,19 +558,37 @@ const TarotQuiz: React.FC = () => {
             </div>
             
             <div className="flex justify-center gap-4">
-              <button
-                onClick={() => navigate(quizResults.passed ? '/reader-dashboard' : '/become-reader')}
-                className="btn btn-primary py-2 px-6"
-              >
-                {quizResults.passed ? 'Go to Reader Dashboard' : 'Return to Overview'}
-              </button>
-              {!quizResults.passed && (
-                <button
-                  onClick={() => navigate('/become-reader')}
-                  className="btn btn-secondary py-2 px-6"
-                >
-                  Try Again Later
-                </button>
+              {quizResults.passed ? (
+                <>
+                  <button
+                    onClick={showReaderCertificate}
+                    className="btn btn-accent py-2 px-6 flex items-center"
+                  >
+                    <Award className="h-5 w-5 mr-2" />
+                    View Certificate
+                  </button>
+                  <button
+                    onClick={() => navigate('/reader-dashboard')}
+                    className="btn btn-primary py-2 px-6"
+                  >
+                    Go to Reader Dashboard
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => navigate('/become-reader')}
+                    className="btn btn-primary py-2 px-6"
+                  >
+                    Return to Overview
+                  </button>
+                  <button
+                    onClick={() => navigate('/become-reader')}
+                    className="btn btn-secondary py-2 px-6"
+                  >
+                    Try Again Later
+                  </button>
+                </>
               )}
             </div>
           </motion.div>
@@ -540,6 +663,17 @@ const TarotQuiz: React.FC = () => {
           {renderContent()}
         </div>
       </div>
+      
+      {/* Certificate Modal */}
+      {showCertificate && quizResults && user && (
+        <ReaderCertificate
+          user={user}
+          readerLevel={getReaderLevel()}
+          quizScore={quizResults.score}
+          certificationDate={new Date()}
+          onClose={() => setShowCertificate(false)}
+        />
+      )}
     </div>
   );
 };

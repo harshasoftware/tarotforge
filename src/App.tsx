@@ -23,6 +23,7 @@ const ReadersPage = lazy(() => import('./pages/readers/ReadersPage'));
 const BecomeReader = lazy(() => import('./pages/readers/BecomeReader'));
 const TarotQuiz = lazy(() => import('./pages/readers/TarotQuiz'));
 const ReaderDashboard = lazy(() => import('./pages/readers/ReaderDashboard'));
+const CertificateShare = lazy(() => import('./components/readers/CertificateShare'));
 
 function App() {
   const { checkAuth, loading, user } = useAuth();
@@ -74,6 +75,9 @@ function App() {
           <Route path="marketplace" element={<Marketplace />} />
           <Route path="marketplace/:deckId" element={<DeckDetails />} />
           <Route path="readers" element={<ReadersPage />} />
+          
+          {/* Certificate sharing route (public) */}
+          <Route path="certificate/:certificateId" element={<CertificateShare />} />
           
           {/* Authentication callback route */}
           <Route path="auth/callback" element={<AuthCallback />} />

@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getReaderDetails, getReaderReviews } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
 import { ReaderLevel, User, ReaderReview } from '../../types';
+import ReaderCertificate from '../../components/readers/ReaderCertificate';
 
 const ReaderDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -26,6 +27,7 @@ const ReaderDashboard: React.FC = () => {
     ratings: 0, // 0-100%
     readings: 0 // 0-100%
   });
+  const [showCertificate, setShowCertificate] = useState(false);
   
   // Format date to get reader since date in readable format
   const formattedReaderSince = () => {
@@ -173,6 +175,15 @@ const ReaderDashboard: React.FC = () => {
               <UserCheck className="h-5 w-5 text-accent mr-2" />
               <span className="text-sm">Since {formattedReaderSince()}</span>
             </div>
+            
+            {/* View certificate button */}
+            <button
+              onClick={() => setShowCertificate(true)}
+              className="btn btn-secondary py-2 px-4 flex items-center"
+            >
+              <Award className="h-5 w-5 mr-2" />
+              Certificate
+            </button>
           </div>
         </div>
         
@@ -561,6 +572,17 @@ const ReaderDashboard: React.FC = () => {
           </div>
         </motion.div>
       </div>
+      
+      {/* Certificate Modal */}
+      {showCertificate && user && readerLevel && (
+        <ReaderCertificate
+          user={user}
+          readerLevel={readerLevel}
+          quizScore={90}
+          certificationDate={user.reader_since ? new Date(user.reader_since) : new Date()}
+          onClose={() => setShowCertificate(false)}
+        />
+      )}
     </div>
   );
 };

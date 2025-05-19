@@ -665,3 +665,75 @@ export const incrementReaderCompletedReadings = async (readerId: string, increme
     return false;
   }
 };
+
+/**
+ * Upload certificate image to storage and create a shareable link
+ * @param userId User ID
+ * @param certificateImage Certificate image as blob
+ * @param metadata Metadata for social sharing
+ * @returns Shareable URL
+ */
+export const uploadCertificate = async (
+  userId: string,
+  certificateImage: Blob,
+  metadata: {
+    username: string;
+    level: string;
+    certificationId: string;
+    score: number;
+    date: string;
+  }
+): Promise<string | null> => {
+  try {
+    // Create a unique file name
+    const fileName = `certificates/${userId}/${Date.now()}.png`;
+    
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('tarot-certificates')
+      .upload(fileName, certificateImage, {
+        contentType: 'image/png',
+        cacheControl: '3600',
+        upsert: false // Create unique files
+      });
+      
+    if (error) {
+      console.error('Error uploading certificate:', error);
+      throw error;
+    }
+    
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
+      .from('tarot-certificates')
+      .getPublicUrl(data.path);
+    
+    // Create metadata record in certificates table
+    const { data: certData, error: certError } = await supabase
+      .from('reader_certificates')
+      .insert([{
+        user_id: userId,
+        certificate_url: publicUrlData.publicUrl,
+        level_name: metadata.level,
+        certification_id: metadata.certificationId,
+        score: metadata.score,
+        username: metadata.username,
+        certification_date: new Date().toISOString(),
+        metadata: metadata
+      }])
+      .select('id')
+      .single();
+      
+    if (certError) {
+      console.error('Error creating certificate record:', certError);
+      // Continue anyway - the image is still uploaded
+    }
+    
+    // Create a shareable URL
+    const shareUrl = `${window.location.origin}/certificate/${certData?.id || userId}`;
+    
+    return shareUrl;
+  } catch (error) {
+    console.error('Error uploading certificate:', error);
+    return null;
+  }
+};

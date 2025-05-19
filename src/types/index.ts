@@ -138,6 +138,20 @@ export interface ReaderReview {
   created_at: string;
 }
 
+// Interface for reader certificates
+export interface ReaderCertificate {
+  id: string;
+  user_id: string;
+  certificate_url: string;
+  level_name: string;
+  certification_id: string;
+  score: number;
+  username: string;
+  certification_date: string;
+  metadata: Record<string, any>;
+  created_at: string;
+}
+
 // Tarot quiz question format
 export interface QuizQuestion {
   id: number;
