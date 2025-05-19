@@ -87,6 +87,34 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
     }
   };
   
+  // Get background gradient based on reader level
+  const getLevelGradient = () => {
+    switch (levelInfo.colorTheme) {
+      case 'red': return 'from-red-500/5 to-transparent';
+      case 'orange': return 'from-orange-500/5 to-transparent';
+      case 'yellow': return 'from-yellow-500/5 to-transparent';
+      case 'green': return 'from-green-500/5 to-transparent';
+      case 'blue': return 'from-blue-500/5 to-transparent';
+      case 'indigo': return 'from-indigo-500/5 to-transparent';
+      case 'violet': return 'from-violet-500/5 to-transparent';
+      default: return 'from-accent/5 to-transparent';
+    }
+  };
+
+  // Get border color based on reader level
+  const getLevelBorder = () => {
+    switch (levelInfo.colorTheme) {
+      case 'red': return 'hover:border-red-500/50';
+      case 'orange': return 'hover:border-orange-500/50';
+      case 'yellow': return 'hover:border-yellow-500/50';
+      case 'green': return 'hover:border-green-500/50';
+      case 'blue': return 'hover:border-blue-500/50';
+      case 'indigo': return 'hover:border-indigo-500/50';
+      case 'violet': return 'hover:border-violet-500/50';
+      default: return 'hover:border-accent/50';
+    }
+  };
+  
   // Get appropriate icon based on chakra themes
   const getLevelIcon = () => {
     switch (levelInfo.icon) {
@@ -100,9 +128,37 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
     }
   };
   
+  // Get avatar border color based on reader level
+  const getAvatarBorder = () => {
+    switch (levelInfo.colorTheme) {
+      case 'red': return 'border-red-500';
+      case 'orange': return 'border-orange-500';
+      case 'yellow': return 'border-yellow-500';
+      case 'green': return 'border-green-500';
+      case 'blue': return 'border-blue-500';
+      case 'indigo': return 'border-indigo-500';
+      case 'violet': return 'border-violet-500';
+      default: return 'border-accent';
+    }
+  };
+
+  // Get button background color based on reader level
+  const getButtonBg = () => {
+    switch (levelInfo.colorTheme) {
+      case 'red': return 'bg-red-500 hover:bg-red-600 text-white';
+      case 'orange': return 'bg-orange-500 hover:bg-orange-600 text-white';
+      case 'yellow': return 'bg-yellow-500 hover:bg-yellow-600 text-black';
+      case 'green': return 'bg-green-500 hover:bg-green-600 text-white';
+      case 'blue': return 'bg-blue-500 hover:bg-blue-600 text-white';
+      case 'indigo': return 'bg-indigo-500 hover:bg-indigo-600 text-white';
+      case 'violet': return 'bg-violet-500 hover:bg-violet-600 text-white';
+      default: return 'bg-primary hover:bg-primary/90 text-primary-foreground';
+    }
+  };
+  
   return (
     <motion.div
-      className="bg-card border border-border rounded-xl overflow-hidden hover:border-accent/50 transition-all group"
+      className={`bg-card border border-border rounded-xl overflow-hidden ${getLevelBorder()} transition-all group bg-gradient-to-b ${getLevelGradient()}`}
       whileHover={{ y: -5, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' }}
     >
       <div className="p-6">
@@ -113,14 +169,14 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
               <img 
                 src={reader.avatar_url} 
                 alt={reader.username || 'Reader'} 
-                className="w-16 h-16 rounded-full object-cover border-2 border-accent"
+                className={`w-16 h-16 rounded-full object-cover border-2 ${getAvatarBorder()}`}
               />
             ) : (
-              <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-xl font-bold">
+              <div className={`w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-xl font-bold border-2 ${getAvatarBorder()}`}>
                 {reader.username?.charAt(0) || reader.email.charAt(0)}
               </div>
             )}
-            <div className="absolute -bottom-1 -right-1 bg-accent text-accent-foreground p-1 rounded-full">
+            <div className={`absolute -bottom-1 -right-1 ${getButtonBg()} p-1 rounded-full`}>
               <TarotLogo className="h-4 w-4" />
             </div>
           </div>
@@ -158,7 +214,7 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
         <div className="mb-4">
           <div className="flex flex-wrap gap-1">
             {specialties.map((specialty, index) => (
-              <span key={index} className="text-xs px-2 py-1 bg-accent/10 text-accent-foreground rounded-full">
+              <span key={index} className={`text-xs px-2 py-1 bg-${levelInfo.colorTheme}-500/10 ${getLevelColor().split(' ')[0]} rounded-full`}>
                 {specialty}
               </span>
             ))}
@@ -168,7 +224,7 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
         {/* Price */}
         <div className="mb-4 flex items-center">
           <span className="text-sm font-medium mr-1">Rate:</span>
-          <span className="text-accent font-bold">${levelInfo.pricePerMinute.toFixed(2)}</span>
+          <span className={getLevelColor().split(' ')[0] + ' font-bold'}>${levelInfo.pricePerMinute.toFixed(2)}</span>
           <span className="text-xs text-muted-foreground ml-1">/ min</span>
         </div>
         
@@ -182,7 +238,7 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
             <Video className="h-3 w-3 mr-1" />
             Video
           </Link>
-          <Link to="#" className="flex-1 btn btn-primary p-2 text-xs flex items-center justify-center">
+          <Link to="#" className={`flex-1 p-2 text-xs flex items-center justify-center rounded-md ${getButtonBg()}`}>
             <BookOpen className="h-3 w-3 mr-1" />
             Book
           </Link>
