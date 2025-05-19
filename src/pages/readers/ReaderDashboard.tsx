@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Award, Calendar, Clock, MessageSquare, UserCheck, Users, BarChart4, BookOpen, ChevronRight, Star, ArrowUp, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getReaderDetails, getReaderReviews } from '../../lib/reader-services';
@@ -419,9 +419,9 @@ const ReaderDashboard: React.FC = () => {
                     <p className="text-sm text-muted-foreground mb-3">
                       Ready for a challenge? Take the {nextLevel?.name || 'advanced'} certification quiz to level up your reader status.
                     </p>
-                    <button className="btn btn-secondary py-1.5 px-4 text-xs w-full">
+                    <Link to="/tarot-quiz" className="btn btn-secondary py-1.5 px-4 text-xs w-full">
                       Take Level Quiz
-                    </button>
+                    </Link>
                   </div>
                 </div>
               </div>
