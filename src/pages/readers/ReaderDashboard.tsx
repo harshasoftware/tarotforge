@@ -107,7 +107,9 @@ const ReaderDashboard: React.FC = () => {
           setReaderLevel(readerData.readerLevel);
           
           // Set max rate and current rate
-          setMaxRate(readerData.readerLevel.base_price_per_minute);
+          if (readerData.readerLevel && readerData.readerLevel.base_price_per_minute) {
+            setMaxRate(readerData.readerLevel.base_price_per_minute);
+          }
           
           // Set current rate - use custom_price_per_minute if available,
           // otherwise use the level's base price
@@ -195,7 +197,7 @@ const ReaderDashboard: React.FC = () => {
       
       // Validate rate
       // If offering free readings, set rate to 0
-      let rateToSave = isFreeReading ? 0 : currentRate;
+      const rateToSave = isFreeReading ? 0 : currentRate;
       
       // If not free, validate against max and min
       if (!isFreeReading) {
@@ -427,7 +429,7 @@ const ReaderDashboard: React.FC = () => {
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Your rate cannot exceed the maximum for your current level ({readerLevel?.name}).
+                        Your rate cannot exceed the maximum for your current level ({readerLevel?.name}: ${maxRate.toFixed(2)}/min).
                       </p>
                     </div>
                   )}
@@ -478,7 +480,7 @@ const ReaderDashboard: React.FC = () => {
                     <p className="text-sm text-muted-foreground mt-1">
                       {isFreeReading 
                         ? "You're currently offering your readings for free" 
-                        : `Maximum allowed for your level: $${maxRate.toFixed(2)}/min`}
+                        : `Maximum allowed for your level (${readerLevel?.name}): $${maxRate.toFixed(2)}/min`}
                     </p>
                   </div>
                   <button
@@ -1011,8 +1013,5 @@ const getLevelIconSmall = (iconName: string = 'flame') => {
     default: return <Flame className="h-4 w-4" />;
   }
 };
-
-// Needed for imports
-const supabase = { from: () => ({ select: () => ({ eq: () => ({ single: () => ({ data: null }) }) }) }) };
 
 export default ReaderDashboard;
