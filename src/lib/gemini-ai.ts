@@ -1165,29 +1165,36 @@ export const generateTarotQuiz = async (count: number = 10, difficulty: string =
       }
       
       // Process and validate each question
-      const validQuestions = quizData.slice(0, questionCount).map((q: any, idx: number) => {
-        // Ensure all required fields exist
-        if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || 
+      const validQuestions: QuizQuestion[] = [];
+      
+      for (let i = 0; i < Math.min(quizData.length, questionCount); i++) {
+        const q = quizData[i];
+        
+        // Skip if required fields are missing or invalid
+        if (!q || !q.question || !Array.isArray(q.options) || q.options.length !== 4 || 
             typeof q.correctAnswer !== 'number' || q.correctAnswer < 0 || q.correctAnswer > 3) {
-          console.warn(`Invalid question format at index ${idx}`, q);
-          return null;
+          console.warn(`Invalid question format at index ${i}`, q);
+          continue;
         }
         
-        return {
-          id: idx,
+        validQuestions.push({
+          id: i,
           question: String(q.question).trim(),
           options: q.options.map((opt: any) => String(opt).trim()),
           correctAnswer: Math.max(0, Math.min(3, Number(q.correctAnswer))), // Ensure it's 0-3
           explanation: String(q.explanation || 'No explanation provided').trim()
-        };
-      }).filter(Boolean); // Remove any invalid questions
+        });
+      }
       
       if (validQuestions.length === 0) {
         throw new Error('No valid questions were generated');
       }
       
       return validQuestions;
-      
+    } catch (parseError) {
+      console.error('Error parsing quiz questions:', parseError);
+      throw new Error('Failed to parse generated quiz questions');
+    }
   } catch (error) {
     console.error('Error generating tarot quiz questions:', error);
     // Return fallback questions
