@@ -13,6 +13,7 @@ export interface User {
   average_rating?: number;
   completed_readings?: number;
   readerLevel?: ReaderLevel;
+  custom_price_per_minute?: number;
 }
 
 export interface Deck {

@@ -1,12 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
-import { Award, Calendar, Clock, MessageSquare, UserCheck, Users, BarChart4, BookOpen, ChevronRight, Star, ArrowUp, Sparkles, Flame, Heart, Crown, Sun } from 'lucide-react';
+import { Award, Calendar, Clock, MessageSquare, UserCheck, Users, BarChart4, BookOpen, ChevronRight, Star, ArrowUp, Sparkles, Flame, Heart, Crown, Sun, DollarSign, Edit, Save, XCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getReaderDetails, getReaderReviews } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
 import { ReaderLevel, User, ReaderReview } from '../../types';
 import ReaderCertificate from '../../components/readers/ReaderCertificate';
+import { supabase } from '../../lib/supabase';
+
+// Custom rate setting form interface
+interface RateSettingFormData {
+  ratePerMinute: number;
+  offerFree: boolean;
+}
 
 const ReaderDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -29,6 +36,15 @@ const ReaderDashboard: React.FC = () => {
   });
   const [showCertificate, setShowCertificate] = useState(false);
   const [allLevels, setAllLevels] = useState<ReaderLevel[]>([]);
+  
+  // Rate setting states
+  const [isEditingRate, setIsEditingRate] = useState(false);
+  const [currentRate, setCurrentRate] = useState<number>(0);
+  const [isFreeReading, setIsFreeReading] = useState<boolean>(false);
+  const [maxRate, setMaxRate] = useState<number>(0);
+  const [isSavingRate, setIsSavingRate] = useState(false);
+  const [rateError, setRateError] = useState<string | null>(null);
+  const [rateSuccess, setRateSuccess] = useState(false);
   
   // Format date to get reader since date in readable format
   const formattedReaderSince = () => {
@@ -89,6 +105,19 @@ const ReaderDashboard: React.FC = () => {
         // Set reader level
         if (readerData?.readerLevel) {
           setReaderLevel(readerData.readerLevel);
+          
+          // Set max rate and current rate
+          setMaxRate(readerData.readerLevel.base_price_per_minute);
+          
+          // Set current rate - use custom_price_per_minute if available,
+          // otherwise use the level's base price
+          const userRate = readerData.custom_price_per_minute !== undefined && 
+                          readerData.custom_price_per_minute !== null
+            ? readerData.custom_price_per_minute
+            : readerData.readerLevel.base_price_per_minute;
+            
+          setCurrentRate(userRate);
+          setIsFreeReading(userRate === 0);
           
           // Fetch reviews
           const reviewsData = await getReaderReviews(user.id);
@@ -155,6 +184,82 @@ const ReaderDashboard: React.FC = () => {
     
     loadReaderData();
   }, [user, navigate]);
+  
+  // Handle saving the rate
+  const handleSaveRate = async () => {
+    if (!user) return;
+    
+    try {
+      setIsSavingRate(true);
+      setRateError(null);
+      
+      // Validate rate
+      // If offering free readings, set rate to 0
+      let rateToSave = isFreeReading ? 0 : currentRate;
+      
+      // If not free, validate against max and min
+      if (!isFreeReading) {
+        if (rateToSave > maxRate) {
+          setRateError(`Rate cannot exceed $${maxRate.toFixed(2)} per minute for your current level`);
+          setIsSavingRate(false);
+          return;
+        }
+        
+        if (rateToSave < 0) {
+          setRateError("Rate cannot be negative");
+          setIsSavingRate(false);
+          return;
+        }
+      }
+      
+      // Save to database
+      const { error } = await supabase
+        .from('users')
+        .update({
+          custom_price_per_minute: rateToSave
+        })
+        .eq('id', user.id);
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Update local state
+      if (readerDetails) {
+        setReaderDetails({
+          ...readerDetails,
+          custom_price_per_minute: rateToSave
+        });
+      }
+      
+      setRateSuccess(true);
+      setIsEditingRate(false);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setRateSuccess(false);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error saving rate:', error);
+      setRateError('Failed to save rate. Please try again.');
+    } finally {
+      setIsSavingRate(false);
+    }
+  };
+  
+  // Handle rate input change
+  const handleRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    if (!isNaN(value)) {
+      setCurrentRate(value);
+    }
+  };
+  
+  // Handle free reading toggle
+  const handleFreeReadingToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsFreeReading(e.target.checked);
+  };
   
   if (loading) {
     return (
@@ -253,6 +358,138 @@ const ReaderDashboard: React.FC = () => {
               <div className="h-12 w-12 bg-success/20 rounded-full flex items-center justify-center">
                 <Calendar className="h-6 w-6 text-success" />
               </div>
+            </div>
+          </div>
+        </motion.div>
+        
+        {/* Rate Setting Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.05 }}
+          className="mb-8"
+        >
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="p-6 border-b border-border">
+              <h2 className="text-xl font-serif font-bold flex items-center">
+                <DollarSign className="h-5 w-5 mr-2 text-accent" />
+                Your Reading Rate
+              </h2>
+            </div>
+            <div className="p-6">
+              {rateSuccess && (
+                <div className="mb-4 p-3 bg-success/10 border border-success/30 rounded-lg">
+                  <p className="text-success flex items-center">
+                    <Check className="h-4 w-4 mr-2" />
+                    Your rate has been updated successfully!
+                  </p>
+                </div>
+              )}
+              
+              {rateError && (
+                <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+                  <p className="text-destructive flex items-center">
+                    <XCircle className="h-4 w-4 mr-2" />
+                    {rateError}
+                  </p>
+                </div>
+              )}
+              
+              {isEditingRate ? (
+                <div className="space-y-4">
+                  <div className="flex items-center mb-2">
+                    <input 
+                      type="checkbox" 
+                      id="offerFree"
+                      checked={isFreeReading}
+                      onChange={handleFreeReadingToggle}
+                      className="mr-2"
+                    />
+                    <label htmlFor="offerFree">Offer free readings</label>
+                  </div>
+                  
+                  {!isFreeReading && (
+                    <div className="space-y-2">
+                      <label htmlFor="rateInput" className="block text-sm font-medium">
+                        Rate per minute <span className="text-xs text-muted-foreground">(Max: ${maxRate.toFixed(2)})</span>
+                      </label>
+                      <div className="flex">
+                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted/50">$</span>
+                        <input
+                          type="number"
+                          id="rateInput"
+                          value={currentRate}
+                          onChange={handleRateChange}
+                          min="0.01"
+                          max={maxRate}
+                          step="0.01"
+                          className="flex-1 rounded-r-md border border-input p-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Your rate cannot exceed the maximum for your current level ({readerLevel?.name}).
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setIsEditingRate(false)}
+                      className="btn btn-ghost border border-input py-2 px-4"
+                      disabled={isSavingRate}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveRate}
+                      className="btn btn-primary py-2 px-4 flex items-center"
+                      disabled={isSavingRate}
+                    >
+                      {isSavingRate ? (
+                        <>
+                          <span className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Save Rate
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-2xl font-bold flex items-center">
+                      {isFreeReading ? (
+                        <span className="flex items-center text-success">
+                          <Sparkles className="h-5 w-5 mr-2" />
+                          Free Readings
+                        </span>
+                      ) : (
+                        <>
+                          <span className="text-accent">${currentRate.toFixed(2)}</span>
+                          <span className="text-sm text-muted-foreground ml-2">per minute</span>
+                        </>
+                      )}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {isFreeReading 
+                        ? "You're currently offering your readings for free" 
+                        : `Maximum allowed for your level: $${maxRate.toFixed(2)}/min`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsEditingRate(true)}
+                    className="btn btn-secondary py-2 px-4 flex items-center"
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Change Rate
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
