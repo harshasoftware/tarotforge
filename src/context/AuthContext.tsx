@@ -73,6 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const lastCheckTimeRef = useRef(0);
   const authCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const googleOneTapInitializedRef = useRef(false);
+  const nonceRef = useRef<string>('');
 
   const checkAuth = useCallback(async () => {
     // Prevent concurrent auth checks
@@ -412,6 +413,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Generate a cryptographically secure random nonce
+  const generateNonce = () => {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  };
+
   // Handle Google One Tap sign in
   const handleGoogleOneTapCallback = async (response: GoogleOneTapResponse) => {
     try {
@@ -424,7 +432,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: credential,
-        nonce: 'NONCE', // You should generate and validate a nonce for security
+        nonce: nonceRef.current, // Use the stored nonce for verification
       });
       
       if (error) {
@@ -450,25 +458,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    // Generate a secure nonce for this sign-in attempt
+    nonceRef.current = generateNonce();
+
     // Make sure google is defined before trying to use it
     if (typeof window !== 'undefined' && window.google && window.google.accounts) {
       window.google.accounts.id.initialize({
         client_id: googleClientId,
         callback: handleGoogleOneTapCallback,
-        auto_select: true,
+        auto_select: false, // Don't auto-select to avoid conflicts with FedCM
         cancel_on_tap_outside: true,
+        use_fedcm_for_prompt: true, // Explicitly opt-in to FedCM
       });
       
-      // Display the One Tap prompt
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          // One Tap wasn't displayed, or was dismissed - don't show it again for a while
-          googleOneTapInitializedRef.current = false;
-          setTimeout(() => {
-            googleOneTapInitializedRef.current = false;
-          }, 24 * 60 * 60 * 1000); // Reset in 24 hours
-        }
-      });
+      // Display the One Tap prompt using FedCM compatible approach
+      window.google.accounts.id.prompt(); // No callback to avoid using deprecated methods
     } else {
       console.warn('Google accounts API not available yet. Will try again later.');
       // Try again later when the script might be loaded
@@ -600,7 +604,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         accounts: {
           id: {
             initialize: (config: any) => void;
-            prompt: (callback: (notification: any) => void) => void;
+            prompt: (callback?: (notification: any) => void) => void;
             renderButton: (element: HTMLElement, config: any) => void;
             disableAutoSelect: () => void;
           };

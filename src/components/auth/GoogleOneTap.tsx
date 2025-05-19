@@ -38,24 +38,10 @@ const GoogleOneTap: React.FC<GoogleOneTapProps> = () => {
       
       // Use FedCM-compatible prompt method
       window.google.accounts.id.prompt((notification) => {
-        // Don't use any methods that check display or skipped moments
-        // as those are being deprecated in favor of FedCM
-        
-        if (notification.isNotDisplayed()) {
-          // This records why the prompt wasn't displayed
-          console.log('One Tap prompt not displayed:', notification.getNotDisplayedReason());
-          
-          // We could try again later if needed
-          setTimeout(() => {
-            window.google.accounts.id.prompt();
-          }, 30000); // Try again in 30 seconds
-        } else if (notification.isSkippedMoment()) {
-          // This records why the moment was skipped
-          console.log('One Tap prompt skipped:', notification.getSkippedReason());
-        } else if (notification.isDismissedMoment()) {
-          // This records why the moment was dismissed
-          console.log('One Tap prompt dismissed:', notification.getDismissedReason());
-        }
+        // Handle prompt result without using deprecated methods
+        // FedCM compatible approach: don't rely on specific status check methods
+        // Just log the result for debugging
+        console.log('Google One Tap prompt shown');
       });
 
       // Also render a Google Sign-In button as fallback
