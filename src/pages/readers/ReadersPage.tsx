@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, UserCheck, Users, Filter, Clock, CrownIcon, Star, Flame, Sparkles, Heart, Sun } from 'lucide-react';
+import { Search, UserCheck, Users, Filter, Clock, CrownIcon, Star, Flame, Sparkles, Heart, Sun, SortAsc, SortDesc, DollarSign } from 'lucide-react';
 import ReaderCard from '../../components/readers/ReaderCard';
 import { User } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { fetchAllReaders } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
+
+// Sort options type
+type SortOption = 'level-asc' | 'level-desc' | 'price-asc' | 'price-desc' | 'none';
 
 const ReadersPage: React.FC = () => {
   const { user } = useAuth();
@@ -16,6 +19,7 @@ const ReadersPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'new' | 'top-rated' | 'advanced'>('all');
+  const [sortOption, setSortOption] = useState<SortOption>('none');
   
   useEffect(() => {
     const loadReaders = async () => {
@@ -73,8 +77,39 @@ const ReadersPage: React.FC = () => {
         break;
     }
     
+    // Apply sort option
+    switch(sortOption) {
+      case 'level-asc':
+        // Sort by level, lowest to highest
+        filtered = [...filtered].sort(
+          (a, b) => (a.readerLevel?.rank_order || 1) - (b.readerLevel?.rank_order || 1)
+        );
+        break;
+      case 'level-desc':
+        // Sort by level, highest to lowest
+        filtered = [...filtered].sort(
+          (a, b) => (b.readerLevel?.rank_order || 1) - (a.readerLevel?.rank_order || 1)
+        );
+        break;
+      case 'price-asc':
+        // Sort by price, lowest to highest
+        filtered = [...filtered].sort(
+          (a, b) => (a.readerLevel?.base_price_per_minute || 0.25) - (b.readerLevel?.base_price_per_minute || 0.25)
+        );
+        break;
+      case 'price-desc':
+        // Sort by price, highest to lowest
+        filtered = [...filtered].sort(
+          (a, b) => (b.readerLevel?.base_price_per_minute || 0.25) - (a.readerLevel?.base_price_per_minute || 0.25)
+        );
+        break;
+      default:
+        // Use the filter sort order established above
+        break;
+    }
+    
     setFilteredReaders(filtered);
-  }, [searchQuery, activeFilter, readers]);
+  }, [searchQuery, activeFilter, readers, sortOption]);
   
   // Filter button component
   const FilterButton: React.FC<{
@@ -90,6 +125,22 @@ const ReadersPage: React.FC = () => {
       }`}
     >
       {React.cloneElement(icon as React.ReactElement, { className: 'h-4 w-4 mr-2' })}
+      {children}
+    </button>
+  );
+  
+  // Sort button component
+  const SortButton: React.FC<{
+    active: boolean;
+    onClick: () => void;
+    children: React.ReactNode;
+  }> = ({ active, onClick, children }) => (
+    <button
+      onClick={onClick}
+      className={`flex items-center px-4 py-1.5 rounded text-xs transition-colors ${
+        active ? 'bg-accent/20 text-accent-foreground' : 'bg-muted/30 hover:bg-muted/50'
+      }`}
+    >
       {children}
     </button>
   );
@@ -162,6 +213,46 @@ const ReadersPage: React.FC = () => {
               </FilterButton>
             </div>
           </div>
+          
+          {/* Sort options */}
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground mr-1">Sort by:</span>
+            <SortButton 
+              active={sortOption === 'level-asc'} 
+              onClick={() => setSortOption(sortOption === 'level-asc' ? 'none' : 'level-asc')}
+            >
+              <CrownIcon className="h-3 w-3 mr-1" />
+              Level (Low to High)
+              <SortAsc className="h-3 w-3 ml-1" />
+            </SortButton>
+            
+            <SortButton 
+              active={sortOption === 'level-desc'} 
+              onClick={() => setSortOption(sortOption === 'level-desc' ? 'none' : 'level-desc')}
+            >
+              <CrownIcon className="h-3 w-3 mr-1" />
+              Level (High to Low) 
+              <SortDesc className="h-3 w-3 ml-1" />
+            </SortButton>
+            
+            <SortButton 
+              active={sortOption === 'price-asc'} 
+              onClick={() => setSortOption(sortOption === 'price-asc' ? 'none' : 'price-asc')}
+            >
+              <DollarSign className="h-3 w-3 mr-1" />
+              Price (Low to High)
+              <SortAsc className="h-3 w-3 ml-1" />
+            </SortButton>
+            
+            <SortButton 
+              active={sortOption === 'price-desc'} 
+              onClick={() => setSortOption(sortOption === 'price-desc' ? 'none' : 'price-desc')}
+            >
+              <DollarSign className="h-3 w-3 mr-1" />
+              Price (High to Low)
+              <SortDesc className="h-3 w-3 ml-1" />
+            </SortButton>
+          </div>
         </div>
         
         {loading ? (
@@ -213,28 +304,32 @@ const ReadersPage: React.FC = () => {
             <div className="bg-muted/20 border border-border rounded-lg p-8 max-w-md mx-auto">
               <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h2 className="text-xl font-medium mb-2">No Readers Found</h2>
-              {searchQuery ? (
+              {searchQuery || sortOption !== 'none' ? (
                 <p className="text-muted-foreground mb-4">
-                  No readers match your search criteria. Try different keywords or check back later.
+                  No readers match your search or filter criteria. Try different keywords or clear your filters.
                 </p>
               ) : (
                 <p className="text-muted-foreground mb-4">
                   We don't have any certified readers available at the moment. Check back soon!
                 </p>
               )}
-              {searchQuery && (
+              {(searchQuery || sortOption !== 'none' || activeFilter !== 'all') && (
                 <button
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSortOption('none');
+                    setActiveFilter('all');
+                  }}
                   className="btn btn-secondary px-6 py-2"
                 >
-                  Clear Search
+                  Clear All Filters
                 </button>
               )}
             </div>
           </div>
         ) : (
           <>
-            {/* Reader levels legend - Using chakra colors */}
+            {/* Reader levels legend - Using chakra system colors */}
             <div className="mb-8 bg-card/50 border border-border rounded-lg p-4">
               <h2 className="font-medium mb-3">Reader Certification Levels</h2>
               <div className="flex flex-wrap gap-4">
@@ -262,6 +357,35 @@ const ReadersPage: React.FC = () => {
               <p className="text-xs text-muted-foreground mt-2">
                 Readers progress through levels by demonstrating expertise, maintaining high ratings, and completing readings.
               </p>
+            </div>
+            
+            {/* Results count and active filters */}
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Showing {filteredReaders.length} {filteredReaders.length === 1 ? 'reader' : 'readers'}
+                {sortOption !== 'none' && (
+                  <span> • Sorted by: {
+                    sortOption === 'level-asc' ? 'Level (Low to High)' :
+                    sortOption === 'level-desc' ? 'Level (High to Low)' :
+                    sortOption === 'price-asc' ? 'Price (Low to High)' :
+                    'Price (High to Low)'
+                  }</span>
+                )}
+              </div>
+              
+              {(searchQuery || sortOption !== 'none' || activeFilter !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSortOption('none');
+                    setActiveFilter('all');
+                  }}
+                  className="text-xs text-primary hover:underline flex items-center"
+                >
+                  Clear Filters
+                  <Filter className="h-3 w-3 ml-1" />
+                </button>
+              )}
             </div>
             
             {/* Readers grid */}
