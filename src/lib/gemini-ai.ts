@@ -1051,14 +1051,17 @@ const generateFallbackUsername = (baseName: string): string => {
 
 /**
  * Generates tarot quiz questions for the reader certification exam
- * @param count Number of questions to generate
- * @param difficulty Difficulty level of the quiz
+ * @param count Number of questions to generate (1-15)
+ * @param difficulty Difficulty level of the quiz (novice, adept, mystic, oracle, archmage)
  * @returns Array of quiz questions
  */
 export const generateTarotQuiz = async (count: number = 10, difficulty: string = 'novice'): Promise<QuizQuestion[]> => {
+  // Validate count
+  const questionCount = Math.min(Math.max(1, count), 15);
+  
   if (!apiKey) {
     // Return fallback quiz questions when API key is missing
-    return Array(count).fill(null).map((_, index) => ({
+    return Array(questionCount).fill(null).map((_, index) => ({
       id: index,
       question: `What is the traditional meaning of ${getRandomTarotCard()}?`,
       options: [
@@ -1073,8 +1076,8 @@ export const generateTarotQuiz = async (count: number = 10, difficulty: string =
   }
   
   try {
-    // Use Gemini 2.5 Pro for the best quiz generation
-    const model = getGeminiModel('gemini-2.5-pro-preview-05-06');
+    // Use Gemini 1.5 Pro for quiz generation
+    const model = getGeminiModel('gemini-1.5-pro');
     
     // Create a difficulty-appropriate prompt
     const difficultyDescriptions = {
@@ -1087,74 +1090,104 @@ export const generateTarotQuiz = async (count: number = 10, difficulty: string =
     
     const difficultyDescription = difficultyDescriptions[difficulty as keyof typeof difficultyDescriptions] || difficultyDescriptions.novice;
     
+    // Create a chat session for better context management
+    const chat = model.startChat({
+      history: [
+        {
+          role: 'user',
+          parts: [{
+            text: `You are a tarot expert creating a certification quiz. Generate ${questionCount} multiple-choice questions for ${difficultyDescription}.`
+          }]
+        },
+        {
+          role: 'model',
+          parts: [{
+            text: `I'll create a quiz with ${questionCount} questions for ${difficultyDescription}. Please provide the difficulty level and any specific topics you'd like to emphasize.`
+          }]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        topK: 1,
+        topP: 0.95,
+        maxOutputTokens: 4096,
+      },
+    });
+    
+    // Generate the quiz with specific instructions
     const prompt = `
-      Generate ${count} challenging multiple-choice quiz questions to test ${difficultyDescription}.
+      Create a tarot quiz with exactly ${questionCount} multiple-choice questions for ${difficultyDescription}.
       
-      Include questions about:
-      - Traditional tarot card meanings (Major and Minor Arcana)
-      - Tarot history and traditions
-      - Reading techniques and spreads
-      - Card symbolism and interpretations
-      - Reversed card meanings
-      - ${difficulty === 'novice' ? 'Basic' : difficulty === 'adept' ? 'Intermediate' : 'Advanced'} ethical considerations in tarot reading
-      ${difficulty !== 'novice' ? '- Card combinations and interactions' : ''}
-      ${difficulty === 'oracle' || difficulty === 'archmage' ? '- Esoteric systems like Kabbalah, astrology, and numerology in tarot' : ''}
-      ${difficulty === 'archmage' ? '- Advanced psychological frameworks in tarot interpretation' : ''}
+      IMPORTANT: Format your response as a valid JSON array of question objects with these exact properties:
+      - id: number (0-based index)
+      - question: string (the question text)
+      - options: string[] (exactly 4 options)
+      - correctAnswer: number (0-3 index of the correct option)
+      - explanation: string (brief explanation of the correct answer)
       
-      For each question:
-      - Ensure there is only one clearly correct answer
-      - Make it appropriate for ${difficultyDescription}
-      - Include 4 plausible answer choices
-      - Provide a brief explanation for the correct answer
+      Requirements:
+      1. Each question must be unique and test different aspects of tarot knowledge
+      2. All options should be plausible but only one should be correct
+      3. Questions should cover a variety of tarot topics
+      4. Format the response as a JSON array with no additional text or markdown
       
-      Format your response as a JSON array that can be parsed directly:
+      Example format:
       [
         {
           "id": 0,
-          "question": "What is the traditional meaning of The Fool?",
-          "options": ["Endings", "New beginnings", "Confusion", "Success"],
+          "question": "What does The Fool card typically represent?",
+          "options": [
+            "Foolishness and recklessness",
+            "New beginnings and potential",
+            "The end of a journey",
+            "Financial success"
+          ],
           "correctAnswer": 1,
-          "explanation": "The Fool traditionally represents new beginnings, innocence, and stepping into the unknown."
-        },
-        ...more questions
+          "explanation": "The Fool represents new beginnings, potential, and stepping into the unknown with optimism."
+        }
       ]
     `;
     
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
+    const result = await chat.sendMessage(prompt);
+    const response = result.response;
+    const responseText = response.text();
     
-    // Parse the response as JSON
+    // Clean the response to extract just the JSON
+    const jsonMatch = responseText.match(/\[\s*\{.*\}\s*\]/s);
+    const jsonString = jsonMatch ? jsonMatch[0] : responseText;
+    
     try {
-      const quizData = JSON.parse(response.text());
+      const quizData = JSON.parse(jsonString);
       
-      // Validate and clean the data
-      if (Array.isArray(quizData) && quizData.length > 0) {
-        // Ensure each question has all required properties
-        const validQuestions = quizData.filter((q: any, idx: number) => {
-          const valid = q.question && 
-                       Array.isArray(q.options) && 
-                       q.options.length === 4 &&
-                       typeof q.correctAnswer === 'number';
-          
-          if (!valid) {
-            console.warn(`Filtering out invalid question at index ${idx}`);
-          }
-          
-          return valid;
-        }).map((q: any, idx: number) => ({
-          ...q,
-          id: idx  // Ensure IDs are sequential
-        }));
-        
-        // Take only the requested number of questions
-        return validQuestions.slice(0, count);
+      // Validate the response structure
+      if (!Array.isArray(quizData) || quizData.length === 0) {
+        throw new Error('Invalid response format: expected an array of questions');
       }
       
-      throw new Error('Invalid response format');
-    } catch (parseError) {
-      console.error('Error parsing quiz questions:', parseError);
-      throw new Error('Failed to parse generated quiz questions');
-    }
+      // Process and validate each question
+      const validQuestions = quizData.slice(0, questionCount).map((q: any, idx: number) => {
+        // Ensure all required fields exist
+        if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || 
+            typeof q.correctAnswer !== 'number' || q.correctAnswer < 0 || q.correctAnswer > 3) {
+          console.warn(`Invalid question format at index ${idx}`, q);
+          return null;
+        }
+        
+        return {
+          id: idx,
+          question: String(q.question).trim(),
+          options: q.options.map((opt: any) => String(opt).trim()),
+          correctAnswer: Math.max(0, Math.min(3, Number(q.correctAnswer))), // Ensure it's 0-3
+          explanation: String(q.explanation || 'No explanation provided').trim()
+        };
+      }).filter(Boolean); // Remove any invalid questions
+      
+      if (validQuestions.length === 0) {
+        throw new Error('No valid questions were generated');
+      }
+      
+      return validQuestions;
+      
   } catch (error) {
     console.error('Error generating tarot quiz questions:', error);
     // Return fallback questions
