@@ -249,7 +249,7 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
               {/* Body */}
               <div className="text-center my-4 flex-grow flex flex-col items-center justify-center">
                 <p className="text-lg mb-3" style={{ fontFamily: 'Arial, sans-serif' }}>This is to certify that</p>
-                <h2 className="text-4xl bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent font-bold mb-3" style={{ fontFamily: 'Arial, sans-serif' }}>
+                <h2 className="text-4xl text-white font-bold mb-3" style={{ fontFamily: 'Arial, sans-serif' }}>
                   {user.full_name || user.username || user.email.split('@')[0]}
                 </h2>
                 <p className="text-lg mb-6" style={{ fontFamily: 'Arial, sans-serif' }}>has demonstrated exceptional proficiency in tarot reading and has been awarded</p>

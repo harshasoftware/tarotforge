@@ -686,7 +686,7 @@ export const uploadCertificate = async (
 ): Promise<string | null> => {
   try {
     // Create a unique file name
-    const fileName = `certificates/${userId}/${Date.now()}.png`;
+    const fileName = `certificates/${userId}/${metadata.certificationId}.png`;
     
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
