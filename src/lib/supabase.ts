@@ -13,8 +13,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce' // Add proper PKCE flow for OAuth
+    detectSessionInUrl: true
+    // PKCE flow removed for implicit grant flow
   },
   global: {
     fetch: (...args) => {
