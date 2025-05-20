@@ -6,7 +6,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import TarotLogo from '../components/ui/TarotLogo';
 import { useAuth } from '../context/AuthContext';
 import { generateThemeSuggestions } from '../lib/gemini-ai';
-import { useSubscription } from '../context/SubscriptionContext';
 
 // Featured decks data
 const featuredDecks = [
@@ -76,6 +75,11 @@ const tarotCardImages = [
   'https://images.pexels.com/photos/1727684/pexels-photo-1727684.jpeg?auto=compress&cs=tinysrgb&w=1600', // Wheel of Fortune
 ];
 
+// Large pool of theme suggestions for lazy loading
+// const allThemeSuggestions = [ ... ];
+
+import { generateElaborateTheme } from '../lib/gemini-ai';
+
 // Generate theme suggestions using Gemini AI
 const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
   try {
@@ -120,14 +124,12 @@ const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, setShowSignInModal } = useAuth();
-  const { isSubscribed } = useSubscription();
   const [themePrompt, setThemePrompt] = useState("");
   const [themeSuggestions, setThemeSuggestions] = useState<string[]>([]);
   const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
   const [isGeneratingElaboration, setIsGeneratingElaboration] = useState(false);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
   const [lastLoadedIndex, setLastLoadedIndex] = useState(0);
-  const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
   
   // Load initial theme suggestions on component mount
   useEffect(() => {
@@ -142,14 +144,7 @@ const Home = () => {
     };
     
     loadInitialThemes();
-    
-    // For demo purposes, set some demo credits if user is logged in
-    if (user) {
-      setCreditsRemaining(user.is_creator || isSubscribed ? 78 : 5);
-    } else {
-      setCreditsRemaining(5); // Guest users get 5 free credits
-    }
-  }, [user, isSubscribed]);
+  }, []);
   
   // Check for createDeck query parameter on load
   useEffect(() => {
@@ -235,7 +230,7 @@ const Home = () => {
   const handleThemeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (themePrompt.trim()) {
-      // Ensure user is logged in or show sign-in modal
+      // Check if user is authenticated
       if (!user) {
         // Store deck creation intent in localStorage
         localStorage.setItem('pending_deck_theme', themePrompt);
@@ -244,27 +239,35 @@ const Home = () => {
         return;
       }
       
-      // Check if user has subscription or sufficient credits
-      if (isSubscribed || (creditsRemaining && creditsRemaining > 0)) {
-        // Navigate to deck creation with the theme
-        navigate('/create-deck', { 
-          state: { 
-            initialTheme: themePrompt, 
-            autoGenerate: true,
-            skipFormStep: true,
-            startGenerating: true
-          } 
-        });
-      } else {
-        // If no credits, navigate to subscription page
-        navigate('/subscription');
-      }
+      // User is already authenticated, proceed immediately to deck creation
+      // Skip the manual form input step and auto-generate deck details from the prompt
+      navigate('/create-deck', { 
+        state: { 
+          initialTheme: themePrompt, 
+          autoGenerate: true,  // Signal to auto-generate deck details
+          skipFormStep: true,   // Skip the manual form step
+          startGenerating: true // Start generating images immediately
+        } 
+      });
     }
   };
 
   const selectSuggestion = async (suggestion: string) => {
-    // Set the basic suggestion to the input field
+    // First set the basic suggestion
     setThemePrompt(suggestion);
+    
+    // Then generate and append an elaboration
+    try {
+      setIsGeneratingElaboration(true);
+      const elaboration = await generateElaborateTheme(suggestion);
+      setThemePrompt(`${suggestion}: ${elaboration}`);
+    } catch (error) {
+      console.error('Error generating theme elaboration:', error);
+      // If there's an error, just keep the basic suggestion
+      setThemePrompt(suggestion);
+    } finally {
+      setIsGeneratingElaboration(false);
+    }
   };
   
   const handleGenerateThemes = async () => {
@@ -379,18 +382,6 @@ const Home = () => {
               <h4 className="text-xl md:text-2xl font-serif font-bold mb-2 text-center">
                 Create Your Tarot Deck Now
               </h4>
-              
-              {/* Credit Display */}
-              {creditsRemaining !== null && (
-                <div className="mb-3 flex justify-center">
-                  <div className="bg-primary/10 rounded-full px-3 py-1 flex items-center">
-                    <Sparkles className="h-4 w-4 text-primary mr-1" />
-                    <span className="text-sm">
-                      {user ? (isSubscribed ? 'Premium Access' : `${creditsRemaining} card credit${creditsRemaining !== 1 ? 's' : ''} remaining`) : 'Try with 5 free credits'}
-                    </span>
-                  </div>
-                </div>
-              )}
               
               <form onSubmit={handleThemeSubmit}>
                 <div className="mb-5">
@@ -579,7 +570,7 @@ const Home = () => {
                 </div>
                 
                 <Link 
-                  to="/create-deck" 
+                  to="/create" 
                   className="mt-auto inline-flex items-center text-primary hover:underline group-hover:translate-x-1 transition-transform"
                 >
                   Forge Your Deck <ArrowRight className="ml-1 h-4 w-4" />
@@ -661,136 +652,6 @@ const Home = () => {
                 Start a Session <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </motion.div>
-          </div>
-        </div>
-      </section>
-      
-      {/* Credit System Information */}
-      <section className="py-16 px-4 bg-card/20">
-        <div className="container mx-auto max-w-6xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="text-center mb-10"
-          >
-            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">Credit-Based Creation System</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Our flexible credit system gives you control over how you create your tarot cards
-            </p>
-          </motion.div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="bg-card border border-border p-6 rounded-xl"
-            >
-              <div className="p-3 bg-primary/10 rounded-xl w-fit mb-5">
-                <Zap className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-xl font-serif font-medium mb-3">Free Plan</h3>
-              <p className="text-muted-foreground text-sm mb-4">
-                Try out our card creation with 5 free credits, perfect for exploring the platform.
-              </p>
-              
-              <div className="p-4 bg-muted/10 rounded-lg">
-                <ul className="space-y-3">
-                  <li className="flex items-center text-sm">
-                    <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
-                    <span>5 basic credits</span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
-                    <span>Medium quality only</span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
-                    <span>No credit rollover</span>
-                  </li>
-                </ul>
-              </div>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-card border border-border p-6 rounded-xl"
-            >
-              <div className="p-3 bg-accent/10 rounded-xl w-fit mb-5">
-                <Crown className="h-6 w-6 text-accent" />
-              </div>
-              <h3 className="text-xl font-serif font-medium mb-3">Mystic & Creator Plans</h3>
-              <p className="text-muted-foreground text-sm mb-4">
-                Perfect for enthusiasts who want to create full decks with medium quality.
-              </p>
-              
-              <div className="p-4 bg-muted/10 rounded-lg">
-                <ul className="space-y-3">
-                  <li className="flex items-center text-sm">
-                    <span className="h-5 w-5 rounded-full bg-accent/20 flex items-center justify-center text-accent mr-2">✓</span>
-                    <span>22-78 monthly credits</span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <span className="h-5 w-5 rounded-full bg-accent/20 flex items-center justify-center text-accent mr-2">✓</span>
-                    <span>Medium quality cards</span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <span className="h-5 w-5 rounded-full bg-accent/20 flex items-center justify-center text-accent mr-2">✓</span>
-                    <span>Credit rollover options</span>
-                  </li>
-                </ul>
-              </div>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-card border border-primary rounded-xl p-6 relative overflow-hidden"
-            >
-              <div className="absolute -top-6 -right-6 w-12 h-12 rotate-45 bg-primary/80 flex items-center justify-center">
-                <span className="text-xs text-white font-medium mt-7 mr-1">BEST</span>
-              </div>
-              
-              <div className="p-3 bg-primary/10 rounded-xl w-fit mb-5">
-                <Sparkles className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-xl font-serif font-medium mb-3">Visionary Plan</h3>
-              <p className="text-muted-foreground text-sm mb-4">
-                For professional creators who need the highest quality and maximum flexibility.
-              </p>
-              
-              <div className="p-4 bg-primary/5 rounded-lg">
-                <ul className="space-y-3">
-                  <li className="flex items-center text-sm">
-                    <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
-                    <span>118 premium credits</span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
-                    <span>High quality cards only</span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
-                    <span>Full credit rollover</span>
-                  </li>
-                </ul>
-              </div>
-            </motion.div>
-          </div>
-          
-          <div className="text-center mt-8">
-            <Link to="/subscription" className="btn btn-primary px-6 py-3 inline-flex items-center">
-              <Sparkles className="h-4 w-4 mr-2" />
-              See All Subscription Options
-            </Link>
           </div>
         </div>
       </section>
@@ -878,114 +739,180 @@ const Home = () => {
         </div>
       </section>
       
-      {/* Bento Featured Decks Section */}
+      {/* Mystic & Creator Plans */}
       <section className="py-16 px-4 bg-card/20">
         <div className="container mx-auto max-w-6xl">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-10">
-            <motion.h2 
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="text-center mb-10"
+          >
+            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">Premium Plans</h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Unlock your creative potential with our premium tarot creation plans
+            </p>
+          </motion.div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="text-3xl md:text-4xl font-serif font-bold mb-4 md:mb-0"
+              className="bg-card border border-border hover:border-primary/40 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all"
             >
-              Featured Decks
-            </motion.h2>
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-serif font-bold">Free Plan</h3>
+                  <div className="p-2 bg-muted/30 rounded-full">
+                    <Zap className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <div className="flex items-baseline">
+                    <span className="text-3xl font-bold">$0</span>
+                    <span className="text-muted-foreground ml-1">/forever</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">Try out our platform with no commitment</p>
+                </div>
+                
+                <ul className="space-y-3 mb-6">
+                  <li className="flex items-start">
+                    <div className="flex-shrink-0 mt-1 text-success">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <span className="ml-2 text-sm">5 medium quality cards per month</span>
+                  </li>
+                  <li className="flex items-start">
+                    <div className="flex-shrink-0 mt-1 text-success">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <span className="ml-2 text-sm">Basic reading tools</span>
+                  </li>
+                  <li className="flex items-start">
+                    <div className="flex-shrink-0 mt-1 text-success">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <span className="ml-2 text-sm">Browse marketplace</span>
+                  </li>
+                </ul>
+                
+                <Link to="/subscription" className="btn btn-secondary py-2 w-full">
+                  Current Plan
+                </Link>
+              </div>
+            </motion.div>
             
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="flex items-center space-x-2"
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="bg-card border border-border hover:border-primary/40 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all relative"
             >
-              <Link 
-                to="/marketplace" 
-                className="px-4 py-2 rounded-lg border border-accent text-accent hover:bg-accent/10 transition-colors flex items-center"
-              >
-                <ShoppingBag className="mr-2 h-4 w-4" />
-                Explore All Decks
-              </Link>
-            </motion.div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-            {/* Featured decks, styled as bento cards */}
-            {featuredDecks.map((deck, index) => (
-              <motion.div
-                key={deck.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="group"
-              >
-                <Link to={`/marketplace/${deck.id}`} className="block">
-                  <div className="rounded-xl overflow-hidden bg-card border border-border hover:border-accent/30 hover:shadow-lg transition-all duration-300 h-full">
-                    <div className="relative aspect-[4/3] overflow-hidden">
-                      <img 
-                        src={deck.cover_image} 
-                        alt={deck.title} 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
-                      />
-                      
-                      {/* Overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-80" />
-                      
-                      {/* Price Tag */}
-                      {deck.is_free ? (
-                        <div className="absolute top-3 right-3 bg-success/90 text-success-foreground font-medium px-3 py-1 rounded-full text-sm flex items-center z-10">
-                          <Zap className="h-3 w-3 mr-1" />
-                          Free
-                        </div>
-                      ) : (
-                        <div className="absolute top-3 right-3 bg-accent/90 text-accent-foreground font-medium px-3 py-1 rounded-full text-sm z-10">
-                          ${deck.price.toFixed(2)}
-                        </div>
-                      )}
-                      
-                      {/* NFT Badge */}
-                      {deck.is_nft && (
-                        <div className="absolute top-3 left-3 bg-primary/90 text-primary-foreground font-medium px-3 py-1 rounded-full text-xs z-10">
-                          NFT
-                        </div>
-                      )}
-                      
-                      {/* Card count */}
-                      <div className="absolute bottom-3 left-3 text-sm text-white flex items-center z-10">
-                        <div className="flex items-center mr-3">
-                          <Star className="h-4 w-4 fill-accent stroke-0 mr-1" />
-                          <span>{deck.rating?.toFixed(1)}</span>
-                        </div>
-                        <span>{deck.card_count} cards</span>
-                      </div>
-                    </div>
-                    
-                    {/* Content */}
-                    <div className="p-4">
-                      <h3 className="font-serif text-lg font-medium mb-2">{deck.title}</h3>
-                      <p className="text-muted-foreground text-sm line-clamp-2 mb-3">
-                        {deck.description}
-                      </p>
-                      
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
-                            <Users className="h-3 w-3" />
-                          </div>
-                          <span className="text-xs ml-2 text-muted-foreground">
-                            By {deck.creator_name}
-                          </span>
-                        </div>
-                        
-                        <span className="text-xs text-primary">{deck.purchase_count} downloads</span>
-                      </div>
-                    </div>
+              <div className="absolute top-0 left-0 right-0 bg-primary text-primary-foreground text-center py-1 text-sm font-medium">
+                Popular Choice
+              </div>
+              <div className="p-6 pt-10">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-serif font-bold">Premium</h3>
+                  <div className="p-2 bg-primary/20 rounded-full">
+                    <Crown className="h-5 w-5 text-primary" />
                   </div>
+                </div>
+                
+                <div className="mb-4">
+                  <div className="flex items-baseline">
+                    <span className="text-3xl font-bold">$9.99</span>
+                    <span className="text-muted-foreground ml-1">/month</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">Perfect for tarot enthusiasts and creators</p>
+                </div>
+                
+                <ul className="space-y-3 mb-6">
+                  <li className="flex items-start">
+                    <div className="flex-shrink-0 mt-1 text-success">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <span className="ml-2 text-sm">Create unlimited custom decks</span>
+                  </li>
+                  <li className="flex items-start">
+                    <div className="flex-shrink-0 mt-1 text-success">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <span className="ml-2 text-sm">Advanced AI reading interpretations</span>
+                  </li>
+                  <li className="flex items-start">
+                    <div className="flex-shrink-0 mt-1 text-success">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <span className="ml-2 text-sm">List your decks in marketplace</span>
+                  </li>
+                </ul>
+                
+                <Link to="/subscription" className="btn btn-primary py-2 w-full">
+                  Upgrade Now
                 </Link>
-              </motion.div>
-            ))}
+              </div>
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="bg-card border border-border hover:border-primary/40 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all opacity-75"
+            >
+              <div className="absolute inset-0 flex items-center justify-center text-sm font-medium bg-background/80 backdrop-blur-sm">
+                <div className="bg-muted/70 border border-border px-4 py-2 rounded-lg">
+                  Coming Soon
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-serif font-bold">Enterprise</h3>
+                  <div className="p-2 bg-accent/20 rounded-full">
+                    <Crown className="h-5 w-5 text-accent" />
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <div className="flex items-baseline">
+                    <span className="text-3xl font-bold">$49.99</span>
+                    <span className="text-muted-foreground ml-1">/month</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">For professional creators and studios</p>
+                </div>
+                
+                <ul className="space-y-3 mb-6">
+                  <li className="flex items-start">
+                    <div className="flex-shrink-0 mt-1 text-success">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <span className="ml-2 text-sm">High-quality image generation</span>
+                  </li>
+                  <li className="flex items-start">
+                    <div className="flex-shrink-0 mt-1 text-success">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <span className="ml-2 text-sm">Style consistency across decks</span>
+                  </li>
+                  <li className="flex items-start">
+                    <div className="flex-shrink-0 mt-1 text-success">
+                      <Check className="h-4 w-4" />
+                    </div>
+                    <span className="ml-2 text-sm">Commercial usage rights</span>
+                  </li>
+                </ul>
+                
+                <button disabled className="btn btn-ghost border border-input py-2 w-full opacity-75">
+                  Coming Soon
+                </button>
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -1006,7 +933,7 @@ const Home = () => {
             </p>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-4 md:gap-6">
             {/* Large testimonial */}
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -1208,10 +1135,10 @@ const Home = () => {
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                   <Link 
-                    to="/subscription" 
+                    to="/marketplace" 
                     className="btn btn-outline text-white border-white/30 px-6 py-3 rounded-lg font-medium text-lg hover:bg-white/10 transition-colors flex items-center justify-center"
                   >
-                    View Premium Plans
+                    Explore Marketplace
                   </Link>
                 </div>
               </div>
