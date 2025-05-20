@@ -455,7 +455,7 @@ const Home = () => {
                     {/* Credits Badge */}
                     <div className="absolute top-3 right-3 bg-accent/20 text-accent px-2 py-1 rounded-full flex items-center z-10">
                       <Coins className="h-3.5 w-3.5 mr-1 text-yellow-500" />
-                      <span className="text-xs font-medium">{displayCredits}</span>
+                      <span className="text-xs font-medium">{displayCredits} free left</span>
                     </div>
                     
                     <textarea
