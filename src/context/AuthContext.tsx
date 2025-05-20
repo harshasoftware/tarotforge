@@ -628,8 +628,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
     });
   };
-    });
-  };
 
   // Set up auth state listener
   useEffect(() => {
@@ -715,7 +713,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMagicLinkSent,
     showSignInModal,
     setShowSignInModal,
-    handleGoogleOneTap
+    handleGoogleOneTapCallback
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
