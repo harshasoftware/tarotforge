@@ -112,9 +112,46 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
     }
   }, []);
 
+  // Check if Google services might be blocked
+  const checkForBlockedGoogleServices = useCallback(() => {
+    return new Promise<boolean>((resolve) => {
+      // Create a test image request to a Google service
+      const img = new Image();
+      const timeoutId = setTimeout(() => {
+        // If timeout, assume blocked
+        resolve(true);
+      }, 2000);
+      
+      img.onload = () => {
+        clearTimeout(timeoutId);
+        resolve(false); // Not blocked
+      };
+      
+      img.onerror = () => {
+        clearTimeout(timeoutId);
+        resolve(true); // Blocked
+      };
+      
+      // Try to load a Google resource
+      img.src = 'https://www.gstatic.com/images/branding/googlelogo/1x/googlelogo_color_74x24dp.png';
+    });
+  }, []);
+  
   // Handle the AbortError or other FedCM failures
-  const handleFedCmFailure = useCallback(() => {
+  const handleFedCmFailure = useCallback(async () => {
     console.log('FedCM mode failed, switching to standard mode');
+    
+    // Check if Google services might be blocked
+    const servicesBlocked = await checkForBlockedGoogleServices();
+    if (servicesBlocked) {
+      console.log('%c⚠️ Google services appear to be blocked by your browser', 'color: #ff7700; font-weight: bold');
+      console.log('%cThis can happen due to:', 'color: #ff7700');
+      console.log('%c- Ad blockers or privacy extensions', 'color: #ff7700');
+      console.log('%c- Strict browser privacy settings', 'color: #ff7700');
+      console.log('%c- Network restrictions', 'color: #ff7700');
+      console.log('%cGoogle Sign-In may not work until these restrictions are adjusted', 'color: #ff7700');
+    }
+    
     setFedCmMode(false);
     isInitializedRef.current = false;
     isProcessingRef.current = false;
@@ -125,7 +162,7 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
       attemptCountRef.current = 0;
       initializeGoogleOneTap();
     }, 500);
-  }, [cleanupContainer]);
+  }, [cleanupContainer, checkForBlockedGoogleServices]);
 
   // Check if we're in a development environment
   const isDevelopmentEnvironment = useCallback(() => {
@@ -290,7 +327,9 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
             promptError?.name === 'AbortError' || 
             (promptError?.message && promptError.message.includes('NetworkError')) ||
             (promptError?.message && promptError.message.includes('Network Error')) ||
-            (promptError?.toString && promptError.toString().includes('Network'));
+            (promptError?.toString && promptError.toString().includes('Network')) ||
+            (promptError?.toString && promptError.toString().includes('blocked')) ||
+            (promptError?.toString && promptError.toString().includes('ERR_BLOCKED'));
                                  
           if (isNetworkError && fedCmMode) {
             console.log('Network-related error detected, falling back to standard mode');
