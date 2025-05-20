@@ -12,25 +12,75 @@ export interface StripeProduct {
   mode: 'payment' | 'subscription';
   price?: number;
   currency?: string;
-  interval?: 'month' | 'year' | 'week' | 'day';
+  interval?: 'month' | 'year';
+  baseCredits?: number;
+  premiumCredits?: number;
+  maxRolloverCredits?: number;
   features?: string[];
+  popular?: boolean;
+  cardImageQuality?: 'medium' | 'high';
 }
 
 export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
-  subscription: {
-    priceId: 'price_1ROxKkCzE3rkgdDIwV7o3c6S',
-    name: 'Premium Membership',
-    description: 'Unlimited access to premium tarot decks, advanced AI readings, and exclusive reader sessions',
+  mystic: {
+    priceId: 'price_1ROxKkCzE3rkgdDILMeJSI4D',
+    name: 'Mystic',
+    description: 'Perfect for beginners exploring tarot creation',
     mode: 'subscription',
-    price: 9.99,
+    price: 12.99,
     currency: 'usd',
     interval: 'month',
+    baseCredits: 22,
+    premiumCredits: 0,
+    maxRolloverCredits: 5,
+    cardImageQuality: 'medium',
     features: [
-      'Unlimited access to premium decks',
-      'Advanced AI reading interpretations',
-      'Priority access to certified readers',
-      'Exclusive member-only decks',
-      'Save unlimited reading history'
+      '22 monthly basic credits',
+      'Create complete Major Arcana (22 cards)',
+      'Medium quality image generation',
+      'Rollover up to 5 unused credits',
+      'Deck sharing capabilities'
+    ]
+  },
+  creator: {
+    priceId: 'price_1ROxKkCzE3rkgdDIZVPaqZHm',
+    name: 'Creator',
+    description: 'For serious tarot enthusiasts and deck creators',
+    mode: 'subscription',
+    price: 29.99,
+    currency: 'usd',
+    interval: 'month',
+    baseCredits: 78,
+    premiumCredits: 0,
+    maxRolloverCredits: 15,
+    cardImageQuality: 'medium',
+    features: [
+      '78 monthly basic credits',
+      'Create complete full tarot deck (78 cards)',
+      'Medium quality image generation',
+      'Rollover up to 15 unused credits',
+      'Sell your decks in marketplace'
+    ],
+    popular: true
+  },
+  visionary: {
+    priceId: 'price_1ROxKkCzE3rkgdDIFrJaFEtC',
+    name: 'Visionary',
+    description: 'For professional creators and artists',
+    mode: 'subscription',
+    price: 79.99,
+    currency: 'usd',
+    interval: 'month',
+    baseCredits: 0,
+    premiumCredits: 118,
+    maxRolloverCredits: 118,
+    cardImageQuality: 'high',
+    features: [
+      '118 monthly premium credits',
+      'High quality image generation',
+      'Style consistency between cards',
+      'Full rollover of unused credits',
+      'Exclusive visionary-only decks'
     ]
   }
 };

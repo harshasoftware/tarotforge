@@ -3,8 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
-import { VideoCallProvider } from './context/VideoCallContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
+import { CreditProvider } from './context/CreditContext';
+import { VideoCallProvider } from './context/VideoCallContext';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 import { 
@@ -76,9 +77,11 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <AuthProvider>
         <SubscriptionProvider>
-          <VideoCallProvider>
-            <App />
-          </VideoCallProvider>
+          <CreditProvider>
+            <VideoCallProvider>
+              <App />
+            </VideoCallProvider>
+          </CreditProvider>
         </SubscriptionProvider>
       </AuthProvider>
     </BrowserRouter>
