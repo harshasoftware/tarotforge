@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import GoogleSignInLock from '../../utils/GoogleSignInLock';
 
 // Define types for Google Identity Services response
 type GoogleCredentialResponse = {
@@ -181,6 +182,9 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
     return isLocalhost || isDevelopmentPort || hasDevInUrl;
   }, []);
 
+  // Component identifier for lock management
+  const COMPONENT_ID = 'GoogleOneTapHandler';
+
   // Initialize Google One Tap with adaptive strategy
   const initializeGoogleOneTap = useCallback(() => {
     // Don't initialize if autoInit is false
@@ -192,6 +196,15 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
 
     // Only initialize when not logged in, script is loaded, and not already processing
     if (user || !isGoogleScriptLoaded || isProcessingRef.current || isInitializedRef.current) return;
+    
+    // Try to acquire the global lock
+    if (!GoogleSignInLock.acquireLock(COMPONENT_ID)) {
+      console.log('GoogleOneTapHandler: Another component is using Google Sign-In, waiting...');
+      retryTimeoutRef.current = window.setTimeout(() => {
+        initializeGoogleOneTap();
+      }, 1000);
+      return;
+    }
 
     // Track initialization attempts
     attemptCountRef.current += 1;
@@ -274,11 +287,14 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
         initTimeoutRef.current = window.setTimeout(() => {
           isInitializedRef.current = false;
           isProcessingRef.current = false;
+          // Release lock and try again later
+          GoogleSignInLock.releaseLock(COMPONENT_ID);
           initializeGoogleOneTap();
         }, 500) as unknown as number;
         return;
       }
 
+      // Now try to initialize Google Identity Services
       try {
         // Configure Google Identity Services
         window.google.accounts.id.initialize({
@@ -293,16 +309,16 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
           ...(isDevelopmentEnvironment() ? { prompt_parent_id: 'g_id_onload' } : {})
         });
 
-        // Start the prompt with error catching
+        // Create a prompt listener
         const promptListener = (notification: any) => {
           if (notification) {
             // Check for prompt not displayed
             if ((notification.isNotDisplayed && notification.isNotDisplayed()) ||
                 (notification.isSkippedMoment && notification.isSkippedMoment())) {
               const reason = notification.getNotDisplayedReason?.() || 
-                            notification.getSkippedReason?.() || 
-                            'Unknown reason';
-                            
+                          notification.getSkippedReason?.() || 
+                          'Unknown reason';
+                          
               console.log(`Google Sign-In prompt not shown: ${reason}`);
               
               // If in FedCM mode and prompt failed, switch to standard mode
@@ -314,7 +330,9 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
             }
           }
         };
+    });
 
+        // Try to show the prompt
         try {
           // Trigger the prompt with notification handler
           window.google.accounts.id.prompt(promptListener);
@@ -330,7 +348,7 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
             (promptError?.toString && promptError.toString().includes('Network')) ||
             (promptError?.toString && promptError.toString().includes('blocked')) ||
             (promptError?.toString && promptError.toString().includes('ERR_BLOCKED'));
-                                 
+                                   
           if (isNetworkError && fedCmMode) {
             console.log('Network-related error detected, falling back to standard mode');
             handleFedCmFailure();
@@ -343,18 +361,28 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
           } else {
             isInitializedRef.current = false;
             isProcessingRef.current = false;
+            // Release the lock on error
+            GoogleSignInLock.releaseLock(COMPONENT_ID);
           }
         }
-      } catch (initError) {
+
+      } catch (initError: any) {
         console.error('Error initializing Google Identity Services:', initError);
         isInitializedRef.current = false;
         isProcessingRef.current = false;
+        GoogleSignInLock.releaseLock(COMPONENT_ID);
+        
+        if (initError?.toString().includes('Network')) {
+          setFedCmMode(false);
+        }
       }
     } catch (error) {
       console.error('Failed to set up Google Identity Services:', error);
       isProcessingRef.current = false;
       isInitializedRef.current = false;
       cleanupContainer();
+      // Release the lock on error
+      GoogleSignInLock.releaseLock(COMPONENT_ID);
     }
   }, [user, handleGoogleOneTapCallback, isGoogleScriptLoaded, fedCmMode, autoInit, cleanupContainer, clearTimeouts, handleFedCmFailure, isDevelopmentEnvironment]);
 
@@ -369,6 +397,8 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
     return () => {
       cleanupContainer();
       clearTimeouts();
+      // Release lock when unmounting
+      GoogleSignInLock.releaseLock(COMPONENT_ID);
     };
   }, [loadGoogleScript, cleanupContainer, clearTimeouts]);
 
@@ -384,6 +414,8 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
       isInitializedRef.current = false;
       cleanupContainer();
       clearTimeouts();
+      // Release lock on dependency change
+      GoogleSignInLock.releaseLock(COMPONENT_ID);
     };
   }, [isGoogleScriptLoaded, initializeGoogleOneTap, cleanupContainer, clearTimeouts]);
 
@@ -396,6 +428,8 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
         clearTimeouts();
         isProcessingRef.current = false;
         isInitializedRef.current = false;
+        // Release the lock during HMR
+        GoogleSignInLock.releaseLock(COMPONENT_ID);
       };
       
       import.meta.hot.on('vite:beforeUpdate', handleHotUpdate);

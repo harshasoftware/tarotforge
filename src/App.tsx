@@ -6,7 +6,7 @@ import LoadingScreen from './components/ui/LoadingScreen';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 // Lazy loaded auth components
-const GoogleOneTapHandler = lazy(() => import('./components/auth/GoogleOneTapHandler'));
+const GoogleOneSignIn = lazy(() => import('./components/auth/GoogleOneSignIn'));
 
 // Lazy loaded components
 const Home = lazy(() => import('./pages/Home'));
@@ -70,10 +70,10 @@ function App() {
 
   return (
     <Suspense fallback={<LoadingScreen />}>
-      {/* Initialize Google One Tap (now lazy loaded) */}
+      {/* Initialize Google Sign-In with lock management */}
       {!user && (
         <Suspense fallback={null}>
-          <GoogleOneTapHandler autoInit={true} />
+          <GoogleOneSignIn autoInit={true} />
         </Suspense>
       )}
       
