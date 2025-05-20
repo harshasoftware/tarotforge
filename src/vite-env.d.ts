@@ -24,14 +24,25 @@ interface Window {
           client_id: string;
           callback: (response: {
             credential: string;
-            select_by: string;
-            clientId: string;
+            select_by?: string;
+            clientId?: string;
           }) => void;
           auto_select?: boolean;
           cancel_on_tap_outside?: boolean;
+          // FedCM specific options
+          use_fedcm?: boolean;
           use_fedcm_for_prompt?: boolean;
+          fedcm_account_purge?: boolean;
+          itp_support?: boolean;
+          state_cookie_domain?: string;
+          prompt_parent_id?: string;
+          context?: 'signin' | 'signup' | 'use';
+          // Error callback property for native API
+          onerror?: (error: any) => void;
         }) => void;
-        prompt: (callback?: (notification: {
+        // FedCM migration - prompt no longer requires a callback
+        prompt: (callbackOrParams?: ((notification: {
+          // Legacy moment callbacks - DEPRECATED
           isNotDisplayed?: () => boolean;
           getNotDisplayedReason?: () => string;
           isSkippedMoment?: () => boolean;
@@ -39,7 +50,12 @@ interface Window {
           isDismissedMoment?: () => boolean;
           getDismissedReason?: () => string;
           getMomentType?: () => string;
-        }) => void) => void;
+        }) => void) | {
+          // FedCM prompt parameters
+          display?: 'page' | 'popup' | 'touch';
+          native?: boolean;
+          moment_listener?: boolean;
+        }) => void;
         renderButton: (
           element: HTMLElement, 
           options: {

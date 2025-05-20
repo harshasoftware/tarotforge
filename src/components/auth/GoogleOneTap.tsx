@@ -14,12 +14,18 @@ type GoogleOneTapOptions = {
   auto_select?: boolean;
   cancel_on_tap_outside?: boolean;
   context?: 'signin' | 'signup' | 'use';
-  use_fedcm_for_prompt?: boolean;
   prompt_parent_id?: string;
-  itp_support?: boolean;
   login_uri?: string;
   callback?: (response: GoogleOneTapResponse) => void;
   error_callback?: (error: any) => void;
+  // FedCM specific options
+  use_fedcm?: boolean;
+  use_fedcm_for_prompt?: boolean;
+  fedcm_account_purge?: boolean;
+  itp_support?: boolean;
+  state_cookie_domain?: string;
+  state_id_token?: string;
+  ux_mode?: 'popup' | 'redirect';
 };
 
 const GoogleOneTapContainer: React.FC = () => {
@@ -63,15 +69,20 @@ const GoogleOneTapContainer: React.FC = () => {
       auto_select: false,
       cancel_on_tap_outside: true,
       context: 'signin',
-      use_fedcm_for_prompt: true, // Enable FedCM for better privacy
       prompt_parent_id: 'g_id_onload',
-      itp_support: true,
+      // FedCM specific options
+      use_fedcm: true,               // Use FedCM when available
+      use_fedcm_for_prompt: true,    // Use FedCM UI for prompt
+      fedcm_account_purge: true,     // Allow for account purge if requested
+      itp_support: true,             // Support for Intelligent Tracking Prevention
+      state_cookie_domain: window.location.hostname, // Needed for state management
     };
 
-    // Initialize Google One Tap
+    // Initialize Google One Tap using the latest approach
     try {
-      googleOneTap(googleOneTapConfig, async (response: GoogleOneTapResponse) => {
-        console.log('Google One Tap response received');
+      // Set up callback for Google One Tap 
+      const handleCredentialResponse = async (response: GoogleOneTapResponse) => {
+        console.log('Google One Tap credential response received');
         if (response?.credential) {
           try {
             await handleGoogleOneTapCallback(response, nonce);
@@ -81,33 +92,46 @@ const GoogleOneTapContainer: React.FC = () => {
             isProcessingRef.current = false;
           }
         }
-      });
-
+      };
+      
       // Set up error handling
       const handleError = (error: any) => {
         console.warn('Google One Tap error:', error);
         isProcessingRef.current = false;
       };
-
-      // Add error callback if available
+      
+      // Initialize using the npm package - this is the recommended approach
+      googleOneTap(
+        googleOneTapConfig, 
+        handleCredentialResponse,
+        handleError // Pass the error handler directly
+      );
+      
+      // As a fallback, also initialize with the native API if available
       if (window.google?.accounts?.id?.initialize) {
+        // The native API uses different property names
         window.google.accounts.id.initialize({
-          ...googleOneTapConfig,
-          callback: () => {
-            // This will be handled by the npm package callback
-          },
+          client_id: googleClientId,
+          callback: handleCredentialResponse,
+          // Native API uses this naming convention for error handling
+          onerror: handleError
         });
       }
 
-      // Show the prompt after a short delay
+      // Show the prompt using FedCM-compatible approach
       const showPrompt = () => {
         if (window.google?.accounts?.id?.prompt) {
-          window.google.accounts.id.prompt((notification) => {
-            if (notification?.isDismissedMoment?.()) {
-              console.log('User dismissed the One Tap prompt');
-              isProcessingRef.current = false;
-            }
+          // With FedCM, we should call prompt with configuration parameters
+          // instead of using the deprecated callback for moment notifications
+          window.google.accounts.id.prompt({
+            // These parameters help control FedCM UI behaviors
+            display: 'popup',   // Display as a popup UI
+            native: true,       // Use native UI when available (FedCM)
+            moment_listener: false // Don't use moment listeners (deprecated)
           });
+          
+          // Log for debugging
+          console.log('Google One Tap prompt displayed with FedCM configuration');
         }
       };
 
