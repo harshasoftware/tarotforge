@@ -34,6 +34,17 @@ const themeStarters = [
   "Psychedelic", "Folklore", "Sacred Geometry", "Witch", "Druidic", "Angelic"
 ];
 
+// Mystical loading messages that rotate
+const loadingMessages = [
+  "Consulting the cosmos...",
+  "Channeling mystical energies...",
+  "Drawing from the collective unconscious...",
+  "Weaving arcane patterns...",
+  "Peering into the void...",
+  "Aligning with celestial forces...",
+  "Communing with ancient wisdom..."
+];
+
 const Marketplace = () => {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [displayedDecks, setDisplayedDecks] = useState<Deck[]>([]);
@@ -47,6 +58,10 @@ const Marketplace = () => {
   const [isGeneratingElaborateTheme, setIsGeneratingElaborateTheme] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  // New states for loading animation
+  const [activeTheme, setActiveTheme] = useState<string | null>(null);
+  const [currentLoadingMessage, setCurrentLoadingMessage] = useState(loadingMessages[0]);
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   
   // Refs for infinite scrolling
   const observer = useRef<IntersectionObserver | null>(null);
@@ -59,6 +74,22 @@ const Marketplace = () => {
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const suggestionIndexRef = useRef<number>(10);
   const scrollIntervalRef = useRef<number | null>(null);
+  
+  // Effect for rotating loading messages
+  useEffect(() => {
+    if (isGeneratingElaborateTheme) {
+      const intervalId = setInterval(() => {
+        setLoadingMessageIndex((prevIndex) => (prevIndex + 1) % loadingMessages.length);
+      }, 2000);
+
+      return () => clearInterval(intervalId);
+    }
+  }, [isGeneratingElaborateTheme]);
+
+  // Update current loading message when index changes
+  useEffect(() => {
+    setCurrentLoadingMessage(loadingMessages[loadingMessageIndex]);
+  }, [loadingMessageIndex]);
   
   // Fetch AI-generated theme suggestions on component mount
   useEffect(() => {
@@ -358,25 +389,26 @@ const Marketplace = () => {
     if (isGeneratingElaborateTheme) return;
     
     setIsGeneratingElaborateTheme(true);
+    setActiveTheme(theme);
+    setSearchQuery(theme);
+    
     try {
       // Generate elaborate theme using Gemini API
       const elaborateTheme = await generateElaborateTheme(theme);
       
       if (elaborateTheme) {
         setPromptEngineValue(elaborateTheme);
-        setSearchQuery(theme); // Set simple search query to the theme title
       } else {
         // Fallback if elaborate theme generation fails
         setPromptEngineValue(`A mystical deck themed around ${theme} concepts, featuring symbolic imagery that connects ancient wisdom with spiritual awakening.`);
-        setSearchQuery(theme);
       }
     } catch (error) {
       console.error('Error generating elaborate theme:', error);
       // Fallback
       setPromptEngineValue(`A mystical deck themed around ${theme} concepts, featuring symbolic imagery that connects ancient wisdom with spiritual awakening.`);
-      setSearchQuery(theme);
     } finally {
       setIsGeneratingElaborateTheme(false);
+      setActiveTheme(null);
     }
     
     setActiveFilter('all');
@@ -471,18 +503,43 @@ const Marketplace = () => {
                     key={`${theme}-${index}`}
                     onClick={() => applyThemeSuggestion(theme)}
                     disabled={isGeneratingElaborateTheme}
-                    className={`px-4 py-2 bg-card/80 border border-border hover:border-primary/50 rounded-md text-sm w-full text-left transition-colors ${
-                      isGeneratingElaborateTheme ? 'opacity-50 cursor-not-allowed' : ''
+                    className={`px-4 py-2 bg-card/80 border border-border hover:border-primary/50 rounded-md text-sm w-full text-left transition-colors relative ${
+                      isGeneratingElaborateTheme && activeTheme === theme ? 'opacity-80 cursor-not-allowed' : ''
                     }`}
                   >
-                    {isGeneratingElaborateTheme && searchQuery === theme ? 'Generating...' : theme}
+                    {theme}
+                    {isGeneratingElaborateTheme && activeTheme === theme && (
+                      <div className="absolute inset-y-0 right-2 flex items-center">
+                        <div className="animate-spin h-4 w-4 rounded-full border-2 border-primary border-r-transparent"></div>
+                      </div>
+                    )}
                   </button>
                 ))}
               </div>
             </div>
             
             {/* AI Prompt Engine - Show only when we have an elaborate prompt */}
-            {promptEngineValue && (
+            {isGeneratingElaborateTheme ? (
+              <motion.div 
+                className="p-4 bg-primary/5 border border-primary/20 rounded-lg relative"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="flex items-start gap-3">
+                  <TarotLogo className="h-5 w-5 text-primary mt-1" />
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium mb-2">AI Theme Inspiration</h3>
+                    <p className="text-sm text-foreground/90 italic min-h-[80px]">{currentLoadingMessage}</p>
+                  </div>
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+                  <div className="animate-pulse">
+                    <TarotLogo className="h-20 w-20 text-primary" />
+                  </div>
+                </div>
+              </motion.div>
+            ) : promptEngineValue && (
               <motion.div 
                 className="p-4 bg-primary/5 border border-primary/20 rounded-lg"
                 initial={{ opacity: 0 }}
