@@ -1,16 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import GoogleOneTap from './GoogleOneTap';
 
-const GoogleOneTap: React.FC = () => {
-  const { user, handleGoogleOneTap } = useAuth();
+const GoogleOneTapContainer: React.FC = () => {
+  const { user, handleGoogleOneTapCallback } = useAuth();
   const buttonRef = useRef<HTMLDivElement>(null);
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-  
+
   useEffect(() => {
     // Only show One Tap when user is not logged in
     if (user) return;
 
     // Check if Google client is available
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     if (!googleClientId) {
       console.error('Google Client ID is not configured. One Tap sign-in is disabled.');
       return;
@@ -21,7 +22,7 @@ const GoogleOneTap: React.FC = () => {
       console.log('Google script not loaded yet, will retry...');
       const timer = setTimeout(() => {
         if (window.google?.accounts?.id) {
-          handleGoogleOneTap();
+          handleGoogleOneTapCallback();
         }
       }, 1000);
       return () => clearTimeout(timer);

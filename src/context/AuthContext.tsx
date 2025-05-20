@@ -17,7 +17,7 @@ interface AuthContextType {
   setMagicLinkSent: (sent: boolean) => void;
   showSignInModal: boolean;
   setShowSignInModal: (show: boolean) => void;
-  handleGoogleOneTap: () => Promise<void>;
+  handleGoogleOneTapCallback: (response: GoogleOneTapResponse, nonce: string) => Promise<void>;
 }
 
 // Google One Tap interface
@@ -42,7 +42,7 @@ const AuthContext = createContext<AuthContextType>({
   setMagicLinkSent: () => {},
   showSignInModal: false,
   setShowSignInModal: () => {},
-  handleGoogleOneTap: async () => {}
+  handleGoogleOneTapCallback: async () => {}
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -445,7 +445,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Handle Google One Tap sign in
-  const handleGoogleOneTapCallback = async (response: GoogleOneTapResponse): Promise<void> => {
+  const handleGoogleOneTapCallback = async (response: GoogleOneTapResponse, nonce: string): Promise<void> => {
     try {
       console.log('Google One Tap response received');
       
@@ -453,7 +453,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: response.credential,
-        nonce: nonceRef.current, // Use the stored nonce for verification
+        nonce: nonce, // Use the provided nonce for verification
       });
       
       if (error) {
@@ -468,6 +468,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Load Google One Tap script dynamically
+  const loadGoogleScript = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      // If script is already loaded, resolve immediately
+      if (window.google?.accounts?.id) {
+        return resolve();
+      }
+      
+      // Check if script is already being loaded
+      const existingScript = document.getElementById('google-one-tap-script');
+      if (existingScript) {
+        // Script is loading, wait for it
+        existingScript.addEventListener('load', () => resolve());
+        existingScript.addEventListener('error', (e) => reject(e));
+        return;
+      }
+      
+      // Create and append script
+      const script = document.createElement('script');
+      script.id = 'google-one-tap-script';
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.crossOrigin = 'anonymous';
+      
+      script.onload = () => {
+        console.log('Google One Tap script loaded successfully');
+        resolve();
+      };
+      
+      script.onerror = (error) => {
+        console.error('Error loading Google One Tap script:', error);
+        reject(error);
+      };
+      
+      document.head.appendChild(script);
+    });
+  };
+
   // Handle Google One Tap initialization with retries
   const handleGoogleOneTap = (retryCount = 0): Promise<void> => {
     return new Promise<void>((resolve, reject) => {
@@ -476,101 +515,119 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Google Client ID is not configured');
         return resolve();
       }
-
-      // Check if Google script is loaded
-      if (!window.google?.accounts?.id) {
-        if (retryCount >= 3) {
-          console.error('Google accounts API not available after multiple retries');
-          return resolve();
-        }
-        
-        console.warn(`Google accounts API not available yet, retrying... (${retryCount + 1}/3)`);
-        
-        // Try again after a delay that increases with each retry
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 5000); // Exponential backoff, max 5s
-        
-        const timer = setTimeout(() => {
-          handleGoogleOneTap(retryCount + 1).then(resolve).catch(reject);
-        }, delay);
-        
-        // Clean up the timer if the component unmounts
-        return () => clearTimeout(timer);
-      }
-
-      try {
-        console.log("Initializing Google One Tap with client ID:", googleClientId);
-        
-        // Reset initialization flag
-        googleOneTapInitializedRef.current = false;
-        
-        // Generate a secure nonce for this sign-in attempt
-        nonceRef.current = generateNonce();
-        
-        // Initialize Google Identity
-        window.google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: handleGoogleOneTapCallback,
-          auto_select: false,
-          cancel_on_tap_outside: true,
-          use_fedcm_for_prompt: false, // Disable FedCM to ensure compatibility
-        });
-        
-        // Add a small delay to ensure the API is fully ready
-        setTimeout(() => {
-          try {
-            // Double-check that google is still available
-            if (!window.google?.accounts?.id) {
-              console.error('Google accounts API became unavailable during initialization');
+      
+      // First ensure the script is loaded
+      loadGoogleScript()
+        .then(() => {
+          // Now check if Google API is available
+          if (!window.google?.accounts?.id) {
+            if (retryCount >= 3) {
+              console.error('Google accounts API not available after multiple retries');
               return resolve();
             }
             
-            // Display the One Tap prompt
-            window.google.accounts.id.prompt((notification) => {
-              if (notification) {
-                const status = [
-                  notification.isNotDisplayed?.() ? 'Not displayed' : '',
-                  notification.isSkippedMoment?.() ? 'Skipped' : '',
-                  notification.isDismissedMoment?.() ? 'Dismissed' : ''
-                ].filter(Boolean).join(', ');
-                
-                console.log("Google One Tap prompt status:", status || 'Displayed');
-                
-                if (notification.isNotDisplayed?.()) {
-                  const reason = notification.getNotDisplayedReason?.();
-                  console.log("One Tap not displayed reason:", reason);
-                }
-                
-                if (notification.isSkippedMoment?.()) {
-                  console.log("One Tap skipped reason:", notification.getSkippedReason?.());
-                }
-                
-                if (notification.isDismissedMoment?.()) {
-                  console.log("One Tap dismissed reason:", notification.getDismissedReason?.());
-                }
-              }
-              resolve();
+            console.warn(`Google accounts API not available yet, retrying... (${retryCount + 1}/3)`);
+            
+            // Try again after a delay that increases with each retry
+            const delay = Math.min(1000 * Math.pow(2, retryCount), 5000); // Exponential backoff, max 5s
+            
+            const timer = setTimeout(() => {
+              handleGoogleOneTap(retryCount + 1).then(resolve).catch(reject);
+            }, delay);
+            
+            // Clean up the timer if the component unmounts
+            return () => clearTimeout(timer);
+          }
+
+          try {
+            console.log("Initializing Google One Tap with client ID:", googleClientId);
+            
+            // Reset initialization flag
+            googleOneTapInitializedRef.current = false;
+            
+            // Generate a secure nonce for this sign-in attempt
+            nonceRef.current = generateNonce();
+            
+            // Initialize Google Identity
+            window.google.accounts.id.initialize({
+              client_id: googleClientId,
+              callback: handleGoogleOneTapCallback,
+              auto_select: false,
+              cancel_on_tap_outside: true,
+              use_fedcm_for_prompt: false, // Disable FedCM to ensure compatibility
             });
             
-            googleOneTapInitializedRef.current = true;
-            console.log("Google One Tap initialized successfully");
+            // Add a small delay to ensure the API is fully ready
+            setTimeout(() => {
+              try {
+                // Double-check that google is still available
+                if (!window.google?.accounts?.id) {
+                  console.error('Google accounts API became unavailable during initialization');
+                  return resolve();
+                }
+                
+                // Display the One Tap prompt
+                window.google.accounts.id.prompt((notification) => {
+                  if (notification) {
+                    const status = [
+                      notification.isNotDisplayed?.() ? 'Not displayed' : '',
+                      notification.isSkippedMoment?.() ? 'Skipped' : '',
+                      notification.isDismissedMoment?.() ? 'Dismissed' : ''
+                    ].filter(Boolean).join(', ');
+                    
+                    console.log("Google One Tap prompt status:", status || 'Displayed');
+                    
+                    if (notification.isNotDisplayed?.()) {
+                      const reason = notification.getNotDisplayedReason?.();
+                      console.log("One Tap not displayed reason:", reason);
+                    }
+                    
+                    if (notification.isSkippedMoment?.()) {
+                      console.log("One Tap skipped reason:", notification.getSkippedReason?.());
+                    }
+                    
+                    if (notification.isDismissedMoment?.()) {
+                      console.log("One Tap dismissed reason:", notification.getDismissedReason?.());
+                    }
+                  }
+                  resolve();
+                });
+                
+                googleOneTapInitializedRef.current = true;
+                console.log("Google One Tap initialized successfully");
+              } catch (error) {
+                console.error("Error showing Google One Tap prompt:", error);
+                resolve();
+              }
+            }, 100);
           } catch (error) {
-            console.error("Error showing Google One Tap prompt:", error);
+            console.error("Error initializing Google One Tap:", error);
+            // If initialization fails, try one more time after a short delay
+            if (retryCount < 2) {
+              console.log(`Retrying Google One Tap initialization (${retryCount + 1}/2)...`);
+              setTimeout(() => {
+                handleGoogleOneTap(retryCount + 1).then(resolve).catch(reject);
+              }, 1000 * (retryCount + 1));
+            } else {
+              console.error("Max retries reached for Google One Tap initialization");
+              resolve();
+            }
+          }
+        })
+        .catch((error) => {
+          console.error("Error loading Google script:", error);
+          if (retryCount < 2) {
+            console.log(`Retrying Google script load (${retryCount + 1}/2)...`);
+            setTimeout(() => {
+              handleGoogleOneTap(retryCount + 1).then(resolve).catch(reject);
+            }, 1000 * (retryCount + 1));
+          } else {
+            console.error("Max retries reached for Google script loading");
             resolve();
           }
-        }, 100);
-      } catch (error) {
-        console.error("Error initializing Google One Tap:", error);
-        // If initialization fails, try one more time after a short delay
-        if (retryCount < 2) {
-          console.log(`Retrying Google One Tap initialization (${retryCount + 1}/2)...`);
-          setTimeout(() => {
-            handleGoogleOneTap(retryCount + 1).then(resolve).catch(reject);
-          }, 1000 * (retryCount + 1));
-        } else {
-          console.error("Max retries reached for Google One Tap initialization");
-          resolve();
-        }
-      }
+        });
+    });
+  };
     });
   };
 
