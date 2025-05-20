@@ -13,14 +13,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
-    // PKCE flow removed for implicit grant flow
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+    debug: import.meta.env.DEV // Enable debug logging in development mode
   },
   global: {
     fetch: (...args) => {
       // Add logging for debugging auth requests
       const [url, config] = args;
-      if (typeof url === 'string' && url.includes('auth')) {
+      if (typeof url === 'string' && url.includes('auth') && import.meta.env.DEV) {
         console.log('Auth request to:', url);
       }
       return fetch(...args);
