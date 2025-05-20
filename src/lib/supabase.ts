@@ -13,8 +13,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
-    // PKCE flow removed for implicit grant flow
+    detectSessionInUrl: true,
+    flowType: 'implicit' // Use implicit flow instead of PKCE for better compatibility
   },
   global: {
     fetch: (...args) => {

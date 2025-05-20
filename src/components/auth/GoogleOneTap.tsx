@@ -26,18 +26,30 @@ const GoogleOneTap: React.FC = () => {
             callback: (response) => {
               if (response && response.credential) {
                 console.log("Google One Tap response received, handling...");
-                // Handle the credential through Auth context
                 handleGoogleOneTap();
               }
             },
             auto_select: false, // Don't auto-select to avoid conflicts with FedCM
             cancel_on_tap_outside: true,
+            use_fedcm_for_prompt: false, // Disable FedCM to ensure compatibility
           });
           
           console.log("Google One Tap initialized, displaying prompt");
           
-          // Use safer approach to prompt - without deprecated parameters
-          window.google.accounts.id.prompt();
+          // Display the One Tap prompt
+          window.google.accounts.id.prompt((notification) => {
+            if (notification) {
+              if (notification.isNotDisplayed && notification.isNotDisplayed()) {
+                console.log("One Tap not displayed reason:", notification.getNotDisplayedReason?.());
+              }
+              if (notification.isSkippedMoment && notification.isSkippedMoment()) {
+                console.log("One Tap skipped reason:", notification.getSkippedReason?.());
+              }
+              if (notification.isDismissedMoment && notification.isDismissedMoment()) {
+                console.log("One Tap dismissed reason:", notification.getDismissedReason?.());
+              }
+            }
+          });
           
           // Also render a Google Sign-In button as fallback
           if (buttonRef.current) {
@@ -62,23 +74,35 @@ const GoogleOneTap: React.FC = () => {
       initializeOneTap();
     } else {
       // Poll for Google script to be available (with timeout)
+      let attempts = 0;
+      const maxAttempts = 20;
       const checkGoogleScript = setInterval(() => {
+        attempts++;
         if (window.google?.accounts) {
           clearInterval(checkGoogleScript);
           initializeOneTap();
         }
+        
+        if (attempts > maxAttempts) {
+          clearInterval(checkGoogleScript);
+          console.error("Google One Tap script failed to load after multiple attempts");
+          
+          // Try adding the script programmatically as a fallback
+          if (!document.querySelector('script[src*="gsi/client"]')) {
+            const script = document.createElement('script');
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.async = true;
+            script.defer = true;
+            script.crossOrigin = 'anonymous';
+            script.onload = initializeOneTap;
+            document.head.appendChild(script);
+          }
+        }
       }, 500);
       
-      // Clean up interval after 10 seconds to avoid endless polling
-      const timeoutId = setTimeout(() => {
-        clearInterval(checkGoogleScript);
-        console.error("Google One Tap script failed to load after 10 seconds");
-      }, 10000);
-      
-      // Clean up interval and timeout
+      // Clean up interval
       return () => {
         clearInterval(checkGoogleScript);
-        clearTimeout(timeoutId);
       };
     }
   }, [user, handleGoogleOneTap, googleClientId]);

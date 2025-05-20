@@ -507,6 +507,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           callback: handleGoogleOneTapCallback,
           auto_select: false,
           cancel_on_tap_outside: true,
+          use_fedcm_for_prompt: false, // Disable FedCM to ensure compatibility
         });
         
         // Display the One Tap prompt
