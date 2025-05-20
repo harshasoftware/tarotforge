@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Sparkles, Shield, Zap, ArrowLeft, Loader } from 'lucide-react';
+import { Sparkles, Shield, Zap, ArrowLeft, Loader, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import SubscriptionCard from '../../components/subscription/SubscriptionCard';
 import { STRIPE_PRODUCTS } from '../../lib/stripe-config';
