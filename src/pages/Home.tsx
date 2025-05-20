@@ -1,11 +1,12 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import TarotLogo from '../components/ui/TarotLogo';
+import { Search, Filter, Zap, TrendingUp, Clock, Star, XCircle, AlertCircle, ArrowRight, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import DeckPreview from '../components/ui/DeckPreview';
+import { Deck } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { generateThemeSuggestions } from '../lib/gemini-ai';
+import { generateThemeSuggestions, generateElaborateTheme } from '../lib/gemini-ai';
+import TarotLogo from '../components/ui/TarotLogo';
 
 // Featured decks data
 const featuredDecks = [
@@ -214,7 +215,7 @@ const Home = () => {
     if (themeSuggestions.length < 50) {
       try {
         const newThemes = await generateThemeSuggestions(5);
-        if (newThemes.length > 0) {
+        if (newThemes && newThemes.length > 0) {
           setThemeSuggestions(prev => {
             const updated = [...prev, ...newThemes];
             return updated.slice(0, 50);
@@ -229,7 +230,7 @@ const Home = () => {
   
   const handleThemeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (themePrompt.trim()) {
+    if (themePrompt.trim() && !isGeneratingElaboration) {
       // Check if user is authenticated
       if (!user) {
         // Store deck creation intent in localStorage
@@ -253,12 +254,12 @@ const Home = () => {
   };
 
   const selectSuggestion = async (suggestion: string) => {
-    // First set the basic suggestion
+    // First set the basic suggestion and indicate loading
     setThemePrompt(suggestion);
+    setIsGeneratingElaboration(true);
     
-    // Then generate and append an elaboration
     try {
-      setIsGeneratingElaboration(true);
+      // Then generate and append an elaboration
       const elaboration = await generateElaborateTheme(suggestion);
       setThemePrompt(`${suggestion}: ${elaboration}`);
     } catch (error) {
@@ -313,7 +314,7 @@ const Home = () => {
         </div>
         
         {/* Floating Tarot Cards in Background - Memoized */}
-        {useMemo(() => tarotCardImages.map((imageUrl, index) => (
+        {tarotCardImages.map((imageUrl, index) => (
           <motion.div
             key={`tarot-card-${index}`}
             className="absolute hidden sm:block"
@@ -356,7 +357,7 @@ const Home = () => {
               <div className="absolute inset-0 bg-background/30 backdrop-blur-sm"></div>
             </div>
           </motion.div>
-        )), [tarotCardImages])}
+        ))}
         
         {/* Main Heading */}
         <motion.div
@@ -390,7 +391,10 @@ const Home = () => {
                     value={themePrompt}
                     onChange={(e) => setThemePrompt(e.target.value)}
                     placeholder="Describe your deck's theme or concept (e.g., Cosmic journey through ancient mythology...)"
-                    className="w-full p-3 rounded-lg bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px] resize-none"
+                    className={`w-full p-3 rounded-lg bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px] resize-none ${
+                      isGeneratingElaboration ? 'opacity-70 cursor-wait' : ''
+                    }`}
+                    disabled={isGeneratingElaboration}
                   />
                 </div>
                 
@@ -400,7 +404,7 @@ const Home = () => {
                     <button
                       type="button"
                       onClick={handleGenerateThemes}
-                      disabled={isGeneratingThemes}
+                      disabled={isGeneratingThemes || isGeneratingElaboration}
                       className="text-xs flex items-center text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
                     >
                       {isGeneratingThemes ? (
@@ -452,9 +456,16 @@ const Home = () => {
                           className={`whitespace-nowrap text-sm px-3 py-1.5 rounded-full 
                                     bg-primary/10 hover:bg-primary/20 text-primary transition-colors
                                     border border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/40
-                                    ${isGeneratingElaboration ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                    ${isGeneratingElaboration ? 'opacity-70 cursor-wait' : ''}`}
                         >
-                          {isGeneratingElaboration ? '...' : suggestion}
+                          {isGeneratingElaboration ? (
+                            <span className="flex items-center">
+                              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                              {suggestion}
+                            </span>
+                          ) : (
+                            suggestion
+                          )}
                         </button>
                       ))}
                     </div>
@@ -475,13 +486,20 @@ const Home = () => {
                 
                 <button
                   type="submit"
-                  disabled={!themePrompt.trim()}
-                  className="w-full btn btn-primary py-3 disabled:opacity-70"
+                  disabled={!themePrompt.trim() || isGeneratingElaboration}
+                  className="w-full btn btn-primary py-3 disabled:opacity-70 relative"
                 >
-                  <>
-                    Forge a Deck
-                    <Hammer className="ml-2 h-4 w-4" />
-                  </>
+                  {isGeneratingElaboration ? (
+                    <span className="flex items-center justify-center">
+                      <span className="h-5 w-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
+                      Generating Theme...
+                    </span>
+                  ) : (
+                    <>
+                      Forge a Deck
+                      <span className="ml-2 h-4 w-4">🔨</span>
+                    </>
+                  )}
                 </button>
               </form>
             </div>
@@ -492,7 +510,20 @@ const Home = () => {
                 to="/marketplace" 
                 className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
               >
-                <ShoppingBag className="h-4 w-4 mr-2" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4 mr-2"
+                >
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <path d="M16 10a4 4 0 0 1-8 0" />
+                </svg>
                 Browse Marketplace
               </Link>
               {user ? (
@@ -500,7 +531,18 @@ const Home = () => {
                   to="/reading-room" 
                   className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
                 >
-                  <BookOpen className="h-4 w-4 mr-2" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4 mr-2"
+                  >
+                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                  </svg>
                   Try Free Reading
                 </Link>
               ) : (
@@ -508,7 +550,18 @@ const Home = () => {
                   onClick={() => setShowSignInModal(true)}
                   className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
                 >
-                  <BookOpen className="h-4 w-4 mr-2" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4 mr-2"
+                  >
+                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                  </svg>
                   Try Free Reading
                 </button>
               )}
@@ -545,7 +598,26 @@ const Home = () => {
               <div className="flex md:flex-col h-full">
                 <div className="mb-6 md:mb-auto">
                   <div className="p-3 bg-primary/10 rounded-xl w-fit mb-5">
-                    <Wand2 className="h-8 w-8 text-primary" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-8 w-8 text-primary"
+                    >
+                      <path d="M15 4V2" />
+                      <path d="M15 16v-2" />
+                      <path d="M8 9h2" />
+                      <path d="M20 9h2" />
+                      <path d="M17.8 11.8 19 13" />
+                      <path d="M15 9h0" />
+                      <path d="M17.8 6.2 19 5" />
+                      <path d="m3 21 9-9" />
+                      <path d="M12.2 6.2 11 5" />
+                    </svg>
                   </div>
                   
                   <h3 className="text-2xl font-serif font-medium mb-2">AI Deck Creation</h3>
@@ -587,7 +659,20 @@ const Home = () => {
               className="col-span-1 md:col-span-3 bg-accent/5 border border-accent/20 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-accent/40 transition-all p-6"
             >
               <div className="p-3 bg-accent/10 rounded-xl w-fit mb-4">
-                <ShoppingBag className="h-6 w-6 text-accent" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-6 w-6 text-accent"
+                >
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <path d="M16 10a4 4 0 0 1-8 0" />
+                </svg>
               </div>
               
               <h3 className="text-xl font-serif font-medium mb-2">Deck Marketplace</h3>
@@ -612,7 +697,18 @@ const Home = () => {
               className="col-span-1 md:col-span-2 bg-card/90 border border-border rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition-all p-6"
             >
               <div className="p-3 bg-teal/10 rounded-xl w-fit mb-4">
-                <BookOpen className="h-6 w-6 text-teal" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-6 w-6 text-teal"
+                >
+                  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                </svg>
               </div>
               
               <h3 className="text-xl font-serif font-medium mb-2">AI Reading Assistant</h3>
@@ -637,7 +733,19 @@ const Home = () => {
               className="col-span-1 md:col-span-4 bg-primary/5 border border-primary/20 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary/40 transition-all p-6"
             >
               <div className="p-3 bg-primary/10 rounded-xl w-fit mb-4">
-                <Video className="h-6 w-6 text-primary" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-6 w-6 text-primary"
+                >
+                  <polygon points="23 7 16 12 23 17 23 7" />
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                </svg>
               </div>
               
               <h3 className="text-xl font-serif font-medium mb-2">Live Reading Sessions</h3>
@@ -685,7 +793,26 @@ const Home = () => {
                 1
               </div>
               
-              <Wand2 className="h-10 w-10 text-primary mb-6" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-10 w-10 text-primary mb-6"
+              >
+                <path d="M15 4V2" />
+                <path d="M15 16v-2" />
+                <path d="M8 9h2" />
+                <path d="M20 9h2" />
+                <path d="M17.8 11.8 19 13" />
+                <path d="M15 9h0" />
+                <path d="M17.8 6.2 19 5" />
+                <path d="m3 21 9-9" />
+                <path d="M12.2 6.2 11 5" />
+              </svg>
               <h3 className="text-xl font-serif font-medium mb-3 group-hover:text-primary transition-colors">Create Your Vision</h3>
               <p className="text-muted-foreground">
                 Describe your theme and style, then watch as AI generates custom tarot artwork based on your specifications.
@@ -706,7 +833,20 @@ const Home = () => {
                 2
               </div>
               
-              <ShoppingBag className="h-10 w-10 text-accent mb-6" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-10 w-10 text-accent mb-6"
+              >
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
+              </svg>
               <h3 className="text-xl font-serif font-medium mb-3 group-hover:text-accent transition-colors">Build Collection</h3>
               <p className="text-muted-foreground">
                 Grow your personal collection by creating your own decks or purchasing unique designs from other creators.
@@ -727,7 +867,19 @@ const Home = () => {
                 3
               </div>
               
-              <BookOpen className="h-10 w-10 text-teal mb-6" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-10 w-10 text-teal mb-6"
+              >
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+              </svg>
               <h3 className="text-xl font-serif font-medium mb-3 group-hover:text-teal transition-colors">Experience Readings</h3>
               <p className="text-muted-foreground">
                 Use your decks for personal readings with AI interpretation or connect with others for live video readings.
@@ -764,7 +916,20 @@ const Home = () => {
                 to="/marketplace" 
                 className="px-4 py-2 rounded-lg border border-accent text-accent hover:bg-accent/10 transition-colors flex items-center"
               >
-                <ShoppingBag className="mr-2 h-4 w-4" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-2 h-4 w-4"
+                >
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <path d="M16 10a4 4 0 0 1-8 0" />
+                </svg>
                 Explore All Decks
               </Link>
             </motion.div>
@@ -833,7 +998,19 @@ const Home = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
                           <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
-                            <Users className="h-3 w-3" />
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="h-3 w-3"
+                            >
+                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                              <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
                           </div>
                           <span className="text-xs ml-2 text-muted-foreground">
                             By {deck.creator_name}
@@ -991,7 +1168,19 @@ const Home = () => {
               transition={{ duration: 0.5 }}
               className="bg-card border border-border rounded-2xl p-6 text-center group hover:border-primary/30 transition-all"
             >
-              <Camera className="h-10 w-10 mx-auto text-primary mb-4 group-hover:scale-110 transition-transform" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-10 w-10 mx-auto text-primary mb-4 group-hover:scale-110 transition-transform"
+              >
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
               <h3 className="text-3xl font-bold mb-2">10K+</h3>
               <p className="text-muted-foreground">Unique Decks</p>
             </motion.div>
@@ -1003,7 +1192,20 @@ const Home = () => {
               transition={{ duration: 0.5, delay: 0.1 }}
               className="bg-card border border-border rounded-2xl p-6 text-center group hover:border-accent/30 transition-all"
             >
-              <Download className="h-10 w-10 mx-auto text-accent mb-4 group-hover:scale-110 transition-transform" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-10 w-10 mx-auto text-accent mb-4 group-hover:scale-110 transition-transform"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
               <h3 className="text-3xl font-bold mb-2">250K+</h3>
               <p className="text-muted-foreground">Downloads</p>
             </motion.div>
@@ -1015,7 +1217,21 @@ const Home = () => {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="bg-card border border-border rounded-2xl p-6 text-center group hover:border-teal/30 transition-all"
             >
-              <Users className="h-10 w-10 mx-auto text-teal mb-4 group-hover:scale-110 transition-transform" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-10 w-10 mx-auto text-teal mb-4 group-hover:scale-110 transition-transform"
+              >
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
               <h3 className="text-3xl font-bold mb-2">50K+</h3>
               <p className="text-muted-foreground">Active Users</p>
             </motion.div>
@@ -1027,7 +1243,18 @@ const Home = () => {
               transition={{ duration: 0.5, delay: 0.3 }}
               className="bg-card border border-border rounded-2xl p-6 text-center group hover:border-success/30 transition-all"
             >
-              <Shield className="h-10 w-10 mx-auto text-success mb-4 group-hover:scale-110 transition-transform" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-10 w-10 mx-auto text-success mb-4 group-hover:scale-110 transition-transform"
+              >
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
               <h3 className="text-3xl font-bold mb-2">100%</h3>
               <p className="text-muted-foreground">Secure Platform</p>
             </motion.div>
@@ -1049,7 +1276,19 @@ const Home = () => {
               {/* CTA Text Area */}
               <div className="p-8 md:p-12 md:col-span-3 flex flex-col justify-center">
                 <div className="p-3 bg-white/20 rounded-xl w-fit mb-6">
-                  <Sparkles className="h-8 w-8 text-white" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-8 w-8 text-white"
+                  >
+                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+                    <path d="M19 6.3a9 9 0 0 1 1.8 3.8"></path>
+                  </svg>
                 </div>
                 
                 <h2 className="text-3xl md:text-4xl font-serif font-bold mb-6 text-white">
@@ -1088,7 +1327,19 @@ const Home = () => {
                 <div className="absolute inset-0 backdrop-blur-[2px]"></div>
                 
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Sparkles className="h-32 w-32 text-white/80" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-32 w-32 text-white/80"
+                  >
+                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+                    <path d="M19 6.3a9 9 0 0 1 1.8 3.8"></path>
+                  </svg>
                 </div>
               </div>
             </div>
