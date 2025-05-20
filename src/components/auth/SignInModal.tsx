@@ -19,7 +19,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
   const { signIn, signUp, signInWithGoogle, magicLinkSent, setMagicLinkSent } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setIsGoogleLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const { 
@@ -122,10 +122,10 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
               {/* Traditional Google Sign In Button - Fallback authentication method */}
               <button
                 onClick={handleGoogleSignIn}
-                disabled={googleLoading}
+                disabled={isGoogleLoading}
                 className="w-full btn btn-outline border-input hover:bg-secondary/50 py-2 mb-6 flex items-center justify-center relative"
               >
-                {googleLoading ? (
+                {isGoogleLoading ? (
                   <span className="flex items-center justify-center">
                     <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2"></span>
                     Connecting...

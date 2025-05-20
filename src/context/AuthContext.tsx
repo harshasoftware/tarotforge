@@ -57,6 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const authCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const nonceRef = useRef<string>('');
   const isProcessingGoogleOneTapRef = useRef(false);
+  const authStateDeterminedRef = useRef(false);
 
   const checkAuth = useCallback(async () => {
     // Prevent concurrent auth checks
@@ -85,6 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error getting session:', error);
         setUser(null);
         setLoading(false);
+        authStateDeterminedRef.current = true;
         return;
       }
       
@@ -239,6 +241,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
       isCheckingRef.current = false;
+      authStateDeterminedRef.current = true;
     }
   }, []);
 
@@ -484,6 +487,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error) {
         console.error('Error during initial auth check:', error);
         setLoading(false);
+        authStateDeterminedRef.current = true;
       }
       
       // Safety timeout to ensure loading state never gets stuck
@@ -492,9 +496,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       authCheckTimeoutRef.current = setTimeout(() => {
-        console.log('Safety timeout triggered - forcing loading state to false');
-        setLoading(false);
-      }, 8000);
+        if (!authStateDeterminedRef.current) {
+          console.log('Safety timeout triggered - forcing loading state to false');
+          setLoading(false);
+          authStateDeterminedRef.current = true;
+        }
+      }, 5000); // Reduced from 8000ms to 5000ms
     };
     
     initAuth();
@@ -513,6 +520,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('User signed out or deleted');
           setUser(null);
           setLoading(false);
+          authStateDeterminedRef.current = true;
         }
       }
     );

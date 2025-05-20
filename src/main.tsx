@@ -29,6 +29,17 @@ const updateSW = registerSW({
   },
 });
 
+// Set client ID in One Tap container
+const setGoogleClientId = () => {
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  if (clientId) {
+    const container = document.getElementById('g_id_onload');
+    if (container) {
+      container.setAttribute('data-client_id', clientId);
+    }
+  }
+};
+
 // Initialize advanced PWA features
 async function initPWAFeatures() {
   try {
@@ -69,6 +80,11 @@ async function initPWAFeatures() {
     console.error('Error initializing PWA features:', error);
   }
 }
+
+// Initial setup
+document.addEventListener('DOMContentLoaded', () => {
+  setGoogleClientId();
+});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

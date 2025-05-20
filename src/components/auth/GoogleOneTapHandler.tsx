@@ -41,6 +41,7 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
         return;
       }
       
+      console.log('Initializing Google One Tap...');
       isInitializedRef.current = true;
       
       // Generate a nonce for security
@@ -51,6 +52,19 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
       };
       
       const nonce = generateNonce();
+      
+      // Update the placeholder in the DOM with the actual client ID
+      const googleOneTapContainer = document.getElementById('g_id_onload');
+      if (googleOneTapContainer) {
+        googleOneTapContainer.setAttribute('data-client_id', googleClientId);
+        googleOneTapContainer.style.display = 'block';
+      } else {
+        // Create container if it doesn't exist
+        const container = document.createElement('div');
+        container.id = 'g_id_onload';
+        container.setAttribute('data-client_id', googleClientId);
+        document.body.appendChild(container);
+      }
       
       // Add a small delay before initialization to avoid race conditions
       if (initTimeoutRef.current) {
@@ -63,11 +77,16 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
           googleOneTap({
             client_id: googleClientId,
             auto_select: false,
-            cancel_on_tap_outside: false, // Changed to false to prevent auto-dismissal
+            cancel_on_tap_outside: true,
+            itp_support: true,
             context: 'signin',
+            use_fedcm_for_prompt: false, // Attempt to disable FedCM for compatibility
             callback: (response) => {
               try {
-                handleGoogleOneTapCallback(response, nonce);
+                console.log('Google One Tap callback received');
+                if (response && response.credential) {
+                  handleGoogleOneTapCallback(response, nonce);
+                }
               } catch (error) {
                 console.error('Error handling Google One Tap callback:', error);
                 isInitializedRef.current = false; // Reset for potential retry
@@ -83,7 +102,8 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
               if (retryCount < MAX_RETRIES) {
                 console.log(`Retrying Google One Tap (attempt ${retryCount + 1} of ${MAX_RETRIES})...`);
                 
-                const retryDelay = error?.type === 'tap_outside' ? 1000 : 3000;
+                // Different delay based on error type
+                const retryDelay = 2000 + (retryCount * 1000); // Increasing delay with each retry
                 
                 // Wait before retrying
                 setTimeout(() => {
@@ -94,11 +114,13 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
               }
             }
           });
+          
+          console.log('Google One Tap initialization complete');
         } catch (initError) {
           console.error('Failed to initialize Google One Tap:', initError);
           isInitializedRef.current = false; // Reset for potential retry
         }
-      }, 500); // Short delay before initialization
+      }, 1000); // Increased delay before initialization
     } catch (error) {
       console.error('Error in Google One Tap setup:', error);
       isInitializedRef.current = false;
