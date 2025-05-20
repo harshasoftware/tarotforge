@@ -74,6 +74,7 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
       googleOneTapContainer.setAttribute('data-ux_mode', 'popup');
       googleOneTapContainer.setAttribute('data-login_uri', `${origin}/auth/callback`);
       googleOneTapContainer.setAttribute('data-auto_prompt', 'false');
+      googleOneTapContainer.setAttribute('data-itp_support', 'true');
       googleOneTapContainer.style.display = 'block';
       
       console.log('Google One Tap container configured with absolute login_uri:', `${origin}/auth/callback`);
