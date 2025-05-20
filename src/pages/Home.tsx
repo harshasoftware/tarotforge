@@ -1,11 +1,11 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw, Coins } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TarotLogo from '../components/ui/TarotLogo';
 import { useAuth } from '../context/AuthContext';
-import { generateThemeSuggestions } from '../lib/gemini-ai';
+import { generateThemeSuggestions, generateElaborateTheme } from '../lib/gemini-ai';
 
 // Featured decks data
 const featuredDecks = [
@@ -75,10 +75,14 @@ const tarotCardImages = [
   'https://images.pexels.com/photos/1727684/pexels-photo-1727684.jpeg?auto=compress&cs=tinysrgb&w=1600', // Wheel of Fortune
 ];
 
-// Large pool of theme suggestions for lazy loading
-// const allThemeSuggestions = [ ... ];
-
-import { generateElaborateTheme } from '../lib/gemini-ai';
+// Generate a loading message for the theme generation process
+const loadingMessages = [
+  "Channeling mystical energies...",
+  "Consulting the cosmic forces...",
+  "Weaving arcane symbols...",
+  "Gathering tarot wisdom...",
+  "Aligning celestial patterns..."
+];
 
 // Generate theme suggestions using Gemini AI
 const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
@@ -130,6 +134,7 @@ const Home = () => {
   const [isGeneratingElaboration, setIsGeneratingElaboration] = useState(false);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
   const [lastLoadedIndex, setLastLoadedIndex] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
   
   // Load initial theme suggestions on component mount
   useEffect(() => {
@@ -163,6 +168,17 @@ const Home = () => {
       window.history.replaceState(null, '', window.location.pathname);
     }
   }, [location]);
+
+  // Update loading message periodically
+  useEffect(() => {
+    if (isGeneratingElaboration) {
+      const interval = setInterval(() => {
+        setLoadingMessage(loadingMessages[Math.floor(Math.random() * loadingMessages.length)]);
+      }, 2000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isGeneratingElaboration]);
   
   // Reference for the scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -383,10 +399,13 @@ const Home = () => {
                 Create Your Tarot Deck
               </h4>
               
-              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-center mb-4">
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-center mb-4 flex justify-between items-center">
                 <p className="text-sm">
                   <span className="font-medium">5 free credits</span> available for all users
                 </p>
+                <div className="flex items-center text-yellow-500">
+                  <Coins className="h-5 w-5" />
+                </div>
               </div>
               
               <form onSubmit={handleThemeSubmit}>
@@ -397,7 +416,16 @@ const Home = () => {
                     onChange={(e) => setThemePrompt(e.target.value)}
                     placeholder="Describe your deck's theme or concept (e.g., Cosmic journey through ancient mythology...)"
                     className="w-full p-3 rounded-lg bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px] resize-none"
+                    disabled={isGeneratingElaboration}
                   />
+                  
+                  {/* Loading indicator for theme generation */}
+                  {isGeneratingElaboration && (
+                    <div className="mt-2 p-2 bg-primary/10 border border-primary/20 rounded-md flex items-center">
+                      <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2"></div>
+                      <p className="text-xs text-primary">{loadingMessage}</p>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="relative mb-4">
@@ -460,7 +488,7 @@ const Home = () => {
                                     border border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/40
                                     ${isGeneratingElaboration ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
-                          {isGeneratingElaboration ? '...' : suggestion}
+                          {isGeneratingElaboration && themePrompt === suggestion ? '...' : suggestion}
                         </button>
                       ))}
                     </div>
@@ -481,13 +509,20 @@ const Home = () => {
                 
                 <button
                   type="submit"
-                  disabled={!themePrompt.trim()}
+                  disabled={!themePrompt.trim() || isGeneratingElaboration}
                   className="w-full btn btn-primary py-3 disabled:opacity-70"
                 >
-                  <>
-                    Forge a Deck
-                    <Hammer className="ml-2 h-4 w-4" />
-                  </>
+                  {isGeneratingElaboration ? (
+                    <>
+                      <div className="h-5 w-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Generating Description...
+                    </>
+                  ) : (
+                    <>
+                      Forge a Deck
+                      <Hammer className="ml-2 h-4 w-4" />
+                    </>
+                  )}
                 </button>
               </form>
             </div>
