@@ -19,7 +19,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
   const { signIn, signUp, signInWithGoogle, magicLinkSent, setMagicLinkSent } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const { 
@@ -60,7 +60,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
 
   const handleGoogleSignIn = async () => {
     try {
-      setGoogleLoading(true);
+      setIsGoogleLoading(true);
       setError(null);
       
       // Add a small delay to ensure no concurrent credential requests
@@ -75,7 +75,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
       // The Google flow will redirect to Google's auth page
     } catch (err: any) {
       setError(err.message || 'An error occurred with Google sign-in');
-      setGoogleLoading(false);
+      setIsGoogleLoading(false);
     }
   };
   
