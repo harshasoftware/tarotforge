@@ -468,9 +468,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Handle Google One Tap initialization
-  const handleGoogleOneTap = (): Promise<void> => {
-    return new Promise<void>((resolve) => {
+  // Handle Google One Tap initialization with retries
+  const handleGoogleOneTap = (retryCount = 0): Promise<void> => {
+    return new Promise<void>((resolve, reject) => {
       const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
       if (!googleClientId) {
         console.error('Google Client ID is not configured');
@@ -479,16 +479,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Check if Google script is loaded
       if (!window.google?.accounts?.id) {
-        console.warn('Google accounts API not available yet, will retry...');
-        // Try again after a short delay
+        if (retryCount >= 3) {
+          console.error('Google accounts API not available after multiple retries');
+          return resolve();
+        }
+        
+        console.warn(`Google accounts API not available yet, retrying... (${retryCount + 1}/3)`);
+        
+        // Try again after a delay that increases with each retry
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 5000); // Exponential backoff, max 5s
+        
         const timer = setTimeout(() => {
-          if (window.google?.accounts?.id) {
-            handleGoogleOneTap().then(resolve);
-          } else {
-            console.error('Google accounts API still not available after retry');
-            resolve();
-          }
-        }, 1000);
+          handleGoogleOneTap(retryCount + 1).then(resolve).catch(reject);
+        }, delay);
         
         // Clean up the timer if the component unmounts
         return () => clearTimeout(timer);
@@ -512,38 +515,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           use_fedcm_for_prompt: false, // Disable FedCM to ensure compatibility
         });
         
-        // Display the One Tap prompt
-        window.google.accounts.id.prompt((notification) => {
-          if (notification) {
-            const status = [
-              notification.isNotDisplayed?.() ? 'Not displayed' : '',
-              notification.isSkippedMoment?.() ? 'Skipped' : '',
-              notification.isDismissedMoment?.() ? 'Dismissed' : ''
-            ].filter(Boolean).join(', ');
-            
-            console.log("Google One Tap prompt status:", status || 'Displayed');
-            
-            if (notification.isNotDisplayed?.()) {
-              const reason = notification.getNotDisplayedReason?.();
-              console.log("One Tap not displayed reason:", reason);
+        // Add a small delay to ensure the API is fully ready
+        setTimeout(() => {
+          try {
+            // Double-check that google is still available
+            if (!window.google?.accounts?.id) {
+              console.error('Google accounts API became unavailable during initialization');
+              return resolve();
             }
             
-            if (notification.isSkippedMoment?.()) {
-              console.log("One Tap skipped reason:", notification.getSkippedReason?.());
-            }
+            // Display the One Tap prompt
+            window.google.accounts.id.prompt((notification) => {
+              if (notification) {
+                const status = [
+                  notification.isNotDisplayed?.() ? 'Not displayed' : '',
+                  notification.isSkippedMoment?.() ? 'Skipped' : '',
+                  notification.isDismissedMoment?.() ? 'Dismissed' : ''
+                ].filter(Boolean).join(', ');
+                
+                console.log("Google One Tap prompt status:", status || 'Displayed');
+                
+                if (notification.isNotDisplayed?.()) {
+                  const reason = notification.getNotDisplayedReason?.();
+                  console.log("One Tap not displayed reason:", reason);
+                }
+                
+                if (notification.isSkippedMoment?.()) {
+                  console.log("One Tap skipped reason:", notification.getSkippedReason?.());
+                }
+                
+                if (notification.isDismissedMoment?.()) {
+                  console.log("One Tap dismissed reason:", notification.getDismissedReason?.());
+                }
+              }
+              resolve();
+            });
             
-            if (notification.isDismissedMoment?.()) {
-              console.log("One Tap dismissed reason:", notification.getDismissedReason?.());
-            }
+            googleOneTapInitializedRef.current = true;
+            console.log("Google One Tap initialized successfully");
+          } catch (error) {
+            console.error("Error showing Google One Tap prompt:", error);
+            resolve();
           }
-          resolve();
-        });
-        
-        googleOneTapInitializedRef.current = true;
-        console.log("Google One Tap initialized successfully");
+        }, 100);
       } catch (error) {
         console.error("Error initializing Google One Tap:", error);
-        resolve();
+        // If initialization fails, try one more time after a short delay
+        if (retryCount < 2) {
+          console.log(`Retrying Google One Tap initialization (${retryCount + 1}/2)...`);
+          setTimeout(() => {
+            handleGoogleOneTap(retryCount + 1).then(resolve).catch(reject);
+          }, 1000 * (retryCount + 1));
+        } else {
+          console.error("Max retries reached for Google One Tap initialization");
+          resolve();
+        }
       }
     });
   };
