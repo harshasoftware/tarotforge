@@ -873,7 +873,7 @@ export const getReadingInterpretation = async (
 // NEW FUNCTIONS FOR THEME SUGGESTIONS
 
 export const generateThemeSuggestions = async (count: number = 10): Promise<string[]> => {
-  // Return fallback suggestions if the API key is missing or invalid
+  // Return fallback suggestions immediately if the API key is missing or invalid
   if (!genAI || !apiKey) {
     console.warn('Using fallback theme suggestions due to missing or invalid Google AI API key');
     // Return fallback theme suggestions
@@ -910,7 +910,8 @@ export const generateThemeSuggestions = async (count: number = 10): Promise<stri
     
     return themes.slice(0, count);
   } catch (error) {
-    console.error('Error generating theme suggestions:', error);
+    // Log error for debugging but don't display it to users
+    console.warn('Error generating theme suggestions, using fallbacks:', error);
     return [
       "Celestial Voyage", "Ancient Mythology", "Enchanted Forest", 
       "Cybernetic Dreams", "Elemental Forces", "Oceanic Mysteries",
@@ -949,7 +950,7 @@ export const generateElaborateTheme = async (themeTitle: string): Promise<string
     const response = await result.response;
     return response.text();
   } catch (error) {
-    console.error('Error generating elaborate theme:', error);
+    console.warn('Error generating elaborate theme, using fallback:', error);
     return `A mystical ${themeTitle} tarot deck featuring rich symbolism and evocative imagery. The deck explores the profound connection between consciousness and the spiritual realm, with elements of cosmic energies, ancient wisdom, and transformative journeys. Each card contains detailed symbolism that reflects both traditional tarot meanings and the unique essence of the ${themeTitle} theme.`;
   }
 };
@@ -1009,7 +1010,7 @@ export const generateMysticalUsername = async (emailOrName: string): Promise<str
     
     return username;
   } catch (error) {
-    console.error('Error generating mystical username:', error);
+    console.warn('Error generating mystical username, using fallback:', error);
     // Fallback to a simpler approach if Gemini fails
     return generateFallbackUsername(cleanName);
   }
@@ -1182,11 +1183,11 @@ export const generateTarotQuiz = async (count: number = 10, difficulty: string =
       
       return validQuestions;
     } catch (parseError) {
-      console.error('Error parsing quiz questions:', parseError);
+      console.warn('Error parsing quiz questions, using fallbacks:', parseError);
       throw new Error('Failed to parse generated quiz questions');
     }
   } catch (error) {
-    console.error('Error generating tarot quiz questions:', error);
+    console.warn('Error generating tarot quiz questions, using fallbacks:', error);
     // Return fallback questions
     return Array(count).fill(null).map((_, index) => ({
       id: index,
