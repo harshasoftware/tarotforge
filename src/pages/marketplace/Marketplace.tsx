@@ -393,11 +393,12 @@ const Marketplace = () => {
           </p>
         </div>
         
-        {/* Search and filters */}
-        <div className="mb-10">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+        {/* Main content area with sidebar layout */}
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Sidebar with search and filters - 33.3% */}
+          <div className="w-full lg:w-1/3 space-y-6">
             {/* Search bar */}
-            <div className="relative w-full md:w-96">
+            <div className="relative w-full">
               <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                 <Search className="h-5 w-5" />
               </div>
@@ -411,299 +412,244 @@ const Marketplace = () => {
             </div>
             
             {/* Filter tabs */}
-            <div className="flex items-center space-x-1 overflow-x-auto pb-2 w-full md:w-auto">
-              <FilterButton 
-                isActive={activeFilter === 'all'} 
-                onClick={() => setActiveFilter('all')}
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium mb-2">Filter Decks</h3>
+              <div className="flex flex-col space-y-2">
+                <FilterButton 
+                  isActive={activeFilter === 'all'} 
+                  onClick={() => setActiveFilter('all')}
+                >
+                  All Decks
+                </FilterButton>
+                <FilterButton 
+                  isActive={activeFilter === 'free'} 
+                  onClick={() => setActiveFilter('free')}
+                >
+                  <Zap className="h-4 w-4 mr-1" />
+                  Free Decks
+                </FilterButton>
+                <FilterButton 
+                  isActive={activeFilter === 'popular'} 
+                  onClick={() => setActiveFilter('popular')}
+                >
+                  <TrendingUp className="h-4 w-4 mr-1" />
+                  Popular
+                </FilterButton>
+                <FilterButton 
+                  isActive={activeFilter === 'new'} 
+                  onClick={() => setActiveFilter('new')}
+                >
+                  <Clock className="h-4 w-4 mr-1" />
+                  New Arrivals
+                </FilterButton>
+                <FilterButton 
+                  isActive={activeFilter === 'nft'} 
+                  onClick={() => setActiveFilter('nft')}
+                >
+                  <TarotLogo className="h-4 w-4 mr-1" />
+                  NFT Decks
+                </FilterButton>
+              </div>
+            </div>
+            
+            {/* AI Theme Suggestions */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-medium">Theme Inspiration</h3>
+                <button
+                  onClick={loadMoreThemeSuggestions}
+                  disabled={isGeneratingThemes}
+                  className="text-xs flex items-center text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+                >
+                  Refresh Themes
+                </button>
+              </div>
+              
+              <div className="space-y-2">
+                {themeSuggestions.slice(0, 15).map((theme, index) => (
+                  <button
+                    key={`${theme}-${index}`}
+                    onClick={() => applyThemeSuggestion(theme)}
+                    disabled={isGeneratingElaborateTheme}
+                    className={`px-4 py-2 bg-card/80 border border-border hover:border-primary/50 rounded-md text-sm w-full text-left transition-colors ${
+                      isGeneratingElaborateTheme ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {isGeneratingElaborateTheme && searchQuery === theme ? 'Generating...' : theme}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* AI Prompt Engine - Show only when we have an elaborate prompt */}
+            {promptEngineValue && (
+              <motion.div 
+                className="p-4 bg-primary/5 border border-primary/20 rounded-lg"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
               >
-                All Decks
-              </FilterButton>
-              <FilterButton 
-                isActive={activeFilter === 'free'} 
-                onClick={() => setActiveFilter('free')}
-              >
-                <Zap className="h-4 w-4 mr-1" />
-                Free Decks
-              </FilterButton>
-              <FilterButton 
-                isActive={activeFilter === 'popular'} 
-                onClick={() => setActiveFilter('popular')}
-              >
-                <TrendingUp className="h-4 w-4 mr-1" />
-                Popular
-              </FilterButton>
-              <FilterButton 
-                isActive={activeFilter === 'new'} 
-                onClick={() => setActiveFilter('new')}
-              >
-                <Clock className="h-4 w-4 mr-1" />
-                New Arrivals
-              </FilterButton>
-              <FilterButton 
-                isActive={activeFilter === 'nft'} 
-                onClick={() => setActiveFilter('nft')}
-              >
-                <TarotLogo className="h-4 w-4 mr-1" />
-                NFT Decks
-              </FilterButton>
+                <div className="flex items-start gap-3">
+                  <TarotLogo className="h-5 w-5 text-primary mt-1" />
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">AI Theme Inspiration</h3>
+                    <p className="text-sm text-foreground/90">{promptEngineValue}</p>
+                  </div>
+                  <button 
+                    onClick={() => setPromptEngineValue('')} 
+                    className="p-1 hover:bg-primary/10 rounded-full ml-auto"
+                  >
+                    <XCircle className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+            
+            {/* Results count */}
+            <div className="text-sm text-muted-foreground">
+              Showing {displayedDecks.length} of {decks.filter(deck => {
+                const matchesSearch = deck.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                  deck.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                  deck.creator_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                  deck.theme.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                  deck.style.toLowerCase().includes(searchQuery.toLowerCase());
+                                  
+                if (activeFilter === 'all') return matchesSearch;
+                if (activeFilter === 'nft') return matchesSearch && deck.is_nft;
+                if (activeFilter === 'free') return matchesSearch && deck.is_free;
+                if (activeFilter === 'popular') return matchesSearch && (deck.purchase_count || 0) > 100;
+                if (activeFilter === 'new') {
+                  const deckDate = new Date(deck.created_at);
+                  const oneMonthAgo = new Date();
+                  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+                  return matchesSearch && deckDate > oneMonthAgo;
+                }
+                
+                return matchesSearch;
+              }).length} decks
             </div>
           </div>
-        </div>
-        
-        {/* AI Prompt Engine - Show only when we have an elaborate prompt */}
-        {promptEngineValue && (
-          <motion.div 
-            className="mb-8 p-4 bg-primary/5 border border-primary/20 rounded-lg"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="flex items-start gap-3">
-              <TarotLogo className="h-5 w-5 text-primary mt-1" />
-              <div>
-                <h3 className="text-sm font-medium mb-2">AI Theme Inspiration</h3>
-                <p className="text-sm text-foreground/90">{promptEngineValue}</p>
-              </div>
-              <button 
-                onClick={() => setPromptEngineValue('')} 
-                className="p-1 hover:bg-primary/10 rounded-full ml-auto"
-              >
-                <XCircle className="h-5 w-5 text-muted-foreground hover:text-foreground" />
-              </button>
-            </div>
-          </motion.div>
-        )}
-        
-        {/* Floating Tarot Cards with Themes */}
-        <div 
-          ref={suggestionsRef}
-          className="mb-8 flex gap-3 overflow-x-auto pb-2 scrollbar-hide" 
-        >
-          {themeSuggestions.map((theme, index) => (
-            <motion.button
-              key={`${theme}-${index}`}
-              onClick={() => applyThemeSuggestion(theme)}
-              disabled={isGeneratingElaborateTheme}
-              className={`px-4 py-2 bg-card/80 border border-border hover:border-primary/50 rounded-full text-sm whitespace-nowrap flex-shrink-0 transition-colors ${
-                isGeneratingElaborateTheme ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              {theme}
-            </motion.button>
-          ))}
-          {isGeneratingThemes && (
-            <div className="px-4 py-2 bg-card/80 border border-border rounded-full text-sm whitespace-nowrap flex-shrink-0 animate-pulse">
-              Loading more...
-            </div>
-          )}
-        </div>
-        
-        {/* Bento Grid Layout */}
-        {!loading && displayedDecks.length > 0 ? (
-          <>
-            {/* Featured Section */}
-            <section className="mb-12">
-              <h2 className="text-2xl font-serif font-bold mb-6">Featured Collections</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-4">
-                {/* Main Featured Deck (Large) */}
-                <div className="col-span-full md:col-span-6 lg:col-span-6">
-                  {getPopularDecks()[0] && (
-                    <BentoCard 
-                      size="large"
-                      deck={getPopularDecks()[0]}
-                      badge={getPopularDecks()[0].is_free ? 'free' : (getPopularDecks()[0].is_nft ? 'nft' : 'trending')}
-                    />
-                  )}
-                </div>
-                
-                {/* Secondary Featured (Medium) */}
-                <div className="col-span-full md:col-span-6 lg:col-span-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {getTopRatedDecks().map((deck, idx) => (
-                    <BentoCard 
-                      key={deck.id} 
-                      deck={deck} 
-                      size="medium" 
-                      badge={deck.is_free ? 'free' : (deck.is_nft ? 'nft' : 'top-rated')}
-                    />
-                  ))}
-                </div>
-                
-                {/* Free Decks Row */}
-                {getFreeDecks().length > 0 && (
-                  <div className="col-span-full">
-                    <h3 className="text-xl font-serif font-medium mb-4 flex items-center">
-                      <Zap className="h-5 w-5 text-success mr-2" />
-                      Free Decks
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {getFreeDecks().map((deck) => (
+          
+          {/* Main content area - 66.7% */}
+          <div className="w-full lg:w-2/3">
+            {!loading && displayedDecks.length > 0 ? (
+              <>
+                {/* Featured Section on top */}
+                <section className="mb-12">
+                  <h2 className="text-2xl font-serif font-bold mb-6">Featured Collections</h2>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    {/* Main Featured Deck (Large) */}
+                    <div className="col-span-full md:col-span-6">
+                      {getPopularDecks()[0] && (
                         <BentoCard 
-                          key={deck.id} 
-                          deck={deck} 
-                          size="horizontal" 
-                          badge="free"
+                          size="large"
+                          deck={getPopularDecks()[0]}
+                          badge={getPopularDecks()[0].is_free ? 'free' : (getPopularDecks()[0].is_nft ? 'nft' : 'trending')}
                         />
-                      ))}
+                      )}
                     </div>
-                  </div>
-                )}
-                
-                {/* NFT & Premium Decks - Side by side */}
-                <div className="col-span-full md:col-span-6">
-                  <h3 className="text-xl font-serif font-medium mb-4 flex items-center">
-                    <TarotLogo className="h-5 w-5 text-accent mr-2" />
-                    NFT Collections
-                  </h3>
-                  {getNftDecks().length > 0 ? (
-                    <div className="grid grid-cols-1 gap-4">
-                      {getNftDecks().map((deck) => (
-                        <BentoCard 
-                          key={deck.id} 
-                          deck={deck} 
-                          size="horizontal" 
-                          badge="nft"
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="bg-card border border-border rounded-xl p-8 text-center">
-                      <p className="text-muted-foreground">No NFT decks available</p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="col-span-full md:col-span-6">
-                  <h3 className="text-xl font-serif font-medium mb-4 flex items-center">
-                    <Clock className="h-5 w-5 text-primary mr-2" />
-                    New Arrivals
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {getNewestDecks().slice(0, 2).map((deck) => (
-                      <BentoCard 
-                        key={deck.id} 
-                        deck={deck} 
-                        size="vertical" 
-                        badge="new"
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </section>
-            
-            {/* All Filtered Decks - Standard Grid */}
-            <section>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-serif font-bold">All Decks</h2>
-                <span className="text-sm text-muted-foreground">
-                  Showing {displayedDecks.length} of {decks.filter(deck => {
-                    const matchesSearch = deck.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                      deck.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                      deck.creator_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                      deck.theme.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                      deck.style.toLowerCase().includes(searchQuery.toLowerCase());
-                                      
-                    if (activeFilter === 'all') return matchesSearch;
-                    if (activeFilter === 'nft') return matchesSearch && deck.is_nft;
-                    if (activeFilter === 'free') return matchesSearch && deck.is_free;
-                    if (activeFilter === 'popular') return matchesSearch && (deck.purchase_count || 0) > 100;
-                    if (activeFilter === 'new') {
-                      const deckDate = new Date(deck.created_at);
-                      const oneMonthAgo = new Date();
-                      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-                      return matchesSearch && deckDate > oneMonthAgo;
-                    }
                     
-                    return matchesSearch;
-                  }).length} decks
-                </span>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {displayedDecks.map((deck, index) => {
-                  // Add ref to last item for infinite scrolling
-                  if (index === displayedDecks.length - 1) {
-                    return (
-                      <div ref={lastDeckRef} key={deck.id}>
-                        <DeckPreview deck={deck} />
-                      </div>
-                    );
-                  }
-                  return <DeckPreview key={deck.id} deck={deck} />;
-                })}
-              </div>
-              
-              {/* Loading more indicator */}
-              {loadingMore && (
-                <div className="text-center py-8">
-                  <div className="flex items-center justify-center">
-                    <Loader className="h-6 w-6 text-primary animate-spin mr-2" />
-                    <span>Loading more decks...</span>
+                    {/* Secondary Featured (Medium) */}
+                    <div className="col-span-full md:col-span-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {getTopRatedDecks().map((deck, idx) => (
+                        <BentoCard 
+                          key={deck.id} 
+                          deck={deck} 
+                          size="medium" 
+                          badge={deck.is_free ? 'free' : (deck.is_nft ? 'nft' : 'top-rated')}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-              
-              {/* No more decks indicator */}
-              {!hasMore && displayedDecks.length > 0 && !loadingMore && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>You've reached the end of the marketplace</p>
-                </div>
-              )}
-            </section>
-          </>
-        ) : loading ? (
-          <div className="space-y-8">
-            {/* Skeleton for featured section */}
-            <section className="mb-8">
-              <div className="h-8 w-48 bg-muted/30 rounded animate-pulse mb-6"></div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-4">
-                {/* Main Featured Deck Skeleton */}
-                <div className="col-span-full md:col-span-6 lg:col-span-6">
-                  <div className="aspect-[3/2] rounded-xl bg-card animate-pulse border border-border overflow-hidden relative">
-                    <div className="absolute inset-0 bg-primary/5"></div>
-                  </div>
-                </div>
+                </section>
                 
-                {/* Secondary Featured Skeletons */}
-                <div className="col-span-full md:col-span-6 lg:col-span-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="aspect-square rounded-xl bg-card animate-pulse border border-border overflow-hidden"></div>
+                {/* All Filtered Decks - Standard Grid */}
+                <section>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-serif font-bold">All Decks</h2>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {displayedDecks.map((deck, index) => {
+                      // Add ref to last item for infinite scrolling
+                      if (index === displayedDecks.length - 1) {
+                        return (
+                          <div ref={lastDeckRef} key={deck.id}>
+                            <DeckPreview deck={deck} />
+                          </div>
+                        );
+                      }
+                      return <DeckPreview key={deck.id} deck={deck} />;
+                    })}
+                  </div>
+                  
+                  {/* Loading more indicator */}
+                  {loadingMore && (
+                    <div className="text-center py-8">
+                      <div className="flex items-center justify-center">
+                        <Loader className="h-6 w-6 text-primary animate-spin mr-2" />
+                        <span>Loading more decks...</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* No more decks indicator */}
+                  {!hasMore && displayedDecks.length > 0 && !loadingMore && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>You've reached the end of the marketplace</p>
+                    </div>
+                  )}
+                </section>
+              </>
+            ) : loading ? (
+              <div className="space-y-8">
+                {/* Skeleton for featured section */}
+                <section className="mb-8">
+                  <div className="h-8 w-48 bg-muted/30 rounded animate-pulse mb-6"></div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-4">
+                    {/* Main Featured Deck Skeleton */}
+                    <div className="col-span-full md:col-span-6 lg:col-span-6">
+                      <div className="aspect-[3/2] rounded-xl bg-card animate-pulse border border-border overflow-hidden relative">
+                        <div className="absolute inset-0 bg-primary/5"></div>
+                      </div>
+                    </div>
+                    
+                    {/* Secondary Featured Skeletons */}
+                    <div className="col-span-full md:col-span-6 lg:col-span-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="aspect-square rounded-xl bg-card animate-pulse border border-border overflow-hidden"></div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+                
+                {/* Skeleton for standard deck grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {Array(8).fill(null).map((_, i) => (
+                    <div key={i} className="rounded-xl overflow-hidden bg-card border border-border">
+                      <div className="aspect-[3/4] bg-primary/10 animate-pulse" />
+                      <div className="p-4">
+                        <div className="h-6 w-2/3 bg-muted/30 rounded animate-pulse mb-4" />
+                        <div className="h-4 bg-muted/30 rounded animate-pulse mb-2" />
+                        <div className="h-4 w-2/3 bg-muted/30 rounded animate-pulse" />
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
-            </section>
-            
-            {/* Skeleton for standard deck grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {Array(8).fill(null).map((_, i) => (
-                <div key={i} className="rounded-xl overflow-hidden bg-card border border-border">
-                  <div className="aspect-[3/4] bg-primary/10 animate-pulse" />
-                  <div className="p-4">
-                    <div className="h-6 w-2/3 bg-muted/30 rounded animate-pulse mb-4" />
-                    <div className="h-4 bg-muted/30 rounded animate-pulse mb-2" />
-                    <div className="h-4 w-2/3 bg-muted/30 rounded animate-pulse" />
-                  </div>
-                </div>
-              ))}
-            </div>
+            ) : (
+              <div className="text-center py-20">
+                <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-medium mb-2">No decks found</h3>
+                <p className="text-muted-foreground">
+                  Try adjusting your search or filters to find what you're looking for.
+                </p>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="text-center py-20">
-            <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-medium mb-2">No decks found</h3>
-            <p className="text-muted-foreground">
-              Try adjusting your search or filters to find what you're looking for.
-            </p>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -1007,7 +953,7 @@ const FilterButton = ({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+      className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors w-full ${
         isActive 
           ? 'bg-primary text-primary-foreground' 
           : 'bg-card hover:bg-secondary/50'
