@@ -17,7 +17,7 @@ Here's the fixed version with all missing closing brackets added:
                   <ul className="space-y-3 mb-6">
                     <li className="flex items-start">
                       <Check className="h-4 w-4 text-success mt-1 mr-2" />
-                      <span className="text-sm">150 premium credits monthly</span>
+                      <span className="text-sm">150 basic credits monthly</span>
                     </li>
                     <li className="flex items-start">
                       <Check className="h-4 w-4 text-success mt-1 mr-2" />
@@ -29,7 +29,7 @@ Here's the fixed version with all missing closing brackets added:
                     </li>
                     <li className="flex items-start">
                       <Check className="h-4 w-4 text-success mt-1 mr-2" />
-                      <span className="text-sm">Priority support & features</span>
+                      <span className="text-sm">Priority support</span>
                     </li>
                   </ul>
                 </div>
