@@ -56,6 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const lastCheckTimeRef = useRef(0);
   const authCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const nonceRef = useRef<string>('');
+  const isProcessingGoogleOneTapRef = useRef(false);
 
   const checkAuth = useCallback(async () => {
     // Prevent concurrent auth checks
@@ -437,6 +438,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Handle Google One Tap sign in
   const handleGoogleOneTapCallback = async (response: GoogleOneTapResponse, nonce: string): Promise<void> => {
     try {
+      // Prevent concurrent processing
+      if (isProcessingGoogleOneTapRef.current) {
+        console.log('Already processing a Google One Tap response, skipping...');
+        return;
+      }
+      
+      isProcessingGoogleOneTapRef.current = true;
       console.log('Google One Tap response received');
       
       // Sign in with Supabase using the ID token
@@ -448,6 +456,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) {
         console.error('Error signing in with Google One Tap:', error);
+        isProcessingGoogleOneTapRef.current = false;
         return;
       }
       
@@ -455,6 +464,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await checkAuth();
     } catch (err) {
       console.error('Error processing Google One Tap response:', err);
+    } finally {
+      // Ensure we reset the processing flag after a short delay
+      // to prevent potential race conditions
+      setTimeout(() => {
+        isProcessingGoogleOneTapRef.current = false;
+      }, 1000);
     }
   };
 

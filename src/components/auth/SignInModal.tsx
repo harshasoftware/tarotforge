@@ -63,6 +63,9 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
       setGoogleLoading(true);
       setError(null);
       
+      // Add a small delay to ensure no concurrent credential requests
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const { error } = await signInWithGoogle();
       
       if (error) {
