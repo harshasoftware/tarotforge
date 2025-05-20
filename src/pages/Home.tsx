@@ -76,8 +76,6 @@ const tarotCardImages = [
   'https://images.pexels.com/photos/1727684/pexels-photo-1727684.jpeg?auto=compress&cs=tinysrgb&w=1600', // Wheel of Fortune
 ];
 
-import { generateElaborateTheme } from '../lib/gemini-ai';
-
 // Generate theme suggestions using Gemini AI
 const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
   try {
