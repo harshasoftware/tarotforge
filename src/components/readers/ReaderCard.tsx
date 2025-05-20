@@ -67,7 +67,9 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
       name: reader.readerLevel.name,
       colorTheme: reader.readerLevel.color_theme || 'red',
       icon: reader.readerLevel.icon || 'flame',
-      pricePerMinute: reader.readerLevel.base_price_per_minute
+      pricePerMinute: reader.custom_price_per_minute !== undefined && reader.custom_price_per_minute !== null
+        ? reader.custom_price_per_minute 
+        : reader.readerLevel.base_price_per_minute
     };
   };
   
@@ -123,7 +125,6 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
       case 'sun': return <Sun className="h-4 w-4" />;
       case 'heart': return <Heart className="h-4 w-4" />;
       case 'crown': return <Crown className="h-4 w-4" />;
-      case 'star': return <Star className="h-4 w-4" />;
       default: return <Flame className="h-4 w-4" />;
     }
   };
@@ -155,6 +156,9 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
       default: return 'bg-primary hover:bg-primary/90 text-primary-foreground';
     }
   };
+  
+  // Check if reader offers free readings
+  const isFreeReader = levelInfo.pricePerMinute === 0;
   
   return (
     <motion.div
@@ -224,8 +228,17 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
         {/* Price */}
         <div className="mb-4 flex items-center">
           <span className="text-sm font-medium mr-1">Rate:</span>
-          <span className={getLevelColor().split(' ')[0] + ' font-bold'}>${levelInfo.pricePerMinute.toFixed(2)}</span>
-          <span className="text-xs text-muted-foreground ml-1">/ min</span>
+          {isFreeReader ? (
+            <span className="text-success font-bold flex items-center">
+              <Sparkles className="h-4 w-4 mr-1" />
+              Free
+            </span>
+          ) : (
+            <>
+              <span className={getLevelColor().split(' ')[0] + ' font-bold'}>${levelInfo.pricePerMinute.toFixed(2)}</span>
+              <span className="text-xs text-muted-foreground ml-1">/ min</span>
+            </>
+          )}
         </div>
         
         {/* Reading Options */}

@@ -355,16 +355,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('auth_return_path', window.location.pathname + window.location.search);
       }
       
+      // Generate a secure nonce for this sign-in attempt
+      nonceRef.current = generateNonce();
+      
       // Use Supabase's built-in OAuth flow for Google
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
-          scopes: 'email profile openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
-            response_type: 'code'
+            nonce: nonceRef.current
           }
         }
       });
@@ -493,23 +495,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Make sure google is defined
     if (window.google?.accounts?.id) {
-      // Reset initialization flag
-      googleOneTapInitializedRef.current = false;
-      
-      // Initialize with FedCM
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: handleGoogleOneTapCallback,
-        auto_select: false,
-        cancel_on_tap_outside: true,
-        use_fedcm_for_prompt: true, // Explicitly opt-in to FedCM
-      });
-      
-      // Display the One Tap prompt using FedCM compatible approach
-      // No callback to avoid deprecated methods
-      window.google.accounts.id.prompt();
-      
-      googleOneTapInitializedRef.current = true;
+      try {
+        console.log("Initializing Google One Tap with client ID:", googleClientId);
+        
+        // Reset initialization flag
+        googleOneTapInitializedRef.current = false;
+        
+        // Initialize Google Identity
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleGoogleOneTapCallback,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+        
+        // Display the One Tap prompt
+        window.google.accounts.id.prompt((notification) => {
+          if (notification) {
+            console.log("Google One Tap prompt notification:", 
+              notification.isNotDisplayed?.() ? "Not displayed" : "",
+              notification.isSkippedMoment?.() ? "Skipped" : "",
+              notification.isDismissedMoment?.() ? "Dismissed" : "");
+            
+            if (notification.isNotDisplayed?.()) {
+              console.log("One Tap not displayed reason:", notification.getNotDisplayedReason?.());
+            }
+          }
+        });
+        
+        googleOneTapInitializedRef.current = true;
+        console.log("Google One Tap initialized successfully");
+      } catch (error) {
+        console.error("Error initializing Google One Tap:", error);
+      }
+    } else {
+      console.warn("Google accounts API not available yet");
     }
   };
 

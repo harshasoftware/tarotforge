@@ -19,34 +19,40 @@ const GoogleOneTap: React.FC = () => {
     // Initialize Google One Tap when the script is loaded
     const initializeOneTap = () => {
       if (typeof window !== 'undefined' && window.google && window.google.accounts) {
-        // Initialize Google Identity Services
-        window.google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: (response) => {
-            if (response && response.credential) {
-              // Handle the credential through Auth context
-              handleGoogleOneTap();
-            }
-          },
-          auto_select: false, // Don't auto-select to avoid conflicts with FedCM
-          cancel_on_tap_outside: true,
-          use_fedcm_for_prompt: true // Explicitly opt-in to FedCM
-        });
-        
-        // Use FedCM-compatible approach to prompt - without callback parameter
-        window.google.accounts.id.prompt();
-        
-        // Also render a Google Sign-In button as fallback
-        if (buttonRef.current) {
-          window.google.accounts.id.renderButton(buttonRef.current, {
-            theme: 'outline',
-            size: 'large',
-            type: 'standard',
-            text: 'continue_with',
-            shape: 'rectangular',
-            logo_alignment: 'left',
-            width: 240
+        try {
+          // Initialize Google Identity Services
+          window.google.accounts.id.initialize({
+            client_id: googleClientId,
+            callback: (response) => {
+              if (response && response.credential) {
+                console.log("Google One Tap response received, handling...");
+                // Handle the credential through Auth context
+                handleGoogleOneTap();
+              }
+            },
+            auto_select: false, // Don't auto-select to avoid conflicts with FedCM
+            cancel_on_tap_outside: true,
           });
+          
+          console.log("Google One Tap initialized, displaying prompt");
+          
+          // Use safer approach to prompt - without deprecated parameters
+          window.google.accounts.id.prompt();
+          
+          // Also render a Google Sign-In button as fallback
+          if (buttonRef.current) {
+            window.google.accounts.id.renderButton(buttonRef.current, {
+              theme: 'outline',
+              size: 'large',
+              type: 'standard',
+              text: 'continue_with',
+              shape: 'rectangular',
+              logo_alignment: 'left',
+              width: 240
+            });
+          }
+        } catch (error) {
+          console.error("Error initializing Google One Tap:", error);
         }
       }
     };
@@ -55,7 +61,7 @@ const GoogleOneTap: React.FC = () => {
     if (window.google?.accounts) {
       initializeOneTap();
     } else {
-      // Poll for Google script to be available
+      // Poll for Google script to be available (with timeout)
       const checkGoogleScript = setInterval(() => {
         if (window.google?.accounts) {
           clearInterval(checkGoogleScript);
@@ -63,8 +69,17 @@ const GoogleOneTap: React.FC = () => {
         }
       }, 500);
       
-      // Clean up interval
-      return () => clearInterval(checkGoogleScript);
+      // Clean up interval after 10 seconds to avoid endless polling
+      const timeoutId = setTimeout(() => {
+        clearInterval(checkGoogleScript);
+        console.error("Google One Tap script failed to load after 10 seconds");
+      }, 10000);
+      
+      // Clean up interval and timeout
+      return () => {
+        clearInterval(checkGoogleScript);
+        clearTimeout(timeoutId);
+      };
     }
   }, [user, handleGoogleOneTap, googleClientId]);
 
@@ -76,7 +91,6 @@ const GoogleOneTap: React.FC = () => {
       <div 
         ref={buttonRef} 
         className="g_id_signin"
-        data-use-fedcm-for-prompt="true" // FedCM opt-in for legacy browsers
       ></div>
     </div>
   );
