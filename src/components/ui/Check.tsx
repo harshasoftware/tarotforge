@@ -4,7 +4,7 @@ interface CheckProps {
   className?: string;
 }
 
-const Check: React.FC<CheckProps> = ({ className = "h-4 w-4 text-success" }) => {
+export const Check: React.FC<CheckProps> = ({ className = "h-4 w-4 text-success" }) => {
   return (
     <svg 
       xmlns="http://www.w3.org/2000/svg" 
