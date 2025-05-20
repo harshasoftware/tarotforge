@@ -1,6 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import googleOneTap from 'google-one-tap';
 
 // Define types for Google One Tap response
 type GoogleOneTapResponse = {
@@ -38,17 +37,28 @@ const GoogleOneTapContainer: React.FC = () => {
     };
     const nonce = generateNonce();
 
-    // Create a container for One Tap UI
+    // Create a container for One Tap UI with all required attributes
     const oneTapContainer = document.createElement('div');
     oneTapContainer.id = 'g_id_onload';
+    
+    // Style attributes
     oneTapContainer.style.position = 'fixed';
     oneTapContainer.style.top = '10px';
     oneTapContainer.style.right = '10px';
     oneTapContainer.style.zIndex = '9999';
+    
+    // Required data attributes for FedCM support
+    oneTapContainer.setAttribute('data-client_id', googleClientId.trim());
+    oneTapContainer.setAttribute('data-login_uri', `${window.location.origin}/auth/callback`);
+    oneTapContainer.setAttribute('data-use_fedcm', 'true');
+    oneTapContainer.setAttribute('data-use_fedcm_for_prompt', 'true');
+    
+    // Add container to DOM
     document.body.appendChild(oneTapContainer);
+    console.log('Google One Tap container configured with absolute login_uri:', `${window.location.origin}/auth/callback`);
 
     try {
-      // Handle successful authentication
+      // Handle successful authentication - used in the native API initialization
       const handleCredentialResponse = async (response: GoogleOneTapResponse) => {
         if (response?.credential) {
           try {
@@ -60,54 +70,48 @@ const GoogleOneTapContainer: React.FC = () => {
           }
         }
       };
-
-      // Handle authentication errors
-      const handleError = (error: any) => {
-        console.warn('Google One Tap error:', error);
-        isProcessingRef.current = false;
-      };
       
-      // Initialize Google One Tap with FedCM support
-      googleOneTap(
-        {
-          client_id: googleClientId.trim(),
-          auto_select: false,
-          cancel_on_tap_outside: true,
-          context: 'signin',
-          use_fedcm: true,
-          use_fedcm_for_prompt: true,
-          prompt_parent_id: 'g_id_onload',
-          itp_support: true
-        },
-        handleCredentialResponse,
-        handleError
-      );
+      // The google-one-tap library doesn't need to be explicitly initialized
+      // Instead, we rely on the container's data attributes and the native API
+      // This approach is recommended in the FedCM migration guide
+      try {
+        // Load the Google Identity Services API script if not already loaded
+        if (!window.google?.accounts?.id) {
+          console.log('Waiting for Google Identity Services API to load...');
+        } else {
+          console.log('Google Identity Services API already loaded');
+        }
+      } catch (err) {
+        console.error('Error accessing Google Identity Services:', err);
+        isProcessingRef.current = false;
+      }
 
-      // Initialize with native API as fallback if available
+      // Initialize with native API which provides FedCM support
       if (window.google?.accounts?.id?.initialize) {
+        // The native API initialization with full FedCM support
         window.google.accounts.id.initialize({
           client_id: googleClientId.trim(),
           callback: handleCredentialResponse,
-          onerror: handleError,
-          // FedCM options
+          // FedCM-required options
           use_fedcm: true,
           use_fedcm_for_prompt: true,
-          itp_support: true,
-          context: 'signin',
+          // Standard configuration
           auto_select: false,
-          cancel_on_tap_outside: true
+          cancel_on_tap_outside: true,
+          context: 'signin'
         });
+        console.log('Google Identity Services API initialized with FedCM flags');
       }
 
       // Show prompt using FedCM-compatible approach
       const showPrompt = () => {
         if (window.google?.accounts?.id?.prompt) {
-          // Use parameters instead of deprecated moment callbacks
-          window.google.accounts.id.prompt({
-            display: 'popup',
-            native: true,
-            moment_listener: false // Don't use deprecated moment methods
-          });
+          // IMPORTANT: Call prompt() without any callback to avoid deprecated moment methods
+          // As per migration guide: https://developers.google.com/identity/gsi/web/guides/fedcm-migration
+          window.google.accounts.id.prompt();
+          
+          // Note: All display moment notifications are no longer returned with FedCM
+          // The prompt position is controlled by the browser and cannot be customized
         }
       };
 
