@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search, Filter, Zap, TrendingUp, Clock, Star, XCircle, AlertCircle, ArrowRight, ChevronLeft, ChevronRight, RefreshCw, Sparkles, Hammer } from 'lucide-react';
@@ -296,6 +296,54 @@ const Home = () => {
     }
   };
   
+  // Memoize the floating tarot card elements
+  const floatingCards = useMemo(() => {
+    return tarotCardImages.map((imageUrl, index) => (
+      <motion.div
+        key={`tarot-card-${index}`}
+        className="absolute hidden sm:block"
+        initial={{ 
+          x: -100 + Math.random() * 200, 
+          y: -100 + Math.random() * 200,
+          opacity: 0.1 + Math.random() * 0.3,
+          rotate: -20 + Math.random() * 40,
+          scale: 0.4 + Math.random() * 0.3
+        }}
+        animate={{ 
+          y: [0, 10, -10, 0], 
+          rotate: [-5 + Math.random() * 10, 5 + Math.random() * 10],
+          transition: { 
+            y: { 
+              repeat: Infinity, 
+              duration: 5 + Math.random() * 5, 
+              ease: "easeInOut" 
+            },
+            rotate: { 
+              repeat: Infinity, 
+              duration: 10 + Math.random() * 5, 
+              ease: "easeInOut",
+              repeatType: "reverse"
+            }
+          }
+        }}
+        style={{ 
+          left: `${10 + Math.random() * 80}%`, 
+          top: `${10 + Math.random() * 80}%`,
+          zIndex: -1
+        }}
+      >
+        <div className="relative aspect-[2/3] w-32 md:w-48 rounded-lg shadow-lg overflow-hidden transform">
+          <img 
+            src={imageUrl} 
+            alt="Tarot card" 
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-background/30 backdrop-blur-sm"></div>
+        </div>
+      </motion.div>
+    ));
+  }, []); // Empty dependency array since tarotCardImages is static
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
@@ -312,50 +360,7 @@ const Home = () => {
         </div>
         
         {/* Floating Tarot Cards in Background - Memoized */}
-        {tarotCardImages.map((imageUrl, index) => (
-          <motion.div
-            key={`tarot-card-${index}`}
-            className="absolute hidden sm:block"
-            initial={{ 
-              x: -100 + Math.random() * 200, 
-              y: -100 + Math.random() * 200,
-              opacity: 0.1 + Math.random() * 0.3,
-              rotate: -20 + Math.random() * 40,
-              scale: 0.4 + Math.random() * 0.3
-            }}
-            animate={{ 
-              y: [0, 10, -10, 0], 
-              rotate: [-5 + Math.random() * 10, 5 + Math.random() * 10],
-              transition: { 
-                y: { 
-                  repeat: Infinity, 
-                  duration: 5 + Math.random() * 5, 
-                  ease: "easeInOut" 
-                },
-                rotate: { 
-                  repeat: Infinity, 
-                  duration: 10 + Math.random() * 5, 
-                  ease: "easeInOut",
-                  repeatType: "reverse"
-                }
-              }
-            }}
-            style={{ 
-              left: `${10 + Math.random() * 80}%`, 
-              top: `${10 + Math.random() * 80}%`,
-              zIndex: -1
-            }}
-          >
-            <div className="relative aspect-[2/3] w-32 md:w-48 rounded-lg shadow-lg overflow-hidden transform">
-              <img 
-                src={imageUrl} 
-                alt="Tarot card" 
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-background/30 backdrop-blur-sm"></div>
-            </div>
-          </motion.div>
-        ))}
+        {floatingCards}
         
         {/* Main Heading */}
         <motion.div
