@@ -1,12 +1,12 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw, Crown } from 'lucide-react';
+import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TarotLogo from '../components/ui/TarotLogo';
 import { useAuth } from '../context/AuthContext';
+import { generateThemeSuggestions } from '../lib/gemini-ai';
 import { useSubscription } from '../context/SubscriptionContext';
-import { generateThemeSuggestions, generateElaborateTheme } from '../lib/gemini-ai';
 
 // Featured decks data
 const featuredDecks = [
@@ -105,7 +105,7 @@ const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
     return allSuggestions.slice(0, 10);
     
   } catch (error) {
-    console.warn('Error generating theme suggestions:', error);
+    console.error('Error generating theme suggestions:', error);
     // Fallback to default suggestions if there's an error
     return [
       "Celestial Voyage", "Ancient Mythology", "Enchanted Forest", 
@@ -127,6 +127,7 @@ const Home = () => {
   const [isGeneratingElaboration, setIsGeneratingElaboration] = useState(false);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
   const [lastLoadedIndex, setLastLoadedIndex] = useState(0);
+  const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
   
   // Load initial theme suggestions on component mount
   useEffect(() => {
@@ -141,7 +142,14 @@ const Home = () => {
     };
     
     loadInitialThemes();
-  }, []);
+    
+    // For demo purposes, set some demo credits if user is logged in
+    if (user) {
+      setCreditsRemaining(user.is_creator || isSubscribed ? 78 : 5);
+    } else {
+      setCreditsRemaining(5); // Guest users get 5 free credits
+    }
+  }, [user, isSubscribed]);
   
   // Check for createDeck query parameter on load
   useEffect(() => {
@@ -227,7 +235,7 @@ const Home = () => {
   const handleThemeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (themePrompt.trim()) {
-      // Check if user is authenticated
+      // Ensure user is logged in or show sign-in modal
       if (!user) {
         // Store deck creation intent in localStorage
         localStorage.setItem('pending_deck_theme', themePrompt);
@@ -236,40 +244,27 @@ const Home = () => {
         return;
       }
       
-      // If user is authenticated but not subscribed, redirect to subscription page
-      if (!isSubscribed) {
-        navigate('/subscription', { state: { fromDeckCreation: true } });
-        return;
+      // Check if user has subscription or sufficient credits
+      if (isSubscribed || (creditsRemaining && creditsRemaining > 0)) {
+        // Navigate to deck creation with the theme
+        navigate('/create-deck', { 
+          state: { 
+            initialTheme: themePrompt, 
+            autoGenerate: true,
+            skipFormStep: true,
+            startGenerating: true
+          } 
+        });
+      } else {
+        // If no credits, navigate to subscription page
+        navigate('/subscription');
       }
-      
-      // User is authenticated and subscribed, proceed to deck creation
-      navigate('/create-deck', { 
-        state: { 
-          initialTheme: themePrompt, 
-          autoGenerate: true,  // Signal to auto-generate deck details
-          skipFormStep: true,   // Skip the manual form step
-          startGenerating: true // Start generating images immediately
-        } 
-      });
     }
   };
 
   const selectSuggestion = async (suggestion: string) => {
-    // First set the basic suggestion
+    // Set the basic suggestion to the input field
     setThemePrompt(suggestion);
-    
-    // Then generate and append an elaboration
-    try {
-      setIsGeneratingElaboration(true);
-      const elaboration = await generateElaborateTheme(suggestion);
-      setThemePrompt(`${suggestion}: ${elaboration}`);
-    } catch (error) {
-      console.error('Error generating theme elaboration:', error);
-      // If there's an error, just keep the basic suggestion
-      setThemePrompt(suggestion);
-    } finally {
-      setIsGeneratingElaboration(false);
-    }
   };
   
   const handleGenerateThemes = async () => {
@@ -385,19 +380,14 @@ const Home = () => {
                 Create Your Tarot Deck Now
               </h4>
               
-              {!isSubscribed && (
-                <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                  <div className="flex items-start">
-                    <Crown className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <div className="ml-2">
-                      <p className="text-sm font-medium">Premium Feature</p>
-                      <p className="text-xs text-muted-foreground">
-                        Creating custom decks requires a Premium subscription. 
-                        <Link to="/subscription" className="text-primary hover:underline ml-1">
-                          Upgrade now
-                        </Link>
-                      </p>
-                    </div>
+              {/* Credit Display */}
+              {creditsRemaining !== null && (
+                <div className="mb-3 flex justify-center">
+                  <div className="bg-primary/10 rounded-full px-3 py-1 flex items-center">
+                    <Sparkles className="h-4 w-4 text-primary mr-1" />
+                    <span className="text-sm">
+                      {user ? (isSubscribed ? 'Premium Access' : `${creditsRemaining} card credit${creditsRemaining !== 1 ? 's' : ''} remaining`) : 'Try with 5 free credits'}
+                    </span>
                   </div>
                 </div>
               )}
@@ -495,19 +485,12 @@ const Home = () => {
                 <button
                   type="submit"
                   disabled={!themePrompt.trim()}
-                  className={`w-full btn ${!isSubscribed ? 'btn-secondary' : 'btn-primary'} py-3 disabled:opacity-70 flex items-center justify-center`}
+                  className="w-full btn btn-primary py-3 disabled:opacity-70"
                 >
-                  {!isSubscribed ? (
-                    <>
-                      <Crown className="mr-2 h-4 w-4" />
-                      Upgrade to Create Decks
-                    </>
-                  ) : (
-                    <>
-                      Forge a Deck
-                      <Hammer className="ml-2 h-4 w-4" />
-                    </>
-                  )}
+                  <>
+                    Forge a Deck
+                    <Hammer className="ml-2 h-4 w-4" />
+                  </>
                 </button>
               </form>
             </div>
@@ -592,28 +575,14 @@ const Home = () => {
                       <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
                       <span>AI-generated descriptions</span>
                     </li>
-                    {isSubscribed ? (
-                      <li className="flex items-center">
-                        <span className="h-5 w-5 rounded-full bg-success/20 flex items-center justify-center text-success mr-2">✓</span>
-                        <span className="text-success">Premium Access Enabled</span>
-                      </li>
-                    ) : (
-                      <li className="flex items-center">
-                        <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">
-                          <Crown className="h-3 w-3" />
-                        </span>
-                        <span>Premium feature</span>
-                      </li>
-                    )}
                   </ul>
                 </div>
                 
                 <Link 
-                  to={isSubscribed ? "/create-deck" : "/subscription"} 
+                  to="/create-deck" 
                   className="mt-auto inline-flex items-center text-primary hover:underline group-hover:translate-x-1 transition-transform"
                 >
-                  {isSubscribed ? 'Forge Your Deck' : 'Upgrade to Premium'}
-                  <ArrowRight className="ml-1 h-4 w-4" />
+                  Forge Your Deck <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
               </div>
             </motion.div>
@@ -696,6 +665,136 @@ const Home = () => {
         </div>
       </section>
       
+      {/* Credit System Information */}
+      <section className="py-16 px-4 bg-card/20">
+        <div className="container mx-auto max-w-6xl">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="text-center mb-10"
+          >
+            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">Credit-Based Creation System</h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Our flexible credit system gives you control over how you create your tarot cards
+            </p>
+          </motion.div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="bg-card border border-border p-6 rounded-xl"
+            >
+              <div className="p-3 bg-primary/10 rounded-xl w-fit mb-5">
+                <Zap className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-serif font-medium mb-3">Free Plan</h3>
+              <p className="text-muted-foreground text-sm mb-4">
+                Try out our card creation with 5 free credits, perfect for exploring the platform.
+              </p>
+              
+              <div className="p-4 bg-muted/10 rounded-lg">
+                <ul className="space-y-3">
+                  <li className="flex items-center text-sm">
+                    <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
+                    <span>5 basic credits</span>
+                  </li>
+                  <li className="flex items-center text-sm">
+                    <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
+                    <span>Medium quality only</span>
+                  </li>
+                  <li className="flex items-center text-sm">
+                    <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
+                    <span>No credit rollover</span>
+                  </li>
+                </ul>
+              </div>
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="bg-card border border-border p-6 rounded-xl"
+            >
+              <div className="p-3 bg-accent/10 rounded-xl w-fit mb-5">
+                <Crown className="h-6 w-6 text-accent" />
+              </div>
+              <h3 className="text-xl font-serif font-medium mb-3">Mystic & Creator Plans</h3>
+              <p className="text-muted-foreground text-sm mb-4">
+                Perfect for enthusiasts who want to create full decks with medium quality.
+              </p>
+              
+              <div className="p-4 bg-muted/10 rounded-lg">
+                <ul className="space-y-3">
+                  <li className="flex items-center text-sm">
+                    <span className="h-5 w-5 rounded-full bg-accent/20 flex items-center justify-center text-accent mr-2">✓</span>
+                    <span>22-78 monthly credits</span>
+                  </li>
+                  <li className="flex items-center text-sm">
+                    <span className="h-5 w-5 rounded-full bg-accent/20 flex items-center justify-center text-accent mr-2">✓</span>
+                    <span>Medium quality cards</span>
+                  </li>
+                  <li className="flex items-center text-sm">
+                    <span className="h-5 w-5 rounded-full bg-accent/20 flex items-center justify-center text-accent mr-2">✓</span>
+                    <span>Credit rollover options</span>
+                  </li>
+                </ul>
+              </div>
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="bg-card border border-primary rounded-xl p-6 relative overflow-hidden"
+            >
+              <div className="absolute -top-6 -right-6 w-12 h-12 rotate-45 bg-primary/80 flex items-center justify-center">
+                <span className="text-xs text-white font-medium mt-7 mr-1">BEST</span>
+              </div>
+              
+              <div className="p-3 bg-primary/10 rounded-xl w-fit mb-5">
+                <Sparkles className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-serif font-medium mb-3">Visionary Plan</h3>
+              <p className="text-muted-foreground text-sm mb-4">
+                For professional creators who need the highest quality and maximum flexibility.
+              </p>
+              
+              <div className="p-4 bg-primary/5 rounded-lg">
+                <ul className="space-y-3">
+                  <li className="flex items-center text-sm">
+                    <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
+                    <span>118 premium credits</span>
+                  </li>
+                  <li className="flex items-center text-sm">
+                    <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
+                    <span>High quality cards only</span>
+                  </li>
+                  <li className="flex items-center text-sm">
+                    <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
+                    <span>Full credit rollover</span>
+                  </li>
+                </ul>
+              </div>
+            </motion.div>
+          </div>
+          
+          <div className="text-center mt-8">
+            <Link to="/subscription" className="btn btn-primary px-6 py-3 inline-flex items-center">
+              <Sparkles className="h-4 w-4 mr-2" />
+              See All Subscription Options
+            </Link>
+          </div>
+        </div>
+      </section>
+      
       {/* Bento Grid How It Works */}
       <section className="py-16 px-4">
         <div className="container mx-auto max-w-6xl">
@@ -732,15 +831,6 @@ const Home = () => {
               </p>
               
               <div className="absolute bottom-0 right-0 w-20 h-20 bg-primary/5 rounded-tl-3xl -z-10"></div>
-              
-              {!isSubscribed && (
-                <div className="mt-4 pt-4 border-t border-primary/20">
-                  <div className="flex items-center text-sm text-primary">
-                    <Crown className="h-4 w-4 mr-1" />
-                    <span>Premium feature</span>
-                  </div>
-                </div>
-              )}
             </motion.div>
             
             {/* Step 2 */}
@@ -916,7 +1006,7 @@ const Home = () => {
             </p>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 md:gap-6">
             {/* Large testimonial */}
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -1084,7 +1174,7 @@ const Home = () => {
         </div>
       </section>
       
-      {/* Subscription CTA Section */}
+      {/* Bento-style CTA Section */}
       <section className="py-24 px-4">
         <div className="container mx-auto max-w-5xl">
           <motion.div 
@@ -1098,30 +1188,30 @@ const Home = () => {
               {/* CTA Text Area */}
               <div className="p-8 md:p-12 md:col-span-3 flex flex-col justify-center">
                 <div className="p-3 bg-white/20 rounded-xl w-fit mb-6">
-                  <Crown className="h-8 w-8 text-white" />
+                  <Sparkles className="h-8 w-8 text-white" />
                 </div>
                 
                 <h2 className="text-3xl md:text-4xl font-serif font-bold mb-6 text-white">
-                  Unlock Premium Features
+                  Begin Your Mystical Journey
                 </h2>
                 <p className="text-xl mb-8 text-white/90">
-                  Subscribe to our premium plan to create unlimited custom decks, access exclusive premium content, and elevate your tarot experience.
+                  Join our growing community of creators, readers, and collectors exploring the infinite 
+                  possibilities of AI-generated tarot.
                 </p>
                 
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Link 
-                    to="/subscription" 
+                    to="/signup" 
                     className="btn bg-white text-primary px-6 py-3 rounded-lg font-medium text-lg hover:bg-white/90 transition-colors flex items-center justify-center"
                   >
-                    <Crown className="mr-2 h-5 w-5" />
-                    Get Premium
+                    Create Free Account
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                   <Link 
-                    to="/marketplace" 
+                    to="/subscription" 
                     className="btn btn-outline text-white border-white/30 px-6 py-3 rounded-lg font-medium text-lg hover:bg-white/10 transition-colors flex items-center justify-center"
                   >
-                    Explore Marketplace
+                    View Premium Plans
                   </Link>
                 </div>
               </div>
