@@ -18,17 +18,21 @@ let scriptLoadAttempts = 0;
 const MAX_SCRIPT_LOAD_ATTEMPTS = 3;
 
 /**
- * Google One Tap sign-in component with FedCM support
+ * Google One Tap sign-in component with adaptive FedCM support
  * Direct implementation using Google Identity Services API
- * Handles React/Vite edge cases and hot module replacement
+ * Handles browser compatibility issues and FedCM limitations
  */
 const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = true }) => {
   const { user, handleGoogleOneTapCallback } = useAuth();
   const isProcessingRef = useRef(false);
   const oneTapContainerRef = useRef<HTMLDivElement | null>(null);
   const initTimeoutRef = useRef<number | null>(null);
+  const retryTimeoutRef = useRef<number | null>(null);
   const [isGoogleScriptLoaded, setIsGoogleScriptLoaded] = useState(false);
+  const [fedCmMode, setFedCmMode] = useState(true); // Start with FedCM mode, fallback if needed
   const isInitializedRef = useRef(false);
+  const attemptCountRef = useRef(0);
+  const MAX_ATTEMPTS = 2;
   
   // Create a unique container ID to avoid conflicts during HMR
   const containerId = useRef(`g_id_onload_${Math.random().toString(36).substring(2, 11)}`);
@@ -87,6 +91,12 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
     if (containerById && document.body.contains(containerById)) {
       document.body.removeChild(containerById);
     }
+
+    // Also try to clean up any potential 'g_id_onload' container
+    const defaultContainer = document.getElementById('g_id_onload');
+    if (defaultContainer && document.body.contains(defaultContainer)) {
+      document.body.removeChild(defaultContainer);
+    }
   }, []);
 
   // Safely clear timeouts to prevent memory leaks
@@ -95,19 +105,46 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
       window.clearTimeout(initTimeoutRef.current);
       initTimeoutRef.current = null;
     }
+
+    if (retryTimeoutRef.current !== null) {
+      window.clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
   }, []);
 
-  // Initialize Google One Tap with error handling and HMR safeguards
+  // Handle the AbortError or other FedCM failures
+  const handleFedCmFailure = useCallback(() => {
+    console.log('FedCM mode failed, switching to standard mode');
+    setFedCmMode(false);
+    isInitializedRef.current = false;
+    isProcessingRef.current = false;
+    cleanupContainer();
+    
+    // Allow reinitialization
+    retryTimeoutRef.current = window.setTimeout(() => {
+      attemptCountRef.current = 0;
+      initializeGoogleOneTap();
+    }, 500);
+  }, [cleanupContainer]);
+
+  // Initialize Google One Tap with adaptive strategy
   const initializeGoogleOneTap = useCallback(() => {
     // Don't initialize if autoInit is false
     if (!autoInit) return;
     
-    // Cleanup previous instance (in case of HMR)
+    // Cleanup previous instance
     cleanupContainer();
     clearTimeouts();
 
     // Only initialize when not logged in, script is loaded, and not already processing
     if (user || !isGoogleScriptLoaded || isProcessingRef.current || isInitializedRef.current) return;
+
+    // Track initialization attempts
+    attemptCountRef.current += 1;
+    if (attemptCountRef.current > MAX_ATTEMPTS) {
+      console.log(`Max Google Sign-In initialization attempts (${MAX_ATTEMPTS}) reached`);
+      return;
+    }
 
     // Validate Google client ID
     const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -128,29 +165,34 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
     const nonce = generateNonce();
 
     try {
-      // Create a container div for One Tap
-      const oneTapContainer = document.createElement('div');
-      oneTapContainer.id = containerId.current;
-      
-      // Apply minimal styling - let browser control position as per FedCM guidelines
-      oneTapContainer.style.position = 'fixed';
-      oneTapContainer.style.zIndex = '9999';
-      
-      // Add FedCM compatible data attributes
-      oneTapContainer.setAttribute('data-client_id', googleClientId.trim());
-      oneTapContainer.setAttribute('data-login_uri', `${window.location.origin}/auth/callback`);
-      oneTapContainer.setAttribute('data-use_fedcm', 'true');
-      oneTapContainer.setAttribute('data-use_fedcm_for_prompt', 'true');
-      oneTapContainer.setAttribute('data-context', 'signin');
-      oneTapContainer.setAttribute('data-auto_select', 'false');
-      oneTapContainer.setAttribute('data-itp_support', 'true');
-      
-      // Store reference for later cleanup
-      oneTapContainerRef.current = oneTapContainer;
-      
-      // Add container to DOM
-      document.body.appendChild(oneTapContainer);
-      console.log('Google One Tap container configured with client ID:', googleClientId.substring(0, 5) + '...');
+      // Create container for FedCM if using that mode
+      if (fedCmMode) {
+        console.log('Initializing with FedCM mode');
+        const oneTapContainer = document.createElement('div');
+        oneTapContainer.id = containerId.current;
+        
+        // Apply minimal styling
+        oneTapContainer.style.position = 'fixed';
+        oneTapContainer.style.zIndex = '9999';
+        
+        // Add FedCM compatible data attributes
+        oneTapContainer.setAttribute('data-client_id', googleClientId.trim());
+        oneTapContainer.setAttribute('data-login_uri', `${window.location.origin}/auth/callback`);
+        oneTapContainer.setAttribute('data-use_fedcm', 'true');
+        oneTapContainer.setAttribute('data-use_fedcm_for_prompt', 'true');
+        oneTapContainer.setAttribute('data-context', 'signin');
+        oneTapContainer.setAttribute('data-auto_select', 'false');
+        oneTapContainer.setAttribute('data-itp_support', 'true');
+        
+        // Store reference for later cleanup
+        oneTapContainerRef.current = oneTapContainer;
+        
+        // Add container to DOM
+        document.body.appendChild(oneTapContainer);
+        console.log('FedCM container configured with client ID:', googleClientId.substring(0, 5) + '...');
+      } else {
+        console.log('Initializing with standard mode (without FedCM)');
+      }
 
       // Handle successful authentication
       const handleCredentialResponse = async (response: GoogleCredentialResponse) => {
@@ -165,46 +207,79 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
         }
       };
 
-      // Initialize GSI with retry mechanism for race conditions
-      const tryInitialize = () => {
-        if (!window.google?.accounts?.id) {
-          // Retry if Google object isn't available yet
-          console.log('Waiting for Google Identity Services API...');
-          initTimeoutRef.current = window.setTimeout(tryInitialize, 100) as unknown as number;
-          return;
-        }
+      // Initialize Google Identity Services with error handling
+      if (!window.google?.accounts?.id) {
+        console.log('Google Identity Services not available yet, waiting...');
+        initTimeoutRef.current = window.setTimeout(() => {
+          isInitializedRef.current = false;
+          isProcessingRef.current = false;
+          initializeGoogleOneTap();
+        }, 500) as unknown as number;
+        return;
+      }
+
+      try {
+        // Configure Google Identity Services
+        window.google.accounts.id.initialize({
+          client_id: googleClientId.trim(),
+          callback: handleCredentialResponse,
+          use_fedcm: fedCmMode,
+          use_fedcm_for_prompt: fedCmMode,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+          context: 'signin'
+        });
+
+        // Start the prompt with error catching
+        const promptListener = (notification: any) => {
+          if (notification) {
+            // Check for prompt not displayed
+            if ((notification.isNotDisplayed && notification.isNotDisplayed()) ||
+                (notification.isSkippedMoment && notification.isSkippedMoment())) {
+              const reason = notification.getNotDisplayedReason?.() || 
+                            notification.getSkippedReason?.() || 
+                            'Unknown reason';
+                            
+              console.log(`Google Sign-In prompt not shown: ${reason}`);
+              
+              // If in FedCM mode and prompt failed, switch to standard mode
+              if (fedCmMode && attemptCountRef.current < MAX_ATTEMPTS) {
+                handleFedCmFailure();
+              }
+            } else if (notification.isDismissedMoment && notification.isDismissedMoment()) {
+              console.log('Google Sign-In prompt dismissed by user');
+            }
+          }
+        };
 
         try {
-          // Initialize with FedCM support
-          window.google.accounts.id.initialize({
-            client_id: googleClientId.trim(),
-            callback: handleCredentialResponse,
-            use_fedcm: true,
-            use_fedcm_for_prompt: true,
-            auto_select: false,
-            cancel_on_tap_outside: true,
-            context: 'signin'
-          });
+          // Trigger the prompt with notification handler
+          window.google.accounts.id.prompt(promptListener);
+          console.log('Google Sign-In prompt initialized');
+        } catch (promptError: any) {
+          console.error('Error prompting Google Sign-In:', promptError);
           
-          // Call prompt without callback to avoid deprecated moment methods
-          window.google.accounts.id.prompt();
-          console.log('Google One Tap initialization complete');
-        } catch (err) {
-          console.error('Error initializing Google Identity Services:', err);
-          isProcessingRef.current = false;
-          isInitializedRef.current = false;
+          // Check for AbortError which indicates FedCM issues
+          if (promptError?.name === 'AbortError' && fedCmMode) {
+            console.log('FedCM AbortError detected, falling back to standard mode');
+            handleFedCmFailure();
+          } else {
+            isInitializedRef.current = false;
+            isProcessingRef.current = false;
+          }
         }
-      };
-
-      // Start initialization process
-      tryInitialize();
+      } catch (initError) {
+        console.error('Error initializing Google Identity Services:', initError);
+        isInitializedRef.current = false;
+        isProcessingRef.current = false;
+      }
     } catch (error) {
       console.error('Failed to set up Google Identity Services:', error);
       isProcessingRef.current = false;
       isInitializedRef.current = false;
       cleanupContainer();
     }
-  }, [user, handleGoogleOneTapCallback, isGoogleScriptLoaded, cleanupContainer, clearTimeouts, autoInit]);
+  }, [user, handleGoogleOneTapCallback, isGoogleScriptLoaded, fedCmMode, autoInit, cleanupContainer, clearTimeouts, handleFedCmFailure]);
 
   // Load Google script when component mounts
   useEffect(() => {
@@ -222,15 +297,18 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
 
   // Initialize Google One Tap when dependencies are ready
   useEffect(() => {
-    initializeGoogleOneTap();
+    if (isGoogleScriptLoaded) {
+      initializeGoogleOneTap();
+    }
     
     // Clean up on unmount or dependencies change
     return () => {
       isProcessingRef.current = false;
+      isInitializedRef.current = false;
       cleanupContainer();
       clearTimeouts();
     };
-  }, [initializeGoogleOneTap, cleanupContainer, clearTimeouts]);
+  }, [isGoogleScriptLoaded, initializeGoogleOneTap, cleanupContainer, clearTimeouts]);
 
   // Handle HMR for Vite development mode
   useEffect(() => {
