@@ -20,8 +20,18 @@ export function generatePlaceholderImageUrl(cardName: string, theme: string): st
 // Google Generative AI configuration
 const apiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY || '';
 
-// Initialize Google Generative AI client
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+// Initialize Google Generative AI client with validation check
+let genAI: GoogleGenerativeAI | null = null;
+try {
+  // Only initialize if we have what appears to be a valid API key format
+  if (apiKey && apiKey.length > 10) {
+    genAI = new GoogleGenerativeAI(apiKey);
+  } else {
+    console.warn('Google AI API key is missing or too short. Tarot readings and descriptions will use fallback content.');
+  }
+} catch (error) {
+  console.warn('Error initializing Google AI client:', error);
+}
 
 // Debug log environment variables
 console.log('Environment variables:', {
@@ -42,7 +52,7 @@ if (!apiKey) {
 // Helper function to get the appropriate model
 export const getGeminiModel = (modelName: AIModel = 'gemini-2.0-flash') => {
   if (!genAI) {
-    throw new Error('Google AI API key is not configured. Please add your API key to the .env file.');
+    throw new Error('Google AI API key is not configured or is invalid. Please check your API key in the .env file.');
   }
   return genAI.getGenerativeModel({ model: modelName });
 };
@@ -79,8 +89,8 @@ export const generateCardDescription = async ({
   // Update progress - starting
   onProgress?.(5);
   
-  if (!apiKey) {
-    // Return a fallback description when API key is missing
+  if (!genAI || !apiKey) {
+    // Return a fallback description when API key is missing or invalid
     onProgress?.(100);
     return `The ${cardName} represents a powerful symbol in tarot. In the context of ${deckTheme}, it connects to themes of transformation and insight. Key symbols include mystical elements that resonate with the card's traditional meanings. When this card appears in a reading, consider how its energy might be guiding you forward.`;
   }
@@ -166,9 +176,9 @@ export const generateCardImage = async (details: GenerateCardImageParams): Promi
   
   // Initial progress update
   updateProgress(5, 'generating');
-  if (!apiKey) {
-    // Return a placeholder image URL if API key is missing
-    console.warn('Google AI API key is missing. Using placeholder image.');
+  if (!genAI || !apiKey) {
+    // Return a placeholder image URL if API key is missing or invalid
+    console.warn('Google AI API key is missing or invalid. Using placeholder image.');
     return generatePlaceholderImageUrl(details.cardName, details.theme);
   }
   
@@ -795,8 +805,8 @@ export const getReadingInterpretation = async (
   cards: { name: string, position: string, isReversed: boolean }[],
   deckTheme: string
 ) => {
-  if (!apiKey) {
-    // Return a fallback reading interpretation when API key is missing
+  if (!genAI || !apiKey) {
+    // Return a fallback reading interpretation when API key is missing or invalid
     return `
       # Tarot Reading for: "${question}"
       
@@ -863,8 +873,10 @@ export const getReadingInterpretation = async (
 // NEW FUNCTIONS FOR THEME SUGGESTIONS
 
 export const generateThemeSuggestions = async (count: number = 10): Promise<string[]> => {
-  if (!apiKey) {
-    // Return fallback theme suggestions when API key is missing
+  // Return fallback suggestions if the API key is missing or invalid
+  if (!genAI || !apiKey) {
+    console.warn('Using fallback theme suggestions due to missing or invalid Google AI API key');
+    // Return fallback theme suggestions
     return [
       "Celestial Voyage", "Ancient Mythology", "Enchanted Forest", 
       "Cybernetic Dreams", "Elemental Forces", "Oceanic Mysteries",
@@ -909,8 +921,8 @@ export const generateThemeSuggestions = async (count: number = 10): Promise<stri
 };
 
 export const generateElaborateTheme = async (themeTitle: string): Promise<string> => {
-  if (!apiKey) {
-    // Return fallback elaborate theme when API key is missing
+  if (!genAI || !apiKey) {
+    // Return fallback elaborate theme when API key is missing or invalid
     return `A mystical ${themeTitle} tarot deck featuring rich symbolism and evocative imagery. The deck explores the profound connection between consciousness and the spiritual realm, with elements of cosmic energies, ancient wisdom, and transformative journeys. Each card contains detailed symbolism that reflects both traditional tarot meanings and the unique essence of the ${themeTitle} theme.`;
   }
   
@@ -956,19 +968,9 @@ export const generateMysticalUsername = async (emailOrName: string): Promise<str
   // Remove numbers and special characters for cleaner input
   const cleanName = baseName.replace(/[^a-zA-Z]/g, '');
   
-  if (!apiKey) {
-    // Fallback to basic username generation if API key is missing
-    const mysticalPrefixes = ['Mystic', 'Cosmic', 'Arcane', 'Ethereal', 'Astral', 'Crystal', 'Moon', 'Star', 'Divine', 'Sacred'];
-    const mysticalSuffixes = ['Seeker', 'Voyager', 'Oracle', 'Seer', 'Sage', 'Guardian', 'Keeper', 'Walker', 'Weaver', 'Reader'];
-    
-    const prefix = mysticalPrefixes[Math.floor(Math.random() * mysticalPrefixes.length)];
-    const suffix = mysticalSuffixes[Math.floor(Math.random() * mysticalSuffixes.length)];
-    
-    // Use first letter of cleanName if available
-    const firstLetter = cleanName.charAt(0).toUpperCase();
-    
-    // Generate random username with first letter and mystical terms
-    return `${prefix}${firstLetter}${suffix}`;
+  if (!genAI || !apiKey) {
+    // Fallback to basic username generation if API key is missing or invalid
+    return generateFallbackUsername(cleanName);
   }
   
   try {
@@ -1047,8 +1049,8 @@ export const generateTarotQuiz = async (count: number = 10, difficulty: string =
   // Validate count
   const questionCount = Math.min(Math.max(1, count), 15);
   
-  if (!apiKey) {
-    // Return fallback quiz questions when API key is missing
+  if (!genAI || !apiKey) {
+    // Return fallback quiz questions when API key is missing or invalid
     return Array(questionCount).fill(null).map((_, index) => ({
       id: index,
       question: `What is the traditional meaning of ${getRandomTarotCard()}?`,
