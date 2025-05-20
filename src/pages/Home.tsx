@@ -490,7 +490,7 @@ const Home = () => {
                   {isGeneratingElaboration ? (
                     <span className="flex items-center justify-center">
                       <span className="h-5 w-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
-                      Generating Theme...
+                      Generating Theme Description...
                     </span>
                   ) : (
                     <>
