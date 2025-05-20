@@ -7,6 +7,8 @@ import ProfileImageUpload from '../../components/profile/ProfileImageUpload';
 import { getUserProfile, updateUserProfile } from '../../lib/user-profile';
 import { supabase } from '../../lib/supabase';
 import { User } from '../../types';
+import CreditSummaryCard from '../../components/profile/CreditSummaryCard';
+import CreditTransactionHistory from '../../components/profile/CreditTransactionHistory';
 
 interface ProfileFormData {
   username: string;
@@ -153,7 +155,7 @@ const Profile = () => {
           <h1 className="text-3xl font-serif font-bold mb-8 mt-8">Your Profile</h1>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Profile Sidebar */}
+            {/* Left Column - Profile Sidebar */}
             <div className="md:col-span-1">
               <motion.div 
                 className="bg-card rounded-xl border border-border overflow-hidden"
@@ -201,6 +203,11 @@ const Profile = () => {
                 </div>
               </motion.div>
               
+              {/* Credit Summary Card */}
+              <div className="mt-6">
+                <CreditSummaryCard />
+              </div>
+              
               {/* Account Security */}
               <motion.div 
                 className="bg-card rounded-xl border border-border overflow-hidden mt-6"
@@ -230,13 +237,14 @@ const Profile = () => {
               </motion.div>
             </div>
             
-            {/* Profile Details */}
+            {/* Right Column - Profile Details & Transaction History */}
             <motion.div 
               className="md:col-span-2"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
+              {/* Profile Details */}
               <div className="bg-card rounded-xl border border-border p-6">
                 {saveSuccess && (
                   <div className="mb-6 p-4 border border-success/30 bg-success/10 rounded-lg flex items-start gap-3">
@@ -365,18 +373,14 @@ const Profile = () => {
                 </form>
               </div>
               
-              {/* Joined Readings History */}
+              {/* Credit Transaction History */}
               <motion.div
-                className="bg-card rounded-xl border border-border p-6 mt-6"
+                className="mt-8"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.3 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
               >
-                <h2 className="text-xl font-serif font-bold mb-4">Recent Activity</h2>
-                
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Your recent tarot readings and deck activities will appear here.</p>
-                </div>
+                <CreditTransactionHistory />
               </motion.div>
             </motion.div>
           </div>
