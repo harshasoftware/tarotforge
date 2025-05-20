@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TarotLogo from '../components/ui/TarotLogo';
 import { useAuth } from '../context/AuthContext';
+import { generateThemeSuggestions } from '../lib/gemini-ai';
 
 // Featured decks data
 const featuredDecks = [
@@ -75,60 +76,9 @@ const tarotCardImages = [
 ];
 
 // Large pool of theme suggestions for lazy loading
-const allThemeSuggestions = [
-  "Cosmic Voyage", 
-  "Ancient Mythology", 
-  "Cyberpunk Future", 
-  "Enchanted Forest", 
-  "Ocean Depths",
-  "Celestial Dreams",
-  "Steampunk Revolution",
-  "Haunted Victorian",
-  "Desert Mysticism",
-  "Crystal Realms",
-  "Forgotten Gods",
-  "Urban Shamanism",
-  "Divine Feminine",
-  "Shadow Work",
-  "Celtic Folklore",
-  "Elemental Spirits",
-  "Astral Projection",
-  "Sacred Geometry",
-  "Fractal Universe",
-  "Norse Legends",
-  "Egyptian Mysteries",
-  "Shamanic Journey",
-  "Angelic Realm",
-  "Gothic Horror",
-  "Mystical Animals",
-  "Psychedelic Visions",
-  "Fairy Tales",
-  "Underworld Myths",
-  "Quantum Reality",
-  "Parallel Dimensions",
-  "Dream Interpretation",
-  "Alchemical Transformation",
-  "Chakra Energies",
-  "Botanical Magic",
-  "Cosmic Horror",
-  "Spiritual Awakening",
-  "Hermetic Wisdom",
-  "Akashic Records",
-  "Urban Fantasy",
-  "Spirit Guides",
-  "Ancestral Wisdom",
-  "Astrology Signs",
-  "Mayan Calendar",
-  "Arthurian Legend",
-  "Magical Creatures",
-  "Divine Masculine",
-  "Sacred Landscapes",
-  "Atlantean Mysteries",
-  "Celestial Beings",
-  "Metamorphosis"
-];
+// const allThemeSuggestions = [ ... ];
 
-import { generateThemeSuggestions, generateElaborateTheme } from '../lib/gemini-ai';
+import { generateElaborateTheme } from '../lib/gemini-ai';
 
 // Generate theme suggestions using Gemini AI
 const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
@@ -175,11 +125,26 @@ const Home = () => {
   const location = useLocation();
   const { user, setShowSignInModal } = useAuth();
   const [themePrompt, setThemePrompt] = useState("");
-  const [themeSuggestions, setThemeSuggestions] = useState<string[]>(allThemeSuggestions.slice(0, 12));
+  const [themeSuggestions, setThemeSuggestions] = useState<string[]>([]);
   const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
   const [isGeneratingElaboration, setIsGeneratingElaboration] = useState(false);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
-  const [lastLoadedIndex, setLastLoadedIndex] = useState(12);
+  const [lastLoadedIndex, setLastLoadedIndex] = useState(0);
+  
+  // Load initial theme suggestions on component mount
+  useEffect(() => {
+    const loadInitialThemes = async () => {
+      try {
+        const initialThemes = await generateThemeSuggestions(12);
+        setThemeSuggestions(initialThemes);
+        setLastLoadedIndex(12);
+      } catch (error) {
+        console.error('Error loading initial theme suggestions:', error);
+      }
+    };
+    
+    loadInitialThemes();
+  }, []);
   
   // Check for createDeck query parameter on load
   useEffect(() => {
@@ -244,22 +209,20 @@ const Home = () => {
     return () => container.removeEventListener('scroll', handleScroll);
   }, [themeSuggestions, lastLoadedIndex]);
   
-  // Lazy load more themes when approaching the end
-  const lazyLoadMoreThemes = () => {
-    // Only load more if we haven't reached the maximum (50)
-    if (themeSuggestions.length < 50 && lastLoadedIndex < allThemeSuggestions.length) {
-      const nextIndex = Math.min(lastLoadedIndex + 5, allThemeSuggestions.length);
-      const newThemes = allThemeSuggestions.slice(lastLoadedIndex, nextIndex);
-      
-      if (newThemes.length > 0) {
-        // Add new themes while maintaining a maximum of 50
-        const updatedThemes = [...themeSuggestions, ...newThemes];
-        if (updatedThemes.length > 50) {
-          setThemeSuggestions(updatedThemes.slice(updatedThemes.length - 50));
-        } else {
-          setThemeSuggestions(updatedThemes);
+  // Update lazyLoadMoreThemes to use AI generation
+  const lazyLoadMoreThemes = async () => {
+    if (themeSuggestions.length < 50) {
+      try {
+        const newThemes = await generateThemeSuggestions(5);
+        if (newThemes.length > 0) {
+          setThemeSuggestions(prev => {
+            const updated = [...prev, ...newThemes];
+            return updated.slice(0, 50);
+          });
+          setLastLoadedIndex(prev => prev + newThemes.length);
         }
-        setLastLoadedIndex(nextIndex);
+      } catch (error) {
+        console.error('Error loading more theme suggestions:', error);
       }
     }
   };
@@ -311,13 +274,10 @@ const Home = () => {
     setIsGeneratingThemes(true);
     try {
       const newThemes = await generateAIThemeSuggestions(themePrompt);
-      
-      // Replace the first 10 themes with new ones
       setThemeSuggestions(prevThemes => {
         const remainingThemes = prevThemes.length > 10 ? prevThemes.slice(10) : [];
         return [...newThemes, ...remainingThemes].slice(0, 50);
       });
-      
     } catch (error) {
       console.error('Error generating themes:', error);
     } finally {
