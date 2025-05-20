@@ -32,10 +32,13 @@ const updateSW = registerSW({
 // Set client ID in One Tap container
 const setGoogleClientId = () => {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const origin = window.location.origin;
+  
   if (clientId) {
     const container = document.getElementById('g_id_onload');
     if (container) {
       container.setAttribute('data-client_id', clientId);
+      container.setAttribute('data-login_uri', `${origin}/auth/callback`);
     }
   }
 };

@@ -53,16 +53,23 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
       
       const nonce = generateNonce();
       
+      // Get origin for absolute URLs
+      const origin = window.location.origin;
+      
       // Update the placeholder in the DOM with the actual client ID
       const googleOneTapContainer = document.getElementById('g_id_onload');
       if (googleOneTapContainer) {
         googleOneTapContainer.setAttribute('data-client_id', googleClientId);
+        // Use absolute URL for login_uri
+        googleOneTapContainer.setAttribute('data-login_uri', `${origin}/auth/callback`);
         googleOneTapContainer.style.display = 'block';
       } else {
         // Create container if it doesn't exist
         const container = document.createElement('div');
         container.id = 'g_id_onload';
         container.setAttribute('data-client_id', googleClientId);
+        // Use absolute URL for login_uri
+        container.setAttribute('data-login_uri', `${origin}/auth/callback`);
         document.body.appendChild(container);
       }
       

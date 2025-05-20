@@ -26,12 +26,16 @@ const GoogleOneTapLoader: React.FC<GoogleOneTapLoaderProps> = ({ autoInit = true
       
       const nonce = generateNonce();
       
+      // Get origin for absolute URLs
+      const origin = window.location.origin;
+      
       // Initialize Google One Tap using the package
       googleOneTap({
         client_id: googleClientId,
         auto_select: false,
         cancel_on_tap_outside: true,
         context: 'signin',
+        login_uri: `${origin}/auth/callback`, // Use absolute URL
         callback: (response) => {
           handleGoogleOneTapCallback(response, nonce);
         },

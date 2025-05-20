@@ -26,6 +26,9 @@ const GoogleOneTapContainer: React.FC = () => {
     };
     
     const nonce = generateNonce();
+    
+    // Get origin for absolute URLs
+    const origin = window.location.origin;
 
     // Initialize Google One Tap using the npm package
     const googleOneTapConfig = {
@@ -34,6 +37,7 @@ const GoogleOneTapContainer: React.FC = () => {
       cancel_on_tap_outside: true,
       context: 'signin',
       prompt_parent_id: 'g_id_onload', // Add a parent element ID
+      login_uri: `${origin}/auth/callback`, // Use absolute URL
       callback: (response: any) => {
         console.log('Google One Tap callback triggered', response);
         if (response && response.credential) {
