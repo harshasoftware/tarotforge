@@ -495,7 +495,7 @@ const Home = () => {
                   ) : (
                     <>
                       Forge a Deck
-                      <Hammer className="ml-2 h-4 w-4">🔨</span>
+                      <Hammer className="ml-2 h-4 w-4">🔨</Hammer>
                     </>
                   )}
                 </button>
