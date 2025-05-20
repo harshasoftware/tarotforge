@@ -451,7 +451,7 @@ const Home = () => {
                       id="deck-theme-input"
                       value={themePrompt}
                       onChange={(e) => setThemePrompt(e.target.value)}
-                      placeholder="Describe your deck's theme or concept (e.g., Cosmic journey through ancient mythology...)"
+                      placeholder={isGeneratingElaboration ? loadingMessage : "Describe your deck's theme or concept (e.g., Cosmic journey through ancient mythology...)"}
                       className="w-full p-3 rounded-lg bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px] resize-none"
                       disabled={isGeneratingElaboration}
                     />
@@ -462,12 +462,6 @@ const Home = () => {
                       <span className="text-xs font-medium">{getAvailableCredits()} free credits</span>
                     </div>
                   </div>
-                  
-                  {isGeneratingElaboration && (
-                    <div className="mt-2 text-xs text-center text-muted-foreground italic animate-pulse">
-                      {loadingMessage}
-                    </div>
-                  )}
                 </div>
                 
                 <div className="relative mb-4">
