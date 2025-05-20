@@ -9,22 +9,26 @@ type GoogleOneTapResponse = {
   clientId?: string;
 };
 
+/**
+ * Google One Tap component that handles Google sign-in with FedCM support
+ * Follows the migration guide from https://developers.google.com/identity/gsi/web/guides/fedcm-migration
+ */
 const GoogleOneTapContainer: React.FC = () => {
   const { user, handleGoogleOneTapCallback } = useAuth();
   const isProcessingRef = useRef(false);
 
   const initializeGoogleOneTap = useCallback(() => {
-    // Only show One Tap when user is not logged in and not already processing
+    // Only initialize when not logged in and not already processing
     if (user || isProcessingRef.current) return;
 
+    // Validate Google client ID
     const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!googleClientId) {
+    if (!googleClientId?.trim()) {
       console.error('Google Client ID is not configured. One Tap sign-in is disabled.');
       return;
     }
 
     isProcessingRef.current = true;
-    console.log('Initializing Google One Tap with client ID:', googleClientId.substring(0, 10) + '...');
 
     // Generate a secure nonce for CSRF protection
     const generateNonce = (): string => {
@@ -32,10 +36,9 @@ const GoogleOneTapContainer: React.FC = () => {
       crypto.getRandomValues(array);
       return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
     };
-
     const nonce = generateNonce();
 
-    // Create a container for One Tap
+    // Create a container for One Tap UI
     const oneTapContainer = document.createElement('div');
     oneTapContainer.id = 'g_id_onload';
     oneTapContainer.style.position = 'fixed';
@@ -44,95 +47,74 @@ const GoogleOneTapContainer: React.FC = () => {
     oneTapContainer.style.zIndex = '9999';
     document.body.appendChild(oneTapContainer);
 
-    // Double check that we have a valid client_id
-    if (!googleClientId || googleClientId.trim() === '') {
-      console.error('Valid Google Client ID is required for One Tap sign-in');
-      isProcessingRef.current = false;
-      return;
-    }
-    
-    console.log('Using Google Client ID:', googleClientId.substring(0, 10) + '...');
-    
-    // Define FedCM configuration inline where needed
-    
-
-    // Initialize Google One Tap using the latest approach
     try {
-      // Set up callback for Google One Tap 
+      // Handle successful authentication
       const handleCredentialResponse = async (response: GoogleOneTapResponse) => {
-        console.log('Google One Tap credential response received');
         if (response?.credential) {
           try {
             await handleGoogleOneTapCallback(response, nonce);
           } catch (error) {
-            console.error('Error handling Google One Tap callback:', error);
+            console.error('Error processing Google One Tap response:', error);
           } finally {
             isProcessingRef.current = false;
           }
         }
       };
-      
-      // Set up error handling
+
+      // Handle authentication errors
       const handleError = (error: any) => {
         console.warn('Google One Tap error:', error);
         isProcessingRef.current = false;
       };
       
-      // Initialize directly with the most essential parameters first
-      // This approach helps ensure the client_id is properly recognized
+      // Initialize Google One Tap with FedCM support
       googleOneTap(
-        // First pass only the most essential parameters
         {
           client_id: googleClientId.trim(),
-          callback: handleCredentialResponse
-        },
-        // The npm package also accepts callback directly as second param
-        handleCredentialResponse,
-        // And error handler as third param
-        handleError
-      );
-      
-      console.log('Google One Tap initialized with simplified configuration');
-      
-      // As a fallback, also initialize with the native API if available
-      if (window.google?.accounts?.id?.initialize) {
-        // The native API initialization with FedCM options
-        window.google.accounts.id.initialize({
-          client_id: googleClientId.trim(), // Ensure trimmed client_id
-          callback: handleCredentialResponse,
-          onerror: handleError,
-          // Include FedCM options for native API
+          auto_select: false,
+          cancel_on_tap_outside: true,
+          context: 'signin',
           use_fedcm: true,
           use_fedcm_for_prompt: true,
-          fedcm_account_purge: true,
+          prompt_parent_id: 'g_id_onload',
+          itp_support: true
+        },
+        handleCredentialResponse,
+        handleError
+      );
+
+      // Initialize with native API as fallback if available
+      if (window.google?.accounts?.id?.initialize) {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId.trim(),
+          callback: handleCredentialResponse,
+          onerror: handleError,
+          // FedCM options
+          use_fedcm: true,
+          use_fedcm_for_prompt: true,
           itp_support: true,
-          state_cookie_domain: window.location.hostname,
           context: 'signin',
           auto_select: false,
           cancel_on_tap_outside: true
         });
       }
 
-      // Show the prompt using FedCM-compatible approach
+      // Show prompt using FedCM-compatible approach
       const showPrompt = () => {
         if (window.google?.accounts?.id?.prompt) {
-          // With FedCM, we should call prompt with configuration parameters
-          // instead of using the deprecated callback for moment notifications
+          // Use parameters instead of deprecated moment callbacks
           window.google.accounts.id.prompt({
-            // These parameters help control FedCM UI behaviors
-            display: 'popup',   // Display as a popup UI
-            native: true,       // Use native UI when available (FedCM)
-            moment_listener: false // Don't use moment listeners (deprecated)
+            display: 'popup',
+            native: true,
+            moment_listener: false // Don't use deprecated moment methods
           });
-          
-          // Log for debugging
-          console.log('Google One Tap prompt displayed with FedCM configuration');
         }
       };
 
-      // Show prompt after a short delay to ensure everything is loaded
+      // Show prompt after a short delay
       const promptTimer = setTimeout(showPrompt, 1000);
 
+      // Cleanup function when effect is re-run or component unmounts
       return () => {
         clearTimeout(promptTimer);
         if (document.body.contains(oneTapContainer)) {
@@ -149,17 +131,13 @@ const GoogleOneTapContainer: React.FC = () => {
     }
   }, [user, handleGoogleOneTapCallback]);
 
-  // Initialize Google One Tap when component mounts and when user state changes
+  // Initialize Google One Tap when component mounts or user state changes
   useEffect(() => {
     initializeGoogleOneTap();
-    
-    // Cleanup function to handle component unmount
-    return () => {
-      isProcessingRef.current = false;
-    };
-  }, [initializeGoogleOneTap, user]);
+    return () => { isProcessingRef.current = false; };
+  }, [initializeGoogleOneTap]);
 
-  // No need to render anything - Google One Tap will handle the UI
+  // No need to render anything - Google One Tap handles UI
   return null;
 };
 
