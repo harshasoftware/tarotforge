@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Menu, X, Moon, Sun, User, UserCheck } from 'lucide-react';
+import { Menu, X, Moon, Sun, User, UserCheck, Crown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useSubscription } from '../../context/SubscriptionContext';
 import SignInModal from '../auth/SignInModal';
 import TarotLogo from '../ui/TarotLogo';
 
@@ -11,6 +12,7 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
   const { user, signOut, showSignInModal, setShowSignInModal } = useAuth();
+  const { isSubscribed } = useSubscription();
   const location = useLocation();
 
   // Handle scroll effect
@@ -71,6 +73,12 @@ const Navbar = () => {
                 </button>
               </>
             )}
+            <NavLink to="/subscription">
+              <span className="flex items-center">
+                Premium
+                {isSubscribed && <Crown className="ml-1 h-3 w-3 text-primary" />}
+              </span>
+            </NavLink>
           </div>
 
           {/* Right side - Auth & Theme */}
@@ -106,6 +114,9 @@ const Navbar = () => {
                   <span className="hidden md:block text-sm font-medium">
                     {user.username || user.email.split('@')[0]}
                   </span>
+                  {isSubscribed && (
+                    <Crown className="h-4 w-4 text-primary hidden md:block" />
+                  )}
                 </button>
                 
                 {/* Dropdown Menu */}
@@ -115,6 +126,19 @@ const Navbar = () => {
                   </Link>
                   <Link to="/collection" className="block px-4 py-2 text-sm hover:bg-secondary/50">
                     My Collection
+                  </Link>
+                  <Link to="/subscription" className="block px-4 py-2 text-sm hover:bg-secondary/50 flex items-center">
+                    {isSubscribed ? (
+                      <>
+                        <Crown className="h-4 w-4 mr-2 text-primary" />
+                        Premium Membership
+                      </>
+                    ) : (
+                      <>
+                        <Crown className="h-4 w-4 mr-2 text-muted-foreground" />
+                        Upgrade to Premium
+                      </>
+                    )}
                   </Link>
                   {user.is_reader ? (
                     <Link to="/reader-dashboard" className="block px-4 py-2 text-sm hover:bg-secondary/50 flex items-center">
@@ -182,6 +206,19 @@ const Navbar = () => {
                   <Link to="/collection" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                     My Collection
                   </Link>
+                  <Link to="/subscription" className="block py-2 px-4 rounded-md hover:bg-secondary/50 flex items-center">
+                    {isSubscribed ? (
+                      <>
+                        <Crown className="h-4 w-4 mr-2 text-primary" />
+                        Premium Membership
+                      </>
+                    ) : (
+                      <>
+                        <Crown className="h-4 w-4 mr-2 text-muted-foreground" />
+                        Upgrade to Premium
+                      </>
+                    )}
+                  </Link>
                   <Link to="/profile" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                     Profile
                   </Link>
@@ -213,6 +250,9 @@ const Navbar = () => {
                   >
                     Reading Room
                   </button>
+                  <Link to="/subscription" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
+                    Premium
+                  </Link>
                   <button
                     onClick={() => {
                       setIsOpen(false);

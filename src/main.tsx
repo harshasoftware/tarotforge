@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import { VideoCallProvider } from './context/VideoCallContext';
+import { SubscriptionProvider } from './context/SubscriptionContext';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 import { 
@@ -74,9 +75,11 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <VideoCallProvider>
-          <App />
-        </VideoCallProvider>
+        <SubscriptionProvider>
+          <VideoCallProvider>
+            <App />
+          </VideoCallProvider>
+        </SubscriptionProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>

@@ -34,6 +34,10 @@ const TarotQuiz = lazy(() => import('./pages/readers/TarotQuiz'));
 const ReaderDashboard = lazy(() => import('./pages/readers/ReaderDashboard'));
 const CertificateShare = lazy(() => import('./components/readers/CertificateShare'));
 
+// Subscription pages
+const SubscriptionPage = lazy(() => import('./pages/subscription/SubscriptionPage'));
+const SubscriptionSuccess = lazy(() => import('./pages/subscription/SubscriptionSuccess'));
+
 // Wrap the app with Sentry's error boundary
 const SentryErrorBoundary = Sentry.withErrorBoundary(ErrorBoundary, {
   fallback: ({ error, componentStack, resetError }: { 
@@ -109,6 +113,8 @@ function App() {
             <Route path="marketplace" element={<Marketplace />} />
             <Route path="marketplace/:deckId" element={<DeckDetails />} />
             <Route path="readers" element={<ReadersPage />} />
+            <Route path="subscription" element={<SubscriptionPage />} />
+            <Route path="subscription/success" element={<SubscriptionSuccess />} />
             
             {/* Certificate sharing route (public) */}
             <Route path="certificate/:certificateId" element={<CertificateShare />} />
