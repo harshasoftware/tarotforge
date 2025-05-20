@@ -5,7 +5,8 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TarotLogo from '../components/ui/TarotLogo';
 import { useAuth } from '../context/AuthContext';
-import { generateThemeSuggestions } from '../lib/gemini-ai';
+import { useSubscription } from '../context/SubscriptionContext';
+import { generateThemeSuggestions, generateElaborateTheme } from '../lib/gemini-ai';
 
 // Featured decks data
 const featuredDecks = [
@@ -75,9 +76,6 @@ const tarotCardImages = [
   'https://images.pexels.com/photos/1727684/pexels-photo-1727684.jpeg?auto=compress&cs=tinysrgb&w=1600', // Wheel of Fortune
 ];
 
-// Large pool of theme suggestions for lazy loading
-// const allThemeSuggestions = [ ... ];
-
 import { generateElaborateTheme } from '../lib/gemini-ai';
 
 // Generate theme suggestions using Gemini AI
@@ -109,7 +107,7 @@ const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
     return allSuggestions.slice(0, 10);
     
   } catch (error) {
-    console.error('Error generating theme suggestions:', error);
+    console.warn('Error generating theme suggestions:', error);
     // Fallback to default suggestions if there's an error
     return [
       "Celestial Voyage", "Ancient Mythology", "Enchanted Forest", 
@@ -124,6 +122,7 @@ const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, setShowSignInModal } = useAuth();
+  const { isSubscribed } = useSubscription();
   const [themePrompt, setThemePrompt] = useState("");
   const [themeSuggestions, setThemeSuggestions] = useState<string[]>([]);
   const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
@@ -239,8 +238,13 @@ const Home = () => {
         return;
       }
       
-      // User is already authenticated, proceed immediately to deck creation
-      // Skip the manual form input step and auto-generate deck details from the prompt
+      // If user is authenticated but not subscribed, redirect to subscription page
+      if (!isSubscribed) {
+        navigate('/subscription', { state: { fromDeckCreation: true } });
+        return;
+      }
+      
+      // User is authenticated and subscribed, proceed to deck creation
       navigate('/create-deck', { 
         state: { 
           initialTheme: themePrompt, 
@@ -383,6 +387,23 @@ const Home = () => {
                 Create Your Tarot Deck Now
               </h4>
               
+              {!isSubscribed && (
+                <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                  <div className="flex items-start">
+                    <Crown className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <div className="ml-2">
+                      <p className="text-sm font-medium">Premium Feature</p>
+                      <p className="text-xs text-muted-foreground">
+                        Creating custom decks requires a Premium subscription. 
+                        <Link to="/subscription" className="text-primary hover:underline ml-1">
+                          Upgrade now
+                        </Link>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <form onSubmit={handleThemeSubmit}>
                 <div className="mb-5">
                   <textarea
@@ -476,12 +497,19 @@ const Home = () => {
                 <button
                   type="submit"
                   disabled={!themePrompt.trim()}
-                  className="w-full btn btn-primary py-3 disabled:opacity-70"
+                  className={`w-full btn ${!isSubscribed ? 'btn-secondary' : 'btn-primary'} py-3 disabled:opacity-70 flex items-center justify-center`}
                 >
-                  <>
-                    Forge a Deck
-                    <Hammer className="ml-2 h-4 w-4" />
-                  </>
+                  {!isSubscribed ? (
+                    <>
+                      <Crown className="mr-2 h-4 w-4" />
+                      Upgrade to Create Decks
+                    </>
+                  ) : (
+                    <>
+                      Forge a Deck
+                      <Hammer className="ml-2 h-4 w-4" />
+                    </>
+                  )}
                 </button>
               </form>
             </div>
@@ -566,14 +594,28 @@ const Home = () => {
                       <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
                       <span>AI-generated descriptions</span>
                     </li>
+                    {isSubscribed ? (
+                      <li className="flex items-center">
+                        <span className="h-5 w-5 rounded-full bg-success/20 flex items-center justify-center text-success mr-2">✓</span>
+                        <span className="text-success">Premium Access Enabled</span>
+                      </li>
+                    ) : (
+                      <li className="flex items-center">
+                        <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">
+                          <Crown className="h-3 w-3" />
+                        </span>
+                        <span>Premium feature</span>
+                      </li>
+                    )}
                   </ul>
                 </div>
                 
                 <Link 
-                  to="/create" 
+                  to={isSubscribed ? "/create-deck" : "/subscription"} 
                   className="mt-auto inline-flex items-center text-primary hover:underline group-hover:translate-x-1 transition-transform"
                 >
-                  Forge Your Deck <ArrowRight className="ml-1 h-4 w-4" />
+                  {isSubscribed ? 'Forge Your Deck' : 'Upgrade to Premium'}
+                  <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
               </div>
             </motion.div>
@@ -692,6 +734,15 @@ const Home = () => {
               </p>
               
               <div className="absolute bottom-0 right-0 w-20 h-20 bg-primary/5 rounded-tl-3xl -z-10"></div>
+              
+              {!isSubscribed && (
+                <div className="mt-4 pt-4 border-t border-primary/20">
+                  <div className="flex items-center text-sm text-primary">
+                    <Crown className="h-4 w-4 mr-1" />
+                    <span>Premium feature</span>
+                  </div>
+                </div>
+              )}
             </motion.div>
             
             {/* Step 2 */}
@@ -739,180 +790,114 @@ const Home = () => {
         </div>
       </section>
       
-      {/* Mystic & Creator Plans */}
+      {/* Bento Featured Decks Section */}
       <section className="py-16 px-4 bg-card/20">
         <div className="container mx-auto max-w-6xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="text-center mb-10"
-          >
-            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">Premium Plans</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Unlock your creative potential with our premium tarot creation plans
-            </p>
-          </motion.div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+          <div className="flex flex-col md:flex-row justify-between items-center mb-10">
+            <motion.h2 
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="bg-card border border-border hover:border-primary/40 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all"
+              className="text-3xl md:text-4xl font-serif font-bold mb-4 md:mb-0"
             >
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-serif font-bold">Free Plan</h3>
-                  <div className="p-2 bg-muted/30 rounded-full">
-                    <Zap className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                </div>
-                
-                <div className="mb-4">
-                  <div className="flex items-baseline">
-                    <span className="text-3xl font-bold">$0</span>
-                    <span className="text-muted-foreground ml-1">/forever</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">Try out our platform with no commitment</p>
-                </div>
-                
-                <ul className="space-y-3 mb-6">
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 mt-1 text-success">
-                      <Check className="h-4 w-4" />
-                    </div>
-                    <span className="ml-2 text-sm">5 medium quality cards per month</span>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 mt-1 text-success">
-                      <Check className="h-4 w-4" />
-                    </div>
-                    <span className="ml-2 text-sm">Basic reading tools</span>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 mt-1 text-success">
-                      <Check className="h-4 w-4" />
-                    </div>
-                    <span className="ml-2 text-sm">Browse marketplace</span>
-                  </li>
-                </ul>
-                
-                <Link to="/subscription" className="btn btn-secondary py-2 w-full">
-                  Current Plan
-                </Link>
-              </div>
-            </motion.div>
+              Featured Decks
+            </motion.h2>
             
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-card border border-border hover:border-primary/40 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all relative"
+              transition={{ duration: 0.5 }}
+              className="flex items-center space-x-2"
             >
-              <div className="absolute top-0 left-0 right-0 bg-primary text-primary-foreground text-center py-1 text-sm font-medium">
-                Popular Choice
-              </div>
-              <div className="p-6 pt-10">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-serif font-bold">Premium</h3>
-                  <div className="p-2 bg-primary/20 rounded-full">
-                    <Crown className="h-5 w-5 text-primary" />
+              <Link 
+                to="/marketplace" 
+                className="px-4 py-2 rounded-lg border border-accent text-accent hover:bg-accent/10 transition-colors flex items-center"
+              >
+                <ShoppingBag className="mr-2 h-4 w-4" />
+                Explore All Decks
+              </Link>
+            </motion.div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+            {/* Featured decks, styled as bento cards */}
+            {featuredDecks.map((deck, index) => (
+              <motion.div
+                key={deck.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="group"
+              >
+                <Link to={`/marketplace/${deck.id}`} className="block">
+                  <div className="rounded-xl overflow-hidden bg-card border border-border hover:border-accent/30 hover:shadow-lg transition-all duration-300 h-full">
+                    <div className="relative aspect-[4/3] overflow-hidden">
+                      <img 
+                        src={deck.cover_image} 
+                        alt={deck.title} 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      
+                      {/* Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-80" />
+                      
+                      {/* Price Tag */}
+                      {deck.is_free ? (
+                        <div className="absolute top-3 right-3 bg-success/90 text-success-foreground font-medium px-3 py-1 rounded-full text-sm flex items-center z-10">
+                          <Zap className="h-3 w-3 mr-1" />
+                          Free
+                        </div>
+                      ) : (
+                        <div className="absolute top-3 right-3 bg-accent/90 text-accent-foreground font-medium px-3 py-1 rounded-full text-sm z-10">
+                          ${deck.price.toFixed(2)}
+                        </div>
+                      )}
+                      
+                      {/* NFT Badge */}
+                      {deck.is_nft && (
+                        <div className="absolute top-3 left-3 bg-primary/90 text-primary-foreground font-medium px-3 py-1 rounded-full text-xs z-10">
+                          NFT
+                        </div>
+                      )}
+                      
+                      {/* Card count */}
+                      <div className="absolute bottom-3 left-3 text-sm text-white flex items-center z-10">
+                        <div className="flex items-center mr-3">
+                          <Star className="h-4 w-4 fill-accent stroke-0 mr-1" />
+                          <span>{deck.rating?.toFixed(1)}</span>
+                        </div>
+                        <span>{deck.card_count} cards</span>
+                      </div>
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="p-4">
+                      <h3 className="font-serif text-lg font-medium mb-2">{deck.title}</h3>
+                      <p className="text-muted-foreground text-sm line-clamp-2 mb-3">
+                        {deck.description}
+                      </p>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
+                            <Users className="h-3 w-3" />
+                          </div>
+                          <span className="text-xs ml-2 text-muted-foreground">
+                            By {deck.creator_name}
+                          </span>
+                        </div>
+                        
+                        <span className="text-xs text-primary">{deck.purchase_count} downloads</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="mb-4">
-                  <div className="flex items-baseline">
-                    <span className="text-3xl font-bold">$9.99</span>
-                    <span className="text-muted-foreground ml-1">/month</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">Perfect for tarot enthusiasts and creators</p>
-                </div>
-                
-                <ul className="space-y-3 mb-6">
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 mt-1 text-success">
-                      <Check className="h-4 w-4" />
-                    </div>
-                    <span className="ml-2 text-sm">Create unlimited custom decks</span>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 mt-1 text-success">
-                      <Check className="h-4 w-4" />
-                    </div>
-                    <span className="ml-2 text-sm">Advanced AI reading interpretations</span>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 mt-1 text-success">
-                      <Check className="h-4 w-4" />
-                    </div>
-                    <span className="ml-2 text-sm">List your decks in marketplace</span>
-                  </li>
-                </ul>
-                
-                <Link to="/subscription" className="btn btn-primary py-2 w-full">
-                  Upgrade Now
                 </Link>
-              </div>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-card border border-border hover:border-primary/40 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all opacity-75"
-            >
-              <div className="absolute inset-0 flex items-center justify-center text-sm font-medium bg-background/80 backdrop-blur-sm">
-                <div className="bg-muted/70 border border-border px-4 py-2 rounded-lg">
-                  Coming Soon
-                </div>
-              </div>
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-serif font-bold">Enterprise</h3>
-                  <div className="p-2 bg-accent/20 rounded-full">
-                    <Crown className="h-5 w-5 text-accent" />
-                  </div>
-                </div>
-                
-                <div className="mb-4">
-                  <div className="flex items-baseline">
-                    <span className="text-3xl font-bold">$49.99</span>
-                    <span className="text-muted-foreground ml-1">/month</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">For professional creators and studios</p>
-                </div>
-                
-                <ul className="space-y-3 mb-6">
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 mt-1 text-success">
-                      <Check className="h-4 w-4" />
-                    </div>
-                    <span className="ml-2 text-sm">High-quality image generation</span>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 mt-1 text-success">
-                      <Check className="h-4 w-4" />
-                    </div>
-                    <span className="ml-2 text-sm">Style consistency across decks</span>
-                  </li>
-                  <li className="flex items-start">
-                    <div className="flex-shrink-0 mt-1 text-success">
-                      <Check className="h-4 w-4" />
-                    </div>
-                    <span className="ml-2 text-sm">Commercial usage rights</span>
-                  </li>
-                </ul>
-                
-                <button disabled className="btn btn-ghost border border-input py-2 w-full opacity-75">
-                  Coming Soon
-                </button>
-              </div>
-            </motion.div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
@@ -1101,7 +1086,7 @@ const Home = () => {
         </div>
       </section>
       
-      {/* Bento-style CTA Section */}
+      {/* Subscription CTA Section */}
       <section className="py-24 px-4">
         <div className="container mx-auto max-w-5xl">
           <motion.div 
@@ -1115,23 +1100,23 @@ const Home = () => {
               {/* CTA Text Area */}
               <div className="p-8 md:p-12 md:col-span-3 flex flex-col justify-center">
                 <div className="p-3 bg-white/20 rounded-xl w-fit mb-6">
-                  <Sparkles className="h-8 w-8 text-white" />
+                  <Crown className="h-8 w-8 text-white" />
                 </div>
                 
                 <h2 className="text-3xl md:text-4xl font-serif font-bold mb-6 text-white">
-                  Begin Your Mystical Journey
+                  Unlock Premium Features
                 </h2>
                 <p className="text-xl mb-8 text-white/90">
-                  Join our growing community of creators, readers, and collectors exploring the infinite 
-                  possibilities of AI-generated tarot.
+                  Subscribe to our premium plan to create unlimited custom decks, access exclusive premium content, and elevate your tarot experience.
                 </p>
                 
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Link 
-                    to="/signup" 
+                    to="/subscription" 
                     className="btn bg-white text-primary px-6 py-3 rounded-lg font-medium text-lg hover:bg-white/90 transition-colors flex items-center justify-center"
                   >
-                    Create Free Account
+                    <Crown className="mr-2 h-5 w-5" />
+                    Get Premium
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                   <Link 
