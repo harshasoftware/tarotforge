@@ -4,7 +4,9 @@ import { useAuth } from './context/AuthContext';
 import Layout from './components/layout/Layout';
 import LoadingScreen from './components/ui/LoadingScreen';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import GoogleOneTapHandler from './components/auth/GoogleOneTapHandler';
+
+// Lazy loaded auth components
+const GoogleOneTapHandler = lazy(() => import('./components/auth/GoogleOneTapHandler'));
 
 // Lazy loaded components
 const Home = lazy(() => import('./pages/Home'));
@@ -68,8 +70,12 @@ function App() {
 
   return (
     <Suspense fallback={<LoadingScreen />}>
-      {/* Initialize Google One Tap */}
-      {!user && <GoogleOneTapHandler autoInit={true} />}
+      {/* Initialize Google One Tap (now lazy loaded) */}
+      {!user && (
+        <Suspense fallback={null}>
+          <GoogleOneTapHandler autoInit={true} />
+        </Suspense>
+      )}
       
       <Routes>
         <Route path="/" element={<Layout />}>
