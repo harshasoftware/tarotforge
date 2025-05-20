@@ -27,22 +27,7 @@ interface GoogleOneTapResponse {
   clientId: string;
 }
 
-interface GoogleCredential {
-  iss: string;
-  nbf: number;
-  aud: string;
-  sub: string;
-  email: string;
-  email_verified: boolean;
-  azp: string;
-  name: string;
-  picture: string;
-  given_name: string;
-  family_name: string;
-  iat: number;
-  exp: number;
-  jti: string;
-}
+// GoogleCredential type is now handled by @supabase/supabase-js types
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -148,7 +133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 email: session.user.email || '',
                 username: username,
                 full_name: fullName,
-                avatar_url: null, // We'll update this later if we have a Google image
+                avatar_url: undefined as string | undefined, // Will be set if we have a Google image
                 created_at: new Date().toISOString()
               };
               
@@ -177,23 +162,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setUser({
                   id: session.user.id,
                   email: session.user.email || '',
-                  username: newProfile.username,
-                  full_name: newProfile.full_name,
-                  avatar_url: newProfile.avatar_url,
-                  created_at: newProfile.created_at,
-                  is_creator: newProfile.is_creator || false,
-                  is_reader: newProfile.is_reader || false,
-                  bio: newProfile.bio || '',
-                  custom_price_per_minute: newProfile.custom_price_per_minute,
+                  username: newProfile?.username || session.user.email?.split('@')[0] || 'User',
+                  full_name: newProfile?.full_name || undefined,
+                  avatar_url: newProfile?.avatar_url || undefined,
+                  created_at: newProfile?.created_at || new Date().toISOString(),
+                  is_creator: newProfile?.is_creator || false,
+                  is_reader: newProfile?.is_reader || false,
+                  bio: newProfile?.bio || '',
+                  custom_price_per_minute: newProfile?.custom_price_per_minute || undefined,
                 });
               } else {
                 // Fallback if profile fetch fails after creation
                 setUser({
                   id: session.user.id,
                   email: session.user.email || '',
-                  username: userMetadata.username || userMetadata.name || session.user.email?.split('@')[0] || 'User',
-                  full_name: fullName,
-                  avatar_url: userData.avatar_url,
+                  username: username || undefined,
+                  full_name: fullName || undefined,
+                  avatar_url: userData?.avatar_url || undefined,
                   created_at: new Date().toISOString(),
                   is_creator: false,
                   is_reader: false,
@@ -209,6 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 email: session.user.email || '',
                 username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
                 full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+                avatar_url: session.user.user_metadata?.avatar_url || undefined,
                 created_at: new Date().toISOString(),
                 is_creator: false,
                 is_reader: false,
@@ -459,12 +445,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Handle Google One Tap sign in
-  const handleGoogleOneTapCallback = async (response: GoogleOneTapResponse) => {
+  const handleGoogleOneTapCallback = async (response: GoogleOneTapResponse): Promise<void> => {
     try {
       console.log('Google One Tap response received');
       
       // Sign in with Supabase using the ID token
-      const { data, error } = await supabase.auth.signInWithIdToken({
+      const { error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: response.credential,
         nonce: nonceRef.current, // Use the stored nonce for verification
@@ -483,23 +469,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Handle Google One Tap initialization
-  const handleGoogleOneTap = async () => {
-    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!googleClientId) {
-      console.error('Google Client ID is not configured');
-      return;
-    }
+  const handleGoogleOneTap = (): Promise<void> => {
+    return new Promise<void>((resolve) => {
+      const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      if (!googleClientId) {
+        console.error('Google Client ID is not configured');
+        return resolve();
+      }
 
-    // Generate a secure nonce for this sign-in attempt
-    nonceRef.current = generateNonce();
-    
-    // Make sure google is defined
-    if (window.google?.accounts?.id) {
+      // Check if Google script is loaded
+      if (!window.google?.accounts?.id) {
+        console.warn('Google accounts API not available yet, will retry...');
+        // Try again after a short delay
+        const timer = setTimeout(() => {
+          if (window.google?.accounts?.id) {
+            handleGoogleOneTap().then(resolve);
+          } else {
+            console.error('Google accounts API still not available after retry');
+            resolve();
+          }
+        }, 1000);
+        
+        // Clean up the timer if the component unmounts
+        return () => clearTimeout(timer);
+      }
+
       try {
         console.log("Initializing Google One Tap with client ID:", googleClientId);
         
         // Reset initialization flag
         googleOneTapInitializedRef.current = false;
+        
+        // Generate a secure nonce for this sign-in attempt
+        nonceRef.current = generateNonce();
         
         // Initialize Google Identity
         window.google.accounts.id.initialize({
@@ -513,25 +515,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Display the One Tap prompt
         window.google.accounts.id.prompt((notification) => {
           if (notification) {
-            console.log("Google One Tap prompt notification:", 
-              notification.isNotDisplayed?.() ? "Not displayed" : "",
-              notification.isSkippedMoment?.() ? "Skipped" : "",
-              notification.isDismissedMoment?.() ? "Dismissed" : "");
+            const status = [
+              notification.isNotDisplayed?.() ? 'Not displayed' : '',
+              notification.isSkippedMoment?.() ? 'Skipped' : '',
+              notification.isDismissedMoment?.() ? 'Dismissed' : ''
+            ].filter(Boolean).join(', ');
+            
+            console.log("Google One Tap prompt status:", status || 'Displayed');
             
             if (notification.isNotDisplayed?.()) {
-              console.log("One Tap not displayed reason:", notification.getNotDisplayedReason?.());
+              const reason = notification.getNotDisplayedReason?.();
+              console.log("One Tap not displayed reason:", reason);
+            }
+            
+            if (notification.isSkippedMoment?.()) {
+              console.log("One Tap skipped reason:", notification.getSkippedReason?.());
+            }
+            
+            if (notification.isDismissedMoment?.()) {
+              console.log("One Tap dismissed reason:", notification.getDismissedReason?.());
             }
           }
+          resolve();
         });
         
         googleOneTapInitializedRef.current = true;
         console.log("Google One Tap initialized successfully");
       } catch (error) {
         console.error("Error initializing Google One Tap:", error);
+        resolve();
       }
-    } else {
-      console.warn("Google accounts API not available yet");
-    }
+    });
   };
 
   // Set up auth state listener

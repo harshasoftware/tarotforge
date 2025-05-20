@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from './supabase';
 import type { AIModel, QuizQuestion } from '../types';
 
 // Generate a placeholder image URL for cards when image generation fails
@@ -16,18 +16,6 @@ export function generatePlaceholderImageUrl(cardName: string, theme: string): st
   });
   return `${baseUrl}?${params.toString()}`;
 }
-
-// Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase URL or Anon Key is missing. Image uploads will fail.');
-}
-
-const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
-  auth: { persistSession: false }
-});
 
 // Google Generative AI configuration
 const apiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY || '';

@@ -16,6 +16,17 @@ const GoogleOneTap: React.FC = () => {
       return;
     }
 
+    // Check if Google script is loaded
+    if (!window.google?.accounts) {
+      console.log('Google script not loaded yet, will retry...');
+      const timer = setTimeout(() => {
+        if (window.google?.accounts?.id) {
+          handleGoogleOneTap();
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+
     // Initialize Google One Tap when the script is loaded
     const initializeOneTap = () => {
       if (typeof window !== 'undefined' && window.google && window.google.accounts) {
