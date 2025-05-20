@@ -15,18 +15,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-    
-    <!-- Content Security Policy -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com 'unsafe-inline'; connect-src 'self' https://*.supabase.co https://accounts.google.com https://generativelanguage.googleapis.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://images.pexels.com https://*.supabase.co data: blob:; frame-src 'self' https://accounts.google.com; worker-src 'self' blob:;">
-
-    <!-- Preconnect to Google domains -->
-    <link rel="preconnect" href="https://accounts.google.com">
-    <link rel="dns-prefetch" href="https://accounts.google.com">
+    <!-- Google One Tap script with async and defer to prevent blocking -->
+    <script src="https://accounts.google.com/gsi/client" async defer crossorigin="anonymous"></script>
   </head>
   <body class="bg-background text-foreground antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    
-    <!-- Google One Tap script - loaded dynamically through the component now -->
   </body>
 </html>
