@@ -1,94 +1,146 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import googleOneTap from 'google-one-tap';
 
+// Define types for Google One Tap response
+type GoogleOneTapResponse = {
+  credential: string;
+  select_by?: string;
+  clientId?: string;
+};
+
+type GoogleOneTapOptions = {
+  client_id: string;
+  auto_select?: boolean;
+  cancel_on_tap_outside?: boolean;
+  context?: 'signin' | 'signup' | 'use';
+  use_fedcm_for_prompt?: boolean;
+  prompt_parent_id?: string;
+  itp_support?: boolean;
+  login_uri?: string;
+  callback?: (response: GoogleOneTapResponse) => void;
+  error_callback?: (error: any) => void;
+};
+
 const GoogleOneTapContainer: React.FC = () => {
   const { user, handleGoogleOneTapCallback } = useAuth();
+  const isProcessingRef = useRef(false);
 
-  useEffect(() => {
-    // Only show One Tap when user is not logged in
-    if (user) return;
+  const initializeGoogleOneTap = useCallback(() => {
+    // Only show One Tap when user is not logged in and not already processing
+    if (user || isProcessingRef.current) return;
 
-    // Check if Google client is available
     const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     if (!googleClientId) {
       console.error('Google Client ID is not configured. One Tap sign-in is disabled.');
       return;
     }
 
-    console.log('Initializing Google One Tap with client ID:', googleClientId.substring(0, 5) + '...');
+    isProcessingRef.current = true;
+    console.log('Initializing Google One Tap with client ID:', googleClientId.substring(0, 10) + '...');
 
-    // Generate a nonce for security
+    // Generate a secure nonce for CSRF protection
     const generateNonce = (): string => {
       const array = new Uint8Array(16);
       crypto.getRandomValues(array);
       return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
     };
-    
-    const nonce = generateNonce();
-    
-    // Get origin for absolute URLs
-    const origin = window.location.origin;
 
-    // Initialize Google One Tap using the npm package
-    const googleOneTapConfig = {
+    const nonce = generateNonce();
+
+    // Create a container for One Tap
+    const oneTapContainer = document.createElement('div');
+    oneTapContainer.id = 'g_id_onload';
+    oneTapContainer.style.position = 'fixed';
+    oneTapContainer.style.top = '10px';
+    oneTapContainer.style.right = '10px';
+    oneTapContainer.style.zIndex = '9999';
+    document.body.appendChild(oneTapContainer);
+
+    // Configure Google One Tap with FedCM support
+    const googleOneTapConfig: GoogleOneTapOptions = {
       client_id: googleClientId,
       auto_select: false,
       cancel_on_tap_outside: true,
       context: 'signin',
-      prompt_parent_id: 'g_id_onload', // Add a parent element ID
-      login_uri: `${origin}/auth/callback`, // Use absolute URL
+      use_fedcm_for_prompt: true, // Enable FedCM for better privacy
+      prompt_parent_id: 'g_id_onload',
       itp_support: true,
-      callback: (response: any) => {
-        console.log('Google One Tap callback triggered', response);
-        if (response && response.credential) {
-          console.log("Google One Tap response received, handling...");
-          handleGoogleOneTapCallback(response, nonce);
-        }
-      },
-      error_callback: (error: any) => {
-        console.warn('Google One Tap error:', error);
-      }
     };
-
-    // Add a div for One Tap to render into
-    const oneTapDiv = document.createElement('div');
-    oneTapDiv.id = 'g_id_onload';
-    oneTapDiv.style.position = 'fixed';
-    oneTapDiv.style.top = '10px';
-    oneTapDiv.style.right = '10px';
-    oneTapDiv.style.zIndex = '9999';
-    document.body.appendChild(oneTapDiv);
-    
-    console.log('Google One Tap container added to DOM');
 
     // Initialize Google One Tap
-    googleOneTap(googleOneTapConfig);
-    console.log('Google One Tap initialized');
-    
-    // Force prompt to show
-    setTimeout(() => {
-      if (window.google && window.google.accounts && window.google.accounts.id) {
-        console.log('Explicitly prompting Google One Tap to show');
-        window.google.accounts.id.prompt((notification) => {
-          if (notification) {
-            if (notification.isNotDisplayed && notification.isNotDisplayed()) {
-              console.warn('Google One Tap not displayed. Reason:', notification.getNotDisplayedReason?.());
-            }
+    try {
+      googleOneTap(googleOneTapConfig, async (response: GoogleOneTapResponse) => {
+        console.log('Google One Tap response received');
+        if (response?.credential) {
+          try {
+            await handleGoogleOneTapCallback(response, nonce);
+          } catch (error) {
+            console.error('Error handling Google One Tap callback:', error);
+          } finally {
+            isProcessingRef.current = false;
           }
+        }
+      });
+
+      // Set up error handling
+      const handleError = (error: any) => {
+        console.warn('Google One Tap error:', error);
+        isProcessingRef.current = false;
+      };
+
+      // Add error callback if available
+      if (window.google?.accounts?.id?.initialize) {
+        window.google.accounts.id.initialize({
+          ...googleOneTapConfig,
+          callback: () => {
+            // This will be handled by the npm package callback
+          },
         });
       }
-    }, 2000);
 
-    return () => {
-      // Clean up the container div when component unmounts
-      if (document.getElementById('g_id_onload')) {
-        document.body.removeChild(oneTapDiv);
+      // Show the prompt after a short delay
+      const showPrompt = () => {
+        if (window.google?.accounts?.id?.prompt) {
+          window.google.accounts.id.prompt((notification) => {
+            if (notification?.isDismissedMoment?.()) {
+              console.log('User dismissed the One Tap prompt');
+              isProcessingRef.current = false;
+            }
+          });
+        }
+      };
+
+      // Show prompt after a short delay to ensure everything is loaded
+      const promptTimer = setTimeout(showPrompt, 1000);
+
+      return () => {
+        clearTimeout(promptTimer);
+        if (document.body.contains(oneTapContainer)) {
+          document.body.removeChild(oneTapContainer);
+        }
+        isProcessingRef.current = false;
+      };
+    } catch (error) {
+      console.error('Failed to initialize Google One Tap:', error);
+      isProcessingRef.current = false;
+      if (document.body.contains(oneTapContainer)) {
+        document.body.removeChild(oneTapContainer);
       }
-    };
+    }
   }, [user, handleGoogleOneTapCallback]);
 
-  // Return a fixed positioned container for the one tap
+  // Initialize Google One Tap when component mounts and when user state changes
+  useEffect(() => {
+    initializeGoogleOneTap();
+    
+    // Cleanup function to handle component unmount
+    return () => {
+      isProcessingRef.current = false;
+    };
+  }, [initializeGoogleOneTap, user]);
+
+  // No need to render anything - Google One Tap will handle the UI
   return null;
 };
 
