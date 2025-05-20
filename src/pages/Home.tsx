@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, Filter, Zap, TrendingUp, Clock, Star, XCircle, AlertCircle, ArrowRight, ChevronLeft, ChevronRight, RefreshCw, Sparkles, Hammer } from 'lucide-react';
-import DeckPreview from '../components/ui/DeckPreview';
-import { Deck } from '../types';
-import { useAuth } from '../context/AuthContext';
-import { generateThemeSuggestions, generateElaborateTheme } from '../lib/gemini-ai';
+import { Link } from 'react-router-dom';
+import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw, Crown } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import TarotLogo from '../components/ui/TarotLogo';
+import { useAuth } from '../context/AuthContext';
+import { useSubscription } from '../context/SubscriptionContext';
+import { generateThemeSuggestions, generateElaborateTheme } from '../lib/gemini-ai';
 
 // Featured decks data
 const featuredDecks = [
@@ -76,8 +76,7 @@ const tarotCardImages = [
   'https://images.pexels.com/photos/1727684/pexels-photo-1727684.jpeg?auto=compress&cs=tinysrgb&w=1600', // Wheel of Fortune
 ];
 
-// Large pool of theme suggestions for lazy loading
-// const allThemeSuggestions = [ ... ];
+import { generateElaborateTheme } from '../lib/gemini-ai';
 
 // Generate theme suggestions using Gemini AI
 const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
@@ -108,7 +107,7 @@ const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
     return allSuggestions.slice(0, 10);
     
   } catch (error) {
-    console.error('Error generating theme suggestions:', error);
+    console.warn('Error generating theme suggestions:', error);
     // Fallback to default suggestions if there's an error
     return [
       "Celestial Voyage", "Ancient Mythology", "Enchanted Forest", 
@@ -123,6 +122,7 @@ const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, setShowSignInModal } = useAuth();
+  const { isSubscribed } = useSubscription();
   const [themePrompt, setThemePrompt] = useState("");
   const [themeSuggestions, setThemeSuggestions] = useState<string[]>([]);
   const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
@@ -213,7 +213,7 @@ const Home = () => {
     if (themeSuggestions.length < 50) {
       try {
         const newThemes = await generateThemeSuggestions(5);
-        if (newThemes && newThemes.length > 0) {
+        if (newThemes.length > 0) {
           setThemeSuggestions(prev => {
             const updated = [...prev, ...newThemes];
             return updated.slice(0, 50);
@@ -228,7 +228,7 @@ const Home = () => {
   
   const handleThemeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (themePrompt.trim() && !isGeneratingElaboration) {
+    if (themePrompt.trim()) {
       // Check if user is authenticated
       if (!user) {
         // Store deck creation intent in localStorage
@@ -238,8 +238,13 @@ const Home = () => {
         return;
       }
       
-      // User is already authenticated, proceed immediately to deck creation
-      // Skip the manual form input step and auto-generate deck details from the prompt
+      // If user is authenticated but not subscribed, redirect to subscription page
+      if (!isSubscribed) {
+        navigate('/subscription', { state: { fromDeckCreation: true } });
+        return;
+      }
+      
+      // User is authenticated and subscribed, proceed to deck creation
       navigate('/create-deck', { 
         state: { 
           initialTheme: themePrompt, 
@@ -252,12 +257,12 @@ const Home = () => {
   };
 
   const selectSuggestion = async (suggestion: string) => {
-    // First set the basic suggestion and indicate loading
+    // First set the basic suggestion
     setThemePrompt(suggestion);
-    setIsGeneratingElaboration(true);
     
+    // Then generate and append an elaboration
     try {
-      // Then generate and append an elaboration
+      setIsGeneratingElaboration(true);
       const elaboration = await generateElaborateTheme(suggestion);
       setThemePrompt(`${suggestion}: ${elaboration}`);
     } catch (error) {
@@ -296,54 +301,6 @@ const Home = () => {
     }
   };
   
-  // Memoize the floating tarot card elements
-  const floatingCards = useMemo(() => {
-    return tarotCardImages.map((imageUrl, index) => (
-      <motion.div
-        key={`tarot-card-${index}`}
-        className="absolute hidden sm:block"
-        initial={{ 
-          x: -100 + Math.random() * 200, 
-          y: -100 + Math.random() * 200,
-          opacity: 0.1 + Math.random() * 0.3,
-          rotate: -20 + Math.random() * 40,
-          scale: 0.4 + Math.random() * 0.3
-        }}
-        animate={{ 
-          y: [0, 10, -10, 0], 
-          rotate: [-5 + Math.random() * 10, 5 + Math.random() * 10],
-          transition: { 
-            y: { 
-              repeat: Infinity, 
-              duration: 5 + Math.random() * 5, 
-              ease: "easeInOut" 
-            },
-            rotate: { 
-              repeat: Infinity, 
-              duration: 10 + Math.random() * 5, 
-              ease: "easeInOut",
-              repeatType: "reverse"
-            }
-          }
-        }}
-        style={{ 
-          left: `${10 + Math.random() * 80}%`, 
-          top: `${10 + Math.random() * 80}%`,
-          zIndex: -1
-        }}
-      >
-        <div className="relative aspect-[2/3] w-32 md:w-48 rounded-lg shadow-lg overflow-hidden transform">
-          <img 
-            src={imageUrl} 
-            alt="Tarot card" 
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-background/30 backdrop-blur-sm"></div>
-        </div>
-      </motion.div>
-    ));
-  }, []); // Empty dependency array since tarotCardImages is static
-
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
@@ -360,7 +317,50 @@ const Home = () => {
         </div>
         
         {/* Floating Tarot Cards in Background - Memoized */}
-        {floatingCards}
+        {useMemo(() => tarotCardImages.map((imageUrl, index) => (
+          <motion.div
+            key={`tarot-card-${index}`}
+            className="absolute hidden sm:block"
+            initial={{ 
+              x: -100 + Math.random() * 200, 
+              y: -100 + Math.random() * 200,
+              opacity: 0.1 + Math.random() * 0.3,
+              rotate: -20 + Math.random() * 40,
+              scale: 0.4 + Math.random() * 0.3
+            }}
+            animate={{ 
+              y: [0, 10, -10, 0], 
+              rotate: [-5 + Math.random() * 10, 5 + Math.random() * 10],
+              transition: { 
+                y: { 
+                  repeat: Infinity, 
+                  duration: 5 + Math.random() * 5, 
+                  ease: "easeInOut" 
+                },
+                rotate: { 
+                  repeat: Infinity, 
+                  duration: 10 + Math.random() * 5, 
+                  ease: "easeInOut",
+                  repeatType: "reverse"
+                }
+              }
+            }}
+            style={{ 
+              left: `${10 + Math.random() * 80}%`, 
+              top: `${10 + Math.random() * 80}%`,
+              zIndex: -1
+            }}
+          >
+            <div className="relative aspect-[2/3] w-32 md:w-48 rounded-lg shadow-lg overflow-hidden transform">
+              <img 
+                src={imageUrl} 
+                alt="Tarot card" 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-background/30 backdrop-blur-sm"></div>
+            </div>
+          </motion.div>
+        )), [tarotCardImages])}
         
         {/* Main Heading */}
         <motion.div
@@ -387,6 +387,23 @@ const Home = () => {
                 Create Your Tarot Deck Now
               </h4>
               
+              {!isSubscribed && (
+                <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                  <div className="flex items-start">
+                    <Crown className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <div className="ml-2">
+                      <p className="text-sm font-medium">Premium Feature</p>
+                      <p className="text-xs text-muted-foreground">
+                        Creating custom decks requires a Premium subscription. 
+                        <Link to="/subscription" className="text-primary hover:underline ml-1">
+                          Upgrade now
+                        </Link>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <form onSubmit={handleThemeSubmit}>
                 <div className="mb-5">
                   <textarea
@@ -394,10 +411,7 @@ const Home = () => {
                     value={themePrompt}
                     onChange={(e) => setThemePrompt(e.target.value)}
                     placeholder="Describe your deck's theme or concept (e.g., Cosmic journey through ancient mythology...)"
-                    className={`w-full p-3 rounded-lg bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px] resize-none ${
-                      isGeneratingElaboration ? 'opacity-70 cursor-wait' : ''
-                    }`}
-                    disabled={isGeneratingElaboration}
+                    className="w-full p-3 rounded-lg bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px] resize-none"
                   />
                 </div>
                 
@@ -407,7 +421,7 @@ const Home = () => {
                     <button
                       type="button"
                       onClick={handleGenerateThemes}
-                      disabled={isGeneratingThemes || isGeneratingElaboration}
+                      disabled={isGeneratingThemes}
                       className="text-xs flex items-center text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
                     >
                       {isGeneratingThemes ? (
@@ -459,16 +473,9 @@ const Home = () => {
                           className={`whitespace-nowrap text-sm px-3 py-1.5 rounded-full 
                                     bg-primary/10 hover:bg-primary/20 text-primary transition-colors
                                     border border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/40
-                                    ${isGeneratingElaboration ? 'opacity-70 cursor-wait' : ''}`}
+                                    ${isGeneratingElaboration ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
-                          {isGeneratingElaboration ? (
-                            <span className="flex items-center">
-                              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                              {suggestion}
-                            </span>
-                          ) : (
-                            suggestion
-                          )}
+                          {isGeneratingElaboration ? '...' : suggestion}
                         </button>
                       ))}
                     </div>
@@ -489,18 +496,18 @@ const Home = () => {
                 
                 <button
                   type="submit"
-                  disabled={!themePrompt.trim() || isGeneratingElaboration}
-                  className="w-full btn btn-primary py-3 disabled:opacity-70 relative"
+                  disabled={!themePrompt.trim()}
+                  className={`w-full btn ${!isSubscribed ? 'btn-secondary' : 'btn-primary'} py-3 disabled:opacity-70 flex items-center justify-center`}
                 >
-                  {isGeneratingElaboration ? (
-                    <span className="flex items-center justify-center">
-                      <span className="h-5 w-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
-                      Generating Theme Description...
-                    </span>
+                  {!isSubscribed ? (
+                    <>
+                      <Crown className="mr-2 h-4 w-4" />
+                      Upgrade to Create Decks
+                    </>
                   ) : (
                     <>
                       Forge a Deck
-                      <Hammer className="ml-2 h-4 w-4"></Hammer>
+                      <Hammer className="ml-2 h-4 w-4" />
                     </>
                   )}
                 </button>
@@ -513,20 +520,7 @@ const Home = () => {
                 to="/marketplace" 
                 className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-4 w-4 mr-2"
-                >
-                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <path d="M16 10a4 4 0 0 1-8 0" />
-                </svg>
+                <ShoppingBag className="h-4 w-4 mr-2" />
                 Browse Marketplace
               </Link>
               {user ? (
@@ -534,18 +528,7 @@ const Home = () => {
                   to="/reading-room" 
                   className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-4 w-4 mr-2"
-                  >
-                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                  </svg>
+                  <BookOpen className="h-4 w-4 mr-2" />
                   Try Free Reading
                 </Link>
               ) : (
@@ -553,18 +536,7 @@ const Home = () => {
                   onClick={() => setShowSignInModal(true)}
                   className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-4 w-4 mr-2"
-                  >
-                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                  </svg>
+                  <BookOpen className="h-4 w-4 mr-2" />
                   Try Free Reading
                 </button>
               )}
@@ -601,26 +573,7 @@ const Home = () => {
               <div className="flex md:flex-col h-full">
                 <div className="mb-6 md:mb-auto">
                   <div className="p-3 bg-primary/10 rounded-xl w-fit mb-5">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-8 w-8 text-primary"
-                    >
-                      <path d="M15 4V2" />
-                      <path d="M15 16v-2" />
-                      <path d="M8 9h2" />
-                      <path d="M20 9h2" />
-                      <path d="M17.8 11.8 19 13" />
-                      <path d="M15 9h0" />
-                      <path d="M17.8 6.2 19 5" />
-                      <path d="m3 21 9-9" />
-                      <path d="M12.2 6.2 11 5" />
-                    </svg>
+                    <Wand2 className="h-8 w-8 text-primary" />
                   </div>
                   
                   <h3 className="text-2xl font-serif font-medium mb-2">AI Deck Creation</h3>
@@ -641,14 +594,28 @@ const Home = () => {
                       <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
                       <span>AI-generated descriptions</span>
                     </li>
+                    {isSubscribed ? (
+                      <li className="flex items-center">
+                        <span className="h-5 w-5 rounded-full bg-success/20 flex items-center justify-center text-success mr-2">✓</span>
+                        <span className="text-success">Premium Access Enabled</span>
+                      </li>
+                    ) : (
+                      <li className="flex items-center">
+                        <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">
+                          <Crown className="h-3 w-3" />
+                        </span>
+                        <span>Premium feature</span>
+                      </li>
+                    )}
                   </ul>
                 </div>
                 
                 <Link 
-                  to="/create" 
+                  to={isSubscribed ? "/create-deck" : "/subscription"} 
                   className="mt-auto inline-flex items-center text-primary hover:underline group-hover:translate-x-1 transition-transform"
                 >
-                  Forge Your Deck <ArrowRight className="ml-1 h-4 w-4" />
+                  {isSubscribed ? 'Forge Your Deck' : 'Upgrade to Premium'}
+                  <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
               </div>
             </motion.div>
@@ -662,20 +629,7 @@ const Home = () => {
               className="col-span-1 md:col-span-3 bg-accent/5 border border-accent/20 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-accent/40 transition-all p-6"
             >
               <div className="p-3 bg-accent/10 rounded-xl w-fit mb-4">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-6 w-6 text-accent"
-                >
-                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <path d="M16 10a4 4 0 0 1-8 0" />
-                </svg>
+                <ShoppingBag className="h-6 w-6 text-accent" />
               </div>
               
               <h3 className="text-xl font-serif font-medium mb-2">Deck Marketplace</h3>
@@ -700,18 +654,7 @@ const Home = () => {
               className="col-span-1 md:col-span-2 bg-card/90 border border-border rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition-all p-6"
             >
               <div className="p-3 bg-teal/10 rounded-xl w-fit mb-4">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-6 w-6 text-teal"
-                >
-                  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                </svg>
+                <BookOpen className="h-6 w-6 text-teal" />
               </div>
               
               <h3 className="text-xl font-serif font-medium mb-2">AI Reading Assistant</h3>
@@ -736,19 +679,7 @@ const Home = () => {
               className="col-span-1 md:col-span-4 bg-primary/5 border border-primary/20 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary/40 transition-all p-6"
             >
               <div className="p-3 bg-primary/10 rounded-xl w-fit mb-4">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-6 w-6 text-primary"
-                >
-                  <polygon points="23 7 16 12 23 17 23 7" />
-                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                </svg>
+                <Video className="h-6 w-6 text-primary" />
               </div>
               
               <h3 className="text-xl font-serif font-medium mb-2">Live Reading Sessions</h3>
@@ -796,32 +727,22 @@ const Home = () => {
                 1
               </div>
               
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-10 w-10 text-primary mb-6"
-              >
-                <path d="M15 4V2" />
-                <path d="M15 16v-2" />
-                <path d="M8 9h2" />
-                <path d="M20 9h2" />
-                <path d="M17.8 11.8 19 13" />
-                <path d="M15 9h0" />
-                <path d="M17.8 6.2 19 5" />
-                <path d="m3 21 9-9" />
-                <path d="M12.2 6.2 11 5" />
-              </svg>
+              <Wand2 className="h-10 w-10 text-primary mb-6" />
               <h3 className="text-xl font-serif font-medium mb-3 group-hover:text-primary transition-colors">Create Your Vision</h3>
               <p className="text-muted-foreground">
                 Describe your theme and style, then watch as AI generates custom tarot artwork based on your specifications.
               </p>
               
               <div className="absolute bottom-0 right-0 w-20 h-20 bg-primary/5 rounded-tl-3xl -z-10"></div>
+              
+              {!isSubscribed && (
+                <div className="mt-4 pt-4 border-t border-primary/20">
+                  <div className="flex items-center text-sm text-primary">
+                    <Crown className="h-4 w-4 mr-1" />
+                    <span>Premium feature</span>
+                  </div>
+                </div>
+              )}
             </motion.div>
             
             {/* Step 2 */}
@@ -836,20 +757,7 @@ const Home = () => {
                 2
               </div>
               
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-10 w-10 text-accent mb-6"
-              >
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <path d="M16 10a4 4 0 0 1-8 0" />
-              </svg>
+              <ShoppingBag className="h-10 w-10 text-accent mb-6" />
               <h3 className="text-xl font-serif font-medium mb-3 group-hover:text-accent transition-colors">Build Collection</h3>
               <p className="text-muted-foreground">
                 Grow your personal collection by creating your own decks or purchasing unique designs from other creators.
@@ -870,19 +778,7 @@ const Home = () => {
                 3
               </div>
               
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-10 w-10 text-teal mb-6"
-              >
-                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-              </svg>
+              <BookOpen className="h-10 w-10 text-teal mb-6" />
               <h3 className="text-xl font-serif font-medium mb-3 group-hover:text-teal transition-colors">Experience Readings</h3>
               <p className="text-muted-foreground">
                 Use your decks for personal readings with AI interpretation or connect with others for live video readings.
@@ -919,20 +815,7 @@ const Home = () => {
                 to="/marketplace" 
                 className="px-4 py-2 rounded-lg border border-accent text-accent hover:bg-accent/10 transition-colors flex items-center"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="mr-2 h-4 w-4"
-                >
-                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <path d="M16 10a4 4 0 0 1-8 0" />
-                </svg>
+                <ShoppingBag className="mr-2 h-4 w-4" />
                 Explore All Decks
               </Link>
             </motion.div>
@@ -1001,19 +884,7 @@ const Home = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
                           <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="h-3 w-3"
-                            >
-                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                              <circle cx="12" cy="7" r="4"></circle>
-                            </svg>
+                            <Users className="h-3 w-3" />
                           </div>
                           <span className="text-xs ml-2 text-muted-foreground">
                             By {deck.creator_name}
@@ -1047,7 +918,7 @@ const Home = () => {
             </p>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-4 md:gap-6">
             {/* Large testimonial */}
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -1171,19 +1042,7 @@ const Home = () => {
               transition={{ duration: 0.5 }}
               className="bg-card border border-border rounded-2xl p-6 text-center group hover:border-primary/30 transition-all"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-10 w-10 mx-auto text-primary mb-4 group-hover:scale-110 transition-transform"
-              >
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                <circle cx="12" cy="13" r="4"></circle>
-              </svg>
+              <Camera className="h-10 w-10 mx-auto text-primary mb-4 group-hover:scale-110 transition-transform" />
               <h3 className="text-3xl font-bold mb-2">10K+</h3>
               <p className="text-muted-foreground">Unique Decks</p>
             </motion.div>
@@ -1195,20 +1054,7 @@ const Home = () => {
               transition={{ duration: 0.5, delay: 0.1 }}
               className="bg-card border border-border rounded-2xl p-6 text-center group hover:border-accent/30 transition-all"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-10 w-10 mx-auto text-accent mb-4 group-hover:scale-110 transition-transform"
-              >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
+              <Download className="h-10 w-10 mx-auto text-accent mb-4 group-hover:scale-110 transition-transform" />
               <h3 className="text-3xl font-bold mb-2">250K+</h3>
               <p className="text-muted-foreground">Downloads</p>
             </motion.div>
@@ -1220,21 +1066,7 @@ const Home = () => {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="bg-card border border-border rounded-2xl p-6 text-center group hover:border-teal/30 transition-all"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-10 w-10 mx-auto text-teal mb-4 group-hover:scale-110 transition-transform"
-              >
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                <circle cx="9" cy="7" r="4"></circle>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-              </svg>
+              <Users className="h-10 w-10 mx-auto text-teal mb-4 group-hover:scale-110 transition-transform" />
               <h3 className="text-3xl font-bold mb-2">50K+</h3>
               <p className="text-muted-foreground">Active Users</p>
             </motion.div>
@@ -1246,18 +1078,7 @@ const Home = () => {
               transition={{ duration: 0.5, delay: 0.3 }}
               className="bg-card border border-border rounded-2xl p-6 text-center group hover:border-success/30 transition-all"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-10 w-10 mx-auto text-success mb-4 group-hover:scale-110 transition-transform"
-              >
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-              </svg>
+              <Shield className="h-10 w-10 mx-auto text-success mb-4 group-hover:scale-110 transition-transform" />
               <h3 className="text-3xl font-bold mb-2">100%</h3>
               <p className="text-muted-foreground">Secure Platform</p>
             </motion.div>
@@ -1265,7 +1086,7 @@ const Home = () => {
         </div>
       </section>
       
-      {/* Bento-style CTA Section */}
+      {/* Subscription CTA Section */}
       <section className="py-24 px-4">
         <div className="container mx-auto max-w-5xl">
           <motion.div 
@@ -1279,35 +1100,23 @@ const Home = () => {
               {/* CTA Text Area */}
               <div className="p-8 md:p-12 md:col-span-3 flex flex-col justify-center">
                 <div className="p-3 bg-white/20 rounded-xl w-fit mb-6">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-8 w-8 text-white"
-                  >
-                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
-                    <path d="M19 6.3a9 9 0 0 1 1.8 3.8"></path>
-                  </svg>
+                  <Crown className="h-8 w-8 text-white" />
                 </div>
                 
                 <h2 className="text-3xl md:text-4xl font-serif font-bold mb-6 text-white">
-                  Begin Your Mystical Journey
+                  Unlock Premium Features
                 </h2>
                 <p className="text-xl mb-8 text-white/90">
-                  Join our growing community of creators, readers, and collectors exploring the infinite 
-                  possibilities of AI-generated tarot.
+                  Subscribe to our premium plan to create unlimited custom decks, access exclusive premium content, and elevate your tarot experience.
                 </p>
                 
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Link 
-                    to="/signup" 
+                    to="/subscription" 
                     className="btn bg-white text-primary px-6 py-3 rounded-lg font-medium text-lg hover:bg-white/90 transition-colors flex items-center justify-center"
                   >
-                    Create Free Account
+                    <Crown className="mr-2 h-5 w-5" />
+                    Get Premium
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                   <Link 
@@ -1330,19 +1139,7 @@ const Home = () => {
                 <div className="absolute inset-0 backdrop-blur-[2px]"></div>
                 
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-32 w-32 text-white/80"
-                  >
-                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
-                    <path d="M19 6.3a9 9 0 0 1 1.8 3.8"></path>
-                  </svg>
+                  <Sparkles className="h-32 w-32 text-white/80" />
                 </div>
               </div>
             </div>

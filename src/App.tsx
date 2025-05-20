@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext';
 import Layout from './components/layout/Layout';
 import LoadingScreen from './components/ui/LoadingScreen';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import ProtectedSubscriptionRoute from './components/auth/ProtectedSubscriptionRoute';
 import ErrorBoundary from './components/error/ErrorBoundary';
 import * as Sentry from "@sentry/react";
 
@@ -129,10 +130,14 @@ function App() {
               <Route path="collection" element={<Collection />} />
               <Route path="profile" element={<Profile />} />
               <Route path="checkout/:deckId" element={<Checkout />} />
-              <Route path="create-deck" element={<DeckCreator />} />
               <Route path="become-reader" element={<BecomeReader />} />
               <Route path="tarot-quiz" element={<TarotQuiz />} />
               <Route path="reader-dashboard" element={<ReaderDashboard />} />
+            </Route>
+            
+            {/* Routes that require subscription */}
+            <Route element={<ProtectedSubscriptionRoute />}>
+              <Route path="create-deck" element={<DeckCreator />} />
             </Route>
           </Route>
         </Routes>
