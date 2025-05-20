@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import LoadingScreen from '../../components/ui/LoadingScreen';
 import { useAuth } from '../../context/AuthContext';
@@ -10,6 +10,7 @@ const AuthCallback = () => {
   const { checkAuth, handleGoogleRedirect } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [processingStep, setProcessingStep] = useState<string>('Initializing authentication...');
+  const [searchParams] = useSearchParams();
   
   // Handle auth callback
   useEffect(() => {
@@ -18,11 +19,50 @@ const AuthCallback = () => {
         console.log('Auth callback triggered');
         setProcessingStep('Processing authentication...');
         
-        if (window.location.hash || window.location.search) {
+        // Log the current URL for debugging
+        console.log('Current URL:', window.location.href);
+        
+        // Check for hash or search params
+        const hasHashParams = window.location.hash.length > 1;
+        const hasSearchParams = searchParams.toString().length > 0;
+        
+        if (hasHashParams || hasSearchParams) {
           try {
             // Process authentication callback data
-            if (window.location.search && window.location.search.includes('code=')) {
-              console.log('Processing code exchange from query parameters');
+            if (hasSearchParams) {
+              console.log('Processing query parameters');
+              
+              // Check for access_token in the hash (might be fragment or query)
+              if (window.location.hash && window.location.hash.includes('access_token=')) {
+                console.log('Found access_token in hash fragment');
+                // This is typically an implicit flow token in the URL fragment
+                await checkAuth();
+              } 
+              // Check for code parameter (authorization code flow)
+              else if (searchParams.get('code')) {
+                console.log('Processing code exchange from query parameters');
+                
+                // Let Supabase exchange the code
+                const { data, error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+                
+                if (error) {
+                  console.error('Error exchanging code for session:', error);
+                  throw error;
+                }
+                
+                if (data?.session) {
+                  console.log('Successfully exchanged code for session');
+                  await checkAuth();
+                }
+              } 
+              // Check for other auth parameters
+              else {
+                console.log('Processing redirect without code parameter');
+                await handleGoogleRedirect();
+              }
+            } 
+            else if (hasHashParams) {
+              console.log('Processing hash parameters');
               await handleGoogleRedirect();
             }
             
@@ -94,7 +134,7 @@ const AuthCallback = () => {
     };
     
     handleAuthCallback();
-  }, [navigate, checkAuth, handleGoogleRedirect]);
+  }, [navigate, checkAuth, handleGoogleRedirect, searchParams]);
   
   if (error) {
     return (
