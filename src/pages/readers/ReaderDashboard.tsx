@@ -258,6 +258,12 @@ const ReaderDashboard: React.FC = () => {
     }
   };
   
+  // Handle rate slider change
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    setCurrentRate(value);
+  };
+  
   // Handle free reading toggle
   const handleFreeReadingToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
     setIsFreeReading(e.target.checked);
@@ -411,11 +417,33 @@ const ReaderDashboard: React.FC = () => {
                   </div>
                   
                   {!isFreeReading && (
-                    <div className="space-y-2">
-                      <label htmlFor="rateInput" className="block text-sm font-medium">
-                        Rate per minute <span className="text-xs text-muted-foreground">(Max: ${maxRate.toFixed(2)})</span>
-                      </label>
-                      <div className="flex">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <label htmlFor="rateSlider" className="block text-sm font-medium">
+                            Rate per minute <span className="text-xs text-muted-foreground">(Max: ${maxRate.toFixed(2)})</span>
+                          </label>
+                          <span className="text-sm font-medium">${currentRate.toFixed(2)}</span>
+                        </div>
+                        
+                        <input
+                          type="range"
+                          id="rateSlider"
+                          min="0.01"
+                          max={maxRate}
+                          step="0.01"
+                          value={currentRate}
+                          onChange={handleSliderChange}
+                          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+                        />
+                        
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>$0.01</span>
+                          <span>${maxRate.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center">
                         <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted/50">$</span>
                         <input
                           type="number"
@@ -428,6 +456,7 @@ const ReaderDashboard: React.FC = () => {
                           className="flex-1 rounded-r-md border border-input p-2 focus:outline-none focus:ring-2 focus:ring-primary"
                         />
                       </div>
+                      
                       <p className="text-xs text-muted-foreground">
                         Your rate cannot exceed the maximum for your current level ({readerLevel?.name}: ${maxRate.toFixed(2)}/min).
                       </p>
