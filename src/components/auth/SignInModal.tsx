@@ -119,7 +119,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
             </div>
           ) : (
             <>
-              {/* Traditional Google Sign In Button - Fallback authentication method */}
+              {/* Google Sign In Button */}
               <button
                 onClick={handleGoogleSignIn}
                 disabled={isGoogleLoading}

@@ -15,22 +15,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-    
-    <!-- Google One Tap script -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body class="bg-background text-foreground antialiased">
     <div id="root"></div>
-    <!-- Container for Google One Tap -->
-    <div id="g_id_onload" 
-      data-client_id="" 
-      data-context="signin" 
-      data-ux_mode="popup" 
-      data-login_uri="" 
-      data-auto_prompt="false" 
-      data-itp_support="true"
-      style="position: fixed; top: 10px; right: 10px; z-index: 9999; display: none;">
-    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

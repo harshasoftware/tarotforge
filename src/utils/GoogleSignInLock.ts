@@ -1,7 +1,6 @@
 /**
  * GoogleSignInLock: A singleton to manage Google Sign-In API access
- * Prevents multiple components from initializing the API simultaneously,
- * which causes the "Only one navigator.credentials.get request may be outstanding at one time" error
+ * Prevents multiple components from initializing the API simultaneously
  * 
  * Features:
  * - Queuing system for pending requests

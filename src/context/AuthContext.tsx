@@ -47,7 +47,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const lastCheckTimeRef = useRef(0);
   const authCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const nonceRef = useRef<string>('');
-  const isProcessingGoogleOneTapRef = useRef(false);
   const authStateDeterminedRef = useRef(false);
 
   const checkAuth = useCallback(async () => {
