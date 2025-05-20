@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, Filter, Zap, TrendingUp, Clock, Star, XCircle, AlertCircle, ArrowRight, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { Search, Filter, Zap, TrendingUp, Clock, Star, XCircle, AlertCircle, ArrowRight, ChevronLeft, ChevronRight, RefreshCw, Sparkles } from 'lucide-react';
 import DeckPreview from '../components/ui/DeckPreview';
 import { Deck } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -78,8 +78,6 @@ const tarotCardImages = [
 
 // Large pool of theme suggestions for lazy loading
 // const allThemeSuggestions = [ ... ];
-
-import { generateElaborateTheme } from '../lib/gemini-ai';
 
 // Generate theme suggestions using Gemini AI
 const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
