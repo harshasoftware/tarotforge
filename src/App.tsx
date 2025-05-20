@@ -4,9 +4,18 @@ import { useAuth } from './context/AuthContext';
 import Layout from './components/layout/Layout';
 import LoadingScreen from './components/ui/LoadingScreen';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import ErrorBoundary from './components/error/ErrorBoundary';
+import * as Sentry from "@sentry/react";
+
+// Initialize Sentry
+Sentry.init({
+  dsn: "https://9c3c4747996da8b597048265023ff2f0@o4509354423156736.ingest.us.sentry.io/4509354424860677",
+  sendDefaultPii: true,
+  environment: import.meta.env.MODE,
+});
 
 // Lazy loaded auth components
-const GoogleOneSignIn = lazy(() => import('./components/auth/GoogleOneSignIn'));
+const GoogleOneTap = lazy(() => import('./components/auth/GoogleOneTap'));
 
 // Lazy loaded components
 const Home = lazy(() => import('./pages/Home'));
@@ -27,6 +36,42 @@ const BecomeReader = lazy(() => import('./pages/readers/BecomeReader'));
 const TarotQuiz = lazy(() => import('./pages/readers/TarotQuiz'));
 const ReaderDashboard = lazy(() => import('./pages/readers/ReaderDashboard'));
 const CertificateShare = lazy(() => import('./components/readers/CertificateShare'));
+
+// Custom error fallback for GoogleOneTap
+const GoogleOneTapErrorFallback = () => (
+  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+    <h2 className="text-lg font-semibold text-yellow-800 mb-2">
+      Google Sign-In Unavailable
+    </h2>
+    <p className="text-yellow-600 mb-4">
+      We're having trouble loading Google Sign-In. Please try refreshing the page or use the manual sign-in option.
+    </p>
+  </div>
+);
+
+// Wrap the app with Sentry's error boundary
+const SentryErrorBoundary = Sentry.withErrorBoundary(ErrorBoundary, {
+  fallback: ({ error, componentStack, resetError }: { 
+    error: Error | null; 
+    componentStack: string; 
+    resetError: () => void; 
+  }) => (
+    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+      <h2 className="text-lg font-semibold text-red-800 mb-2">
+        Something went wrong
+      </h2>
+      <p className="text-red-600 mb-4">
+        {error?.message || 'An unexpected error occurred'}
+      </p>
+      <button
+        onClick={resetError}
+        className="px-4 py-2 bg-red-100 text-red-800 rounded hover:bg-red-200 transition-colors"
+      >
+        Try again
+      </button>
+    </div>
+  ),
+});
 
 function App() {
   const { checkAuth, loading, user } = useAuth();
@@ -69,44 +114,59 @@ function App() {
   }, [location.pathname]);
 
   return (
-    <Suspense fallback={<LoadingScreen />}>
-      {/* Initialize Google Sign-In with lock management */}
-      {!user && (
-        <Suspense fallback={null}>
-          <GoogleOneSignIn autoInit={true} />
-        </Suspense>
-      )}
-      
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="login" element={<Login />} />
-          <Route path="signup" element={<Signup />} />
-          <Route path="marketplace" element={<Marketplace />} />
-          <Route path="marketplace/:deckId" element={<DeckDetails />} />
-          <Route path="readers" element={<ReadersPage />} />
-          
-          {/* Certificate sharing route (public) */}
-          <Route path="certificate/:certificateId" element={<CertificateShare />} />
-          
-          {/* Authentication callback route */}
-          <Route path="auth/callback" element={<AuthCallback />} />
-          
-          {/* Make reading room directly accessible */}
-          <Route path="reading-room/:deckId?" element={<ReadingRoom />} />
-          
-          <Route element={<ProtectedRoute />}>
-            <Route path="collection" element={<Collection />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path="checkout/:deckId" element={<Checkout />} />
-            <Route path="create-deck" element={<DeckCreator />} />
-            <Route path="become-reader" element={<BecomeReader />} />
-            <Route path="tarot-quiz" element={<TarotQuiz />} />
-            <Route path="reader-dashboard" element={<ReaderDashboard />} />
+    <SentryErrorBoundary>
+      <Suspense fallback={<LoadingScreen />}>
+        {/* Initialize Google Sign-In with lock management */}
+        {!user && (
+          <ErrorBoundary 
+            fallback={<GoogleOneTapErrorFallback />}
+            onError={(error) => {
+              console.error('GoogleOneTap error:', error);
+              Sentry.captureException(error, {
+                tags: {
+                  component: 'GoogleOneTap',
+                  errorType: 'initialization'
+                }
+              });
+            }}
+          >
+            <Suspense fallback={null}>
+              <GoogleOneTap autoInit={true} />
+            </Suspense>
+          </ErrorBoundary>
+        )}
+        
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="login" element={<Login />} />
+            <Route path="signup" element={<Signup />} />
+            <Route path="marketplace" element={<Marketplace />} />
+            <Route path="marketplace/:deckId" element={<DeckDetails />} />
+            <Route path="readers" element={<ReadersPage />} />
+            
+            {/* Certificate sharing route (public) */}
+            <Route path="certificate/:certificateId" element={<CertificateShare />} />
+            
+            {/* Authentication callback route */}
+            <Route path="auth/callback" element={<AuthCallback />} />
+            
+            {/* Make reading room directly accessible */}
+            <Route path="reading-room/:deckId?" element={<ReadingRoom />} />
+            
+            <Route element={<ProtectedRoute />}>
+              <Route path="collection" element={<Collection />} />
+              <Route path="profile" element={<Profile />} />
+              <Route path="checkout/:deckId" element={<Checkout />} />
+              <Route path="create-deck" element={<DeckCreator />} />
+              <Route path="become-reader" element={<BecomeReader />} />
+              <Route path="tarot-quiz" element={<TarotQuiz />} />
+              <Route path="reader-dashboard" element={<ReaderDashboard />} />
+            </Route>
           </Route>
-        </Route>
-      </Routes>
-    </Suspense>
+        </Routes>
+      </Suspense>
+    </SentryErrorBoundary>
   );
 }
 

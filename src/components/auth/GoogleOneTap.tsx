@@ -1,6 +1,13 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import GoogleSignInLock from '../../utils/GoogleSignInLock';
+import { 
+  GoogleSignInErrorType, 
+  trackError, 
+  isRetryableError, 
+  getRetryDelay,
+  getUserFriendlyMessage 
+} from '../../utils/errorTracking';
 
 /**
  * Google One Tap Sign-In Component
@@ -209,8 +216,11 @@ const GoogleOneTap: React.FC<GoogleOneTapProps> = ({
 
     return new Promise<void>((resolve, reject) => {
       if (scriptLoadAttempts >= MAX_SCRIPT_LOAD_ATTEMPTS) {
-        const error = new Error(ERROR_MESSAGES.SCRIPT_LOAD_FAILED);
-        console.error('[GoogleOneTap] Max script load attempts reached:', error);
+        const error = new Error('Max script load attempts reached');
+        trackError(error, GoogleSignInErrorType.SCRIPT_LOAD_FAILED, {
+          attempts: scriptLoadAttempts,
+          maxAttempts: MAX_SCRIPT_LOAD_ATTEMPTS
+        });
         reject(error);
         return;
       }
@@ -232,8 +242,12 @@ const GoogleOneTap: React.FC<GoogleOneTapProps> = ({
       script.onerror = (scriptError) => {
         console.error('[GoogleOneTap] Script load error:', scriptError);
         isGoogleScriptLoading = false;
-        const loadError = new Error(ERROR_MESSAGES.SCRIPT_LOAD_FAILED);
-        setError(loadError.message);
+        const loadError = new Error('Script load failed');
+        trackError(loadError, GoogleSignInErrorType.SCRIPT_LOAD_FAILED, {
+          attempt: scriptLoadAttempts,
+          error: scriptError
+        });
+        setError(getUserFriendlyMessage(GoogleSignInErrorType.SCRIPT_LOAD_FAILED));
         reject(loadError);
       };
       
@@ -245,7 +259,11 @@ const GoogleOneTap: React.FC<GoogleOneTapProps> = ({
           console.warn('[GoogleOneTap] Script load timeout');
           isGoogleScriptLoading = false;
           const error = new Error('Script load timeout');
-          setError(ERROR_MESSAGES.SCRIPT_LOAD_FAILED);
+          trackError(error, GoogleSignInErrorType.SCRIPT_LOAD_FAILED, {
+            attempt: scriptLoadAttempts,
+            timeout: SCRIPT_LOAD_TIMEOUT
+          });
+          setError(getUserFriendlyMessage(GoogleSignInErrorType.SCRIPT_LOAD_FAILED));
           reject(error);
         }
       }, SCRIPT_LOAD_TIMEOUT);
@@ -259,8 +277,11 @@ const GoogleOneTap: React.FC<GoogleOneTapProps> = ({
     // Validate Google client ID
     const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     if (!googleClientId?.trim()) {
-      console.error('[GoogleOneTap] Initialization failed: Missing Google Client ID');
-      setError(ERROR_MESSAGES.INIT_FAILED);
+      const error = new Error('Missing Google Client ID');
+      trackError(error, GoogleSignInErrorType.INITIALIZATION_FAILED, {
+        hasClientId: !!googleClientId
+      });
+      setError(getUserFriendlyMessage(GoogleSignInErrorType.INITIALIZATION_FAILED));
       return;
     }
 
@@ -284,17 +305,25 @@ const GoogleOneTap: React.FC<GoogleOneTapProps> = ({
     console.log('[GoogleOneTap] Attempting to acquire lock...');
     // Use the queuing lock mechanism
     const lockAcquired = await GoogleSignInLock.acquireLockWithQueue(COMPONENT_ID, {
-      timeoutMs: 15000, // 15 seconds to acquire lock
-      priority: 1, // Higher priority than other components
+      timeoutMs: 15000,
+      priority: 1,
     });
 
     if (!lockAcquired) {
       console.log('[GoogleOneTap] Unable to acquire lock, will retry...');
-      timeoutsRef.current.push(
-        window.setTimeout(() => {
-          initializeGoogleOneTap();
-        }, 1000)
-      );
+      const error = new Error('Lock acquisition failed');
+      trackError(error, GoogleSignInErrorType.LOCK_ACQUISITION_FAILED, {
+        componentId: COMPONENT_ID
+      });
+      setError(getUserFriendlyMessage(GoogleSignInErrorType.LOCK_ACQUISITION_FAILED));
+      
+      if (isRetryableError(GoogleSignInErrorType.LOCK_ACQUISITION_FAILED)) {
+        timeoutsRef.current.push(
+          window.setTimeout(() => {
+            initializeGoogleOneTap();
+          }, getRetryDelay(GoogleSignInErrorType.LOCK_ACQUISITION_FAILED))
+        );
+      }
       return;
     }
 
@@ -311,20 +340,26 @@ const GoogleOneTap: React.FC<GoogleOneTapProps> = ({
           console.log('[GoogleOneTap] Received credential response');
           if (!response.credential) {
             console.warn('[GoogleOneTap] No credential in response');
-            setError(ERROR_MESSAGES.CREDENTIALS_UNAVAILABLE);
+            const error = new Error('No credential in response');
+            trackError(error, GoogleSignInErrorType.CREDENTIALS_UNAVAILABLE, {
+              responseType: response.select_by
+            });
+            setError(getUserFriendlyMessage(GoogleSignInErrorType.CREDENTIALS_UNAVAILABLE));
             GoogleSignInLock.releaseLock(COMPONENT_ID);
             return;
           }
           
           try {
-            // Generate a nonce for CSRF protection
             const nonce = crypto.randomUUID();
             console.log('[GoogleOneTap] Processing credential...');
             await handleGoogleOneTapCallback(response, nonce);
             console.log('[GoogleOneTap] Credential processed successfully');
           } catch (error) {
             console.error('[GoogleOneTap] Error processing credential:', error);
-            setError(error instanceof Error ? error.message : ERROR_MESSAGES.UNKNOWN_ERROR);
+            trackError(error as Error, GoogleSignInErrorType.UNKNOWN_ERROR, {
+              responseType: response.select_by
+            });
+            setError(getUserFriendlyMessage(GoogleSignInErrorType.UNKNOWN_ERROR));
           } finally {
             console.log('[GoogleOneTap] Releasing lock after credential processing');
             GoogleSignInLock.releaseLock(COMPONENT_ID);
@@ -345,11 +380,20 @@ const GoogleOneTap: React.FC<GoogleOneTapProps> = ({
             setFedCmMode(true);
           } else {
             console.log('[GoogleOneTap] No fallback available, marking as cancelled');
-            setError(ERROR_MESSAGES.USER_CANCELLED);
+            const error = new Error('User cancelled or prompt not displayed');
+            trackError(error, GoogleSignInErrorType.USER_CANCELLED, {
+              notificationType: notification?.isNotDisplayed?.() ? 'not_displayed' : 'skipped'
+            });
+            setError(getUserFriendlyMessage(GoogleSignInErrorType.USER_CANCELLED));
           }
           GoogleSignInLock.releaseLock(COMPONENT_ID);
         } else if (notification?.isDismissedMoment?.()) {
           console.log('[GoogleOneTap] Prompt dismissed by user');
+          const error = new Error('Prompt dismissed by user');
+          trackError(error, GoogleSignInErrorType.USER_CANCELLED, {
+            notificationType: 'dismissed'
+          });
+          setError(getUserFriendlyMessage(GoogleSignInErrorType.USER_CANCELLED));
           GoogleSignInLock.releaseLock(COMPONENT_ID);
         }
       });
@@ -358,7 +402,11 @@ const GoogleOneTap: React.FC<GoogleOneTapProps> = ({
       console.log('[GoogleOneTap] Initialization complete');
     } catch (error) {
       console.error('[GoogleOneTap] Initialization error:', error);
-      setError(error instanceof Error ? error.message : ERROR_MESSAGES.INIT_FAILED);
+      trackError(error as Error, GoogleSignInErrorType.INITIALIZATION_FAILED, {
+        fedCmMode,
+        isFedCmsupported
+      });
+      setError(getUserFriendlyMessage(GoogleSignInErrorType.INITIALIZATION_FAILED));
       GoogleSignInLock.releaseLock(COMPONENT_ID);
     } finally {
       if (isMounted.current) {
