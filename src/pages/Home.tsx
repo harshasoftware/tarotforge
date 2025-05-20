@@ -5,7 +5,8 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TarotLogo from '../components/ui/TarotLogo';
 import { useAuth } from '../context/AuthContext';
-import { generateThemeSuggestions, generateElaborateTheme } from '../lib/gemini-ai';
+import { useCredits } from '../context/CreditContext';
+import { generateThemeSuggestions } from '../lib/gemini-ai';
 
 // Featured decks data
 const featuredDecks = [
@@ -75,14 +76,7 @@ const tarotCardImages = [
   'https://images.pexels.com/photos/1727684/pexels-photo-1727684.jpeg?auto=compress&cs=tinysrgb&w=1600', // Wheel of Fortune
 ];
 
-// Generate a loading message for the theme generation process
-const loadingMessages = [
-  "Channeling mystical energies...",
-  "Consulting the cosmic forces...",
-  "Weaving arcane symbols...",
-  "Gathering tarot wisdom...",
-  "Aligning celestial patterns..."
-];
+import { generateElaborateTheme } from '../lib/gemini-ai';
 
 // Generate theme suggestions using Gemini AI
 const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
@@ -124,10 +118,22 @@ const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
   }
 };
 
+// Random loading messages to display while generating elaborate theme
+const loadingMessages = [
+  "Consulting the cosmos...",
+  "Channeling mystical energies...",
+  "Drawing from the collective unconscious...",
+  "Weaving arcane patterns...",
+  "Peering into the void...",
+  "Aligning with celestial forces...",
+  "Communing with ancient wisdom..."
+];
+
 const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, setShowSignInModal } = useAuth();
+  const { credits } = useCredits();
   const [themePrompt, setThemePrompt] = useState("");
   const [themeSuggestions, setThemeSuggestions] = useState<string[]>([]);
   const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
@@ -135,6 +141,35 @@ const Home = () => {
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
   const [lastLoadedIndex, setLastLoadedIndex] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
+  
+  // Cookie for tracking if first-time user has used their credits
+  const [hasUsedCredits, setHasUsedCredits] = useState(() => {
+    const cookie = localStorage.getItem('hasUsedCredits');
+    return cookie === 'true';
+  });
+
+  // Update cookie when hasUsedCredits changes
+  useEffect(() => {
+    localStorage.setItem('hasUsedCredits', String(hasUsedCredits));
+  }, [hasUsedCredits]);
+  
+  // Random loading message interval
+  useEffect(() => {
+    let intervalId: number | null = null;
+    
+    if (isGeneratingElaboration) {
+      intervalId = window.setInterval(() => {
+        const randomIndex = Math.floor(Math.random() * loadingMessages.length);
+        setLoadingMessage(loadingMessages[randomIndex]);
+      }, 2000);
+    }
+    
+    return () => {
+      if (intervalId !== null) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [isGeneratingElaboration]);
   
   // Load initial theme suggestions on component mount
   useEffect(() => {
@@ -168,17 +203,6 @@ const Home = () => {
       window.history.replaceState(null, '', window.location.pathname);
     }
   }, [location]);
-
-  // Update loading message periodically
-  useEffect(() => {
-    if (isGeneratingElaboration) {
-      const interval = setInterval(() => {
-        setLoadingMessage(loadingMessages[Math.floor(Math.random() * loadingMessages.length)]);
-      }, 2000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [isGeneratingElaboration]);
   
   // Reference for the scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -265,6 +289,11 @@ const Home = () => {
           startGenerating: true // Start generating images immediately
         } 
       });
+      
+      // Update the used credits flag after navigating
+      if (!hasUsedCredits) {
+        setHasUsedCredits(true);
+      }
     }
   };
 
@@ -311,6 +340,22 @@ const Home = () => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollBy({ left: 200, behavior: 'smooth' });
     }
+  };
+  
+  // Get the available credits for the user
+  const getAvailableCredits = () => {
+    // For logged in users, show their actual credits
+    if (user && credits) {
+      return credits.basicCredits + credits.premiumCredits;
+    }
+    
+    // For non-logged in users who haven't used credits yet, show 5
+    if (!hasUsedCredits) {
+      return 5;
+    }
+    
+    // For non-logged in users who have used credits, show 0
+    return 0;
   };
   
   return (
@@ -396,34 +441,31 @@ const Home = () => {
           <div className="bg-background/95 backdrop-blur-sm border border-border rounded-xl shadow-xl overflow-hidden">
             <div className="p-4 pb-3">
               <h4 className="text-xl md:text-2xl font-serif font-bold mb-2 text-center">
-                Create Your Tarot Deck
+                Create Your Tarot Deck Now
               </h4>
-              
-              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-center mb-4 flex justify-between items-center">
-                <p className="text-sm">
-                  <span className="font-medium">5 free credits</span> available for all users
-                </p>
-                <div className="flex items-center text-yellow-500">
-                  <Coins className="h-5 w-5" />
-                </div>
-              </div>
               
               <form onSubmit={handleThemeSubmit}>
                 <div className="mb-5">
-                  <textarea
-                    id="deck-theme-input"
-                    value={themePrompt}
-                    onChange={(e) => setThemePrompt(e.target.value)}
-                    placeholder="Describe your deck's theme or concept (e.g., Cosmic journey through ancient mythology...)"
-                    className="w-full p-3 rounded-lg bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px] resize-none"
-                    disabled={isGeneratingElaboration}
-                  />
+                  <div className="relative">
+                    <textarea
+                      id="deck-theme-input"
+                      value={themePrompt}
+                      onChange={(e) => setThemePrompt(e.target.value)}
+                      placeholder="Describe your deck's theme or concept (e.g., Cosmic journey through ancient mythology...)"
+                      className="w-full p-3 rounded-lg bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px] resize-none"
+                      disabled={isGeneratingElaboration}
+                    />
+                    
+                    {/* Credits badge */}
+                    <div className="absolute -top-3 right-3 bg-card border border-yellow-500 px-2 py-1 rounded-full shadow-sm flex items-center">
+                      <Coins className="h-3 w-3 text-yellow-500 mr-1" />
+                      <span className="text-xs font-medium">{getAvailableCredits()}</span>
+                    </div>
+                  </div>
                   
-                  {/* Loading indicator for theme generation */}
                   {isGeneratingElaboration && (
-                    <div className="mt-2 p-2 bg-primary/10 border border-primary/20 rounded-md flex items-center">
-                      <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2"></div>
-                      <p className="text-xs text-primary">{loadingMessage}</p>
+                    <div className="mt-2 text-xs text-center text-muted-foreground italic animate-pulse">
+                      {loadingMessage}
                     </div>
                   )}
                 </div>
@@ -488,7 +530,7 @@ const Home = () => {
                                     border border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/40
                                     ${isGeneratingElaboration ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
-                          {isGeneratingElaboration && themePrompt === suggestion ? '...' : suggestion}
+                          {isGeneratingElaboration ? '...' : suggestion}
                         </button>
                       ))}
                     </div>
@@ -514,7 +556,7 @@ const Home = () => {
                 >
                   {isGeneratingElaboration ? (
                     <>
-                      <div className="h-5 w-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></div>
+                      <span className="mr-2 h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></span>
                       Generating Description...
                     </>
                   ) : (
@@ -611,7 +653,7 @@ const Home = () => {
                 </div>
                 
                 <Link 
-                  to="/create-deck" 
+                  to="/create" 
                   className="mt-auto inline-flex items-center text-primary hover:underline group-hover:translate-x-1 transition-transform"
                 >
                   Forge Your Deck <ArrowRight className="ml-1 h-4 w-4" />
