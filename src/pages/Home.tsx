@@ -118,15 +118,16 @@ const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
   }
 };
 
-// Random loading messages to display while generating elaborate theme
+// Mystical loading messages for the generation placeholder
 const loadingMessages = [
   "Consulting the cosmos...",
   "Channeling mystical energies...",
-  "Drawing from the collective unconscious...",
-  "Weaving arcane patterns...",
-  "Peering into the void...",
-  "Aligning with celestial forces...",
-  "Communing with ancient wisdom..."
+  "Exploring the astral plane...",
+  "Divining sacred symbols...",
+  "Weaving arcane knowledge...",
+  "Aligning celestial forces...",
+  "Deciphering ancient wisdom...",
+  "Communing with spirit guides..."
 ];
 
 const Home = () => {
@@ -134,42 +135,38 @@ const Home = () => {
   const location = useLocation();
   const { user, setShowSignInModal } = useAuth();
   const { credits } = useCredits();
+
+  // Credit display logic for anonymous users
+  const [anonymousCreditsUsed, setAnonymousCreditsUsed] = useState(false);
+  
+  // Check localStorage for anonymous credit usage
+  useEffect(() => {
+    if (!user) {
+      const hasUsedCredits = localStorage.getItem('anonymousCreditUsed') === 'true';
+      setAnonymousCreditsUsed(hasUsedCredits);
+    }
+  }, [user]);
+
+  const displayCredits = useMemo(() => {
+    // For logged-in users, show their actual credits
+    if (user && credits) {
+      return credits.basicCredits + credits.premiumCredits;
+    }
+    
+    // For anonymous users, show 5 credits (or 0 if they've "used" them)
+    return anonymousCreditsUsed ? 0 : 5;
+  }, [user, credits, anonymousCreditsUsed]);
+
   const [themePrompt, setThemePrompt] = useState("");
   const [themeSuggestions, setThemeSuggestions] = useState<string[]>([]);
   const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
   const [isGeneratingElaboration, setIsGeneratingElaboration] = useState(false);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
   const [lastLoadedIndex, setLastLoadedIndex] = useState(0);
-  const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
   
-  // Cookie for tracking if first-time user has used their credits
-  const [hasUsedCredits, setHasUsedCredits] = useState(() => {
-    const cookie = localStorage.getItem('hasUsedCredits');
-    return cookie === 'true';
-  });
-
-  // Update cookie when hasUsedCredits changes
-  useEffect(() => {
-    localStorage.setItem('hasUsedCredits', String(hasUsedCredits));
-  }, [hasUsedCredits]);
-  
-  // Random loading message interval
-  useEffect(() => {
-    let intervalId: number | null = null;
-    
-    if (isGeneratingElaboration) {
-      intervalId = window.setInterval(() => {
-        const randomIndex = Math.floor(Math.random() * loadingMessages.length);
-        setLoadingMessage(loadingMessages[randomIndex]);
-      }, 2000);
-    }
-    
-    return () => {
-      if (intervalId !== null) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [isGeneratingElaboration]);
+  // For cycling through loading messages
+  const [currentLoadingMessage, setCurrentLoadingMessage] = useState(loadingMessages[0]);
+  const loadingIntervalRef = useRef<number | null>(null);
   
   // Load initial theme suggestions on component mount
   useEffect(() => {
@@ -203,6 +200,33 @@ const Home = () => {
       window.history.replaceState(null, '', window.location.pathname);
     }
   }, [location]);
+  
+  // Set up loading message cycling during elaboration generation
+  useEffect(() => {
+    if (isGeneratingElaboration) {
+      // Start cycling through loading messages every 2 seconds
+      let messageIndex = 0;
+      
+      const cycleMessages = () => {
+        messageIndex = (messageIndex + 1) % loadingMessages.length;
+        setCurrentLoadingMessage(loadingMessages[messageIndex]);
+      };
+      
+      loadingIntervalRef.current = window.setInterval(cycleMessages, 2000);
+    } else {
+      // Clear the interval when generation is complete
+      if (loadingIntervalRef.current) {
+        clearInterval(loadingIntervalRef.current);
+        loadingIntervalRef.current = null;
+      }
+    }
+    
+    return () => {
+      if (loadingIntervalRef.current) {
+        clearInterval(loadingIntervalRef.current);
+      }
+    };
+  }, [isGeneratingElaboration]);
   
   // Reference for the scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -274,6 +298,9 @@ const Home = () => {
       if (!user) {
         // Store deck creation intent in localStorage
         localStorage.setItem('pending_deck_theme', themePrompt);
+        // Mark anonymous credits as used
+        localStorage.setItem('anonymousCreditUsed', 'true');
+        setAnonymousCreditsUsed(true);
         // Show the sign-in modal instead of redirecting
         setShowSignInModal(true);
         return;
@@ -289,21 +316,15 @@ const Home = () => {
           startGenerating: true // Start generating images immediately
         } 
       });
-      
-      // Update the used credits flag after navigating
-      if (!hasUsedCredits) {
-        setHasUsedCredits(true);
-      }
     }
   };
 
   const selectSuggestion = async (suggestion: string) => {
-    // First set the basic suggestion
     setThemePrompt(suggestion);
+    setIsGeneratingElaboration(true);
     
-    // Then generate and append an elaboration
     try {
-      setIsGeneratingElaboration(true);
+      // Generate and append an elaboration
       const elaboration = await generateElaborateTheme(suggestion);
       setThemePrompt(`${suggestion}: ${elaboration}`);
     } catch (error) {
@@ -340,22 +361,6 @@ const Home = () => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollBy({ left: 200, behavior: 'smooth' });
     }
-  };
-  
-  // Get the available credits for the user
-  const getAvailableCredits = () => {
-    // For logged in users, show their actual credits
-    if (user && credits) {
-      return credits.basicCredits + credits.premiumCredits;
-    }
-    
-    // For non-logged in users who haven't used credits yet, show 5
-    if (!hasUsedCredits) {
-      return 5;
-    }
-    
-    // For non-logged in users who have used credits, show 0
-    return 0;
   };
   
   return (
@@ -447,27 +452,21 @@ const Home = () => {
               <form onSubmit={handleThemeSubmit}>
                 <div className="mb-5">
                   <div className="relative">
+                    {/* Credits Badge */}
+                    <div className="absolute top-3 right-3 bg-accent/20 text-accent px-2 py-1 rounded-full flex items-center z-10">
+                      <Coins className="h-3.5 w-3.5 mr-1 text-yellow-500" />
+                      <span className="text-xs font-medium">{displayCredits}</span>
+                    </div>
+                    
                     <textarea
                       id="deck-theme-input"
                       value={themePrompt}
                       onChange={(e) => setThemePrompt(e.target.value)}
-                      placeholder="Describe your deck's theme or concept (e.g., Cosmic journey through ancient mythology...)"
+                      placeholder={isGeneratingElaboration ? currentLoadingMessage : "Describe your deck's theme or concept (e.g., Cosmic journey through ancient mythology...)"}
                       className="w-full p-3 rounded-lg bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px] resize-none"
                       disabled={isGeneratingElaboration}
                     />
-                    
-                    {/* Credits badge */}
-                    <div className="absolute -top-3 right-3 bg-card border border-yellow-500 px-2 py-1 rounded-full shadow-sm flex items-center">
-                      <Coins className="h-3 w-3 text-yellow-500 mr-1" />
-                      <span className="text-xs font-medium">{getAvailableCredits()} free credits</span>
-                    </div>
                   </div>
-                  
-                  {isGeneratingElaboration && (
-                    <div className="mt-2 text-xs text-center text-muted-foreground italic animate-pulse">
-                      {loadingMessage}
-                    </div>
-                  )}
                 </div>
                 
                 <div className="relative mb-4">
@@ -556,7 +555,7 @@ const Home = () => {
                 >
                   {isGeneratingElaboration ? (
                     <>
-                      <span className="mr-2 h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></span>
+                      <span className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
                       Generating Description...
                     </>
                   ) : (
