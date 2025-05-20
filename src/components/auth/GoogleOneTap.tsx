@@ -9,25 +9,6 @@ type GoogleOneTapResponse = {
   clientId?: string;
 };
 
-type GoogleOneTapOptions = {
-  client_id: string;
-  auto_select?: boolean;
-  cancel_on_tap_outside?: boolean;
-  context?: 'signin' | 'signup' | 'use';
-  prompt_parent_id?: string;
-  login_uri?: string;
-  callback?: (response: GoogleOneTapResponse) => void;
-  error_callback?: (error: any) => void;
-  // FedCM specific options
-  use_fedcm?: boolean;
-  use_fedcm_for_prompt?: boolean;
-  fedcm_account_purge?: boolean;
-  itp_support?: boolean;
-  state_cookie_domain?: string;
-  state_id_token?: string;
-  ux_mode?: 'popup' | 'redirect';
-};
-
 const GoogleOneTapContainer: React.FC = () => {
   const { user, handleGoogleOneTapCallback } = useAuth();
   const isProcessingRef = useRef(false);
@@ -63,20 +44,17 @@ const GoogleOneTapContainer: React.FC = () => {
     oneTapContainer.style.zIndex = '9999';
     document.body.appendChild(oneTapContainer);
 
-    // Configure Google One Tap with FedCM support
-    const googleOneTapConfig: GoogleOneTapOptions = {
-      client_id: googleClientId,
-      auto_select: false,
-      cancel_on_tap_outside: true,
-      context: 'signin',
-      prompt_parent_id: 'g_id_onload',
-      // FedCM specific options
-      use_fedcm: true,               // Use FedCM when available
-      use_fedcm_for_prompt: true,    // Use FedCM UI for prompt
-      fedcm_account_purge: true,     // Allow for account purge if requested
-      itp_support: true,             // Support for Intelligent Tracking Prevention
-      state_cookie_domain: window.location.hostname, // Needed for state management
-    };
+    // Double check that we have a valid client_id
+    if (!googleClientId || googleClientId.trim() === '') {
+      console.error('Valid Google Client ID is required for One Tap sign-in');
+      isProcessingRef.current = false;
+      return;
+    }
+    
+    console.log('Using Google Client ID:', googleClientId.substring(0, 10) + '...');
+    
+    // Define FedCM configuration inline where needed
+    
 
     // Initialize Google One Tap using the latest approach
     try {
@@ -100,21 +78,38 @@ const GoogleOneTapContainer: React.FC = () => {
         isProcessingRef.current = false;
       };
       
-      // Initialize using the npm package - this is the recommended approach
+      // Initialize directly with the most essential parameters first
+      // This approach helps ensure the client_id is properly recognized
       googleOneTap(
-        googleOneTapConfig, 
+        // First pass only the most essential parameters
+        {
+          client_id: googleClientId.trim(),
+          callback: handleCredentialResponse
+        },
+        // The npm package also accepts callback directly as second param
         handleCredentialResponse,
-        handleError // Pass the error handler directly
+        // And error handler as third param
+        handleError
       );
+      
+      console.log('Google One Tap initialized with simplified configuration');
       
       // As a fallback, also initialize with the native API if available
       if (window.google?.accounts?.id?.initialize) {
-        // The native API uses different property names
+        // The native API initialization with FedCM options
         window.google.accounts.id.initialize({
-          client_id: googleClientId,
+          client_id: googleClientId.trim(), // Ensure trimmed client_id
           callback: handleCredentialResponse,
-          // Native API uses this naming convention for error handling
-          onerror: handleError
+          onerror: handleError,
+          // Include FedCM options for native API
+          use_fedcm: true,
+          use_fedcm_for_prompt: true,
+          fedcm_account_purge: true,
+          itp_support: true,
+          state_cookie_domain: window.location.hostname,
+          context: 'signin',
+          auto_select: false,
+          cancel_on_tap_outside: true
         });
       }
 
