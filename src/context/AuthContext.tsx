@@ -448,7 +448,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       isProcessingGoogleOneTapRef.current = true;
-      console.log('Google One Tap response received');
+      console.log('Google One Tap response received', response);
       
       // Sign in with Supabase using the ID token
       const { error } = await supabase.auth.signInWithIdToken({

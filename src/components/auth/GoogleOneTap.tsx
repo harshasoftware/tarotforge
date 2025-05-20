@@ -16,7 +16,7 @@ const GoogleOneTapContainer: React.FC = () => {
       return;
     }
 
-    console.log('Initializing Google One Tap with client ID:', googleClientId);
+    console.log('Initializing Google One Tap with client ID:', googleClientId.substring(0, 5) + '...');
 
     // Generate a nonce for security
     const generateNonce = (): string => {
@@ -38,6 +38,7 @@ const GoogleOneTapContainer: React.FC = () => {
       context: 'signin',
       prompt_parent_id: 'g_id_onload', // Add a parent element ID
       login_uri: `${origin}/auth/callback`, // Use absolute URL
+      itp_support: true,
       callback: (response: any) => {
         console.log('Google One Tap callback triggered', response);
         if (response && response.credential) {
@@ -45,6 +46,9 @@ const GoogleOneTapContainer: React.FC = () => {
           handleGoogleOneTapCallback(response, nonce);
         }
       },
+      error_callback: (error: any) => {
+        console.warn('Google One Tap error:', error);
+      }
     };
 
     // Add a div for One Tap to render into
@@ -53,7 +57,7 @@ const GoogleOneTapContainer: React.FC = () => {
     oneTapDiv.style.position = 'fixed';
     oneTapDiv.style.top = '10px';
     oneTapDiv.style.right = '10px';
-    oneTapDiv.style.zIndex = '1000';
+    oneTapDiv.style.zIndex = '9999';
     document.body.appendChild(oneTapDiv);
     
     console.log('Google One Tap container added to DOM');
@@ -61,6 +65,20 @@ const GoogleOneTapContainer: React.FC = () => {
     // Initialize Google One Tap
     googleOneTap(googleOneTapConfig);
     console.log('Google One Tap initialized');
+    
+    // Force prompt to show
+    setTimeout(() => {
+      if (window.google && window.google.accounts && window.google.accounts.id) {
+        console.log('Explicitly prompting Google One Tap to show');
+        window.google.accounts.id.prompt((notification) => {
+          if (notification) {
+            if (notification.isNotDisplayed && notification.isNotDisplayed()) {
+              console.warn('Google One Tap not displayed. Reason:', notification.getNotDisplayedReason?.());
+            }
+          }
+        });
+      }
+    }, 2000);
 
     return () => {
       // Clean up the container div when component unmounts

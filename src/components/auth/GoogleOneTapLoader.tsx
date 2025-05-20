@@ -36,10 +36,22 @@ const GoogleOneTapLoader: React.FC<GoogleOneTapLoaderProps> = ({ autoInit = true
         cancel_on_tap_outside: true,
         context: 'signin',
         login_uri: `${origin}/auth/callback`, // Use absolute URL
+        itp_support: true,
         callback: (response) => {
           handleGoogleOneTapCallback(response, nonce);
         },
+        error_callback: (error) => {
+          console.warn('Google One Tap error:', error);
+        }
       });
+      
+      // Force prompt after a delay
+      setTimeout(() => {
+        if (window.google && window.google.accounts && window.google.accounts.id) {
+          console.log('Explicitly prompting Google One Tap from loader');
+          window.google.accounts.id.prompt();
+        }
+      }, 1500);
     }
     
     return () => {
