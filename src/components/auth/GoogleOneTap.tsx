@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import GoogleOneTap from './GoogleOneTap';
+import GoogleOneTapHandler from './GoogleOneTapHandler';
 
 const GoogleOneTapContainer: React.FC = () => {
   const { user, handleGoogleOneTapCallback } = useAuth();
@@ -38,7 +38,7 @@ const GoogleOneTapContainer: React.FC = () => {
             callback: (response) => {
               if (response && response.credential) {
                 console.log("Google One Tap response received, handling...");
-                handleGoogleOneTap();
+                handleGoogleOneTapCallback();
               }
             },
             auto_select: false, // Don't auto-select to avoid conflicts with FedCM
@@ -117,7 +117,7 @@ const GoogleOneTapContainer: React.FC = () => {
         clearInterval(checkGoogleScript);
       };
     }
-  }, [user, handleGoogleOneTap, googleClientId]);
+  }, [user, handleGoogleOneTapCallback]);
 
   // Don't render anything for logged in users
   if (user) return null;
@@ -132,4 +132,4 @@ const GoogleOneTapContainer: React.FC = () => {
   );
 };
 
-export default GoogleOneTap;
+export default GoogleOneTapContainer;
