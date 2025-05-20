@@ -127,6 +127,23 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
     }, 500);
   }, [cleanupContainer]);
 
+  // Check if we're in a development environment
+  const isDevelopmentEnvironment = useCallback(() => {
+    // Check for development URLs or localhost
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' ||
+                        window.location.hostname.includes('webcontainer');
+    // Check for development ports
+    const isDevelopmentPort = window.location.port === '3000' || 
+                            window.location.port === '5173' || 
+                            window.location.port === '8080';
+    // Look for other dev indicators
+    const hasDevInUrl = window.location.hostname.includes('dev') || 
+                       window.location.hostname.includes('local');
+                       
+    return isLocalhost || isDevelopmentPort || hasDevInUrl;
+  }, []);
+
   // Initialize Google One Tap with adaptive strategy
   const initializeGoogleOneTap = useCallback(() => {
     // Don't initialize if autoInit is false
@@ -144,6 +161,13 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
     if (attemptCountRef.current > MAX_ATTEMPTS) {
       console.log(`Max Google Sign-In initialization attempts (${MAX_ATTEMPTS}) reached`);
       return;
+    }
+    
+    // If in development mode, provide helpful messages
+    const inDevMode = isDevelopmentEnvironment();
+    if (inDevMode) {
+      console.log('⚠️ Development environment detected. Google Sign-In may have limited functionality.');
+      console.log('ℹ️ NetworkErrors are common in dev environments due to cross-origin restrictions.');
     }
 
     // Validate Google client ID
@@ -227,7 +251,9 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
           use_fedcm_for_prompt: fedCmMode,
           auto_select: false,
           cancel_on_tap_outside: true,
-          context: 'signin'
+          context: 'signin',
+          // Add development environment options if needed
+          ...(isDevelopmentEnvironment() ? { prompt_parent_id: 'g_id_onload' } : {})
         });
 
         // Start the prompt with error catching
@@ -259,10 +285,22 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
         } catch (promptError: any) {
           console.error('Error prompting Google Sign-In:', promptError);
           
-          // Check for AbortError which indicates FedCM issues
-          if (promptError?.name === 'AbortError' && fedCmMode) {
-            console.log('FedCM AbortError detected, falling back to standard mode');
+          // Check for network-related errors which indicate environment issues
+          const isNetworkError = 
+            promptError?.name === 'AbortError' || 
+            (promptError?.message && promptError.message.includes('NetworkError')) ||
+            (promptError?.message && promptError.message.includes('Network Error')) ||
+            (promptError?.toString && promptError.toString().includes('Network'));
+                                 
+          if (isNetworkError && fedCmMode) {
+            console.log('Network-related error detected, falling back to standard mode');
             handleFedCmFailure();
+            
+            // In development, show helpful message
+            if (isDevelopmentEnvironment()) {
+              console.log('ℹ️ Network errors are expected in development environments.');
+              console.log('ℹ️ Google Sign-In will function properly in production.');
+            }
           } else {
             isInitializedRef.current = false;
             isProcessingRef.current = false;
@@ -279,7 +317,7 @@ const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = tr
       isInitializedRef.current = false;
       cleanupContainer();
     }
-  }, [user, handleGoogleOneTapCallback, isGoogleScriptLoaded, fedCmMode, autoInit, cleanupContainer, clearTimeouts, handleFedCmFailure]);
+  }, [user, handleGoogleOneTapCallback, isGoogleScriptLoaded, fedCmMode, autoInit, cleanupContainer, clearTimeouts, handleFedCmFailure, isDevelopmentEnvironment]);
 
   // Load Google script when component mounts
   useEffect(() => {

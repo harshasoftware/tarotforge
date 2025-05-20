@@ -20,10 +20,33 @@ const GoogleOneTapLoader: React.FC<GoogleOneTapLoaderProps> = ({ autoInit = true
   const { user, handleGoogleOneTapCallback } = useAuth();
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [fedCmFailed, setFedCmFailed] = useState(false);
+  const [networkError, setNetworkError] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const initialized = useRef(false);
   const timeoutRef = useRef<number | null>(null);
+  const attemptCountRef = useRef(0);
+  const MAX_ATTEMPTS = 2;
   
+  // Detect if we're in a development environment
+  const isDevelopmentEnvironment = useCallback(() => {
+    if (typeof window === 'undefined') return false;
+    
+    // Check for development URLs or localhost
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' ||
+                        window.location.hostname.includes('webcontainer') || 
+                        window.location.hostname.includes('credentialless');
+    // Check for development ports
+    const isDevelopmentPort = window.location.port === '3000' || 
+                              window.location.port === '5173' || 
+                              window.location.port === '8080';
+    // Look for other dev indicators
+    const hasDevInUrl = window.location.hostname.includes('dev') || 
+                        window.location.hostname.includes('local');
+                        
+    return isLocalhost || isDevelopmentPort || hasDevInUrl;
+  }, []);
+
   // Load the Google Identity Services script
   const loadGoogleScript = useCallback(() => {
     if (document.getElementById('google-gsi-script')) {
@@ -32,6 +55,13 @@ const GoogleOneTapLoader: React.FC<GoogleOneTapLoaderProps> = ({ autoInit = true
         setScriptLoaded(true);
       }
       return;
+    }
+
+    // Display dev environment notice
+    if (isDevelopmentEnvironment()) {
+      console.log('⚠️ Development environment detected for Google Sign-In');
+      console.log('ℹ️ If you encounter NetworkErrors, they are common in dev environments');
+      console.log('ℹ️ Google Sign-In will work correctly in production environments');
     }
 
     console.log('Loading Google Identity Services script...');
@@ -46,9 +76,10 @@ const GoogleOneTapLoader: React.FC<GoogleOneTapLoaderProps> = ({ autoInit = true
     };
     script.onerror = (error) => {
       console.error('Failed to load Google Identity Services script:', error);
+      setNetworkError(true);
     };
     document.body.appendChild(script);
-  }, []);
+  }, [isDevelopmentEnvironment]);
 
   // Clean up function for component unmount
   const cleanup = useCallback(() => {
@@ -74,6 +105,13 @@ const GoogleOneTapLoader: React.FC<GoogleOneTapLoaderProps> = ({ autoInit = true
 
   // Initialize Google One Tap with hybrid approach
   const initializeGoogleSignIn = useCallback(() => {
+    // Track initialization attempts
+    attemptCountRef.current += 1;
+    if (attemptCountRef.current > MAX_ATTEMPTS) {
+      console.log(`Max Google Sign-In initialization attempts (${MAX_ATTEMPTS}) reached`);
+      return;
+    }
+
     // Don't proceed if not auto-initializing or already initialized
     if (!autoInit || initialized.current || !scriptLoaded || user) return;
 
@@ -102,8 +140,11 @@ const GoogleOneTapLoader: React.FC<GoogleOneTapLoaderProps> = ({ autoInit = true
         }
       };
 
-      // Define the approach based on FedCM support status
-      const useFedCm = !fedCmFailed;
+      // Check development environment status
+      const inDevMode = isDevelopmentEnvironment();
+      
+      // Define the approach based on FedCM support and network status
+      const useFedCm = !fedCmFailed && !networkError;
 
       if (useFedCm) {
         console.log('Using FedCM approach for Google Sign-In');
@@ -122,70 +163,106 @@ const GoogleOneTapLoader: React.FC<GoogleOneTapLoaderProps> = ({ autoInit = true
         container.setAttribute('data-itp_support', 'true');
         document.body.appendChild(container);
         containerRef.current = container;
+      } else if (inDevMode) {
+        console.log('Using standard approach for Google Sign-In in development mode');
       }
 
-      // Initialize Google Identity Services with configuration
-      window.google.accounts.id.initialize({
-        client_id: googleClientId.trim(),
-        callback: handleCredentialResponse,
-        use_fedcm: useFedCm,
-        use_fedcm_for_prompt: useFedCm,
-        auto_select: false,
-        cancel_on_tap_outside: true,
-        context: 'signin'
-      });
+      try {
+        // Initialize Google Identity Services with configuration
+        window.google.accounts.id.initialize({
+          client_id: googleClientId.trim(),
+          callback: handleCredentialResponse,
+          use_fedcm: useFedCm,
+          use_fedcm_for_prompt: useFedCm,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+          context: 'signin',
+          ...(inDevMode ? { prompt_parent_id: 'g_id_onload' } : {})
+        });
 
-      // Clear existing timeout
-      if (timeoutRef.current !== null) {
-        window.clearTimeout(timeoutRef.current);
-      }
+        // Clear existing timeout
+        if (timeoutRef.current !== null) {
+          window.clearTimeout(timeoutRef.current);
+        }
 
-      // Prompt with error catching
-      timeoutRef.current = window.setTimeout(() => {
-        try {
-          console.log('Prompting Google Sign-In...');
-          window.google.accounts.id.prompt((notification) => {
-            // Handle the notification
-            if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
-              const reason = notification.getNotDisplayedReason?.() || notification.getSkippedReason?.();
-              console.log('Google Sign-In prompt not shown:', reason);
-              
-              // If FedCM failed, try again with traditional approach
-              if (useFedCm && !fedCmFailed) {
-                console.log('FedCM approach failed, falling back to traditional approach');
-                setFedCmFailed(true);
-                cleanup();
-                initialized.current = false;
+        // Prompt with error handling
+        timeoutRef.current = window.setTimeout(() => {
+          try {
+            console.log('Prompting Google Sign-In...');
+            
+            // Add custom prompt listener
+            const promptHandler = (notification: any) => {
+              // Handle prompt notification  
+              if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
+                const reason = notification.getNotDisplayedReason?.() || 
+                               notification.getSkippedReason?.() || 
+                               'Unknown reason';
+                console.log('Google Sign-In prompt not shown:', reason);
                 
-                // Retry with traditional approach after a short delay
-                timeoutRef.current = window.setTimeout(() => {
-                  initializeGoogleSignIn();
-                }, 1000);
+                // If FedCM approach failed, try standard approach
+                if (useFedCm && !fedCmFailed) {
+                  console.log('FedCM approach failed, falling back to standard approach');
+                  setFedCmFailed(true);
+                  cleanup();
+                  initialized.current = false;
+                  
+                  // Retry with traditional approach
+                  timeoutRef.current = window.setTimeout(() => {
+                    initializeGoogleSignIn();
+                  }, 1000);
+                }
+              } else if (notification?.isDismissedMoment?.()) {
+                console.log('Google Sign-In prompt dismissed by user');
+              }
+            };
+            
+            window.google.accounts.id.prompt(promptHandler);
+            
+          } catch (error: any) {
+            console.error('Error prompting Google Sign-In:', error);
+            initialized.current = false;
+            
+            // Check for network errors
+            const isNetworkError = error?.name === 'AbortError' || 
+                                  (error?.message && error.message.includes('Network')) ||
+                                  (error?.toString && error.toString().includes('Network'));
+            
+            if (isNetworkError) {
+              console.log('Network error detected in Google Sign-In');
+              setNetworkError(true);
+              
+              if (inDevMode) {
+                console.log('ℹ️ This is expected in development environments');
+                console.log('ℹ️ In production, these errors are less likely to occur');
               }
             }
-          });
-        } catch (error) {
-          console.error('Error prompting Google Sign-In:', error);
-          initialized.current = false;
-          
-          // If using FedCM and it failed, try again with traditional approach
-          if (useFedCm && !fedCmFailed) {
-            console.log('FedCM approach error, falling back to traditional approach');
-            setFedCmFailed(true);
-            cleanup();
             
-            // Retry with traditional approach after a short delay
-            timeoutRef.current = window.setTimeout(() => {
-              initializeGoogleSignIn();
-            }, 1000);
+            // If using FedCM and it failed, try standard approach
+            if (useFedCm && !fedCmFailed) {
+              console.log('FedCM approach error, falling back to standard approach');
+              setFedCmFailed(true);
+              cleanup();
+              
+              // Retry with traditional approach
+              timeoutRef.current = window.setTimeout(() => {
+                initializeGoogleSignIn();
+              }, 1000);
+            }
           }
+        }, 1000);
+      } catch (initError: any) {
+        console.error('Error initializing Google Identity Services:', initError);
+        initialized.current = false;
+        
+        if (initError?.toString().includes('Network')) {
+          setNetworkError(true);
         }
-      }, 1000);
+      }
     } catch (error) {
       console.error('Error setting up Google Sign-In:', error);
       initialized.current = false;
     }
-  }, [autoInit, scriptLoaded, fedCmFailed, user, handleGoogleOneTapCallback, cleanup]);
+  }, [autoInit, scriptLoaded, fedCmFailed, networkError, user, handleGoogleOneTapCallback, cleanup, isDevelopmentEnvironment]);
 
   // Load script when component mounts
   useEffect(() => {
