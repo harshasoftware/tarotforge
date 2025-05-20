@@ -1,177 +1,258 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import googleOneTap from 'google-one-tap';
+
+// Define types for Google Identity Services response
+type GoogleCredentialResponse = {
+  credential: string;
+  select_by?: string;
+  clientId?: string;
+};
 
 interface GoogleOneTapHandlerProps {
   autoInit?: boolean;
 }
 
+// Global state to prevent duplicate script loading across HMR/rerenders
+let isGoogleScriptLoading = false;
+let scriptLoadAttempts = 0;
+const MAX_SCRIPT_LOAD_ATTEMPTS = 3;
+
+/**
+ * Google One Tap sign-in component with FedCM support
+ * Direct implementation using Google Identity Services API
+ * Handles React/Vite edge cases and hot module replacement
+ */
 const GoogleOneTapHandler: React.FC<GoogleOneTapHandlerProps> = ({ autoInit = true }) => {
   const { user, handleGoogleOneTapCallback } = useAuth();
-  const [retryCount, setRetryCount] = useState(0);
-  const MAX_RETRIES = 3;
+  const isProcessingRef = useRef(false);
+  const oneTapContainerRef = useRef<HTMLDivElement | null>(null);
+  const initTimeoutRef = useRef<number | null>(null);
+  const [isGoogleScriptLoaded, setIsGoogleScriptLoaded] = useState(false);
   const isInitializedRef = useRef(false);
-  const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  useEffect(() => {
-    // Only initialize if autoInit is true and user is not logged in
-    if (autoInit && !user && !isInitializedRef.current) {
-      initializeGoogleOneTap();
-    }
-    
-    return () => {
-      // Cleanup timeout on unmount
-      if (initTimeoutRef.current) {
-        clearTimeout(initTimeoutRef.current);
-      }
-    };
-  }, [autoInit, user, retryCount]);
+  // Create a unique container ID to avoid conflicts during HMR
+  const containerId = useRef(`g_id_onload_${Math.random().toString(36).substring(2, 11)}`);
 
-  const initializeGoogleOneTap = () => {
-    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!googleClientId) {
-      console.error('Google Client ID is not configured');
+  // Load Google Identity Services script with safeguards
+  const loadGoogleScript = useCallback(() => {
+    // Prevent duplicate loading during HMR and re-renders
+    if (document.getElementById('google-one-tap-script') || isGoogleScriptLoading) {
+      // Check if script already loaded but state not updated
+      if (window.google?.accounts?.id && !isGoogleScriptLoaded) {
+        setIsGoogleScriptLoaded(true);
+      }
       return;
     }
+
+    isGoogleScriptLoading = true;
+    scriptLoadAttempts++;
+
+    // Don't attempt too many script loads (prevents issues with Vite HMR loops)
+    if (scriptLoadAttempts > MAX_SCRIPT_LOAD_ATTEMPTS) {
+      console.warn('Max Google Identity Services script load attempts reached');
+      return;
+    }
+
+    // Create and append script
+    const script = document.createElement('script');
+    script.id = 'google-one-tap-script';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => {
+      console.log('Google Identity Services script loaded successfully');
+      setIsGoogleScriptLoaded(true);
+      isGoogleScriptLoading = false;
+    };
+
+    script.onerror = (error) => {
+      console.error('Error loading Google Identity Services script:', error);
+      isGoogleScriptLoading = false;
+    };
+
+    document.body.appendChild(script);
+    console.log('Loading Google Identity Services API script');
+  }, [isGoogleScriptLoaded]);
+
+  // Safely remove the container element
+  const cleanupContainer = useCallback(() => {
+    if (oneTapContainerRef.current && document.body.contains(oneTapContainerRef.current)) {
+      document.body.removeChild(oneTapContainerRef.current);
+      oneTapContainerRef.current = null;
+    }
     
+    // Also check by ID in case the ref was lost during HMR
+    const containerById = document.getElementById(containerId.current);
+    if (containerById && document.body.contains(containerById)) {
+      document.body.removeChild(containerById);
+    }
+  }, []);
+
+  // Safely clear timeouts to prevent memory leaks
+  const clearTimeouts = useCallback(() => {
+    if (initTimeoutRef.current !== null) {
+      window.clearTimeout(initTimeoutRef.current);
+      initTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Initialize Google One Tap with error handling and HMR safeguards
+  const initializeGoogleOneTap = useCallback(() => {
+    // Don't initialize if autoInit is false
+    if (!autoInit) return;
+    
+    // Cleanup previous instance (in case of HMR)
+    cleanupContainer();
+    clearTimeouts();
+
+    // Only initialize when not logged in, script is loaded, and not already processing
+    if (user || !isGoogleScriptLoaded || isProcessingRef.current || isInitializedRef.current) return;
+
+    // Validate Google client ID
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!googleClientId?.trim()) {
+      console.error('Google Client ID is not configured. One Tap sign-in is disabled.');
+      return;
+    }
+
+    isProcessingRef.current = true;
+    isInitializedRef.current = true;
+
+    // Generate a secure nonce for CSRF protection
+    const generateNonce = (): string => {
+      const array = new Uint8Array(16);
+      crypto.getRandomValues(array);
+      return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    };
+    const nonce = generateNonce();
+
     try {
-      // Prevent multiple initializations
-      if (isInitializedRef.current) {
-        console.log('Google One Tap already initialized, skipping');
-        return;
-      }
+      // Create a container div for One Tap
+      const oneTapContainer = document.createElement('div');
+      oneTapContainer.id = containerId.current;
       
-      console.log('Initializing Google One Tap...');
+      // Apply minimal styling - let browser control position as per FedCM guidelines
+      oneTapContainer.style.position = 'fixed';
+      oneTapContainer.style.zIndex = '9999';
       
-      // Generate a nonce for security
-      const generateNonce = (): string => {
-        const array = new Uint8Array(16);
-        crypto.getRandomValues(array);
-        return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+      // Add FedCM compatible data attributes
+      oneTapContainer.setAttribute('data-client_id', googleClientId.trim());
+      oneTapContainer.setAttribute('data-login_uri', `${window.location.origin}/auth/callback`);
+      oneTapContainer.setAttribute('data-use_fedcm', 'true');
+      oneTapContainer.setAttribute('data-use_fedcm_for_prompt', 'true');
+      oneTapContainer.setAttribute('data-context', 'signin');
+      oneTapContainer.setAttribute('data-auto_select', 'false');
+      oneTapContainer.setAttribute('data-itp_support', 'true');
+      
+      // Store reference for later cleanup
+      oneTapContainerRef.current = oneTapContainer;
+      
+      // Add container to DOM
+      document.body.appendChild(oneTapContainer);
+      console.log('Google One Tap container configured with client ID:', googleClientId.substring(0, 5) + '...');
+
+      // Handle successful authentication
+      const handleCredentialResponse = async (response: GoogleCredentialResponse) => {
+        if (response?.credential) {
+          try {
+            await handleGoogleOneTapCallback(response, nonce);
+          } catch (error) {
+            console.error('Error processing Google Identity response:', error);
+          } finally {
+            isProcessingRef.current = false;
+          }
+        }
       };
-      
-      const nonce = generateNonce();
-      const origin = window.location.origin;
-      
-      // Create or update the placeholder in the DOM
-      let googleOneTapContainer = document.getElementById('g_id_onload');
-      
-      if (!googleOneTapContainer) {
-        // Create container if it doesn't exist
-        console.log('Creating new Google One Tap container');
-        googleOneTapContainer = document.createElement('div');
-        googleOneTapContainer.id = 'g_id_onload';
-        googleOneTapContainer.style.position = 'fixed';
-        googleOneTapContainer.style.top = '10px';
-        googleOneTapContainer.style.right = '10px';
-        googleOneTapContainer.style.zIndex = '9999';
-        document.body.appendChild(googleOneTapContainer);
-      }
-      
-      // Set attributes with absolute URL
-      googleOneTapContainer.setAttribute('data-client_id', googleClientId);
-      googleOneTapContainer.setAttribute('data-context', 'signin');
-      googleOneTapContainer.setAttribute('data-ux_mode', 'popup');
-      googleOneTapContainer.setAttribute('data-login_uri', `${origin}/auth/callback`);
-      googleOneTapContainer.setAttribute('data-auto_prompt', 'false');
-      googleOneTapContainer.setAttribute('data-itp_support', 'true');
-      googleOneTapContainer.style.display = 'block';
-      
-      console.log('Google One Tap container configured with absolute login_uri:', `${origin}/auth/callback`);
-      
-      // Mark as initialized
-      isInitializedRef.current = true;
-      
-      // Initialize with a slight delay to ensure DOM is ready
-      if (initTimeoutRef.current) {
-        clearTimeout(initTimeoutRef.current);
-      }
-      
-      initTimeoutRef.current = setTimeout(() => {
+
+      // Initialize GSI with retry mechanism for race conditions
+      const tryInitialize = () => {
+        if (!window.google?.accounts?.id) {
+          // Retry if Google object isn't available yet
+          console.log('Waiting for Google Identity Services API...');
+          initTimeoutRef.current = window.setTimeout(tryInitialize, 100) as unknown as number;
+          return;
+        }
+
         try {
-          console.log('Initializing Google One Tap with client ID:', googleClientId.substring(0, 5) + '...');
-          
-          // Initialize Google One Tap
-          googleOneTap({
-            client_id: googleClientId,
+          // Initialize with FedCM support
+          window.google.accounts.id.initialize({
+            client_id: googleClientId.trim(),
+            callback: handleCredentialResponse,
+            use_fedcm: true,
+            use_fedcm_for_prompt: true,
             auto_select: false,
             cancel_on_tap_outside: true,
-            context: 'signin',
-            itp_support: true,
-            login_uri: `${origin}/auth/callback`, // Set absolute URL here too
-            callback: (response) => {
-              console.log('Google One Tap callback received');
-              if (response && response.credential) {
-                handleGoogleOneTapCallback(response, nonce);
-              }
-            },
-            error_callback: (error) => {
-              console.warn('Google One Tap error:', error);
-              
-              // For debugging what happens
-              if (typeof error === 'object' && error !== null) {
-                console.log('Error details:', JSON.stringify(error, null, 2));
-              }
-              
-              // Reset initialized flag to allow retry
-              isInitializedRef.current = false;
-              
-              // Retry for different error conditions
-              if (retryCount < MAX_RETRIES) {
-                console.log(`Retrying Google One Tap (attempt ${retryCount + 1} of ${MAX_RETRIES})...`);
-                
-                // Different delay based on error type
-                const retryDelay = 2000 + (retryCount * 1000); // Increasing delay with each retry
-                
-                // Wait before retrying
-                setTimeout(() => {
-                  setRetryCount(prev => prev + 1);
-                }, retryDelay);
-              } else {
-                console.log('Max retry attempts reached for Google One Tap');
-              }
-            }
+            context: 'signin'
           });
           
+          // Call prompt without callback to avoid deprecated moment methods
+          window.google.accounts.id.prompt();
           console.log('Google One Tap initialization complete');
-          
-          // Force prompt to show
-          if (window.google && window.google.accounts && window.google.accounts.id) {
-            console.log('Explicitly prompting Google One Tap to show');
-            window.google.accounts.id.prompt((notification) => {
-              console.log('Google One Tap prompt notification:', notification);
-              
-              // Log detailed information about why the prompt might not be showing
-              if (notification) {
-                if (notification.isNotDisplayed && notification.isNotDisplayed()) {
-                  console.warn('Google One Tap not displayed. Reason:', notification.getNotDisplayedReason?.());
-                } else if (notification.isSkippedMoment && notification.isSkippedMoment()) {
-                  console.warn('Google One Tap moment skipped. Reason:', notification.getSkippedReason?.());
-                } else if (notification.isDismissedMoment && notification.isDismissedMoment()) {
-                  console.log('Google One Tap moment dismissed. Reason:', notification.getDismissedReason?.());
-                }
-                console.log('Moment type:', notification.getMomentType?.());
-              }
-            });
-          } else {
-            console.warn('Google accounts API not available for prompting');
-          }
-        } catch (initError) {
-          console.error('Failed to initialize Google One Tap:', initError);
-          isInitializedRef.current = false; // Reset for potential retry
+        } catch (err) {
+          console.error('Error initializing Google Identity Services:', err);
+          isProcessingRef.current = false;
+          isInitializedRef.current = false;
         }
-      }, 1000);
-    } catch (error) {
-      console.error('Error in Google One Tap setup:', error);
-      isInitializedRef.current = false;
-    }
-  };
+      };
 
-  return (
-    <div id="google-one-tap-handler" style={{ display: 'none' }}>
-      {/* This is a non-visual component */}
-    </div>
-  );
+      // Start initialization process
+      tryInitialize();
+    } catch (error) {
+      console.error('Failed to set up Google Identity Services:', error);
+      isProcessingRef.current = false;
+      isInitializedRef.current = false;
+      cleanupContainer();
+    }
+  }, [user, handleGoogleOneTapCallback, isGoogleScriptLoaded, cleanupContainer, clearTimeouts, autoInit]);
+
+  // Load Google script when component mounts
+  useEffect(() => {
+    // Process might fail in SSR environment
+    if (typeof window !== 'undefined') {
+      loadGoogleScript();
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      cleanupContainer();
+      clearTimeouts();
+    };
+  }, [loadGoogleScript, cleanupContainer, clearTimeouts]);
+
+  // Initialize Google One Tap when dependencies are ready
+  useEffect(() => {
+    initializeGoogleOneTap();
+    
+    // Clean up on unmount or dependencies change
+    return () => {
+      isProcessingRef.current = false;
+      cleanupContainer();
+      clearTimeouts();
+    };
+  }, [initializeGoogleOneTap, cleanupContainer, clearTimeouts]);
+
+  // Handle HMR for Vite development mode
+  useEffect(() => {
+    // This effect specifically handles hot module replacement
+    if (import.meta.hot) {
+      const handleHotUpdate = () => {
+        cleanupContainer();
+        clearTimeouts();
+        isProcessingRef.current = false;
+        isInitializedRef.current = false;
+      };
+      
+      import.meta.hot.on('vite:beforeUpdate', handleHotUpdate);
+      
+      return () => {
+        import.meta.hot?.off('vite:beforeUpdate', handleHotUpdate);
+      };
+    }
+  }, [cleanupContainer, clearTimeouts]);
+
+  // No need to render anything - Google Identity Services handles UI
+  return null;
 };
 
 export default GoogleOneTapHandler;
