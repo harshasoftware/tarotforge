@@ -17,14 +17,6 @@ interface AuthContextType {
   setMagicLinkSent: (sent: boolean) => void;
   showSignInModal: boolean;
   setShowSignInModal: (show: boolean) => void;
-  handleGoogleOneTapCallback: (response: GoogleOneTapResponse, nonce: string) => Promise<void>;
-}
-
-// Google One Tap interface
-interface GoogleOneTapResponse {
-  credential: string;
-  select_by?: string;
-  clientId?: string;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -39,8 +31,7 @@ const AuthContext = createContext<AuthContextType>({
   magicLinkSent: false,
   setMagicLinkSent: () => {},
   showSignInModal: false,
-  setShowSignInModal: () => {},
-  handleGoogleOneTapCallback: async () => {}
+  setShowSignInModal: () => {}
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -438,44 +429,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
   };
 
-  // Handle Google One Tap sign in
-  const handleGoogleOneTapCallback = async (response: GoogleOneTapResponse, nonce: string): Promise<void> => {
-    try {
-      // Prevent concurrent processing
-      if (isProcessingGoogleOneTapRef.current) {
-        console.log('Already processing a Google One Tap response, skipping...');
-        return;
-      }
-      
-      isProcessingGoogleOneTapRef.current = true;
-      console.log('Google One Tap response received', response);
-      
-      // Sign in with Supabase using the ID token
-      const { error } = await supabase.auth.signInWithIdToken({
-        provider: 'google',
-        token: response.credential,
-        nonce: nonce, // Use the provided nonce for verification
-      });
-      
-      if (error) {
-        console.error('Error signing in with Google One Tap:', error);
-        isProcessingGoogleOneTapRef.current = false;
-        return;
-      }
-      
-      console.log('Successfully signed in with Google One Tap');
-      await checkAuth();
-    } catch (err) {
-      console.error('Error processing Google One Tap response:', err);
-    } finally {
-      // Ensure we reset the processing flag after a short delay
-      // to prevent potential race conditions
-      setTimeout(() => {
-        isProcessingGoogleOneTapRef.current = false;
-      }, 1000);
-    }
-  };
-
   // Set up auth state listener
   useEffect(() => {
     console.log('Setting up auth state listener');
@@ -548,8 +501,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     magicLinkSent,
     setMagicLinkSent,
     showSignInModal,
-    setShowSignInModal,
-    handleGoogleOneTapCallback
+    setShowSignInModal
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
