@@ -15,10 +15,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-    <!-- Google One Tap script will be loaded dynamically to avoid CORS issues -->
   </head>
   <body class="bg-background text-foreground antialiased">
     <div id="root"></div>
+    <!-- Container for Google One Tap -->
+    <div id="g_id_onload" data-client_id="GOOGLE_CLIENT_ID_PLACEHOLDER" style="display: none;"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

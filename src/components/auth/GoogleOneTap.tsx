@@ -16,6 +16,8 @@ const GoogleOneTapContainer: React.FC = () => {
       return;
     }
 
+    console.log('Initializing Google One Tap with client ID:', googleClientId);
+
     // Generate a nonce for security
     const generateNonce = (): string => {
       const array = new Uint8Array(16);
@@ -26,28 +28,46 @@ const GoogleOneTapContainer: React.FC = () => {
     const nonce = generateNonce();
 
     // Initialize Google One Tap using the npm package
-    googleOneTap({
+    const googleOneTapConfig = {
       client_id: googleClientId,
       auto_select: false,
       cancel_on_tap_outside: true,
       context: 'signin',
-      callback: (response) => {
+      prompt_parent_id: 'g_id_onload', // Add a parent element ID
+      callback: (response: any) => {
+        console.log('Google One Tap callback triggered', response);
         if (response && response.credential) {
           console.log("Google One Tap response received, handling...");
           handleGoogleOneTapCallback(response, nonce);
         }
       },
-    });
+    };
+
+    // Add a div for One Tap to render into
+    const oneTapDiv = document.createElement('div');
+    oneTapDiv.id = 'g_id_onload';
+    oneTapDiv.style.position = 'fixed';
+    oneTapDiv.style.top = '10px';
+    oneTapDiv.style.right = '10px';
+    oneTapDiv.style.zIndex = '1000';
+    document.body.appendChild(oneTapDiv);
+    
+    console.log('Google One Tap container added to DOM');
+
+    // Initialize Google One Tap
+    googleOneTap(googleOneTapConfig);
+    console.log('Google One Tap initialized');
 
     return () => {
-      // The package should handle cleanup
+      // Clean up the container div when component unmounts
+      if (document.getElementById('g_id_onload')) {
+        document.body.removeChild(oneTapDiv);
+      }
     };
   }, [user, handleGoogleOneTapCallback]);
 
-  // Don't render anything for logged in users
-  if (user) return null;
-
-  return null; // The one-tap package handles the UI
+  // Return a fixed positioned container for the one tap
+  return null;
 };
 
 export default GoogleOneTapContainer;
