@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext';
 import { useSubscription } from './SubscriptionContext';
 import { supabase } from '../lib/supabase';
 import { STRIPE_PRODUCTS } from '../lib/stripe-config';
+import { checkAndMigrateCredits } from '../lib/credit-migration';
 
 interface CreditInfo {
   basicCredits: number;
@@ -114,8 +115,31 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             maxRolloverCredits
           });
 
-          // Automatically initialize credits since we don't have a record
-          initializeCredits();
+          // Attempt to migrate existing user credits if this is an existing account
+          try {
+            await checkAndMigrateCredits(user.id);
+            // Automatically refresh to get the newly created credit record
+            const { data: newData } = await supabase
+              .from('user_credits')
+              .select('*')
+              .eq('user_id', user.id)
+              .single();
+              
+            if (newData) {
+              setCredits({
+                basicCredits: newData.basic_credits,
+                premiumCredits: newData.premium_credits,
+                basicCreditsUsed: newData.basic_credits_used,
+                premiumCreditsUsed: newData.premium_credits_used,
+                planTier: newData.plan_tier,
+                lastRefreshDate: newData.last_refresh_date,
+                nextRefreshDate: newData.next_refresh_date,
+                maxRolloverCredits: newData.max_rollover_credits || 0,
+              });
+            }
+          } catch (migrationError) {
+            console.error('Error during credit migration:', migrationError);
+          }
         } else {
           console.error('Error fetching user credits:', fetchError);
           setError('Failed to load credit information');
