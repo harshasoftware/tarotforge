@@ -22,8 +22,8 @@ export const initializeLogRocket = () => {
       },
       network: {
         requestSanitizer: (request) => {
-          // Don't record auth requests
-          if (request.url.includes('/auth/') || request.url.includes('/login')) {
+          // Don't record auth requests - Add null check before calling includes
+          if (request.url && (request.url.includes('/auth/') || request.url.includes('/login'))) {
             // Remove sensitive information from auth requests
             request.headers['Authorization'] = '[REDACTED]';
             if (request.body) {
@@ -41,8 +41,8 @@ export const initializeLogRocket = () => {
           return request;
         },
         responseSanitizer: (response) => {
-          // Don't record auth responses
-          if (response.url.includes('/auth/') || response.url.includes('/login')) {
+          // Don't record auth responses - Add null check before calling includes
+          if (response.url && (response.url.includes('/auth/') || response.url.includes('/login'))) {
             // Sanitize auth responses
             if (response.body) {
               try {
