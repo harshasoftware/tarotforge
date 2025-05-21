@@ -8,7 +8,7 @@ import { useCredits } from '../../context/CreditContext';
 import SignInModal from '../auth/SignInModal';
 import TarotLogo from '../ui/TarotLogo';
 import CreditBadge from '../ui/CreditBadge';
-import { useMediaQuery } from 'tailwind-merge';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,7 +18,7 @@ const Navbar = () => {
   const { isSubscribed } = useSubscription();
   const { credits } = useCredits();
   const location = useLocation();
-+  const isMobile = useMediaQuery('(max-width: 767px)');
+  const isMobile = useMediaQuery('(max-width: 767px)');
 
   // Handle scroll effect
   useEffect(() => {
@@ -89,7 +89,7 @@ const Navbar = () => {
           {/* Right side - Auth & Theme */}
           <div className="flex items-center space-x-2">
             {/* Credits Badge (Only show for authenticated users) */}
-            {user && credits && !isMobile (
+            {user && credits && !isMobile && (
               <div className="relative mr-1">
                 <CreditBadge showIcon={true} className="py-1" absolute={false} />
               </div>
