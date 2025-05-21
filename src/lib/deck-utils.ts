@@ -13,7 +13,7 @@ export const fetchAllDecks = async (): Promise<Deck[]> => {
       .from('decks')
       .select(`
         *,
-        creator:creator_id (username, email)
+        creator:users!decks_creator_id_fkey (username, email)
       `)
       .eq('is_listed', true)
       .order('created_at', { ascending: false });
@@ -54,7 +54,7 @@ export const fetchDeckById = async (deckId: string): Promise<Deck | null> => {
       .from('decks')
       .select(`
         *,
-        creator:creator_id (username, email)
+        creator:users!decks_creator_id_fkey (username, email)
       `)
       .eq('id', deckId)
       .single();
@@ -118,7 +118,7 @@ export const fetchFreeDecks = async (): Promise<Deck[]> => {
       .from('decks')
       .select(`
         *,
-        creator:creator_id (username, email)
+        creator:users!decks_creator_id_fkey (username, email)
       `)
       .eq('is_free', true)
       .eq('is_public', true)
@@ -156,7 +156,7 @@ export const fetchUserCreatedDecks = async (userId: string): Promise<Deck[]> => 
       .from('decks')
       .select(`
         *,
-        creator:creator_id (username, email)
+        creator:users!decks_creator_id_fkey (username, email)
       `)
       .eq('creator_id', userId)
       .order('created_at', { ascending: false });
