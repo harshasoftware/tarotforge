@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase';
 import { processGoogleProfileImage } from '../lib/user-profile';
 import { generateMysticalUsername } from '../lib/gemini-ai';
 import { setUserContext, clearUserContext } from '../utils/errorTracking';
-import LogRocket from 'logrocket';
 
 interface AuthContextType {
   user: User | null;
@@ -166,11 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
                 setUser(userObj);
                 setUserContext(userObj);
-                // Set user in LogRocket
-                LogRocket.identify(userObj.id, {
-                  name: userObj.username || userObj.email.split('@')[0] || 'User',
-                  email: userObj.email
-                });
+                // Set user in LogRocket - removed direct LogRocket usage
               } else {
                 // Fallback if profile fetch fails after creation
                 const userObj = {
@@ -187,11 +182,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
                 setUser(userObj);
                 setUserContext(userObj);
-                // Set user in LogRocket
-                LogRocket.identify(userObj.id, {
-                  name: userObj.username || userObj.email.split('@')[0] || 'User',
-                  email: userObj.email
-                });
+                // Set user in LogRocket - removed direct LogRocket usage
               }
             } catch (insertError) {
               console.error('Error creating user profile:', insertError);
@@ -210,11 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               };
               setUser(userObj);
               setUserContext(userObj);
-              // Set user in LogRocket
-              LogRocket.identify(userObj.id, {
-                name: userObj.username || userObj.email.split('@')[0] || 'User',
-                email: userObj.email
-              });
+              // Set user in LogRocket - removed direct LogRocket usage
             }
           } else {
             // Other profile fetch error, use fallback user data
@@ -231,11 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
             setUser(userObj);
             setUserContext(userObj);
-            // Set user in LogRocket
-            LogRocket.identify(userObj.id, {
-              name: userObj.username || userObj.email.split('@')[0] || 'User',
-              email: userObj.email
-            });
+            // Set user in LogRocket - removed direct LogRocket usage
           }
         } else if (profile) {
           // Profile found, set user data
@@ -253,11 +236,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
           setUser(userObj);
           setUserContext(userObj);
-          // Set user in LogRocket
-          LogRocket.identify(userObj.id, {
-            name: userObj.username || userObj.email.split('@')[0] || 'User',
-            email: userObj.email
-          });
+          // Set user in LogRocket - removed direct LogRocket usage
         }
       } else {
         console.log('No session found, user is not authenticated');
