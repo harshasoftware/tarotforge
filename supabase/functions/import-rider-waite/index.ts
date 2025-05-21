@@ -80,12 +80,8 @@ Deno.serve(async (req) => {
           is_public: true,
           is_listed: true,
           is_nft: false,
-          cover_image: 'https://upload.wikimedia.org/wikipedia/commons/9/90/RWS_Tarot_00_Fool.jpg',
-          sample_images: [
-            'https://upload.wikimedia.org/wikipedia/commons/d/de/RWS_Tarot_01_Magician.jpg',
-            'https://upload.wikimedia.org/wikipedia/commons/3/3a/RWS_Tarot_02_High_Priestess.jpg',
-            'https://upload.wikimedia.org/wikipedia/commons/d/d2/RWS_Tarot_03_Empress.jpg'
-          ]
+          cover_image: '', // Will be updated after first card upload
+          sample_images: [] // Will be populated after uploads
         })
         .select('id')
         .single();
@@ -126,12 +122,8 @@ Deno.serve(async (req) => {
             is_public: true,
             is_listed: true,
             is_nft: false,
-            cover_image: 'https://upload.wikimedia.org/wikipedia/commons/9/90/RWS_Tarot_00_Fool.jpg',
-            sample_images: [
-              'https://upload.wikimedia.org/wikipedia/commons/d/de/RWS_Tarot_01_Magician.jpg',
-              'https://upload.wikimedia.org/wikipedia/commons/3/3a/RWS_Tarot_02_High_Priestess.jpg',
-              'https://upload.wikimedia.org/wikipedia/commons/d/d2/RWS_Tarot_03_Empress.jpg'
-            ]
+            cover_image: '', // Will be updated after first card upload
+            sample_images: [] // Will be populated after uploads
           })
           .select('id')
           .single();
@@ -765,42 +757,142 @@ Deno.serve(async (req) => {
     // Create combined card array
     const allCards = [...majorArcana, ...cups, ...pentacles, ...swords, ...wands];
     
-    // Insert each card into the database
+    // Array to hold sample images for the deck
+    const sampleImages: string[] = [];
+    
+    // Function to download and upload an image to Supabase storage
+    async function processImageAndUpload(card: TarotCard): Promise<string> {
+      try {
+        // Fetch the image from Wikimedia
+        const response = await fetch(card.image_url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.statusText}`);
+        }
+        
+        // Get the image as a blob
+        const imageBlob = await response.blob();
+        
+        // Create a sanitized filename
+        const sanitizedName = card.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '_');
+        
+        // Get the file extension from the URL
+        const urlParts = card.image_url.split('.');
+        const extension = urlParts[urlParts.length - 1].toLowerCase();
+        
+        // Upload to Supabase Storage
+        const filePath = `${deckId}/${sanitizedName}.${extension}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('card-images')
+          .upload(filePath, imageBlob, {
+            contentType: `image/${extension}`,
+            cacheControl: '3600',
+            upsert: true
+          });
+        
+        if (uploadError) {
+          throw new Error(`Error uploading to storage: ${uploadError.message}`);
+        }
+        
+        // Get the public URL of the uploaded image
+        const { data: { publicUrl } } = supabase.storage
+          .from('card-images')
+          .getPublicUrl(filePath);
+        
+        return publicUrl;
+      } catch (error) {
+        console.error(`Error processing image for ${card.name}:`, error);
+        // Fall back to the original URL if there's an error
+        return card.image_url;
+      }
+    }
+
+    // Process cards in batches
+    const batchSize = 5; // Process 5 cards at a time to avoid overwhelming the function
     let cardsProcessed = 0;
-    const batchSize = 10; // Process cards in batches to avoid overwhelming the database
+    let coverImageUrl = ''; // Will hold the first card's uploaded image URL
     
     for (let i = 0; i < allCards.length; i += batchSize) {
       const batch = allCards.slice(i, i + batchSize);
       
-      // Prepare cards with deck_id and card_type
-      const cardsToInsert = batch.map(card => ({
-        deck_id: deckId,
-        name: card.name,
-        description: card.description,
-        image_url: card.image_url,
-        card_type: card.name.includes('of ') ? 'minor' : 'major',
-        suit: card.suit || null,
-        keywords: card.keywords,
-        order: card.order
-      }));
+      // Process each card in the batch concurrently
+      const processedBatch = await Promise.all(
+        batch.map(async (card) => {
+          // Download and upload each image
+          const storedImageUrl = await processImageAndUpload(card);
+          
+          // If this is a major card and we don't have enough sample images, add it
+          if (card.card_type === 'major' && sampleImages.length < 3) {
+            sampleImages.push(storedImageUrl);
+          }
+          
+          // If this is the first card, use it as the cover image
+          if (i === 0 && card.name === 'The Fool') {
+            coverImageUrl = storedImageUrl;
+          }
+          
+          return {
+            deck_id: deckId,
+            name: card.name,
+            description: card.description,
+            image_url: storedImageUrl,
+            card_type: card.name.includes('of ') ? 'minor' : 'major',
+            suit: card.suit || null,
+            keywords: card.keywords,
+            order: card.order
+          };
+        })
+      );
       
-      // Insert the batch
+      // Insert the processed batch
       const { error: cardsError } = await supabase
         .from('cards')
-        .upsert(cardsToInsert, { onConflict: 'deck_id,name' });
+        .upsert(processedBatch, { onConflict: 'deck_id,name' });
       
       if (cardsError) {
         return createErrorResponse(`Failed to insert cards batch ${i / batchSize + 1}: ${cardsError.message}`, 500);
       }
       
       cardsProcessed += batch.length;
+      
+      // Update the deck with cover image and sample images after first batch
+      if (i === 0 && coverImageUrl) {
+        const { error: updateDeckError } = await supabase
+          .from('decks')
+          .update({
+            cover_image: coverImageUrl,
+            sample_images: sampleImages
+          })
+          .eq('id', deckId);
+          
+        if (updateDeckError) {
+          console.error('Error updating deck with images:', updateDeckError);
+        }
+      }
+    }
+    
+    // Final update to the deck to ensure cover and sample images are set
+    if (coverImageUrl) {
+      const { error: finalUpdateError } = await supabase
+        .from('decks')
+        .update({
+          cover_image: coverImageUrl,
+          sample_images: sampleImages
+        })
+        .eq('id', deckId);
+        
+      if (finalUpdateError) {
+        console.error('Error in final deck update:', finalUpdateError);
+      }
     }
     
     // Return success response
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully created Rider-Waite tarot deck with ${cardsProcessed} cards.`,
+        message: `Successfully created Rider-Waite tarot deck with ${cardsProcessed} cards and stored images in S3.`,
         deckId: deckId,
         cardsProcessed
       }),
