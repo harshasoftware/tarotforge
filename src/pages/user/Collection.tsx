@@ -256,7 +256,7 @@ const Collection = () => {
               <ShoppingBag className="mr-2 h-5 w-5" />
               Shop Decks
             </Link>
-            <Link to="/create" className="btn btn-primary px-4 py-2 flex items-center">
+            <Link to="/" className="btn btn-primary px-4 py-2 flex items-center">
               <Plus className="mr-2 h-5 w-5" />
               Create Deck
             </Link>
@@ -462,7 +462,7 @@ const Collection = () => {
                     <p className="text-muted-foreground">
                       You haven't created any decks yet. Start creating your own mystical tarot deck.
                     </p>
-                    <Link to="/create" className="btn btn-primary px-6 py-2 inline-flex items-center">
+                    <Link to="/" className="btn btn-primary px-6 py-2 inline-flex items-center">
                       Create New Deck
                       <Plus className="ml-2 h-4 w-4" />
                     </Link>
