@@ -6,6 +6,7 @@ import LoadingScreen from './components/ui/LoadingScreen';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ProtectedSubscriptionRoute from './components/auth/ProtectedSubscriptionRoute';
 import ErrorBoundary from './components/error/ErrorBoundary';
+import RiderWaiteDeck from './components/decks/RiderWaiteDeck';
 import * as Sentry from "@sentry/react";
 import setupLogRocketReact from 'logrocket-react';
 import LogRocket from 'logrocket';
@@ -135,6 +136,9 @@ function App() {
 
   return (
     <SentryErrorBoundary>
+      {/* Register the Rider-Waite deck for use throughout the application */}
+      <RiderWaiteDeck />
+      
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/" element={<Layout />}>
