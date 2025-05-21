@@ -43,8 +43,6 @@ const Marketplace = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
-  const [promptEngineValue, setPromptEngineValue] = useState('');
-  const [isGeneratingElaborateTheme, setIsGeneratingElaborateTheme] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   // New states for loading animation
