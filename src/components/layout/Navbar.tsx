@@ -8,6 +8,7 @@ import { useCredits } from '../../context/CreditContext';
 import SignInModal from '../auth/SignInModal';
 import TarotLogo from '../ui/TarotLogo';
 import CreditBadge from '../ui/CreditBadge';
+import { useMediaQuery } from 'tailwind-merge';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,6 +18,7 @@ const Navbar = () => {
   const { isSubscribed } = useSubscription();
   const { credits } = useCredits();
   const location = useLocation();
++  const isMobile = useMediaQuery('(max-width: 767px)');
 
   // Handle scroll effect
   useEffect(() => {
