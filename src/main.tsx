@@ -16,6 +16,23 @@ import {
   isPeriodicSyncSupported,
   isPushNotificationSupported
 } from './utils/pwa-features';
+import LogRocket from 'logrocket';
+import * as Sentry from "@sentry/react";
+import mixpanel from 'mixpanel-browser';
+
+// Initialize Mixpanel
+if (import.meta.env.VITE_MIXPANEL_TOKEN) {
+  mixpanel.init(import.meta.env.VITE_MIXPANEL_TOKEN, {
+    debug: import.meta.env.DEV,
+    track_pageview: true,
+    persistence: 'localStorage'
+  });
+}
+
+// Integrate LogRocket with Mixpanel
+LogRocket.getSessionURL(function(sessionURL) {
+  mixpanel.track('LogRocket', { sessionURL: sessionURL });
+});
 
 // Register service worker for PWA functionality
 const updateSW = registerSW({

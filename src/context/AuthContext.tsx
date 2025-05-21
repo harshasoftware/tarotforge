@@ -3,6 +3,8 @@ import { User } from '../types';
 import { supabase } from '../lib/supabase';
 import { processGoogleProfileImage } from '../lib/user-profile';
 import { generateMysticalUsername } from '../lib/gemini-ai';
+import { setUserContext, clearUserContext } from '../utils/errorTracking';
+import LogRocket from 'logrocket';
 
 interface AuthContextType {
   user: User | null;
@@ -77,6 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setLoading(false);
         authStateDeterminedRef.current = true;
+        clearUserContext(); // Clear user context in Sentry and LogRocket
         return;
       }
       
@@ -149,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .single();
                 
               if (newProfile) {
-                setUser({
+                const userObj = {
                   id: session.user.id,
                   email: session.user.email || '',
                   username: newProfile?.username || session.user.email?.split('@')[0] || 'User',
@@ -160,10 +163,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   is_reader: newProfile?.is_reader || false,
                   bio: newProfile?.bio || '',
                   custom_price_per_minute: newProfile?.custom_price_per_minute || undefined,
+                };
+                setUser(userObj);
+                setUserContext(userObj);
+                // Set user in LogRocket
+                LogRocket.identify(userObj.id, {
+                  name: userObj.username || userObj.email.split('@')[0] || 'User',
+                  email: userObj.email
                 });
               } else {
                 // Fallback if profile fetch fails after creation
-                setUser({
+                const userObj = {
                   id: session.user.id,
                   email: session.user.email || '',
                   username: username || undefined,
@@ -174,12 +184,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   is_reader: false,
                   bio: '',
                   custom_price_per_minute: undefined,
+                };
+                setUser(userObj);
+                setUserContext(userObj);
+                // Set user in LogRocket
+                LogRocket.identify(userObj.id, {
+                  name: userObj.username || userObj.email.split('@')[0] || 'User',
+                  email: userObj.email
                 });
               }
             } catch (insertError) {
               console.error('Error creating user profile:', insertError);
               // Fallback if profile creation fails
-              setUser({
+              const userObj = {
                 id: session.user.id,
                 email: session.user.email || '',
                 username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
@@ -190,11 +207,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 is_reader: false,
                 bio: '',
                 custom_price_per_minute: undefined,
+              };
+              setUser(userObj);
+              setUserContext(userObj);
+              // Set user in LogRocket
+              LogRocket.identify(userObj.id, {
+                name: userObj.username || userObj.email.split('@')[0] || 'User',
+                email: userObj.email
               });
             }
           } else {
             // Other profile fetch error, use fallback user data
-            setUser({
+            const userObj = {
               id: session.user.id,
               email: session.user.email || '',
               username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
@@ -204,11 +228,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               is_reader: false,
               bio: '',
               custom_price_per_minute: undefined,
+            };
+            setUser(userObj);
+            setUserContext(userObj);
+            // Set user in LogRocket
+            LogRocket.identify(userObj.id, {
+              name: userObj.username || userObj.email.split('@')[0] || 'User',
+              email: userObj.email
             });
           }
         } else if (profile) {
           // Profile found, set user data
-          setUser({
+          const userObj = {
             id: session.user.id,
             email: session.user.email || '',
             username: profile?.username,
@@ -219,15 +250,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             is_reader: profile?.is_reader || false,
             bio: profile?.bio || '',
             custom_price_per_minute: profile?.custom_price_per_minute,
+          };
+          setUser(userObj);
+          setUserContext(userObj);
+          // Set user in LogRocket
+          LogRocket.identify(userObj.id, {
+            name: userObj.username || userObj.email.split('@')[0] || 'User',
+            email: userObj.email
           });
         }
       } else {
         console.log('No session found, user is not authenticated');
         setUser(null);
+        clearUserContext();
       }
     } catch (error) {
       console.error('Error checking auth:', error);
       setUser(null);
+      clearUserContext();
     } finally {
       setLoading(false);
       isCheckingRef.current = false;
@@ -398,6 +438,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Sign out from Supabase
       await supabase.auth.signOut();
       setUser(null);
+      clearUserContext(); // Clear user context in Sentry and LogRocket
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -473,6 +514,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
           setLoading(false);
           authStateDeterminedRef.current = true;
+          clearUserContext(); // Clear user context in Sentry and LogRocket
         }
       }
     );

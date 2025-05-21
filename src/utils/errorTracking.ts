@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/react";
 import { Transaction } from "@sentry/tracing";
+import LogRocket from 'logrocket';
 
 // Error types for Google Sign-In
 export enum GoogleSignInErrorType {
@@ -69,6 +70,13 @@ export const trackError = (
     Sentry.setContext('error.context', context);
   }
 
+  // Get LogRocket session URL and add to Sentry error
+  LogRocket.getSessionURL(sessionURL => {
+    Sentry.configureScope(scope => {
+      scope.setExtra("logRocketSession", sessionURL);
+    });
+  });
+
   // Capture the error
   Sentry.captureException(enhancedError);
 
@@ -98,6 +106,9 @@ export const trackUserAction = (action: string, data?: Record<string, any>) => {
     level: 'info',
     data,
   });
+
+  // Also track in LogRocket
+  LogRocket.track(action, data);
 };
 
 // API call tracking
@@ -154,16 +165,23 @@ export const getUserFriendlyMessage = (type: GoogleSignInErrorType | AppErrorTyp
   return ERROR_MESSAGES[type] || ERROR_MESSAGES[AppErrorType.UNKNOWN_ERROR];
 };
 
-// Set user context in Sentry
+// Set user context in Sentry and LogRocket
 export const setUserContext = (user: { id: string; email?: string; username?: string }) => {
   Sentry.setUser({
     id: user.id,
     email: user.email,
     username: user.username,
   });
+
+  // Set user in LogRocket as well
+  LogRocket.identify(user.id, {
+    name: user.username || user.email?.split('@')[0] || 'Unknown User',
+    email: user.email,
+  });
 };
 
-// Clear user context in Sentry
+// Clear user context in Sentry and LogRocket
 export const clearUserContext = () => {
   Sentry.setUser(null);
-}; 
+  LogRocket.identify(''); // Clear LogRocket identity
+};

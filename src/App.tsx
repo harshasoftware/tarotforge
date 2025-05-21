@@ -7,12 +7,31 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import ProtectedSubscriptionRoute from './components/auth/ProtectedSubscriptionRoute';
 import ErrorBoundary from './components/error/ErrorBoundary';
 import * as Sentry from "@sentry/react";
+import LogRocket from 'logrocket';
+import setupLogRocketReact from 'logrocket-react';
+
+// Initialize LogRocket
+LogRocket.init('app/tarot-forge');
+setupLogRocketReact(LogRocket);
 
 // Initialize Sentry
 Sentry.init({
   dsn: "https://9c3c4747996da8b597048265023ff2f0@o4509354423156736.ingest.us.sentry.io/4509354424860677",
   sendDefaultPii: true,
   environment: import.meta.env.MODE,
+  integrations: [
+    new Sentry.BrowserTracing({
+      // Set sampling rate for performance monitoring
+      tracingOrigins: ['localhost', 'tarotforge.xyz'],
+    }),
+  ],
+});
+
+// Connect LogRocket sessions to Sentry
+LogRocket.getSessionURL(sessionURL => {
+  Sentry.configureScope(scope => {
+    scope.setExtra("sessionURL", sessionURL);
+  });
 });
 
 // Lazy loaded components
