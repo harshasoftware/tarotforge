@@ -98,7 +98,7 @@ const majorArcana: Card[] = [
     name: 'The Lovers',
     description: 'The Lovers represents choices, relationships, and harmony. This card suggests important personal decisions, especially regarding love and commitment, as well as alignment with your core values.',
     // Updated URL for the Lovers card
-    image_url: 'https://upload.wikimedia.org/wikipedia/commons/1/1d/RWS_Tarot_06_Lovers.jpg',
+    image_url: 'https://upload.wikimedia.org/wikipedia/commons/d/db/RWS_Tarot_06_Lovers.jpg',
     card_type: 'major',
     keywords: ['love', 'choice', 'harmony', 'relationships'],
     order: 6,
@@ -351,7 +351,7 @@ const wandsCards: Card[] = [
     name: 'Nine of Wands',
     description: 'The Nine of Wands represents resilience, perseverance, and last stand. This card suggests continuing despite fatigue, drawing on inner reserves of strength, and being prepared for one final challenge.',
     // Updated URL for the Nine of Wands
-    image_url: 'https://upload.wikimedia.org/wikipedia/commons/e/e7/RWS_Tarot_09_Wands.jpg',
+    image_url: 'https://upload.wikimedia.org/wikipedia/commons/4/4d/Tarot_Nine_of_Wands.jpg',
     card_type: 'minor',
     suit: 'wands',
     keywords: ['resilience', 'courage', 'persistence', 'last stand'],
@@ -602,7 +602,7 @@ const swordsCards: Card[] = [
     name: 'Three of Swords',
     description: 'The Three of Swords represents heartbreak, sorrow, and emotional pain. This card suggests grief that must be felt and processed, painful truth that leads to growth, or necessary separation causing temporary suffering.',
     // Updated URL for the Three of Swords
-    image_url: 'https://upload.wikimedia.org/wikipedia/commons/d/d2/RWS_Tarot_03_Swords.jpg',
+    image_url: 'https://upload.wikimedia.org/wikipedia/commons/0/02/Swords03.jpg',
     card_type: 'minor',
     suit: 'swords',
     keywords: ['heartbreak', 'sorrow', 'grief', 'painful truth'],
