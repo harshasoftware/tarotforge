@@ -3,6 +3,8 @@ import { User } from '../types';
 import { supabase } from '../lib/supabase';
 import { processGoogleProfileImage } from '../lib/user-profile';
 import { generateMysticalUsername } from '../lib/gemini-ai';
+import { createCheckoutSession } from '../lib/stripe';
+import { STRIPE_PRODUCTS } from '../lib/stripe-config';
 
 interface AuthContextType {
   user: User | null;
@@ -221,6 +223,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             custom_price_per_minute: profile?.custom_price_per_minute,
           });
         }
+        
+        // Check if we need to redirect to a specific plan checkout after sign-in
+        const selectedPricingPlan = localStorage.getItem('selectedPricingPlan');
+        const fromPricing = localStorage.getItem('fromPricing');
+        
+        if (selectedPricingPlan) {
+          // User selected a specific plan - redirect to checkout
+          try {
+            console.log('User selected a plan from pricing page, redirecting to checkout');
+            localStorage.removeItem('selectedPricingPlan');
+            localStorage.removeItem('fromPricing');
+            
+            // Redirect to checkout for the selected plan
+            const product = STRIPE_PRODUCTS[selectedPricingPlan];
+            if (product && product.priceId) {
+              const { url } = await createCheckoutSession({
+                priceId: product.priceId,
+                mode: 'subscription',
+                successUrl: `${window.location.origin}/subscription/success`,
+                cancelUrl: `${window.location.origin}/pricing`,
+              });
+              
+              if (url) {
+                window.location.href = url;
+              }
+            }
+          } catch (checkoutError) {
+            console.error('Error redirecting to checkout:', checkoutError);
+          }
+        } else if (fromPricing) {
+          // User came from pricing page but didn't select a plan - redirect to home
+          console.log('User chose free plan from pricing page, redirecting to home');
+          localStorage.removeItem('fromPricing');
+          window.location.href = '/';
+        }
       } else {
         console.log('No session found, user is not authenticated');
         setUser(null);
@@ -332,6 +369,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('auth_return_path', window.location.pathname + window.location.search);
       }
       
+      // Store any pricing-related information to handle post-login
+      const selectedPricingPlan = localStorage.getItem('selectedPricingPlan');
+      const fromPricing = localStorage.getItem('fromPricing');
+      
+      if (selectedPricingPlan || fromPricing) {
+        localStorage.setItem('auth_from_pricing', 'true');
+        if (selectedPricingPlan) {
+          localStorage.setItem('auth_selected_plan', selectedPricingPlan);
+        }
+      }
+      
       // Generate a secure nonce for this sign-in attempt
       nonceRef.current = generateNonce();
       
@@ -398,6 +446,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Sign out from Supabase
       await supabase.auth.signOut();
       setUser(null);
+      
+      // Clear any stored plan or pricing info
+      localStorage.removeItem('selectedPricingPlan');
+      localStorage.removeItem('fromPricing');
     } catch (error) {
       console.error('Error signing out:', error);
     }

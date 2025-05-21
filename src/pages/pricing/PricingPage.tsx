@@ -10,6 +10,7 @@ const PricingPage = () => {
   const { user, setShowSignInModal } = useAuth();
   const navigate = useNavigate();
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
+  const [selectedPlanKey, setSelectedPlanKey] = useState<string | null>(null);
 
   // If user is logged in, redirect to subscription page
   if (user) {
@@ -32,7 +33,17 @@ const PricingPage = () => {
   };
 
   // Handle "Get Started" button click
-  const handleGetStarted = () => {
+  const handleGetStarted = (planKey?: string) => {
+    // Save the selected plan intent in localStorage
+    if (planKey) {
+      localStorage.setItem('selectedPricingPlan', planKey);
+      setSelectedPlanKey(planKey);
+    } else {
+      // If no plan selected (free plan), just store that we came from pricing
+      localStorage.setItem('fromPricing', 'true');
+      localStorage.removeItem('selectedPricingPlan');
+    }
+    
     setShowSignInModal(true);
   };
 
@@ -110,7 +121,7 @@ const PricingPage = () => {
                 </div>
                 
                 <button
-                  onClick={handleGetStarted}
+                  onClick={() => handleGetStarted()}
                   className="btn btn-secondary py-2 px-4 flex items-center"
                 >
                   Get Started
@@ -124,7 +135,9 @@ const PricingPage = () => {
             {getPlansForInterval(billingInterval).map(({ key, product }, index) => (
               <motion.div
                 key={key}
-                className="bg-card border border-border rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all relative"
+                className={`bg-card border border-border rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all relative ${
+                  selectedPlanKey === key ? 'ring-2 ring-primary' : ''
+                }`}
                 whileHover={{ y: -5 }}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -216,7 +229,7 @@ const PricingPage = () => {
                   </div>
                   
                   <button
-                    onClick={handleGetStarted}
+                    onClick={() => handleGetStarted(key)}
                     className={`w-full py-2 rounded-md font-medium transition-colors ${
                       key.includes('mystic')
                         ? 'bg-primary text-primary-foreground hover:bg-primary/90'
@@ -420,7 +433,7 @@ const PricingPage = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 
-                onClick={handleGetStarted}
+                onClick={() => handleGetStarted()}
                 className="btn btn-primary py-2 px-6 flex items-center justify-center"
               >
                 <ArrowRight className="mr-2 h-5 w-5" />
