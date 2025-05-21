@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Check, Zap, Star, Crown, Shield } from 'lucide-react';
+import { Check, Zap, Star, Crown, Shield, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { StripeProduct } from '../../lib/stripe-config';
@@ -9,12 +9,20 @@ import { createCheckoutSession } from '../../lib/stripe';
 interface SubscriptionCardProps {
   product: StripeProduct;
   isActive?: boolean;
+  billingInterval?: 'month' | 'year';
 }
 
-const SubscriptionCard: React.FC<SubscriptionCardProps> = ({ product, isActive = false }) => {
+const SubscriptionCard: React.FC<SubscriptionCardProps> = ({ product, isActive = false, billingInterval = 'month' }) => {
   const navigate = useNavigate();
   const { user, setShowSignInModal } = useAuth();
   const [isLoading, setIsLoading] = React.useState(false);
+
+  // Calculate monthly equivalent price for yearly plans
+  const getMonthlyEquivalent = () => {
+    if (product.interval !== 'year' || !product.price) return null;
+    const monthlyEquiv = (product.price / 12).toFixed(2);
+    return monthlyEquiv;
+  };
 
   const handleSubscribe = async () => {
     if (!user) {
@@ -58,7 +66,7 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({ product, isActive =
       
       <div className="p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-serif font-bold">{product.name}</h3>
+          <h3 className="text-xl font-serif font-bold">{product.name.replace(' (Yearly)', '').replace(' (Monthly)', '')}</h3>
           <div className="p-2 bg-primary/20 rounded-full">
             <Crown className="h-5 w-5 text-primary" />
           </div>
@@ -69,6 +77,11 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({ product, isActive =
             <span className="text-3xl font-bold">${product.price}</span>
             <span className="text-muted-foreground ml-1">/{product.interval}</span>
           </div>
+          {product.interval === 'year' && getMonthlyEquivalent() && (
+            <div className="text-sm text-muted-foreground mt-1">
+              Just ${getMonthlyEquivalent()}/month, billed annually
+            </div>
+          )}
           <p className="text-sm text-muted-foreground mt-2">{product.description}</p>
         </div>
         

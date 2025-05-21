@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useLocation } from 'react-router-dom';
-import { Sparkles, Shield, Zap, ArrowLeft, Loader, CreditCard, Check, AlertCircle } from 'lucide-react';
+import { Sparkles, Shield, Zap, ArrowLeft, Loader, CreditCard, Check, AlertCircle, Clock, ChevronsUpDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useCredits } from '../../context/CreditContext';
-import { STRIPE_PRODUCTS } from '../../lib/stripe-config';
+import { STRIPE_PRODUCTS, StripeProduct } from '../../lib/stripe-config';
 import { createCheckoutSession } from '../../lib/stripe';
 import TarotLogo from '../../components/ui/TarotLogo';
 
@@ -16,9 +16,24 @@ const SubscriptionPage: React.FC = () => {
   const location = useLocation();
   const fromDeckCreation = location.state?.fromDeckCreation || false;
   
+  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Calculate savings percentage for yearly plans
+  const calculateSavings = (monthlyPrice: number, yearlyPrice: number): number => {
+    const monthlyTotal = monthlyPrice * 12;
+    const yearlyTotal = yearlyPrice;
+    return Math.round(((monthlyTotal - yearlyTotal) / monthlyTotal) * 100);
+  };
+
+  // Filter plans based on billing interval
+  const getPlansForInterval = (interval: 'month' | 'year') => {
+    return Object.entries(STRIPE_PRODUCTS)
+      .filter(([_, product]) => product.interval === interval)
+      .map(([key, product]) => ({ key, product }));
+  };
 
   // Determine current plan for highlighting
   useEffect(() => {
@@ -27,8 +42,13 @@ const SubscriptionPage: React.FC = () => {
       const productKey = Object.keys(STRIPE_PRODUCTS).find(
         key => STRIPE_PRODUCTS[key].priceId === subscription.price_id
       );
+      
       if (productKey) {
         setSelectedPlan(productKey);
+        // Set the billing interval based on the current subscription
+        if (STRIPE_PRODUCTS[productKey].interval) {
+          setBillingInterval(STRIPE_PRODUCTS[productKey].interval as 'month' | 'year');
+        }
       }
     } else {
       setSelectedPlan(null); // Free plan
@@ -98,6 +118,33 @@ const SubscriptionPage: React.FC = () => {
             </p>
           </motion.div>
 
+          {/* Billing interval toggle */}
+          <div className="flex justify-center mb-8">
+            <div className="p-1 bg-card border border-border rounded-full">
+              <div className="flex items-center">
+                <button
+                  onClick={() => setBillingInterval('month')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    billingInterval === 'month' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/50'
+                  }`}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setBillingInterval('year')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    billingInterval === 'year' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted/50'
+                  }`}
+                >
+                  <span className="flex items-center">
+                    Yearly
+                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-success/20 text-success rounded-full">Save 20%</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Current credit balance - only show when logged in */}
           {user && credits && !loading && (
             <motion.div
@@ -160,7 +207,7 @@ const SubscriptionPage: React.FC = () => {
               <span className="text-lg">Loading plans...</span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
               {/* Free Plan */}
               <motion.div
                 className={`bg-card border ${selectedPlan === null ? 'border-primary' : 'border-border'} rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all`}
@@ -186,7 +233,7 @@ const SubscriptionPage: React.FC = () => {
                   <div className="mb-6">
                     <div className="flex items-baseline">
                       <span className="text-3xl font-bold">$0</span>
-                      <span className="text-muted-foreground ml-1">/month</span>
+                      <span className="text-muted-foreground ml-1">/forever</span>
                     </div>
                     <p className="text-sm text-muted-foreground mt-2">Try out basic features with limited credits</p>
                   </div>
@@ -245,306 +292,143 @@ const SubscriptionPage: React.FC = () => {
                 </div>
               </motion.div>
 
-              {/* Mystic Plan */}
-              <motion.div
-                className={`bg-card border ${selectedPlan === 'mystic' ? 'border-primary' : 'border-border'} rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all`}
-                whileHover={{ y: -5 }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.1 }}
-              >
-                {selectedPlan === 'mystic' && (
-                  <div className="bg-primary text-primary-foreground text-center py-2 font-medium">
-                    Current Plan
-                  </div>
-                )}
-                
-                <div className="p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-serif font-bold">Mystic</h3>
-                    <div className="p-2 bg-primary/20 rounded-full">
-                      <Sparkles className="h-5 w-5 text-primary" />
+              {/* Subscription Plans for current billing interval */}
+              {getPlansForInterval(billingInterval).map(({ key, product }, index) => (
+                <motion.div
+                  key={key}
+                  className={`bg-card border ${selectedPlan === key ? 'border-primary' : 'border-border'} rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all relative`}
+                  whileHover={{ y: -5 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.1 + index * 0.1 }}
+                >
+                  {product.popular && (
+                    <div className="absolute top-0 right-0 mt-6 mr-6 bg-accent text-accent-foreground text-xs font-medium px-3 py-1 rounded-full">
+                      Popular
                     </div>
-                  </div>
+                  )}
                   
-                  <div className="mb-6">
-                    <div className="flex items-baseline">
-                      <span className="text-3xl font-bold">$12.99</span>
-                      <span className="text-muted-foreground ml-1">/month</span>
+                  {selectedPlan === key && (
+                    <div className="bg-primary text-primary-foreground text-center py-2 font-medium">
+                      Current Plan
                     </div>
-                    <p className="text-sm text-muted-foreground mt-2">Perfect for beginners exploring tarot creation</p>
-                  </div>
+                  )}
                   
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Basic Credits</span>
-                      <span className="font-medium">22 / month</span>
+                  <div className="p-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-xl font-serif font-bold">
+                        {product.name.replace(' (Yearly)', '').replace(' (Monthly)', '')}
+                      </h3>
+                      {key.includes('mystic') && (
+                        <div className="p-2 bg-primary/20 rounded-full">
+                          <Sparkles className="h-5 w-5 text-primary" />
+                        </div>
+                      )}
+                      {key.includes('creator') && (
+                        <div className="p-2 bg-accent/20 rounded-full">
+                          <CreditCard className="h-5 w-5 text-accent" />
+                        </div>
+                      )}
+                      {key.includes('visionary') && (
+                        <div className="p-2 bg-teal/20 rounded-full">
+                          <Shield className="h-5 w-5 text-teal" />
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Premium Credits</span>
-                      <span className="font-medium">0</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Credit Rollover</span>
-                      <span className="font-medium">Up to 5</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Card Quality</span>
-                      <span className="font-medium">Medium</span>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 mt-1">
-                        <Check className="h-4 w-4 text-success" />
+                    
+                    <div className="mb-6">
+                      <div className="flex items-baseline">
+                        <span className="text-3xl font-bold">${product.price}</span>
+                        <span className="text-muted-foreground ml-1">/{product.interval}</span>
                       </div>
-                      <span className="ml-2 text-sm">Create complete Major Arcana (22 cards)</span>
+                      <p className="text-sm text-muted-foreground mt-2">{product.description}</p>
+                      
+                      {product.interval === 'year' && (
+                        <div className="mt-1 flex items-center">
+                          <Clock className="h-3 w-3 mr-1 text-success" />
+                          <span className="text-xs text-success">
+                            Save {calculateSavings(
+                              STRIPE_PRODUCTS[key.replace('yearly', 'monthly')].price as number,
+                              product.price as number
+                            )}% compared to monthly
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 mt-1">
-                        <Check className="h-4 w-4 text-success" />
+                    
+                    <div className="space-y-3 mb-6">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">
+                          {product.interval === 'year' ? 'Yearly' : 'Monthly'} Basic Credits
+                        </span>
+                        <span className="font-medium">{product.baseCredits}</span>
                       </div>
-                      <span className="ml-2 text-sm">Medium quality image generation</span>
-                    </div>
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 mt-1">
-                        <Check className="h-4 w-4 text-success" />
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">
+                          {product.interval === 'year' ? 'Yearly' : 'Monthly'} Premium Credits
+                        </span>
+                        <span className="font-medium">{product.premiumCredits}</span>
                       </div>
-                      <span className="ml-2 text-sm">Deck sharing capabilities</span>
-                    </div>
-                  </div>
-                  
-                  <button
-                    onClick={() => handleSubscribe('mystic')}
-                    disabled={checkoutLoading || selectedPlan === 'mystic'}
-                    className={`w-full py-2 rounded-md font-medium transition-colors ${
-                      selectedPlan === 'mystic'
-                        ? 'bg-success/20 text-success cursor-default'
-                        : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    } flex items-center justify-center`}
-                  >
-                    {checkoutLoading ? (
-                      <>
-                        <span className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
-                        Processing...
-                      </>
-                    ) : selectedPlan === 'mystic' ? (
-                      <>
-                        <Check className="h-4 w-4 mr-2" />
-                        Current Plan
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        {selectedPlan ? 'Switch Plan' : 'Subscribe Now'}
-                      </>
-                    )}
-                  </button>
-                </div>
-              </motion.div>
-
-              {/* Creator Plan with Popular Badge */}
-              <motion.div
-                className={`bg-card border ${selectedPlan === 'creator' ? 'border-primary' : 'border-border'} rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all relative`}
-                whileHover={{ y: -5 }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.2 }}
-              >
-                <div className="absolute top-0 right-0 mt-6 mr-6 bg-accent text-accent-foreground text-xs font-medium px-3 py-1 rounded-full">
-                  Popular
-                </div>
-                
-                {selectedPlan === 'creator' && (
-                  <div className="bg-primary text-primary-foreground text-center py-2 font-medium">
-                    Current Plan
-                  </div>
-                )}
-                
-                <div className="p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-serif font-bold">Creator</h3>
-                    <div className="p-2 bg-accent/20 rounded-full">
-                      <CreditCard className="h-5 w-5 text-accent" />
-                    </div>
-                  </div>
-                  
-                  <div className="mb-6">
-                    <div className="flex items-baseline">
-                      <span className="text-3xl font-bold">$29.99</span>
-                      <span className="text-muted-foreground ml-1">/month</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">For serious tarot enthusiasts and deck creators</p>
-                  </div>
-                  
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Basic Credits</span>
-                      <span className="font-medium">78 / month</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Premium Credits</span>
-                      <span className="font-medium">0</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Credit Rollover</span>
-                      <span className="font-medium">Up to 15</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Card Quality</span>
-                      <span className="font-medium">Medium</span>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 mt-1">
-                        <Check className="h-4 w-4 text-success" />
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Credit Rollover</span>
+                        <span className="font-medium">
+                          {product.maxRolloverCredits === product.baseCredits + product.premiumCredits
+                            ? 'Full rollover'
+                            : `Up to ${product.maxRolloverCredits}`}
+                        </span>
                       </div>
-                      <span className="ml-2 text-sm">Create complete full tarot deck (78 cards)</span>
-                    </div>
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 mt-1">
-                        <Check className="h-4 w-4 text-success" />
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Card Quality</span>
+                        <span className="font-medium capitalize">{product.cardImageQuality}</span>
                       </div>
-                      <span className="ml-2 text-sm">Medium quality image generation</span>
                     </div>
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 mt-1">
-                        <Check className="h-4 w-4 text-success" />
-                      </div>
-                      <span className="ml-2 text-sm">Sell your decks in marketplace</span>
+                    
+                    <div className="space-y-3 mb-6">
+                      {product.features?.map((feature, index) => (
+                        <div key={index} className="flex items-start">
+                          <div className="flex-shrink-0 mt-1">
+                            <Check className="h-4 w-4 text-success" />
+                          </div>
+                          <span className="ml-2 text-sm">{feature}</span>
+                        </div>
+                      ))}
                     </div>
+                    
+                    <button
+                      onClick={() => handleSubscribe(key)}
+                      disabled={checkoutLoading || selectedPlan === key}
+                      className={`w-full py-2 rounded-md font-medium transition-colors ${
+                        selectedPlan === key
+                          ? 'bg-success/20 text-success cursor-default'
+                          : key.includes('mystic')
+                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                            : key.includes('creator')
+                              ? 'bg-accent text-accent-foreground hover:bg-accent/90'
+                              : 'bg-teal text-teal-foreground hover:bg-teal/90'
+                      } flex items-center justify-center`}
+                    >
+                      {checkoutLoading ? (
+                        <>
+                          <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></span>
+                          Processing...
+                        </>
+                      ) : selectedPlan === key ? (
+                        <>
+                          <Check className="h-4 w-4 mr-2" />
+                          Current Plan
+                        </>
+                      ) : (
+                        <>
+                          {key.includes('mystic') && <Sparkles className="h-4 w-4 mr-2" />}
+                          {key.includes('creator') && <CreditCard className="h-4 w-4 mr-2" />}
+                          {key.includes('visionary') && <Shield className="h-4 w-4 mr-2" />}
+                          {selectedPlan ? 'Switch Plan' : 'Subscribe Now'}
+                        </>
+                      )}
+                    </button>
                   </div>
-                  
-                  <button
-                    onClick={() => handleSubscribe('creator')}
-                    disabled={checkoutLoading || selectedPlan === 'creator'}
-                    className={`w-full py-2 rounded-md font-medium transition-colors ${
-                      selectedPlan === 'creator'
-                        ? 'bg-success/20 text-success cursor-default'
-                        : 'bg-accent text-accent-foreground hover:bg-accent/90'
-                    } flex items-center justify-center`}
-                  >
-                    {checkoutLoading ? (
-                      <>
-                        <span className="h-4 w-4 border-2 border-accent-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
-                        Processing...
-                      </>
-                    ) : selectedPlan === 'creator' ? (
-                      <>
-                        <Check className="h-4 w-4 mr-2" />
-                        Current Plan
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard className="h-4 w-4 mr-2" />
-                        {selectedPlan ? 'Switch Plan' : 'Subscribe Now'}
-                      </>
-                    )}
-                  </button>
-                </div>
-              </motion.div>
-
-              {/* Visionary Plan */}
-              <motion.div
-                className={`bg-card border ${selectedPlan === 'visionary' ? 'border-primary' : 'border-border'} rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all`}
-                whileHover={{ y: -5 }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.3 }}
-              >
-                {selectedPlan === 'visionary' && (
-                  <div className="bg-primary text-primary-foreground text-center py-2 font-medium">
-                    Current Plan
-                  </div>
-                )}
-                
-                <div className="p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-serif font-bold">Visionary</h3>
-                    <div className="p-2 bg-teal/20 rounded-full">
-                      <Shield className="h-5 w-5 text-teal" />
-                    </div>
-                  </div>
-                  
-                  <div className="mb-6">
-                    <div className="flex items-baseline">
-                      <span className="text-3xl font-bold">$79.99</span>
-                      <span className="text-muted-foreground ml-1">/month</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">For professional creators and artists</p>
-                  </div>
-                  
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Basic Credits</span>
-                      <span className="font-medium">0</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Premium Credits</span>
-                      <span className="font-medium">118 / month</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Credit Rollover</span>
-                      <span className="font-medium">Full month's credits</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Card Quality</span>
-                      <span className="font-medium text-teal">High</span>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 mt-1">
-                        <Check className="h-4 w-4 text-success" />
-                      </div>
-                      <span className="ml-2 text-sm">High quality image generation</span>
-                    </div>
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 mt-1">
-                        <Check className="h-4 w-4 text-success" />
-                      </div>
-                      <span className="ml-2 text-sm">Style consistency across deck</span>
-                    </div>
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 mt-1">
-                        <Check className="h-4 w-4 text-success" />
-                      </div>
-                      <span className="ml-2 text-sm">Full rollover of unused credits</span>
-                    </div>
-                  </div>
-                  
-                  <button
-                    onClick={() => handleSubscribe('visionary')}
-                    disabled={checkoutLoading || selectedPlan === 'visionary'}
-                    className={`w-full py-2 rounded-md font-medium transition-colors ${
-                      selectedPlan === 'visionary'
-                        ? 'bg-success/20 text-success cursor-default'
-                        : 'bg-teal text-teal-foreground hover:bg-teal/90'
-                    } flex items-center justify-center`}
-                  >
-                    {checkoutLoading ? (
-                      <>
-                        <span className="h-4 w-4 border-2 border-teal-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
-                        Processing...
-                      </>
-                    ) : selectedPlan === 'visionary' ? (
-                      <>
-                        <Check className="h-4 w-4 mr-2" />
-                        Current Plan
-                      </>
-                    ) : (
-                      <>
-                        <Shield className="h-4 w-4 mr-2" />
-                        {selectedPlan ? 'Switch Plan' : 'Subscribe Now'}
-                      </>
-                    )}
-                  </button>
-                </div>
-              </motion.div>
+                </motion.div>
+              ))}
             </div>
           )}
 
@@ -591,8 +475,12 @@ const SubscriptionPage: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <h3 className="font-medium mb-1">Monthly Refresh</h3>
-                    <p className="text-sm text-muted-foreground">Credits refresh at the beginning of each billing cycle. Unused credits may roll over based on your plan.</p>
+                    <h3 className="font-medium mb-1">
+                      {billingInterval === 'month' ? 'Monthly' : 'Yearly'} Refresh
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Credits refresh at the beginning of each billing cycle. Unused credits may roll over based on your plan.
+                    </p>
                   </div>
                 </div>
                 
@@ -604,7 +492,7 @@ const SubscriptionPage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-medium mb-1">Rollover Credits</h3>
-                    <p className="text-sm text-muted-foreground">Unused credits can roll over to the next month, up to the limit specified in your plan. Free plan credits do not roll over.</p>
+                    <p className="text-sm text-muted-foreground">Unused credits can roll over to the next billing cycle, up to the limit specified in your plan. Free plan credits do not roll over.</p>
                   </div>
                 </div>
               </div>
@@ -631,16 +519,16 @@ const SubscriptionPage: React.FC = () => {
               </div>
               
               <div className="bg-card border border-border rounded-lg p-5">
-                <h3 className="font-medium mb-2">What's the difference between medium and high quality?</h3>
+                <h3 className="font-medium mb-2">What's the difference between monthly and yearly billing?</h3>
                 <p className="text-sm text-muted-foreground">
-                  High quality images (available in the Visionary plan) feature enhanced detail, more consistent style across cards, and generally more polished artwork compared to medium quality images.
+                  Yearly billing offers significant savings (up to 20%) compared to monthly billing. You'll be charged once per year and receive all credits upfront with higher rollover limits.
                 </p>
               </div>
               
               <div className="bg-card border border-border rounded-lg p-5">
-                <h3 className="font-medium mb-2">Can I purchase additional credits?</h3>
+                <h3 className="font-medium mb-2">What's the difference between medium and high quality?</h3>
                 <p className="text-sm text-muted-foreground">
-                  Additional credit purchases are coming soon! This feature will allow you to buy more credits if you run out before your monthly refresh.
+                  High quality images (available in the Visionary plan) feature enhanced detail, more consistent style across cards, and generally more polished artwork compared to medium quality images.
                 </p>
               </div>
             </div>

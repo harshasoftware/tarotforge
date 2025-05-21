@@ -22,8 +22,9 @@ export interface StripeProduct {
 }
 
 export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
-  mystic: {
-    priceId: 'price_1ROxKkCzE3rkgdDILMeJSI4D',
+  // Monthly Plans
+  'mystic-monthly': {
+    priceId: 'price_1ROxKkCzE3rkgdDIwV7o3c6S',
     name: 'Mystic',
     description: 'Perfect for beginners exploring tarot creation',
     mode: 'subscription',
@@ -42,8 +43,8 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
       'Deck sharing capabilities'
     ]
   },
-  creator: {
-    priceId: 'price_1ROxKkCzE3rkgdDIZVPaqZHm',
+  'creator-monthly': {
+    priceId: 'price_1RR3oICzE3rkgdDIAa5rt1Ds',
     name: 'Creator',
     description: 'For serious tarot enthusiasts and deck creators',
     mode: 'subscription',
@@ -63,8 +64,8 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
     ],
     popular: true
   },
-  visionary: {
-    priceId: 'price_1ROxKkCzE3rkgdDIFrJaFEtC',
+  'visionary-monthly': {
+    priceId: 'price_1RR3r8CzE3rkgdDIWbWO283C',
     name: 'Visionary',
     description: 'For professional creators and artists',
     mode: 'subscription',
@@ -77,6 +78,70 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
     cardImageQuality: 'high',
     features: [
       '118 monthly premium credits',
+      'High quality image generation',
+      'Style consistency between cards',
+      'Full rollover of unused credits',
+      'Exclusive visionary-only decks'
+    ]
+  },
+  
+  // Yearly Plans
+  'mystic-yearly': {
+    priceId: 'price_1RR3kzCzE3rkgdDI9AYaw6Ts',
+    name: 'Mystic (Yearly)',
+    description: 'Perfect for beginners exploring tarot creation',
+    mode: 'subscription',
+    price: 124.00,
+    currency: 'usd',
+    interval: 'year',
+    baseCredits: 264, // 22 * 12
+    premiumCredits: 0,
+    maxRolloverCredits: 22, // More rollover for yearly
+    cardImageQuality: 'medium',
+    features: [
+      'Save 20% compared to monthly',
+      '264 yearly basic credits',
+      'Medium quality image generation',
+      'Rollover up to 22 unused credits',
+      'Deck sharing capabilities'
+    ]
+  },
+  'creator-yearly': {
+    priceId: 'price_1RR3oICzE3rkgdDIT9XhLhah',
+    name: 'Creator (Yearly)',
+    description: 'For serious tarot enthusiasts and deck creators',
+    mode: 'subscription',
+    price: 299.00,
+    currency: 'usd',
+    interval: 'year',
+    baseCredits: 936, // 78 * 12
+    premiumCredits: 0,
+    maxRolloverCredits: 78, // More rollover for yearly
+    cardImageQuality: 'medium',
+    features: [
+      'Save 17% compared to monthly',
+      '936 yearly basic credits',
+      'Medium quality image generation',
+      'Rollover up to 78 unused credits',
+      'Sell your decks in marketplace'
+    ],
+    popular: true
+  },
+  'visionary-yearly': {
+    priceId: 'price_1RR3sACzE3rkgdDI72SXNpqb',
+    name: 'Visionary (Yearly)',
+    description: 'For professional creators and artists',
+    mode: 'subscription',
+    price: 767.99,
+    currency: 'usd',
+    interval: 'year',
+    baseCredits: 0,
+    premiumCredits: 1416, // 118 * 12
+    maxRolloverCredits: 236, // More rollover for yearly
+    cardImageQuality: 'high',
+    features: [
+      'Save 20% compared to monthly',
+      '1,416 yearly premium credits',
       'High quality image generation',
       'Style consistency between cards',
       'Full rollover of unused credits',
