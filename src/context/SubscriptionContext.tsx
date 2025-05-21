@@ -97,5 +97,3 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     </SubscriptionContext.Provider>
   );
 };
-
-export default SubscriptionProvider;
