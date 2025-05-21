@@ -18,11 +18,11 @@ export const riderWaiteDeck: Deck = {
   is_public: true,
   is_listed: true,
   is_sellable: false,
-  cover_image: 'https://commons.wikimedia.org/wiki/File:RWS_Tarot_00_Fool.jpg',
+  cover_image: 'https://upload.wikimedia.org/wikipedia/commons/9/90/RWS_Tarot_00_Fool.jpg',
   sample_images: [
-    'https://commons.wikimedia.org/wiki/File:RWS_Tarot_00_Fool.jpg',
-    'https://commons.wikimedia.org/wiki/File:RWS_Tarot_01_Magician.jpg', 
-    'https://commons.wikimedia.org/wiki/File:RWS_Tarot_02_High_Priestess.jpg'
+    'https://upload.wikimedia.org/wikipedia/commons/9/90/RWS_Tarot_00_Fool.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/d/de/RWS_Tarot_01_Magician.jpg', 
+    'https://upload.wikimedia.org/wikipedia/commons/8/88/RWS_Tarot_02_High_Priestess.jpg'
   ],
   created_at: '1909-12-01T00:00:00Z',
   updated_at: '1909-12-01T00:00:00Z',
