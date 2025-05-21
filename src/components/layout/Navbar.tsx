@@ -76,6 +76,7 @@ const Navbar = () => {
                 >
                   Reading Room
                 </button>
+                <NavLink to="/pricing">Pricing</NavLink>
               </>
             )}
           </div>
@@ -243,6 +244,9 @@ const Navbar = () => {
                   >
                     Reading Room
                   </button>
+                  <Link to="/pricing" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
+                    Pricing
+                  </Link>
                   <button
                     onClick={() => {
                       setIsOpen(false);
