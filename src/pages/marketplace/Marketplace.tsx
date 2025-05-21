@@ -3,26 +3,8 @@ import { motion } from 'framer-motion';
 import { Search, Filter, Zap, TrendingUp, Clock, Star, XCircle, AlertCircle, Loader } from 'lucide-react';
 import DeckPreview from '../../components/ui/DeckPreview';
 import { Deck } from '../../types';
-import { supabase } from '../../lib/supabase';
+import { fetchAllDecks } from '../../lib/deck-utils';
 import TarotLogo from '../../components/ui/TarotLogo';
-
-// Placeholder decks for initial render
-const placeholderDecks: Deck[] = Array(9).fill(null).map((_, i) => ({
-  id: `placeholder-${i}`,
-  creator_id: 'placeholder',
-  creator_name: 'Creator',
-  title: 'Loading Deck...',
-  description: 'Loading description...',
-  theme: '',
-  style: '',
-  card_count: 78,
-  price: 9.99,
-  cover_image: 'https://placehold.co/300x400/300',
-  sample_images: [],
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-  purchase_count: 0,
-}));
 
 // Mystical loading messages that rotate
 const loadingMessages = [
@@ -54,56 +36,13 @@ const Marketplace = () => {
   
   // Initial decks load
   useEffect(() => {
-    const fetchDecks = async () => {
+    const loadDecks = async () => {
       try {
         setLoading(true);
         
-        // Fixed query - fetch decks without trying to join with users table
-        const { data, error } = await supabase
-          .from('decks')
-          .select('*')
-          .eq('is_listed', true) // Only fetch decks that are listed
-          .order('created_at', { ascending: false });
-        
-        if (error) {
-          console.error('Error fetching decks:', error);
-          throw error;
-        }
-        
-        if (data) {
-          // Process creator information from the creator_id
-          const userPromises = data.map(async (deck) => {
-            if (deck.creator_id) {
-              // Fetch user data separately for each deck
-              const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('username, email')
-                .eq('id', deck.creator_id)
-                .single();
-                
-              if (userError) {
-                console.warn('Error fetching user data for deck:', userError);
-                return {
-                  ...deck,
-                  creator_name: 'Unknown Creator'
-                };
-              }
-              
-              return {
-                ...deck,
-                creator_name: userData?.username || userData?.email?.split('@')[0] || 'Unknown Creator'
-              };
-            }
-            
-            return {
-              ...deck,
-              creator_name: 'Unknown Creator'
-            };
-          });
-          
-          const formattedDecks = await Promise.all(userPromises);
-          setDecks(formattedDecks);
-        }
+        // Fetch decks from Supabase + RiderWaite deck
+        const allDecks = await fetchAllDecks();
+        setDecks(allDecks);
         
         setLoading(false);
       } catch (error) {
@@ -112,7 +51,7 @@ const Marketplace = () => {
       }
     };
     
-    fetchDecks();
+    loadDecks();
   }, []);
   
   // Filter and search logic

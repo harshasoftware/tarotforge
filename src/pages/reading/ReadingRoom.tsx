@@ -4,254 +4,11 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, MessageSquare, Video, PhoneCall, Zap, Link as LinkIcon } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { fetchDeckById, fetchCardsByDeckId } from '../../lib/deck-utils';
 import { getReadingInterpretation } from '../../lib/gemini-ai';
 import VideoChat from '../../components/video/VideoChat';
 import JoinByLinkModal from '../../components/video/JoinByLinkModal';
 import TarotLogo from '../../components/ui/TarotLogo';
-
-// Free deck cards
-const freeDeckCards: {[key: string]: Card[]} = {
-  '7': [
-    {
-      id: 'free-card1',
-      deck_id: '7',
-      name: 'The Fool',
-      description: 'The Fool represents new beginnings, innocence, and spontaneity. In this elemental interpretation, the figure stands at the edge of earth, about to step into the air with total trust.',
-      image_url: 'https://images.pexels.com/photos/2627945/pexels-photo-2627945.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['beginnings', 'innocence', 'adventure'],
-      order: 0
-    },
-    {
-      id: 'free-card2',
-      deck_id: '7',
-      name: 'The Magician',
-      description: 'The Magician symbolizes manifestation, resourcefulness, and power. This elemental version shows a figure wielding fire, air, water, and earth to manifest their will.',
-      image_url: 'https://images.pexels.com/photos/2150/sky-space-dark-galaxy.jpg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['manifestation', 'power', 'elements'],
-      order: 1
-    },
-    {
-      id: 'free-card3',
-      deck_id: '7',
-      name: 'The High Priestess',
-      description: 'The High Priestess represents intuition, mystery, and the subconscious mind. This elemental version shows her emerging from water, keeper of the unknown depths.',
-      image_url: 'https://images.pexels.com/photos/355887/pexels-photo-355887.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['intuition', 'mystery', 'water'],
-      order: 2
-    }
-  ],
-  '8': [
-    {
-      id: 'free-card4',
-      deck_id: '8',
-      name: 'The Fool',
-      description: 'The Fool represents new beginnings, innocence, and spontaneity. In this archetypal interpretation, the figure represents the universal beginnings that exist in all cultures and mythologies.',
-      image_url: 'https://images.pexels.com/photos/1619317/pexels-photo-1619317.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['beginnings', 'innocence', 'archetype'],
-      order: 0
-    },
-    {
-      id: 'free-card5',
-      deck_id: '8',
-      name: 'The Magician',
-      description: 'The Magician symbolizes manifestation, resourcefulness, and power. This archetypal version embodies the trickster, the alchemist, and the creator that appears across human mythology.',
-      image_url: 'https://images.pexels.com/photos/2693529/pexels-photo-2693529.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['manifestation', 'power', 'alchemy'],
-      order: 1
-    },
-    {
-      id: 'free-card6',
-      deck_id: '8',
-      name: 'The High Priestess',
-      description: 'The High Priestess represents intuition, mystery, and the subconscious mind. This archetypal version represents the seer, the wise woman, and the keeper of mysteries found in ancient cultures.',
-      image_url: 'https://images.pexels.com/photos/1097456/pexels-photo-1097456.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['intuition', 'mystery', 'wisdom'],
-      order: 2
-    }
-  ],
-  '9': [
-    {
-      id: 'free-card7',
-      deck_id: '9',
-      name: 'The Fool',
-      description: 'The Fool represents new beginnings, innocence, and spontaneity. This minimalist cosmic interpretation reduces the concept to its simplest form: a figure among stars about to embark on a journey.',
-      image_url: 'https://images.pexels.com/photos/1938348/pexels-photo-1938348.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['beginnings', 'innocence', 'simplicity'],
-      order: 0
-    },
-    {
-      id: 'free-card8',
-      deck_id: '9',
-      name: 'The Magician',
-      description: 'The Magician symbolizes manifestation, resourcefulness, and power. This minimalist cosmic version shows a simple geometric representation of the elements and forces of the universe.',
-      image_url: 'https://images.pexels.com/photos/956981/milky-way-starry-sky-night-sky-star-956981.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['manifestation', 'power', 'geometry'],
-      order: 1
-    },
-    {
-      id: 'free-card9',
-      deck_id: '9',
-      name: 'The High Priestess',
-      description: 'The High Priestess represents intuition, mystery, and the subconscious mind. This minimalist cosmic version depicts the concept through the simple contrast of light and shadow in space.',
-      image_url: 'https://images.pexels.com/photos/816608/pexels-photo-816608.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['intuition', 'mystery', 'duality'],
-      order: 2
-    }
-  ]
-};
-
-// Mock decks data with all decks
-const mockDecksData: {[key: string]: Deck} = {
-  '1': {
-    id: '1',
-    creator_id: 'user1',
-    creator_name: 'MysticArtist',
-    title: 'Celestial Journey',
-    description: 'A cosmic-themed deck exploring the journey through celestial bodies and astral planes.',
-    theme: 'cosmic',
-    style: 'ethereal',
-    card_count: 78,
-    price: 12.99,
-    cover_image: 'https://images.pexels.com/photos/1274260/pexels-photo-1274260.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    sample_images: [],
-    created_at: '2023-10-15T14:30:00Z',
-    updated_at: '2023-10-15T14:30:00Z',
-    purchase_count: 124,
-    rating: 4.7,
-  },
-  '7': {
-    id: '7',
-    creator_id: 'mysticforge',
-    creator_name: 'Mystic Forge',
-    title: 'Elemental Beginnings',
-    description: 'A free starter deck exploring the four elements: Earth, Air, Fire, and Water. Perfect for beginners.',
-    theme: 'elements',
-    style: 'digital',
-    card_count: 22,
-    price: 0,
-    is_free: true,
-    cover_image: 'https://images.pexels.com/photos/1761279/pexels-photo-1761279.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    sample_images: [],
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z',
-    purchase_count: 1205,
-    rating: 4.2
-  },
-  '8': {
-    id: '8',
-    creator_id: 'mysticforge',
-    creator_name: 'Mystic Forge',
-    title: 'Mystical Archetypes',
-    description: 'Explore the universal archetypes of the major arcana with this free deck. Great for all experience levels.',
-    theme: 'archetypes',
-    style: 'watercolor',
-    card_count: 22,
-    price: 0,
-    is_free: true,
-    cover_image: 'https://images.pexels.com/photos/1097456/pexels-photo-1097456.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    sample_images: [],
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z',
-    purchase_count: 987,
-    rating: 4.4
-  },
-  '9': {
-    id: '9',
-    creator_id: 'mysticforge',
-    creator_name: 'Mystic Forge',
-    title: 'Cosmic Minimalist',
-    description: 'A free minimalist deck with cosmic themes. Clean designs make the symbolism clear and accessible.',
-    theme: 'cosmic',
-    style: 'minimalist',
-    card_count: 22,
-    price: 0,
-    is_free: true,
-    cover_image: 'https://images.pexels.com/photos/1938348/pexels-photo-1938348.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    sample_images: [],
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z',
-    purchase_count: 845,
-    rating: 4.1
-  }
-};
-
-// Mapping deck IDs to their cards
-const mockCardsByDeckId: {[key: string]: Card[]} = {
-  '1': [
-    {
-      id: 'card1',
-      deck_id: '1',
-      name: 'The Fool',
-      description: 'The Fool represents new beginnings, innocence, and spontaneity. In this cosmic interpretation, the figure floats through the astral void, stepping off into the unknown universe with trust and wonder.',
-      image_url: 'https://images.pexels.com/photos/1274260/pexels-photo-1274260.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['beginnings', 'innocence', 'adventure'],
-      order: 0
-    },
-    {
-      id: 'card2',
-      deck_id: '1',
-      name: 'The Magician',
-      description: 'The Magician symbolizes manifestation, resourcefulness, and power. This cosmic version shows a celestial being channeling the energy of stars and galaxies to manifest reality.',
-      image_url: 'https://images.pexels.com/photos/1252890/pexels-photo-1252890.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['manifestation', 'power', 'action'],
-      order: 1
-    },
-    {
-      id: 'card3',
-      deck_id: '1',
-      name: 'The High Priestess',
-      description: 'The High Priestess represents intuition, mystery, and the subconscious mind. In this cosmic deck, she emerges from the dark matter of space, keeper of universal secrets.',
-      image_url: 'https://images.pexels.com/photos/1169754/pexels-photo-1169754.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['intuition', 'mystery', 'subconscious'],
-      order: 2
-    },
-    {
-      id: 'card4',
-      deck_id: '1',
-      name: 'The Empress',
-      description: 'The Empress embodies fertility, nurturing, and abundance. This cosmic interpretation shows her as a nebula giving birth to new stars, the ultimate creative force.',
-      image_url: 'https://images.pexels.com/photos/1906658/pexels-photo-1906658.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['abundance', 'nurturing', 'fertility'],
-      order: 3
-    },
-    {
-      id: 'card5',
-      deck_id: '1',
-      name: 'The Emperor',
-      description: 'The Emperor represents authority, structure, and control. In this cosmic realm, he appears as a stabilizing force in the chaos of the universe, bringing order to the void.',
-      image_url: 'https://images.pexels.com/photos/956981/milky-way-starry-sky-night-sky-star-956981.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['authority', 'structure', 'stability'],
-      order: 4
-    },
-    {
-      id: 'card6',
-      deck_id: '1',
-      name: 'The Hierophant',
-      description: 'The Hierophant symbolizes tradition, conformity, and spiritual wisdom. This cosmic version appears as an ancient being who has witnessed the birth and death of countless galaxies.',
-      image_url: 'https://images.pexels.com/photos/816608/pexels-photo-816608.jpeg?auto=compress&cs=tinysrgb&w=1600',
-      card_type: 'major',
-      keywords: ['tradition', 'spiritual wisdom', 'guidance'],
-      order: 5
-    }
-  ],
-  '7': freeDeckCards['7'],
-  '8': freeDeckCards['8'],
-  '9': freeDeckCards['9']
-};
 
 // Mock reading layouts
 const readingLayouts: ReadingLayout[] = [
@@ -357,29 +114,28 @@ const ReadingRoom = () => {
         setLoading(true);
         setError(null);
         
-        setTimeout(() => {
-          if (deckId && mockDecksData[deckId]) {
-            setDeck(mockDecksData[deckId]);
-            const deckCards = mockCardsByDeckId[deckId] || [];
-            setCards(deckCards);
-            setShuffledDeck([...deckCards].sort(() => Math.random() - 0.5));
-          } else if (deckId) {
-            setError("Deck not found. Please select a different deck.");
-            setDeck(mockDecksData['7']);
-            setCards(mockCardsByDeckId['7'] || []);
-            setShuffledDeck([...(mockCardsByDeckId['7'] || [])].sort(() => Math.random() - 0.5));
-          } else {
-            setDeck(mockDecksData['7']);
-            setCards(mockCardsByDeckId['7'] || []);
-            setShuffledDeck([...(mockCardsByDeckId['7'] || [])].sort(() => Math.random() - 0.5));
-          }
-          
-          setLoading(false);
-        }, 1000);
+        const deckData = await fetchDeckById(deckId || 'rider-waite-classic');
         
-      } catch (error) {
+        if (deckData) {
+          setDeck(deckData);
+          
+          // Fetch cards for this deck
+          const cardsData = await fetchCardsByDeckId(deckData.id);
+          
+          if (cardsData && cardsData.length > 0) {
+            setCards(cardsData);
+            setShuffledDeck([...cardsData].sort(() => Math.random() - 0.5));
+          } else {
+            throw new Error("No cards found for this deck");
+          }
+        } else {
+          throw new Error("Deck not found");
+        }
+        
+        setLoading(false);
+      } catch (error: any) {
         console.error('Error fetching deck data:', error);
-        setError("An error occurred loading the deck. Please try again.");
+        setError(error.message || "An error occurred loading the deck. Please try again.");
         setLoading(false);
       }
     };

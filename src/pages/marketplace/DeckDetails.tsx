@@ -5,6 +5,7 @@ import { ArrowLeft, ShoppingCart, Bookmark, Share2, Star, Download, Eye, Users, 
 import { useAuth } from '../../context/AuthContext';
 import { Deck, Card } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { fetchDeckById, fetchCardsByDeckId } from '../../lib/deck-utils';
 import JoinByLinkModal from '../../components/video/JoinByLinkModal';
 import TarotLogo from '../../components/ui/TarotLogo';
 
@@ -29,43 +30,15 @@ const DeckDetails = () => {
       try {
         setLoading(true);
         
-        // Fetch deck data from Supabase
-        const { data: deckData, error: deckError } = await supabase
-          .from('decks')
-          .select(`
-            *,
-            users:creator_id (username, email)
-          `)
-          .eq('id', deckId)
-          .single();
-        
-        if (deckError) {
-          console.error('Error fetching deck:', deckError);
-          setLoading(false);
-          return;
-        }
+        // Fetch deck data
+        const deckData = await fetchDeckById(deckId);
         
         if (deckData) {
-          // Format deck data
-          const formattedDeck: Deck = {
-            ...deckData,
-            creator_name: deckData.users?.username || deckData.users?.email?.split('@')[0] || 'Unknown Creator'
-          };
-          
-          setDeck(formattedDeck);
+          setDeck(deckData);
           
           // Fetch cards for this deck
-          const { data: cardsData, error: cardsError } = await supabase
-            .from('cards')
-            .select('*')
-            .eq('deck_id', deckId)
-            .order('order', { ascending: true });
-          
-          if (cardsError) {
-            console.error('Error fetching cards:', cardsError);
-          } else {
-            setCards(cardsData || []);
-          }
+          const cardsData = await fetchCardsByDeckId(deckId);
+          setCards(cardsData);
         }
         
         setLoading(false);
@@ -384,7 +357,7 @@ const DeckDetails = () => {
               </div>
             </div>
             <p className="text-muted-foreground mb-4">
-              {deck.creator_id === 'mysticforge' 
+              {deck.creator_id === 'mysticforge' || deck.creator_id === 'tarotforge-system'
                 ? "Creator of Tarot Forge's official decks, blending traditional tarot symbolism with modern design aesthetics for all spiritual seekers."
                 : "Creator of mystical and cosmic-themed tarot decks that blend traditional symbolism with modern aesthetics."}
             </p>
