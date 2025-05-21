@@ -229,15 +229,6 @@ const Navbar = () => {
                       </>
                     )}
                   </Link>
-                  {/* Credits Badge in Mobile Menu */}
-                  {credits && (
-                    <div className="block py-2 px-4 rounded-md hover:bg-secondary/50 flex items-center">
-                      <Coins className="h-4 w-4 mr-2 text-yellow-500" />
-                      <span className="text-sm">
-                        {credits.basicCredits + credits.premiumCredits} Credits
-                      </span>
-                    </div>
-                  )}
                   <Link to="/profile" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                     Profile
                   </Link>
