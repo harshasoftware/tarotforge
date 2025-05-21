@@ -161,13 +161,25 @@ const Navbar = () => {
                     dropdownOpen ? 'block' : 'hidden'
                   }`}
                 >
-                  <Link to="/profile" className="block px-4 py-2 text-sm hover:bg-secondary/50">
+                  <Link 
+                    to="/profile" 
+                    className="block px-4 py-2 text-sm hover:bg-secondary/50"
+                    onClick={() => setDropdownOpen(false)}
+                  >
                     Profile
                   </Link>
-                  <Link to="/collection" className="block px-4 py-2 text-sm hover:bg-secondary/50">
+                  <Link 
+                    to="/collection" 
+                    className="block px-4 py-2 text-sm hover:bg-secondary/50"
+                    onClick={() => setDropdownOpen(false)}
+                  >
                     My Collection
                   </Link>
-                  <Link to="/subscription" className="block px-4 py-2 text-sm hover:bg-secondary/50 flex items-center">
+                  <Link 
+                    to="/subscription" 
+                    className="block px-4 py-2 text-sm hover:bg-secondary/50 flex items-center"
+                    onClick={() => setDropdownOpen(false)}
+                  >
                     {isSubscribed ? (
                       <>
                         <Crown className="h-4 w-4 mr-2 text-primary" />
@@ -181,17 +193,28 @@ const Navbar = () => {
                     )}
                   </Link>
                   {user.is_reader ? (
-                    <Link to="/reader-dashboard" className="block px-4 py-2 text-sm hover:bg-secondary/50 flex items-center">
+                    <Link 
+                      to="/reader-dashboard" 
+                      className="block px-4 py-2 text-sm hover:bg-secondary/50 flex items-center"
+                      onClick={() => setDropdownOpen(false)}
+                    >
                       <UserCheck className="h-4 w-4 mr-2 text-accent" />
                       Reader Dashboard
                     </Link>
                   ) : (
-                    <Link to="/become-reader" className="block px-4 py-2 text-sm hover:bg-secondary/50">
+                    <Link 
+                      to="/become-reader" 
+                      className="block px-4 py-2 text-sm hover:bg-secondary/50"
+                      onClick={() => setDropdownOpen(false)}
+                    >
                       Become a Reader
                     </Link>
                   )}
                   <button 
-                    onClick={signOut} 
+                    onClick={() => {
+                      signOut();
+                      setDropdownOpen(false);
+                    }} 
                     className="block w-full text-left px-4 py-2 text-sm hover:bg-secondary/50 text-destructive"
                   >
                     Sign Out
