@@ -297,11 +297,8 @@ const Home = () => {
     }
   };
 
-  const selectSuggestion = async (suggestion: string) => {
-    // First set the basic suggestion
-    setThemePrompt(suggestion);
-    
-    // Then generate and append an elaboration
+  const selectSuggestion = async (suggestion: string) => {    
+    // Generate and append an elaboration
     try {
       setIsGeneratingElaboration(true);
       const elaboration = await generateElaborateTheme(suggestion);
@@ -524,7 +521,7 @@ const Home = () => {
                                     border border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/40
                                     ${isGeneratingElaboration ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
-                          {isGeneratingElaboration ? '...' : suggestion}
+                          {suggestion}
                         </button>
                       ))}
                     </div>
