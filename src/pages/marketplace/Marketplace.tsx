@@ -4,7 +4,6 @@ import { Search, Filter, Zap, TrendingUp, Clock, Star, XCircle, AlertCircle, Loa
 import DeckPreview from '../../components/ui/DeckPreview';
 import { Deck } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { generateThemeSuggestions, generateElaborateTheme } from '../../lib/gemini-ai';
 import TarotLogo from '../../components/ui/TarotLogo';
 
 // Placeholder decks for initial render
@@ -25,15 +24,6 @@ const placeholderDecks: Deck[] = Array(9).fill(null).map((_, i) => ({
   purchase_count: 0,
 }));
 
-// Define theme suggestions for dynamic generation
-const themeStarters = [
-  "Cosmic", "Nature", "Cyberpunk", "Mythology", "Steampunk", "Fairytale", 
-  "Abstract", "Ocean", "Gothic", "Elemental", "Celestial", "Dreamscape",
-  "Ancient Egypt", "Medieval", "Futuristic", "Botanical", "Crystal", "Shamanic",
-  "Zodiac", "Alchemical", "Shadow", "Minimalist", "Urban", "Fractal", 
-  "Psychedelic", "Folklore", "Sacred Geometry", "Witch", "Druidic", "Angelic"
-];
-
 // Mystical loading messages that rotate
 const loadingMessages = [
   "Consulting the cosmos...",
@@ -52,147 +42,15 @@ const Marketplace = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
-  const [themeSuggestions, setThemeSuggestions] = useState<string[]>(themeStarters.slice(0, 10));
-  const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
-  const [promptEngineValue, setPromptEngineValue] = useState('');
-  const [isGeneratingElaborateTheme, setIsGeneratingElaborateTheme] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  // New states for loading animation
-  const [activeTheme, setActiveTheme] = useState<string | null>(null);
-  const [currentLoadingMessage, setCurrentLoadingMessage] = useState(loadingMessages[0]);
-  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   
-  // Refs for infinite scrolling
+  // Refs for intersection observer
   const observer = useRef<IntersectionObserver | null>(null);
   const lastDeckElementRef = useRef<HTMLDivElement | null>(null);
   
   // Pagination constants
   const DECKS_PER_PAGE = 12;
-  
-  // Refs for infinite scrolling of theme suggestions
-  const suggestionsRef = useRef<HTMLDivElement>(null);
-  const suggestionIndexRef = useRef<number>(10);
-  const scrollIntervalRef = useRef<number | null>(null);
-  
-  // Effect for rotating loading messages
-  useEffect(() => {
-    if (isGeneratingElaborateTheme) {
-      const intervalId = setInterval(() => {
-        setLoadingMessageIndex((prevIndex) => (prevIndex + 1) % loadingMessages.length);
-      }, 2000);
-
-      return () => clearInterval(intervalId);
-    }
-  }, [isGeneratingElaborateTheme]);
-
-  // Update current loading message when index changes
-  useEffect(() => {
-    setCurrentLoadingMessage(loadingMessages[loadingMessageIndex]);
-  }, [loadingMessageIndex]);
-  
-  // Fetch AI-generated theme suggestions on component mount
-  useEffect(() => {
-    const fetchThemeSuggestions = async () => {
-      try {
-        const suggestions = await generateThemeSuggestions(10);
-        if (suggestions && suggestions.length > 0) {
-          setThemeSuggestions(suggestions);
-        }
-      } catch (error) {
-        console.error('Error fetching AI theme suggestions:', error);
-        // Fallback to static themes if generation fails
-      }
-    };
-    
-    fetchThemeSuggestions();
-  }, []);
-  
-  // Start automatic scrolling for theme suggestions
-  useEffect(() => {
-    if (suggestionsRef.current) {
-      // Autoscroll every 3 seconds
-      scrollIntervalRef.current = window.setInterval(() => {
-        if (suggestionsRef.current) {
-          suggestionsRef.current.scrollLeft += 150;
-          
-          // Check if we're near the end and need to add more suggestions
-          const { scrollLeft, scrollWidth, clientWidth } = suggestionsRef.current;
-          if (scrollWidth - (scrollLeft + clientWidth) < 300) {
-            // Add more suggestions if we're near the end
-            loadMoreThemeSuggestions();
-          }
-          
-          // Reset scroll position if at the end
-          if (scrollLeft + clientWidth >= scrollWidth) {
-            suggestionsRef.current.scrollLeft = 0;
-          }
-        }
-      }, 3000);
-    }
-    
-    return () => {
-      if (scrollIntervalRef.current) {
-        clearInterval(scrollIntervalRef.current);
-      }
-    };
-  }, [themeSuggestions]);
-  
-  // Generate more theme suggestions
-  const loadMoreThemeSuggestions = useCallback(async () => {
-    if (isGeneratingThemes || themeSuggestions.length >= 50) return;
-    
-    setIsGeneratingThemes(true);
-    
-    try {
-      // Use Gemini API to generate more theme suggestions
-      const newThemes = await generateThemeSuggestions(5);
-      
-      if (newThemes && newThemes.length > 0) {
-        setThemeSuggestions(prev => {
-          const combined = [...prev, ...newThemes];
-          // Limit to 50 suggestions total
-          return combined.slice(0, 50);
-        });
-      } else {
-        // Fallback to static suggestions if generation fails
-        const adjectives = ['Mystical', 'Enchanted', 'Dark', 'Luminous', 'Ancient'];
-        const newThemes: string[] = [];
-        
-        for (let i = 0; i < 5; i++) {
-          const baseTheme = themeStarters[Math.floor(Math.random() * themeStarters.length)];
-          const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-          newThemes.push(`${adjective} ${baseTheme}`);
-        }
-        
-        setThemeSuggestions(prev => {
-          const combined = [...prev, ...newThemes];
-          return combined.slice(0, 50);
-        });
-      }
-      
-      suggestionIndexRef.current += 5;
-    } catch (error) {
-      console.error('Error generating theme suggestions:', error);
-      
-      // Fallback to static generation
-      const adjectives = ['Mystical', 'Enchanted', 'Dark', 'Luminous', 'Ancient'];
-      const newThemes: string[] = [];
-      
-      for (let i = 0; i < 5; i++) {
-        const baseTheme = themeStarters[Math.floor(Math.random() * themeStarters.length)];
-        const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-        newThemes.push(`${adjective} ${baseTheme}`);
-      }
-      
-      setThemeSuggestions(prev => {
-        const combined = [...prev, ...newThemes];
-        return combined.slice(0, 50);
-      });
-    } finally {
-      setIsGeneratingThemes(false);
-    }
-  }, [isGeneratingThemes, themeSuggestions.length]);
   
   // Initial decks load
   useEffect(() => {
@@ -259,31 +117,49 @@ const Marketplace = () => {
   
   // Filter and search logic
   useEffect(() => {
-    const filteredDecks = decks.filter(deck => {
-      const matchesSearch = deck.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          deck.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          deck.creator_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          deck.theme.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          deck.style.toLowerCase().includes(searchQuery.toLowerCase());
+    let filtered = [...decks];
+    
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(deck => {
+        const matchesSearch = deck.title.toLowerCase().includes(query) || 
+                          deck.description.toLowerCase().includes(query) ||
+                          deck.creator_name.toLowerCase().includes(query) ||
+                          deck.theme.toLowerCase().includes(query) || 
+                          deck.style.toLowerCase().includes(query);
                           
-      if (activeFilter === 'all') return matchesSearch;
-      if (activeFilter === 'nft') return matchesSearch && deck.is_nft;
-      if (activeFilter === 'free') return matchesSearch && deck.is_free;
-      if (activeFilter === 'popular') return matchesSearch && (deck.purchase_count || 0) > 100;
-      if (activeFilter === 'new') {
-        const deckDate = new Date(deck.created_at);
+        return matchesSearch;
+      });
+    }
+    
+    // Apply category filter
+    switch (activeFilter) {
+      case 'all':
+        break;
+      case 'nft':
+        filtered = filtered.filter(deck => deck.is_nft);
+        break;
+      case 'free':
+        filtered = filtered.filter(deck => deck.is_free);
+        break;
+      case 'popular':
+        filtered = filtered.filter(deck => (deck.purchase_count || 0) > 100);
+        break;
+      case 'new':
         const oneMonthAgo = new Date();
         oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-        return matchesSearch && deckDate > oneMonthAgo;
-      }
-      
-      return matchesSearch;
-    });
+        filtered = filtered.filter(deck => {
+          const deckDate = new Date(deck.created_at);
+          return deckDate > oneMonthAgo;
+        });
+        break;
+    }
     
     // Reset pagination when filters change
     setPage(0);
-    setHasMore(filteredDecks.length > DECKS_PER_PAGE);
-    setDisplayedDecks(filteredDecks.slice(0, DECKS_PER_PAGE));
+    setHasMore(filtered.length > DECKS_PER_PAGE);
+    setDisplayedDecks(filtered.slice(0, DECKS_PER_PAGE));
   }, [activeFilter, searchQuery, decks]);
   
   // Intersection observer for infinite scrolling
@@ -383,36 +259,6 @@ const Marketplace = () => {
   const getNftDecks = () => {
     return displayedDecks.filter(deck => deck.is_nft).slice(0, 2);
   };
-  
-  // Apply a theme suggestion to search
-  const applyThemeSuggestion = async (theme: string) => {
-    if (isGeneratingElaborateTheme) return;
-    
-    setIsGeneratingElaborateTheme(true);
-    setActiveTheme(theme);
-    setSearchQuery(theme);
-    
-    try {
-      // Generate elaborate theme using Gemini API
-      const elaborateTheme = await generateElaborateTheme(theme);
-      
-      if (elaborateTheme) {
-        setPromptEngineValue(elaborateTheme);
-      } else {
-        // Fallback if elaborate theme generation fails
-        setPromptEngineValue(`A mystical deck themed around ${theme} concepts, featuring symbolic imagery that connects ancient wisdom with spiritual awakening.`);
-      }
-    } catch (error) {
-      console.error('Error generating elaborate theme:', error);
-      // Fallback
-      setPromptEngineValue(`A mystical deck themed around ${theme} concepts, featuring symbolic imagery that connects ancient wisdom with spiritual awakening.`);
-    } finally {
-      setIsGeneratingElaborateTheme(false);
-      setActiveTheme(null);
-    }
-    
-    setActiveFilter('all');
-  };
 
   return (
     <div className="min-h-screen pt-12 pb-20 bg-background">
@@ -483,84 +329,6 @@ const Marketplace = () => {
                 </FilterButton>
               </div>
             </div>
-            
-            {/* AI Theme Suggestions */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <h3 className="text-sm font-medium">Theme Inspiration</h3>
-                <button
-                  onClick={loadMoreThemeSuggestions}
-                  disabled={isGeneratingThemes}
-                  className="text-xs flex items-center text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
-                >
-                  Refresh Themes
-                </button>
-              </div>
-              
-              <div className="space-y-2">
-                {themeSuggestions.slice(0, 15).map((theme, index) => (
-                  <button
-                    key={`${theme}-${index}`}
-                    onClick={() => applyThemeSuggestion(theme)}
-                    disabled={isGeneratingElaborateTheme}
-                    className={`px-4 py-2 bg-card/80 border border-border hover:border-primary/50 rounded-md text-sm w-full text-left transition-colors relative ${
-                      isGeneratingElaborateTheme && activeTheme === theme ? 'opacity-80 cursor-not-allowed' : ''
-                    }`}
-                  >
-                    {theme}
-                    {isGeneratingElaborateTheme && activeTheme === theme && (
-                      <div className="absolute inset-y-0 right-2 flex items-center">
-                        <div className="animate-spin h-4 w-4 rounded-full border-2 border-primary border-r-transparent"></div>
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* AI Prompt Engine - Show only when we have an elaborate prompt */}
-            {isGeneratingElaborateTheme ? (
-              <motion.div 
-                className="p-4 bg-primary/5 border border-primary/20 rounded-lg relative"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-              >
-                <div className="flex items-start gap-3">
-                  <TarotLogo className="h-5 w-5 text-primary mt-1" />
-                  <div className="flex-1">
-                    <h3 className="text-sm font-medium mb-2">AI Theme Inspiration</h3>
-                    <p className="text-sm text-foreground/90 italic min-h-[80px]">{currentLoadingMessage}</p>
-                  </div>
-                </div>
-                <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-                  <div className="animate-pulse">
-                    <TarotLogo className="h-20 w-20 text-primary" />
-                  </div>
-                </div>
-              </motion.div>
-            ) : promptEngineValue && (
-              <motion.div 
-                className="p-4 bg-primary/5 border border-primary/20 rounded-lg"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-              >
-                <div className="flex items-start gap-3">
-                  <TarotLogo className="h-5 w-5 text-primary mt-1" />
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">AI Theme Inspiration</h3>
-                    <p className="text-sm text-foreground/90">{promptEngineValue}</p>
-                  </div>
-                  <button 
-                    onClick={() => setPromptEngineValue('')} 
-                    className="p-1 hover:bg-primary/10 rounded-full ml-auto"
-                  >
-                    <XCircle className="h-5 w-5 text-muted-foreground hover:text-foreground" />
-                  </button>
-                </div>
-              </motion.div>
-            )}
             
             {/* Results count */}
             <div className="text-sm text-muted-foreground">
