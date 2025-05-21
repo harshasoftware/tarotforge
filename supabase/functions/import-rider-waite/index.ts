@@ -49,14 +49,61 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // First, find or create a system user to be the creator of the deck
+    const systemEmail = 'system@tarotforge.xyz';
+    
+    // Check if system user exists
+    const { data: existingUser, error: userFindError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', systemEmail)
+      .single();
+      
+    let creatorId: string;
+      
+    if (userFindError || !existingUser) {
+      // Create a system user in auth.users first
+      const { data: authUser, error: createAuthError } = await supabase.auth.admin.createUser({
+        email: systemEmail,
+        email_confirm: true,
+        user_metadata: { 
+          username: 'TarotForge System',
+          is_system: true
+        },
+        role: 'authenticated'
+      });
+      
+      if (createAuthError || !authUser.user) {
+        return createErrorResponse(`Failed to create system user: ${createAuthError?.message || 'Unknown error'}`, 500);
+      }
+      
+      // Then create the corresponding record in the public.users table
+      const { data: newUser, error: createUserError } = await supabase
+        .from('users')
+        .insert({
+          id: authUser.user.id,
+          email: systemEmail,
+          username: 'TarotForge System',
+          is_creator: true,
+          is_public: true
+        })
+        .select('id')
+        .single();
+        
+      if (createUserError || !newUser) {
+        return createErrorResponse(`Failed to create system user record: ${createUserError?.message || 'Unknown error'}`, 500);
+      }
+      
+      creatorId = newUser.id;
+    } else {
+      creatorId = existingUser.id;
+    }
+    
     // Get the request body
     const requestData = await req.json();
     
     // Optional parameters
-    const { userId = null, createNew = true } = requestData;
-    
-    // Use the provided userId or create admin-owned deck
-    const deckCreatorId = userId || '00000000-0000-0000-0000-000000000000'; // admin/system user ID
+    const { createNew = true } = requestData;
 
     // Prepare deck metadata
     const deckTitle = "Rider-Waite Tarot";
@@ -69,7 +116,7 @@ Deno.serve(async (req) => {
       const { data: newDeck, error: deckError } = await supabase
         .from('decks')
         .insert({
-          creator_id: deckCreatorId,
+          creator_id: creatorId,
           title: deckTitle,
           description: deckDescription,
           theme: 'classic',
@@ -92,11 +139,11 @@ Deno.serve(async (req) => {
       
       deckId = newDeck.id;
     } else {
-      // Check if a Rider-Waite deck already exists for this user ID
+      // Check if a Rider-Waite deck already exists for the system user
       const { data: existingDeck, error: findError } = await supabase
         .from('decks')
         .select('id')
-        .eq('creator_id', deckCreatorId)
+        .eq('creator_id', creatorId)
         .eq('title', deckTitle)
         .single();
         
@@ -111,7 +158,7 @@ Deno.serve(async (req) => {
         const { data: newDeck, error: deckError } = await supabase
           .from('decks')
           .insert({
-            creator_id: deckCreatorId,
+            creator_id: creatorId,
             title: deckTitle,
             description: deckDescription,
             theme: 'classic',
