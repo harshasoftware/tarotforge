@@ -38,7 +38,6 @@ export interface Deck {
   is_listed?: boolean; // Controls visibility in marketplace
   is_sellable?: boolean; // Controls if the deck can be purchased
   is_public?: boolean; // Controls general visibility
-  attribution?: string; // Attribution for public domain or licensed content
 }
 
 export interface Card {
@@ -49,7 +48,7 @@ export interface Card {
   image_url: string;
   card_type: 'major' | 'minor';
   suit?: 'wands' | 'cups' | 'swords' | 'pentacles' | null;
-  position?: string; // In ReadingCard this is more specific (upright/reversed)
+  position?: 'upright' | 'reversed';
   keywords: string[];
   order: number;
 }

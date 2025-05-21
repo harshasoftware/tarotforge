@@ -5,7 +5,6 @@ import DeckPreview from '../../components/ui/DeckPreview';
 import { Deck } from '../../types';
 import { supabase } from '../../lib/supabase';
 import TarotLogo from '../../components/ui/TarotLogo';
-import { completeRiderWaiteDeck } from '../../components/decks/RiderWaiteDeck';
 
 // Placeholder decks for initial render
 const placeholderDecks: Deck[] = Array(9).fill(null).map((_, i) => ({

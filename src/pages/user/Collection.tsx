@@ -7,7 +7,6 @@ import { Deck } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { deleteDeckImages } from '../../lib/storage-utils';
-import { completeRiderWaiteDeck } from '../../components/decks/RiderWaiteDeck';
 
 const Collection = () => {
   const { user } = useAuth();

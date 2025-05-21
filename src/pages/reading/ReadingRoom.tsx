@@ -8,7 +8,6 @@ import { getReadingInterpretation } from '../../lib/gemini-ai';
 import VideoChat from '../../components/video/VideoChat';
 import JoinByLinkModal from '../../components/video/JoinByLinkModal';
 import TarotLogo from '../../components/ui/TarotLogo';
-import { completeRiderWaiteDeck } from '../../components/decks/RiderWaiteDeck';
 
 // Free deck cards
 const freeDeckCards: {[key: string]: Card[]} = {
@@ -112,9 +111,6 @@ const freeDeckCards: {[key: string]: Card[]} = {
 
 // Mock decks data with all decks
 const mockDecksData: {[key: string]: Deck} = {
-  'rider-waite': {
-    ...completeRiderWaiteDeck
-  },
   '1': {
     id: '1',
     creator_id: 'user1',
@@ -190,7 +186,6 @@ const mockDecksData: {[key: string]: Deck} = {
 
 // Mapping deck IDs to their cards
 const mockCardsByDeckId: {[key: string]: Card[]} = {
-  'rider-waite': completeRiderWaiteDeck.cards,
   '1': [
     {
       id: 'card1',
