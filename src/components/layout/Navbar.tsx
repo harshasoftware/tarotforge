@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Menu, X, Moon, Sun, User, UserCheck, Crown } from 'lucide-react';
+import { Menu, X, Moon, Sun, User, UserCheck, Crown, Coins } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { useCredits } from '../../context/CreditContext';
 import SignInModal from '../auth/SignInModal';
 import TarotLogo from '../ui/TarotLogo';
+import CreditBadge from '../ui/CreditBadge';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,6 +15,7 @@ const Navbar = () => {
   const [darkMode, setDarkMode] = useState(true);
   const { user, signOut, showSignInModal, setShowSignInModal } = useAuth();
   const { isSubscribed } = useSubscription();
+  const { credits } = useCredits();
   const location = useLocation();
 
   // Handle scroll effect
@@ -83,6 +86,13 @@ const Navbar = () => {
 
           {/* Right side - Auth & Theme */}
           <div className="flex items-center space-x-2">
+            {/* Credits Badge (Only show for authenticated users) */}
+            {user && credits && (
+              <div className="mr-1">
+                <CreditBadge showIcon={true} className="py-1.5" />
+              </div>
+            )}
+            
             {/* Theme toggle */}
             <button 
               onClick={toggleTheme} 
@@ -219,6 +229,15 @@ const Navbar = () => {
                       </>
                     )}
                   </Link>
+                  {/* Credits Badge in Mobile Menu */}
+                  {credits && (
+                    <div className="block py-2 px-4 rounded-md hover:bg-secondary/50 flex items-center">
+                      <Coins className="h-4 w-4 mr-2 text-accent" />
+                      <span className="text-sm">
+                        {credits.basicCredits + credits.premiumCredits} Credits
+                      </span>
+                    </div>
+                  )}
                   <Link to="/profile" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                     Profile
                   </Link>
