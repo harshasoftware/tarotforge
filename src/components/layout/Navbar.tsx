@@ -88,8 +88,8 @@ const Navbar = () => {
           <div className="flex items-center space-x-2">
             {/* Credits Badge (Only show for authenticated users) */}
             {user && credits && (
-              <div className="mr-1">
-                <CreditBadge showIcon={true} className="py-1.5" />
+              <div className="relative mr-1">
+                <CreditBadge showIcon={true} className="py-1" absolute={false} />
               </div>
             )}
             
@@ -232,7 +232,7 @@ const Navbar = () => {
                   {/* Credits Badge in Mobile Menu */}
                   {credits && (
                     <div className="block py-2 px-4 rounded-md hover:bg-secondary/50 flex items-center">
-                      <Coins className="h-4 w-4 mr-2 text-primary" />
+                      <Coins className="h-4 w-4 mr-2 text-yellow-500" />
                       <span className="text-sm">
                         {credits.basicCredits + credits.premiumCredits} Credits
                       </span>

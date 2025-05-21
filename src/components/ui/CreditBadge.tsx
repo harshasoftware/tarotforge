@@ -1,14 +1,14 @@
 import React from 'react';
 import { useCredits } from '../../context/CreditContext';
 import { Coins } from 'lucide-react';
-import TarotLogo from './TarotLogo';
 
 interface CreditBadgeProps {
   showIcon?: boolean;
   className?: string;
+  absolute?: boolean;
 }
 
-const CreditBadge: React.FC<CreditBadgeProps> = ({ showIcon = true, className = '' }) => {
+const CreditBadge: React.FC<CreditBadgeProps> = ({ showIcon = true, className = '', absolute = false }) => {
   const { credits, loading } = useCredits();
   
   if (loading || !credits) {
@@ -19,19 +19,17 @@ const CreditBadge: React.FC<CreditBadgeProps> = ({ showIcon = true, className = 
   const hasCredits = totalCredits > 0;
   
   return (
-    <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs ${
+    <div className={`inline-flex items-center ${
       hasCredits 
-        ? 'bg-primary/20 text-primary border border-primary/30' 
+        ? 'bg-card border border-yellow-500 text-yellow-500' 
         : 'bg-warning/20 text-warning border border-warning/30'
-    } ${className}`}>
+    } rounded-full shadow-sm px-2 py-1 ${absolute ? 'absolute -top-3 right-3' : ''} ${className}`}>
       {showIcon && (
-        <Coins className="h-3.5 w-3.5 mr-1.5" />
+        <Coins className="h-3 w-3 mr-1.5" />
       )}
-      {hasCredits ? (
-        <span className="font-medium">{totalCredits} credits</span>
-      ) : (
-        <span>No credits</span>
-      )}
+      <span className="text-xs font-medium">
+        {totalCredits} credits
+      </span>
     </div>
   );
 };
