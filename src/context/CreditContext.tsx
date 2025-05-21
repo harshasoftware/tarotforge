@@ -113,6 +113,9 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             nextRefreshDate: null,
             maxRolloverCredits
           });
+
+          // Automatically initialize credits since we don't have a record
+          initializeCredits();
         } else {
           console.error('Error fetching user credits:', fetchError);
           setError('Failed to load credit information');

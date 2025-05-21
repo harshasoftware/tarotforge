@@ -10,7 +10,7 @@ import TarotLogo from '../../components/ui/TarotLogo';
 const SubscriptionSuccess: React.FC = () => {
   const { user } = useAuth();
   const { refreshSubscription } = useSubscription();
-  const { initializeCredits } = useCredits();
+  const { initializeCredits, refreshCredits } = useCredits();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -23,12 +23,19 @@ const SubscriptionSuccess: React.FC = () => {
     
     // Refresh subscription and credit data
     const updateUserData = async () => {
-      await refreshSubscription();
-      await initializeCredits();
+      try {
+        await refreshSubscription();
+        // Wait for subscription to be refreshed before initializing credits
+        await initializeCredits();
+        // Ensure the UI is updated with the latest credit information
+        await refreshCredits();
+      } catch (error) {
+        console.error('Error updating subscription data:', error);
+      }
     };
     
     updateUserData();
-  }, [user, navigate, refreshSubscription, initializeCredits]);
+  }, [user, navigate, refreshSubscription, initializeCredits, refreshCredits]);
 
   // Determine if user was coming from deck creation
   const returnToDeckCreation = location.state?.fromDeckCreation || 

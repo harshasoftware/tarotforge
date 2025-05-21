@@ -27,7 +27,7 @@ const CreditBadge: React.FC<CreditBadgeProps> = ({ showIcon = true, className = 
       {showIcon && (
         <Coins className="h-3 w-3 mr-1.5" />
       )}
-      <span className="text-xs font-medium text-white">
+      <span className="text-xs font-medium">
         {totalCredits} credits
       </span>
     </div>
