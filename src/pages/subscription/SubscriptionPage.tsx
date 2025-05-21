@@ -111,7 +111,7 @@ const SubscriptionPage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-center mb-12"
+            className="text-center mb-8"
           >
             <div className="flex justify-center mb-4">
               <div className="rounded-full bg-primary/20 p-3">
@@ -213,229 +213,186 @@ const SubscriptionPage: React.FC = () => {
               <span className="text-lg">Loading plans...</span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-              {/* Free Plan */}
+            <>
+              {/* Free Plan as a banner */}
               <motion.div
-                className={`bg-card border ${selectedPlan === null ? 'border-primary' : 'border-border'} rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all`}
-                whileHover={{ y: -5 }}
+                className={`bg-card border ${selectedPlan === null ? 'border-primary' : 'border-border'} rounded-xl overflow-hidden shadow mb-8`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0 }}
               >
-                {selectedPlan === null && (
-                  <div className="bg-primary text-primary-foreground text-center py-2 font-medium">
-                    Current Plan
-                  </div>
-                )}
-                
-                <div className="p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-serif font-bold">Free</h3>
-                    <div className="p-2 bg-muted/30 rounded-full">
+                <div className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between">
+                  <div className="flex items-center mb-4 md:mb-0">
+                    <div className="p-2 bg-muted/30 rounded-full mr-4">
                       <Zap className="h-5 w-5 text-muted-foreground" />
                     </div>
-                  </div>
-                  
-                  <div className="mb-6">
-                    <div className="flex items-baseline">
-                      <span className="text-3xl font-bold">$0</span>
-                      <span className="text-muted-foreground ml-1">/forever</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">Try out basic features with limited credits</p>
-                  </div>
-                  
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Basic Credits</span>
-                      <span className="font-medium">5 / month</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Premium Credits</span>
-                      <span className="font-medium">0</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Credit Rollover</span>
-                      <span className="font-medium">None</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Card Quality</span>
-                      <span className="font-medium">Medium</span>
+                    <div>
+                      <h3 className="text-xl font-serif font-bold">Free Plan</h3>
+                      <p className="text-sm text-muted-foreground max-w-md">Try out basic features with 5 monthly credits for medium quality cards</p>
                     </div>
                   </div>
                   
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 mt-1">
-                        <Check className="h-4 w-4 text-success" />
-                      </div>
-                      <span className="ml-2 text-sm">Create 5 individual cards per month</span>
-                    </div>
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 mt-1">
-                        <Check className="h-4 w-4 text-success" />
-                      </div>
-                      <span className="ml-2 text-sm">Access free community decks</span>
-                    </div>
-                  </div>
-                  
-                  <button
-                    disabled={selectedPlan === null}
-                    className={`w-full py-2 rounded-md font-medium transition-colors ${
-                      selectedPlan === null 
-                        ? 'bg-success/20 text-success cursor-default'
-                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/90'
-                    } flex items-center justify-center`}
-                  >
-                    {selectedPlan === null ? (
-                      <>
-                        <Check className="h-4 w-4 mr-2" />
-                        Current Plan
-                      </>
-                    ) : (
-                      'Downgrade'
-                    )}
-                  </button>
-                </div>
-              </motion.div>
-
-              {/* Subscription Plans for current billing interval */}
-              {getPlansForInterval(billingInterval).map(({ key, product }, index) => (
-                <motion.div
-                  key={key}
-                  className={`bg-card border ${selectedPlan === key ? 'border-primary' : 'border-border'} rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all relative`}
-                  whileHover={{ y: -5 }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: 0.1 + index * 0.1 }}
-                >
-                  {product.popular && (
-                    <div className="absolute top-0 right-0 mt-6 mr-6 bg-accent text-accent-foreground text-xs font-medium px-3 py-1 rounded-full">
-                      Popular
-                    </div>
-                  )}
-                  
-                  {selectedPlan === key && (
-                    <div className="bg-primary text-primary-foreground text-center py-2 font-medium">
-                      Current Plan
-                    </div>
-                  )}
-                  
-                  <div className="p-6">
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-xl font-serif font-bold">
-                        {product.name.replace(' (Yearly)', '').replace(' (Monthly)', '')}
-                      </h3>
-                      {key.includes('mystic') && (
-                        <div className="p-2 bg-primary/20 rounded-full">
-                          <Sparkles className="h-5 w-5 text-primary" />
-                        </div>
-                      )}
-                      {key.includes('creator') && (
-                        <div className="p-2 bg-accent/20 rounded-full">
-                          <CreditCard className="h-5 w-5 text-accent" />
-                        </div>
-                      )}
-                      {key.includes('visionary') && (
-                        <div className="p-2 bg-teal/20 rounded-full">
-                          <Shield className="h-5 w-5 text-teal" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="mb-6">
-                      <div className="flex items-baseline">
-                        <span className="text-3xl font-bold">${product.price}</span>
-                        <span className="text-muted-foreground ml-1">/{product.interval}</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-2">{product.description}</p>
-                      
-                      {product.interval === 'year' && (
-                        <div className="mt-1 flex items-center">
-                          <Clock className="h-3 w-3 mr-1 text-success" />
-                          <span className="text-xs text-success">
-                            Save {calculateSavings(
-                              STRIPE_PRODUCTS[key.replace('yearly', 'monthly')].price as number,
-                              product.price as number
-                            )}% compared to monthly
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-3 mb-6">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">
-                          {product.interval === 'year' ? 'Yearly' : 'Monthly'} Basic Credits
-                        </span>
-                        <span className="font-medium">{product.baseCredits}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">
-                          {product.interval === 'year' ? 'Yearly' : 'Monthly'} Premium Credits
-                        </span>
-                        <span className="font-medium">{product.premiumCredits}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Credit Rollover</span>
-                        <span className="font-medium">
-                          {product.maxRolloverCredits === product.baseCredits + product.premiumCredits
-                            ? 'Full rollover'
-                            : `Up to ${product.maxRolloverCredits}`}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Card Quality</span>
-                        <span className="font-medium capitalize">{product.cardImageQuality}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-3 mb-6">
-                      {product.features?.map((feature, index) => (
-                        <div key={index} className="flex items-start">
-                          <div className="flex-shrink-0 mt-1">
-                            <Check className="h-4 w-4 text-success" />
-                          </div>
-                          <span className="ml-2 text-sm">{feature}</span>
-                        </div>
-                      ))}
+                  <div className="flex items-center">
+                    <div className="bg-muted/20 px-4 py-2 rounded-lg mr-4">
+                      <span className="text-2xl font-bold">$0</span>
+                      <span className="text-muted-foreground text-sm">/forever</span>
                     </div>
                     
                     <button
-                      onClick={() => handleSubscribe(key)}
-                      disabled={checkoutLoading || selectedPlan === key}
-                      className={`w-full py-2 rounded-md font-medium transition-colors ${
-                        selectedPlan === key
-                          ? 'bg-success/20 text-success cursor-default'
-                          : key.includes('mystic')
-                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                            : key.includes('creator')
-                              ? 'bg-accent text-accent-foreground hover:bg-accent/90'
-                              : 'bg-teal text-teal-foreground hover:bg-teal/90'
-                      } flex items-center justify-center`}
+                      disabled={selectedPlan === null}
+                      className={`py-2 px-4 rounded-md font-medium ${
+                        selectedPlan === null 
+                          ? 'bg-success/20 text-success' 
+                          : 'bg-secondary text-secondary-foreground hover:bg-secondary/90'
+                      }`}
                     >
-                      {checkoutLoading ? (
-                        <>
-                          <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></span>
-                          Processing...
-                        </>
-                      ) : selectedPlan === key ? (
-                        <>
-                          <Check className="h-4 w-4 mr-2" />
-                          Current Plan
-                        </>
-                      ) : (
-                        <>
-                          {key.includes('mystic') && <Sparkles className="h-4 w-4 mr-2" />}
-                          {key.includes('creator') && <CreditCard className="h-4 w-4 mr-2" />}
-                          {key.includes('visionary') && <Shield className="h-4 w-4 mr-2" />}
-                          {selectedPlan ? 'Switch Plan' : 'Subscribe Now'}
-                        </>
-                      )}
+                      {selectedPlan === null ? 'Current Plan' : 'Downgrade'}
                     </button>
                   </div>
-                </motion.div>
-              ))}
-            </div>
+                </div>
+              </motion.div>
+              
+              {/* Paid Plans Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                {/* Subscription Plans for current billing interval */}
+                {getPlansForInterval(billingInterval).map(({ key, product }, index) => (
+                  <motion.div
+                    key={key}
+                    className={`bg-card border ${selectedPlan === key ? 'border-primary' : 'border-border'} rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all relative`}
+                    whileHover={{ y: -5 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.1 + index * 0.1 }}
+                  >
+                    {product.popular && (
+                      <div className="absolute top-0 right-0 mt-6 mr-6 bg-accent text-accent-foreground text-xs font-medium px-3 py-1 rounded-full">
+                        Popular
+                      </div>
+                    )}
+                    
+                    {selectedPlan === key && (
+                      <div className="bg-primary text-primary-foreground text-center py-2 font-medium">
+                        Current Plan
+                      </div>
+                    )}
+                    
+                    <div className="p-6">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-serif font-bold">
+                          {product.name.replace(' (Yearly)', '').replace(' (Monthly)', '')}
+                        </h3>
+                        {key.includes('mystic') && (
+                          <div className="p-2 bg-primary/20 rounded-full">
+                            <Sparkles className="h-5 w-5 text-primary" />
+                          </div>
+                        )}
+                        {key.includes('creator') && (
+                          <div className="p-2 bg-accent/20 rounded-full">
+                            <CreditCard className="h-5 w-5 text-accent" />
+                          </div>
+                        )}
+                        {key.includes('visionary') && (
+                          <div className="p-2 bg-teal/20 rounded-full">
+                            <Shield className="h-5 w-5 text-teal" />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="mb-6">
+                        <div className="flex items-baseline">
+                          <span className="text-3xl font-bold">${product.price}</span>
+                          <span className="text-muted-foreground ml-1">/{product.interval}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-2">{product.description}</p>
+                        
+                        {product.interval === 'year' && (
+                          <div className="mt-1 flex items-center">
+                            <Clock className="h-3 w-3 mr-1 text-success" />
+                            <span className="text-xs text-success">
+                              Save {calculateSavings(
+                                STRIPE_PRODUCTS[key.replace('yearly', 'monthly')].price as number,
+                                product.price as number
+                              )}% compared to monthly
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-3 mb-6">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">
+                            {product.interval === 'year' ? 'Yearly' : 'Monthly'} Basic Credits
+                          </span>
+                          <span className="font-medium">{product.baseCredits}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">
+                            {product.interval === 'year' ? 'Yearly' : 'Monthly'} Premium Credits
+                          </span>
+                          <span className="font-medium">{product.premiumCredits}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Credit Rollover</span>
+                          <span className="font-medium">
+                            {product.maxRolloverCredits === product.baseCredits + product.premiumCredits
+                              ? 'Full rollover'
+                              : `Up to ${product.maxRolloverCredits}`}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Card Quality</span>
+                          <span className="font-medium capitalize">{product.cardImageQuality}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-3 mb-6">
+                        {product.features?.map((feature, index) => (
+                          <div key={index} className="flex items-start">
+                            <div className="flex-shrink-0 mt-1">
+                              <Check className="h-4 w-4 text-success" />
+                            </div>
+                            <span className="ml-2 text-sm">{feature}</span>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <button
+                        onClick={() => handleSubscribe(key)}
+                        disabled={checkoutLoading || selectedPlan === key}
+                        className={`w-full py-2 rounded-md font-medium transition-colors ${
+                          selectedPlan === key
+                            ? 'bg-success/20 text-success cursor-default'
+                            : key.includes('mystic')
+                              ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                              : key.includes('creator')
+                                ? 'bg-accent text-accent-foreground hover:bg-accent/90'
+                                : 'bg-teal text-teal-foreground hover:bg-teal/90'
+                        } flex items-center justify-center`}
+                      >
+                        {checkoutLoading ? (
+                          <>
+                            <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></span>
+                            Processing...
+                          </>
+                        ) : selectedPlan === key ? (
+                          <>
+                            <Check className="h-4 w-4 mr-2" />
+                            Current Plan
+                          </>
+                        ) : (
+                          <>
+                            {key.includes('mystic') && <Sparkles className="h-4 w-4 mr-2" />}
+                            {key.includes('creator') && <CreditCard className="h-4 w-4 mr-2" />}
+                            {key.includes('visionary') && <Shield className="h-4 w-4 mr-2" />}
+                            {selectedPlan ? 'Switch Plan' : 'Subscribe Now'}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </>
           )}
 
           {/* How Credits Work Section */}
