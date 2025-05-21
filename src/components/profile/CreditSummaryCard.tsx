@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, Calendar, Sparkles, ArrowUpRight, Crown } from 'lucide-react';
 import { useCredits } from '../../context/CreditContext';
@@ -6,7 +6,12 @@ import { Link } from 'react-router-dom';
 import TarotLogo from '../ui/TarotLogo';
 
 const CreditSummaryCard: React.FC = () => {
-  const { credits, loading } = useCredits();
+  const { credits, loading, refreshCredits } = useCredits();
+  
+  // Fetch latest credits data when component mounts or when dependencies change
+  useEffect(() => {
+    refreshCredits();
+  }, [refreshCredits]);
   
   if (loading) {
     return (

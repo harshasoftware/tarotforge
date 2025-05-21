@@ -14,7 +14,7 @@ interface CreditTransaction {
 }
 
 const CreditTransactionHistory: React.FC = () => {
-  const { getCreditTransactions } = useCredits();
+  const { getCreditTransactions, refreshCredits } = useCredits();
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +23,9 @@ const CreditTransactionHistory: React.FC = () => {
     const fetchTransactions = async () => {
       try {
         setLoading(true);
+        // Ensure credits are refreshed first
+        await refreshCredits();
+        // Then fetch transactions
         const result = await getCreditTransactions(10);
         setTransactions(result);
       } catch (err) {
@@ -34,7 +37,7 @@ const CreditTransactionHistory: React.FC = () => {
     };
 
     fetchTransactions();
-  }, [getCreditTransactions]);
+  }, [getCreditTransactions, refreshCredits]);
 
   // Format transaction date
   const formatDate = (dateString: string) => {
