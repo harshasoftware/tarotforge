@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Menu, X, Moon, Sun, User, UserCheck, Crown, Coins } from 'lucide-react';
@@ -14,11 +14,13 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const { user, signOut, showSignInModal, setShowSignInModal } = useAuth();
   const { isSubscribed } = useSubscription();
   const { credits } = useCredits();
   const location = useLocation();
   const isMobile = useMediaQuery('(max-width: 767px)');
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Handle scroll effect
   useEffect(() => {
@@ -38,11 +40,35 @@ const Navbar = () => {
   useEffect(() => {
     setIsOpen(false);
   }, [location.pathname]);
+  
+  // Handle clicks outside the dropdown to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [dropdownOpen]);
 
   // Toggle dark/light mode
   const toggleTheme = () => {
     setDarkMode(!darkMode);
     document.body.classList.toggle('light-theme');
+  };
+  
+  // Toggle user dropdown
+  const toggleDropdown = () => {
+    setDropdownOpen(!dropdownOpen);
   };
 
   return (
@@ -105,8 +131,11 @@ const Navbar = () => {
 
             {/* Auth links */}
             {user ? (
-              <div className="relative group">
-                <button className="flex items-center space-x-2 p-2 rounded-full hover:bg-secondary/50">
+              <div className="relative group" ref={dropdownRef}>
+                <button 
+                  onClick={toggleDropdown}
+                  className="flex items-center space-x-2 p-2 rounded-full hover:bg-secondary/50"
+                >
                   {user.avatar_url ? (
                     <img 
                       src={user.avatar_url} 
@@ -127,7 +156,11 @@ const Navbar = () => {
                 </button>
                 
                 {/* Dropdown Menu */}
-                <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-card hidden group-hover:block">
+                <div 
+                  className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-card ${
+                    dropdownOpen ? 'block' : 'hidden'
+                  }`}
+                >
                   <Link to="/profile" className="block px-4 py-2 text-sm hover:bg-secondary/50">
                     Profile
                   </Link>
