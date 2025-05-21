@@ -89,7 +89,7 @@ const Navbar = () => {
           {/* Right side - Auth & Theme */}
           <div className="flex items-center space-x-2">
             {/* Credits Badge (Only show for authenticated users) */}
-            {user && credits && (
+            {user && credits && !isMobile (
               <div className="relative mr-1">
                 <CreditBadge showIcon={true} className="py-1" absolute={false} />
               </div>
