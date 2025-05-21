@@ -25,15 +25,6 @@ const placeholderDecks: Deck[] = Array(9).fill(null).map((_, i) => ({
   purchase_count: 0,
 }));
 
-// Define theme suggestions for dynamic generation
-const themeStarters = [
-  "Cosmic", "Nature", "Cyberpunk", "Mythology", "Steampunk", "Fairytale", 
-  "Abstract", "Ocean", "Gothic", "Elemental", "Celestial", "Dreamscape",
-  "Ancient Egypt", "Medieval", "Futuristic", "Botanical", "Crystal", "Shamanic",
-  "Zodiac", "Alchemical", "Shadow", "Minimalist", "Urban", "Fractal", 
-  "Psychedelic", "Folklore", "Sacred Geometry", "Witch", "Druidic", "Angelic"
-];
-
 // Mystical loading messages that rotate
 const loadingMessages = [
   "Consulting the cosmos...",
@@ -52,8 +43,6 @@ const Marketplace = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
-  const [themeSuggestions, setThemeSuggestions] = useState<string[]>(themeStarters.slice(0, 10));
-  const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
   const [promptEngineValue, setPromptEngineValue] = useState('');
   const [isGeneratingElaborateTheme, setIsGeneratingElaborateTheme] = useState(false);
   const [page, setPage] = useState(0);
