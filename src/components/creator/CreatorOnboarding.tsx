@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Wand2, Crown, Check, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { useCredits } from '../../context/CreditContext';
 import TarotLogo from '../ui/TarotLogo';
 
 interface CreatorOnboardingProps {
@@ -13,6 +14,7 @@ interface CreatorOnboardingProps {
 const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => {
   const { user } = useAuth();
   const { isSubscribed } = useSubscription();
+  const { credits } = useCredits();
   const navigate = useNavigate();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
@@ -23,12 +25,15 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
     }
   }, [user, navigate]);
 
-  // If user is subscribed, they can proceed
+  // Check if user has enough credits to create a deck
+  const hasEnoughCredits = credits && (credits.basicCredits > 0 || credits.premiumCredits > 0);
+
+  // If user is subscribed or has credits, they can proceed
   const handleContinue = () => {
-    if (isSubscribed && acceptedTerms) {
+    if ((isSubscribed || hasEnoughCredits) && acceptedTerms) {
       onComplete();
-    } else if (!isSubscribed) {
-      // Redirect to subscription page if not subscribed
+    } else if (!isSubscribed && !hasEnoughCredits) {
+      // Redirect to subscription page if not subscribed and no credits
       navigate('/subscription', { state: { fromDeckCreation: true } });
     }
   };
@@ -48,15 +53,21 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
             </div>
           </div>
           <h1 className="text-3xl font-serif font-bold mt-4 mb-2">Create Your Own Deck</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground max-w-xl mx-auto">
             Craft unique tarot decks with AI-assisted card generation
           </p>
         </div>
 
-        {/* Subscription Required Notice */}
-        <div className={`mb-6 p-4 border rounded-xl ${isSubscribed ? 'border-success/30 bg-success/10' : 'border-primary/30 bg-primary/10'}`}>
+        {/* Credit Status */}
+        <div className={`mb-6 p-4 rounded-xl ${
+          hasEnoughCredits 
+            ? 'border-success/30 bg-success/10' 
+            : isSubscribed 
+              ? 'border-success/30 bg-success/10' 
+              : 'border-primary/30 bg-primary/10'
+        }`}>
           <div className="flex items-start gap-3">
-            {isSubscribed ? (
+            {hasEnoughCredits || isSubscribed ? (
               <div className="p-2 rounded-full bg-success/20 mt-1">
                 <Check className="h-4 w-4 text-success" />
               </div>
@@ -67,17 +78,23 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
             )}
             <div>
               <h3 className="font-medium mb-1">
-                {isSubscribed ? 'Premium Access Enabled' : 'Premium Subscription Required'}
+                {hasEnoughCredits 
+                  ? 'Credits Available' 
+                  : isSubscribed 
+                    ? 'Premium Access Enabled' 
+                    : 'Credits Required'}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {isSubscribed 
-                  ? 'You have full access to create and publish your own custom tarot decks.' 
-                  : 'Creating custom tarot decks requires a premium subscription. Upgrade to unlock this creative feature.'}
+                {hasEnoughCredits
+                  ? `You have ${credits?.basicCredits || 0} basic and ${credits?.premiumCredits || 0} premium credits available for deck creation.`
+                  : isSubscribed 
+                    ? 'You have full access to create and publish your own custom tarot decks.' 
+                    : 'Creating custom tarot decks requires credits. Subscribe to a plan or purchase credits to unlock this creative feature.'}
               </p>
-              {!isSubscribed && (
+              {!hasEnoughCredits && !isSubscribed && (
                 <Link to="/subscription" className="btn btn-primary mt-3 py-1.5 px-4 text-sm flex items-center w-fit">
                   <Crown className="h-4 w-4 mr-2" />
-                  Upgrade Now
+                  Get Credits
                 </Link>
               )}
             </div>
@@ -110,7 +127,7 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
         </div>
 
         {/* Terms & Conditions Checkbox */}
-        {isSubscribed && (
+        {(isSubscribed || hasEnoughCredits) && (
           <div className="mb-6">
             <label className="flex items-start cursor-pointer">
               <input
@@ -137,10 +154,10 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
 
           <button
             onClick={handleContinue}
-            disabled={isSubscribed && !acceptedTerms}
+            disabled={(isSubscribed || hasEnoughCredits) && !acceptedTerms}
             className="btn btn-primary py-2 px-4 flex items-center"
           >
-            {isSubscribed ? (
+            {isSubscribed || hasEnoughCredits ? (
               <>
                 Begin Creation
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -148,7 +165,7 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
             ) : (
               <>
                 <Crown className="mr-2 h-4 w-4" />
-                Upgrade to Premium
+                Get Credits
               </>
             )}
           </button>

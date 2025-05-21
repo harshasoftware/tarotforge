@@ -83,7 +83,7 @@ const CreditUsageEstimate: React.FC<CreditUsageEstimateProps> = ({
             <p className="text-xs text-warning/90 mb-2">You don't have enough credits to generate all these cards.</p>
             <Link to="/subscription" className="btn btn-warning text-xs py-1 px-2 inline-flex items-center">
               <Sparkles className="h-3 w-3 mr-1" />
-              Upgrade Plan
+              Get More Credits
             </Link>
           </div>
         </div>

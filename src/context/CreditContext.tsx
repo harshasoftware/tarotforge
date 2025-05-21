@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { useSubscription } from './SubscriptionContext';
 import { supabase } from '../lib/supabase';
+import { STRIPE_PRODUCTS } from '../lib/stripe-config';
 
 interface CreditInfo {
   basicCredits: number;
@@ -11,6 +12,7 @@ interface CreditInfo {
   planTier: string;
   lastRefreshDate: string | null;
   nextRefreshDate: string | null;
+  maxRolloverCredits: number;
 }
 
 interface CreditContextType {
@@ -25,6 +27,7 @@ interface CreditContextType {
     premiumCredits: number;
     hasEnoughCredits: boolean;
   };
+  initializeCredits: () => Promise<void>;
 }
 
 const defaultCreditInfo: CreditInfo = {
@@ -34,7 +37,8 @@ const defaultCreditInfo: CreditInfo = {
   premiumCreditsUsed: 0,
   planTier: 'free',
   lastRefreshDate: null,
-  nextRefreshDate: null
+  nextRefreshDate: null,
+  maxRolloverCredits: 0
 };
 
 const CreditContext = createContext<CreditContextType>({
@@ -45,6 +49,7 @@ const CreditContext = createContext<CreditContextType>({
   consumeCredits: async () => false,
   getCreditTransactions: async () => [],
   getEstimatedCreditConsumption: () => ({ basicCredits: 0, premiumCredits: 0, hasEnoughCredits: false }),
+  initializeCredits: async () => {},
 });
 
 export const useCredits = () => useContext(CreditContext);
@@ -75,21 +80,38 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         .single();
 
       if (fetchError) {
-        // If no record exists yet, create default values for display
+        // If no record exists yet, initialize with default values
         if (fetchError.code === 'PGRST116') { // Row not found
+          console.log("No credit record found, using default values");
+          
+          // Get subscription plan tier from subscription if available
+          let planTier = 'free';
+          let basicCredits = 5; // Free users start with 5 basic credits
+          let premiumCredits = 0;
+          let maxRolloverCredits = 0;
+          
+          if (isSubscribed && subscription?.price_id) {
+            // Find the product that matches this price ID
+            for (const [key, product] of Object.entries(STRIPE_PRODUCTS)) {
+              if (product.priceId === subscription.price_id) {
+                planTier = key.split('-')[0]; // Extract the plan name (mystic, creator, visionary)
+                basicCredits = product.baseCredits || 0;
+                premiumCredits = product.premiumCredits || 0;
+                maxRolloverCredits = product.maxRolloverCredits || 0;
+                break;
+              }
+            }
+          }
+          
           setCredits({
-            basicCredits: isSubscribed ? 0 : 5, // Free users start with 5 basic credits
-            premiumCredits: 0,
+            basicCredits,
+            premiumCredits,
             basicCreditsUsed: 0,
             premiumCreditsUsed: 0,
-            planTier: isSubscribed ? (
-              subscription?.price_id === 'price_1ROxKkCzE3rkgdDILMeJSI4D' ? 'mystic' :
-              subscription?.price_id === 'price_1ROxKkCzE3rkgdDIZVPaqZHm' ? 'creator' :
-              subscription?.price_id === 'price_1ROxKkCzE3rkgdDIFrJaFEtC' ? 'visionary' : 
-              'free'
-            ) : 'free',
+            planTier,
             lastRefreshDate: null,
             nextRefreshDate: null,
+            maxRolloverCredits
           });
         } else {
           console.error('Error fetching user credits:', fetchError);
@@ -105,6 +127,7 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           planTier: data.plan_tier,
           lastRefreshDate: data.last_refresh_date,
           nextRefreshDate: data.next_refresh_date,
+          maxRolloverCredits: data.max_rollover_credits || 0,
         });
       }
     } catch (err) {
@@ -115,10 +138,120 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Initial credit fetch and on user/subscription changes
-  useEffect(() => {
-    fetchCredits();
-  }, [user, isSubscribed, subscription]);
+  // Initialize credits - used when user subscribes or changes plan
+  const initializeCredits = async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      
+      // Determine credit allocations based on subscription
+      let planTier = 'free';
+      let basicCredits = 5; // Free users start with 5 basic credits
+      let premiumCredits = 0;
+      let maxRolloverCredits = 0;
+      
+      if (isSubscribed && subscription?.price_id) {
+        // Find the product that matches this price ID
+        for (const [key, product] of Object.entries(STRIPE_PRODUCTS)) {
+          if (product.priceId === subscription.price_id) {
+            planTier = key.split('-')[0]; // Extract the plan name (mystic, creator, visionary)
+            basicCredits = product.baseCredits || 0;
+            premiumCredits = product.premiumCredits || 0;
+            maxRolloverCredits = product.maxRolloverCredits || 0;
+            break;
+          }
+        }
+      }
+      
+      // Calculate next refresh date (1 month from now)
+      const now = new Date();
+      const nextRefreshDate = new Date(now);
+      
+      // For monthly subscriptions, add 1 month
+      // For yearly subscriptions, add 1 month but prorate credits
+      if (subscription?.current_period_end) {
+        nextRefreshDate.setTime(subscription.current_period_end * 1000);
+      } else {
+        nextRefreshDate.setMonth(nextRefreshDate.getMonth() + 1);
+      }
+      
+      // Check if a record already exists
+      const { data: existingData, error: fetchError } = await supabase
+        .from('user_credits')
+        .select('id, basic_credits, premium_credits')
+        .eq('user_id', user.id)
+        .single();
+        
+      if (!fetchError && existingData) {
+        // Update existing record
+        const { error: updateError } = await supabase
+          .from('user_credits')
+          .update({
+            basic_credits: basicCredits,
+            premium_credits: premiumCredits,
+            plan_tier: planTier,
+            max_rollover_credits: maxRolloverCredits,
+            next_refresh_date: nextRefreshDate.toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id);
+          
+        if (updateError) {
+          console.error('Error updating credits:', updateError);
+          throw new Error('Failed to update credits');
+        }
+      } else {
+        // Insert new record
+        const { error: insertError } = await supabase
+          .from('user_credits')
+          .insert([{
+            user_id: user.id,
+            basic_credits: basicCredits,
+            premium_credits: premiumCredits,
+            basic_credits_used: 0,
+            premium_credits_used: 0,
+            plan_tier: planTier,
+            max_rollover_credits: maxRolloverCredits,
+            next_refresh_date: nextRefreshDate.toISOString()
+          }]);
+          
+        if (insertError) {
+          console.error('Error inserting credits:', insertError);
+          throw new Error('Failed to initialize credits');
+        }
+      }
+      
+      // Record the credit change transaction
+      await supabase
+        .from('credit_transactions')
+        .insert([{
+          user_id: user.id,
+          transaction_type: 'allocation',
+          basic_credits_change: basicCredits,
+          premium_credits_change: premiumCredits,
+          description: `Credits allocated for ${planTier} plan subscription`
+        }]);
+        
+      // Update local state
+      setCredits({
+        basicCredits,
+        premiumCredits,
+        basicCreditsUsed: 0,
+        premiumCreditsUsed: 0,
+        planTier,
+        lastRefreshDate: new Date().toISOString(),
+        nextRefreshDate: nextRefreshDate.toISOString(),
+        maxRolloverCredits
+      });
+      
+    } catch (err) {
+      console.error('Error initializing credits:', err);
+      setError('Failed to initialize credits');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Consume credits for card generation
   const consumeCredits = async (
@@ -210,6 +343,27 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   };
 
+  // Watch for subscription changes and update credits accordingly
+  useEffect(() => {
+    // When subscription changes, reinitialize credits
+    if (user && subscription) {
+      if (isSubscribed) {
+        // Initialize credits based on the subscription
+        initializeCredits();
+      } else {
+        // If user lost subscription, still fetch credits but don't initialize
+        fetchCredits();
+      }
+    }
+  }, [user?.id, subscription]);
+
+  // Initial credit fetch
+  useEffect(() => {
+    if (user) {
+      fetchCredits();
+    }
+  }, [user]);
+
   return (
     <CreditContext.Provider
       value={{
@@ -219,7 +373,8 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         refreshCredits: fetchCredits,
         consumeCredits,
         getCreditTransactions,
-        getEstimatedCreditConsumption
+        getEstimatedCreditConsumption,
+        initializeCredits
       }}
     >
       {children}

@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { getUserSubscription } from '../lib/stripe';
-import { useCredits } from './CreditContext';
 
 interface SubscriptionContextType {
   isSubscribed: boolean;
@@ -98,3 +97,5 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     </SubscriptionContext.Provider>
   );
 };
+
+export default SubscriptionProvider;
