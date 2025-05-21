@@ -9,6 +9,7 @@ import ErrorBoundary from './components/error/ErrorBoundary';
 import * as Sentry from "@sentry/react";
 import setupLogRocketReact from 'logrocket-react';
 import LogRocket from 'logrocket';
+import { trackPageView } from './utils/analytics';
 
 // Initialize LogRocket React plugin
 setupLogRocketReact(LogRocket);
@@ -119,9 +120,17 @@ function App() {
     }
   }, [location, loading, user, navigate]);
 
-  // Scroll to top on route change
+  // Scroll to top on route change and track page view
   useEffect(() => {
     window.scrollTo(0, 0);
+    
+    // Track page view in analytics
+    const pageName = location.pathname.split('/')[1] || 'home';
+    trackPageView(pageName, {
+      path: location.pathname,
+      search: location.search,
+      url: window.location.href
+    });
   }, [location.pathname]);
 
   return (

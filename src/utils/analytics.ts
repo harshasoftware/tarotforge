@@ -1,13 +1,15 @@
 import LogRocket from 'logrocket';
+import mixpanel from 'mixpanel-browser';
 import { User } from '../types';
-import { StripeProduct } from '../lib/stripe-config';
+import { STRIPE_PRODUCTS } from '../lib/stripe-config';
 
 // Initialize LogRocket
 export const initializeLogRocket = () => {
-  const token = import.meta.env.VITE_LOGROCKET_APP_ID;
+  const logRocketToken = import.meta.env.VITE_LOGROCKET_APP_ID;
+  const mixpanelToken = import.meta.env.VITE_MIXPANEL_TOKEN;
   
-  if (token) {
-    LogRocket.init(token, {
+  if (logRocketToken) {
+    LogRocket.init(logRocketToken, {
       console: {
         shouldAggregateConsoleErrors: true,
         isEnabled: {
@@ -62,9 +64,29 @@ export const initializeLogRocket = () => {
     
     console.log('LogRocket initialized');
   }
+  
+  // Initialize Mixpanel if token is available
+  if (mixpanelToken) {
+    mixpanel.init(mixpanelToken, {
+      debug: import.meta.env.DEV,
+      track_pageview: true,
+      persistence: 'localStorage'
+    });
+    
+    // Connect LogRocket with Mixpanel if both are available
+    if (logRocketToken) {
+      LogRocket.getSessionURL(sessionURL => {
+        mixpanel.register({
+          logRocketSessionURL: sessionURL
+        });
+      });
+    }
+    
+    console.log('Mixpanel initialized');
+  }
 };
 
-// Identify user in LogRocket
+// Identify user in LogRocket and Mixpanel
 export const identifyUser = (
   user: User | null, 
   subscription?: {
@@ -121,13 +143,31 @@ export const identifyUser = (
     // Identify the user in LogRocket
     LogRocket.identify(user.id, userData);
     
-    console.log('User identified in LogRocket', { userId: user.id });
+    // Also identify in Mixpanel if available
+    if (import.meta.env.VITE_MIXPANEL_TOKEN) {
+      mixpanel.identify(user.id);
+      mixpanel.people.set({
+        $email: user.email,
+        $name: user.username || user.full_name || user.email.split('@')[0],
+        $created: user.created_at,
+        subscriptionStatus: subscription?.status || 'none',
+        subscriptionType: subscription?.type || 'free',
+        basicCredits: credits?.basicCredits || 0,
+        premiumCredits: credits?.premiumCredits || 0,
+        planTier: credits?.plan || 'free',
+        isCreator: user.is_creator || false,
+        isReader: user.is_reader || false,
+        readerLevel: user.readerLevel?.name || null
+      });
+    }
+    
+    console.log('User identified in analytics platforms', { userId: user.id });
   } catch (error) {
-    console.error('Error identifying user in LogRocket:', error);
+    console.error('Error identifying user in analytics:', error);
   }
 };
 
-// Update subscription data in LogRocket
+// Update subscription data in LogRocket and Mixpanel
 export const updateSubscriptionData = (
   userId: string, 
   subscription: { 
@@ -139,6 +179,7 @@ export const updateSubscriptionData = (
   if (!userId) return;
   
   try {
+    // Update in LogRocket
     LogRocket.identify(userId, {
       subscriptionStatus: subscription.status,
       subscriptionType: subscription.type,
@@ -146,13 +187,30 @@ export const updateSubscriptionData = (
       subscriptionUpdatedAt: new Date().toISOString()
     });
     
-    console.log('Subscription data updated in LogRocket', { userId });
+    // Update in Mixpanel if available
+    if (import.meta.env.VITE_MIXPANEL_TOKEN) {
+      mixpanel.people.set({
+        subscriptionStatus: subscription.status,
+        subscriptionType: subscription.type,
+        subscriptionPriceId: subscription.price_id,
+        subscriptionUpdatedAt: new Date().toISOString()
+      });
+      
+      // Track subscription change event
+      mixpanel.track('Subscription Updated', {
+        status: subscription.status,
+        type: subscription.type,
+        priceId: subscription.price_id
+      });
+    }
+    
+    console.log('Subscription data updated in analytics', { userId });
   } catch (error) {
-    console.error('Error updating subscription data in LogRocket:', error);
+    console.error('Error updating subscription data in analytics:', error);
   }
 };
 
-// Update credit data in LogRocket
+// Update credit data in LogRocket and Mixpanel
 export const updateCreditData = (
   userId: string,
   credits: {
@@ -164,6 +222,7 @@ export const updateCreditData = (
   if (!userId) return;
   
   try {
+    // Update in LogRocket
     LogRocket.identify(userId, {
       basicCredits: credits.basicCredits,
       premiumCredits: credits.premiumCredits,
@@ -171,13 +230,23 @@ export const updateCreditData = (
       creditUpdatedAt: new Date().toISOString()
     });
     
-    console.log('Credit data updated in LogRocket', { userId });
+    // Update in Mixpanel if available
+    if (import.meta.env.VITE_MIXPANEL_TOKEN) {
+      mixpanel.people.set({
+        basicCredits: credits.basicCredits,
+        premiumCredits: credits.premiumCredits,
+        planTier: credits.plan,
+        creditUpdatedAt: new Date().toISOString()
+      });
+    }
+    
+    console.log('Credit data updated in analytics', { userId });
   } catch (error) {
-    console.error('Error updating credit data in LogRocket:', error);
+    console.error('Error updating credit data in analytics:', error);
   }
 };
 
-// Track specific errors
+// Track specific errors in LogRocket and Mixpanel
 export const trackError = (error: Error, context?: Record<string, any>) => {
   // Add context to console for local debugging
   console.error('Error tracked:', error, context);
@@ -188,6 +257,16 @@ export const trackError = (error: Error, context?: Record<string, any>) => {
       errorContext: context ? JSON.stringify(context) : 'unknown'
     }
   });
+  
+  // Log to Mixpanel if available
+  if (import.meta.env.VITE_MIXPANEL_TOKEN) {
+    mixpanel.track('Error', {
+      errorMessage: error.message,
+      errorName: error.name,
+      errorStack: error.stack,
+      context: context
+    });
+  }
 };
 
 // Get plan name from price ID
@@ -195,7 +274,7 @@ export const getPlanNameFromPriceId = (priceId?: string): string => {
   if (!priceId) return 'free';
   
   // Find which product the price ID belongs to
-  for (const [key, product] of Object.entries(StripeProduct)) {
+  for (const [key, product] of Object.entries(STRIPE_PRODUCTS)) {
     if (product.priceId === priceId) {
       // Extract the plan name (mystic, creator, visionary)
       return key.split('-')[0]; 
@@ -203,4 +282,30 @@ export const getPlanNameFromPriceId = (priceId?: string): string => {
   }
   
   return 'free';
+};
+
+// Track page views in Mixpanel
+export const trackPageView = (pageName: string, properties?: Record<string, any>) => {
+  if (import.meta.env.VITE_MIXPANEL_TOKEN) {
+    mixpanel.track('Page View', {
+      page: pageName,
+      ...properties
+    });
+  }
+};
+
+// Track user actions (for important events)
+export const trackUserAction = (action: string, properties?: Record<string, any>) => {
+  // Log to console in development
+  if (import.meta.env.DEV) {
+    console.log(`[User Action] ${action}`, properties);
+  }
+  
+  // Track in Mixpanel if available
+  if (import.meta.env.VITE_MIXPANEL_TOKEN) {
+    mixpanel.track(action, properties);
+  }
+  
+  // Track in LogRocket
+  LogRocket.track(action, properties);
 };
