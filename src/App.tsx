@@ -46,7 +46,6 @@ const Profile = lazy(() => import('./pages/user/Profile'));
 const Checkout = lazy(() => import('./pages/marketplace/Checkout'));
 const AuthCallback = lazy(() => import('./pages/auth/AuthCallback'));
 const DeckCreator = lazy(() => import('./pages/creator/DeckCreator'));
-const ImportRiderWaite = lazy(() => import('./pages/ImportRiderWaite'));
 
 // New components for Readers and Reader Quiz
 const ReadersPage = lazy(() => import('./pages/readers/ReadersPage'));
@@ -165,7 +164,6 @@ function App() {
               <Route path="become-reader" element={<BecomeReader />} />
               <Route path="tarot-quiz" element={<TarotQuiz />} />
               <Route path="reader-dashboard" element={<ReaderDashboard />} />
-              <Route path="import-rider-waite" element={<ImportRiderWaite />} />
             </Route>
             
             {/* Routes that require subscription */}

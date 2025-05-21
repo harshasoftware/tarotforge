@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Plus, ShoppingBag, Filter, Package, Zap, Edit, Trash2, Eye, EyeOff, DollarSign, Download } from 'lucide-react';
+import { Search, Plus, ShoppingBag, Filter, Package, Zap, Edit, Trash2, Eye, EyeOff, DollarSign } from 'lucide-react';
 import DeckPreview from '../../components/ui/DeckPreview';
 import { Deck } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -251,7 +251,7 @@ const Collection = () => {
             </p>
           </div>
           
-          <div className="flex flex-wrap gap-3">
+          <div className="flex gap-3">
             <Link to="/marketplace" className="btn btn-secondary px-4 py-2 flex items-center">
               <ShoppingBag className="mr-2 h-5 w-5" />
               Shop Decks
@@ -259,10 +259,6 @@ const Collection = () => {
             <Link to="/" className="btn btn-primary px-4 py-2 flex items-center">
               <Plus className="mr-2 h-5 w-5" />
               Create Deck
-            </Link>
-            <Link to="/import-rider-waite" className="btn btn-accent px-4 py-2 flex items-center">
-              <Download className="mr-2 h-5 w-5" />
-              Import Rider-Waite
             </Link>
           </div>
         </div>
