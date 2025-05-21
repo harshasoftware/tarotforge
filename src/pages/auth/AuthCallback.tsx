@@ -40,25 +40,10 @@ const AuthCallback = () => {
             const withDeckCreation = localStorage.getItem('auth_with_deck_creation');
             const returnPath = localStorage.getItem('auth_return_path');
             
-            // Handle pricing page redirects
-            const fromPricing = localStorage.getItem('auth_from_pricing');
-            const selectedPlan = localStorage.getItem('auth_selected_plan');
-            
-            // Clear stored auth preferences
+            // Clear stored preferences
             localStorage.removeItem('auth_return_to_home');
             localStorage.removeItem('auth_with_deck_creation');
             localStorage.removeItem('auth_return_path');
-            localStorage.removeItem('auth_from_pricing');
-            localStorage.removeItem('auth_selected_plan');
-            
-            // If we came from pricing, restore those values for the redirect in AuthContext
-            if (fromPricing) {
-              if (selectedPlan) {
-                localStorage.setItem('selectedPricingPlan', selectedPlan);
-              } else {
-                localStorage.setItem('fromPricing', 'true');
-              }
-            }
             
             // Navigate based on stored preferences
             setTimeout(() => {
