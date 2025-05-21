@@ -4,6 +4,7 @@ import { useSubscription } from './SubscriptionContext';
 import { supabase } from '../lib/supabase';
 import { STRIPE_PRODUCTS } from '../lib/stripe-config';
 import { checkAndMigrateCredits } from '../lib/credit-migration';
+import { ensureUserCredits } from '../lib/credit-fix';
 
 interface CreditInfo {
   basicCredits: number;
@@ -117,7 +118,12 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
           // Attempt to migrate existing user credits if this is an existing account
           try {
+            // Try both migration approaches - first the legacy approach
             await checkAndMigrateCredits(user.id);
+            
+            // Then the new direct fix approach
+            await ensureUserCredits(user.id);
+            
             // Automatically refresh to get the newly created credit record
             const { data: newData } = await supabase
               .from('user_credits')
@@ -171,6 +177,9 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     try {
       setLoading(true);
+      
+      // Make sure the user has a credit record first
+      await ensureUserCredits(user.id);
       
       // Determine credit allocations based on subscription
       let planTier = 'free';
