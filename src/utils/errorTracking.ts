@@ -139,8 +139,7 @@ export const isRetryableError = (type: GoogleSignInErrorType | AppErrorType): bo
 // Get retry delay based on error type
 export const getRetryDelay = (type: GoogleSignInErrorType | AppErrorType): number => {
   switch (type) {
-    case AppErrorType.NETWORK_ERROR:
-      return 2000; // 2 seconds
+    // Removed the duplicate case for AppErrorType.NETWORK_ERROR
     case GoogleSignInErrorType.NETWORK_ERROR:
       return 3000; // 3 seconds
     case GoogleSignInErrorType.LOCK_ACQUISITION_FAILED:
