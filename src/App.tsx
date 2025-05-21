@@ -8,9 +8,10 @@ import ProtectedSubscriptionRoute from './components/auth/ProtectedSubscriptionR
 import ErrorBoundary from './components/error/ErrorBoundary';
 import * as Sentry from "@sentry/react";
 import setupLogRocketReact from 'logrocket-react';
+import LogRocket from 'logrocket';
 
-// Initialize LogRocket - Removed direct import as we're using logrocket-react
-// setupLogRocketReact handles the LogRocket initialization
+// Initialize LogRocket React plugin
+setupLogRocketReact(LogRocket);
 
 // Initialize Sentry
 Sentry.init({
@@ -25,7 +26,12 @@ Sentry.init({
   ],
 });
 
-// Connect LogRocket sessions to Sentry - removed as we're not using direct LogRocket import
+// Connect LogRocket sessions to Sentry
+LogRocket.getSessionURL(sessionURL => {
+  Sentry.configureScope(scope => {
+    scope.setExtra("logRocketSessionURL", sessionURL);
+  });
+});
 
 // Lazy loaded components
 const Home = lazy(() => import('./pages/Home'));

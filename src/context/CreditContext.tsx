@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { STRIPE_PRODUCTS } from '../lib/stripe-config';
 import { checkAndMigrateCredits } from '../lib/credit-migration';
 import { ensureUserCredits } from '../lib/credit-fix';
+import { updateCreditData } from '../utils/analytics';
 
 interface CreditInfo {
   basicCredits: number;
@@ -105,7 +106,7 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }
           }
           
-          setCredits({
+          const creditInfo = {
             basicCredits,
             premiumCredits,
             basicCreditsUsed: 0,
@@ -114,7 +115,18 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             lastRefreshDate: null,
             nextRefreshDate: null,
             maxRolloverCredits
-          });
+          };
+          
+          setCredits(creditInfo);
+
+          // Update LogRocket with credit info
+          if (user.id) {
+            updateCreditData(user.id, {
+              basicCredits,
+              premiumCredits,
+              plan: planTier
+            });
+          }
 
           // Attempt to migrate existing user credits if this is an existing account
           try {
@@ -132,7 +144,7 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               .single();
               
             if (newData) {
-              setCredits({
+              const newCreditInfo = {
                 basicCredits: newData.basic_credits,
                 premiumCredits: newData.premium_credits,
                 basicCreditsUsed: newData.basic_credits_used,
@@ -141,7 +153,18 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 lastRefreshDate: newData.last_refresh_date,
                 nextRefreshDate: newData.next_refresh_date,
                 maxRolloverCredits: newData.max_rollover_credits || 0,
-              });
+              };
+              
+              setCredits(newCreditInfo);
+              
+              // Update LogRocket with credit info
+              if (user.id) {
+                updateCreditData(user.id, {
+                  basicCredits: newData.basic_credits,
+                  premiumCredits: newData.premium_credits,
+                  plan: newData.plan_tier
+                });
+              }
             }
           } catch (migrationError) {
             console.error('Error during credit migration:', migrationError);
@@ -152,7 +175,7 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setCredits(null);
         }
       } else if (data) {
-        setCredits({
+        const creditInfo = {
           basicCredits: data.basic_credits,
           premiumCredits: data.premium_credits,
           basicCreditsUsed: data.basic_credits_used,
@@ -161,7 +184,18 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           lastRefreshDate: data.last_refresh_date,
           nextRefreshDate: data.next_refresh_date,
           maxRolloverCredits: data.max_rollover_credits || 0,
-        });
+        };
+        
+        setCredits(creditInfo);
+        
+        // Update LogRocket with credit info
+        if (user.id) {
+          updateCreditData(user.id, {
+            basicCredits: data.basic_credits,
+            premiumCredits: data.premium_credits,
+            plan: data.plan_tier
+          });
+        }
       }
     } catch (err) {
       console.error('Error in fetchCredits:', err);
@@ -281,6 +315,13 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         maxRolloverCredits
       });
       
+      // Update LogRocket with new credit info
+      updateCreditData(user.id, {
+        basicCredits, 
+        premiumCredits,
+        plan: planTier
+      });
+      
     } catch (err) {
       console.error('Error initializing credits:', err);
       setError('Failed to initialize credits');
@@ -321,6 +362,19 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Update local state
       if (data) {
         await fetchCredits();
+        
+        // Update LogRocket with updated credit info after consumption
+        if (credits) {
+          const newBasicCredits = credits.basicCredits - basicCredits;
+          const newPremiumCredits = credits.premiumCredits - premiumCredits;
+          
+          updateCreditData(user.id, {
+            basicCredits: newBasicCredits,
+            premiumCredits: newPremiumCredits,
+            plan: credits.planTier
+          });
+        }
+        
         return true;
       }
 

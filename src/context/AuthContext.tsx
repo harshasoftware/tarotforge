@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { processGoogleProfileImage } from '../lib/user-profile';
 import { generateMysticalUsername } from '../lib/gemini-ai';
 import { setUserContext, clearUserContext } from '../utils/errorTracking';
+import { identifyUser } from '../utils/analytics';
 
 interface AuthContextType {
   user: User | null;
@@ -79,6 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
         authStateDeterminedRef.current = true;
         clearUserContext(); // Clear user context in Sentry and LogRocket
+        identifyUser(null); // Clear LogRocket identity
         return;
       }
       
@@ -165,7 +167,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
                 setUser(userObj);
                 setUserContext(userObj);
-                // Set user in LogRocket - removed direct LogRocket usage
+                // Identify user in LogRocket
+                identifyUser(userObj);
               } else {
                 // Fallback if profile fetch fails after creation
                 const userObj = {
@@ -182,7 +185,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
                 setUser(userObj);
                 setUserContext(userObj);
-                // Set user in LogRocket - removed direct LogRocket usage
+                // Identify user in LogRocket
+                identifyUser(userObj);
               }
             } catch (insertError) {
               console.error('Error creating user profile:', insertError);
@@ -201,7 +205,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               };
               setUser(userObj);
               setUserContext(userObj);
-              // Set user in LogRocket - removed direct LogRocket usage
+              // Identify user in LogRocket
+              identifyUser(userObj);
             }
           } else {
             // Other profile fetch error, use fallback user data
@@ -218,7 +223,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
             setUser(userObj);
             setUserContext(userObj);
-            // Set user in LogRocket - removed direct LogRocket usage
+            // Identify user in LogRocket
+            identifyUser(userObj);
           }
         } else if (profile) {
           // Profile found, set user data
@@ -236,17 +242,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
           setUser(userObj);
           setUserContext(userObj);
-          // Set user in LogRocket - removed direct LogRocket usage
+          // Identify user in LogRocket
+          identifyUser(userObj);
         }
       } else {
         console.log('No session found, user is not authenticated');
         setUser(null);
         clearUserContext();
+        // Clear LogRocket identity
+        identifyUser(null);
       }
     } catch (error) {
       console.error('Error checking auth:', error);
       setUser(null);
       clearUserContext();
+      // Clear LogRocket identity
+      identifyUser(null);
     } finally {
       setLoading(false);
       isCheckingRef.current = false;
@@ -417,7 +428,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Sign out from Supabase
       await supabase.auth.signOut();
       setUser(null);
-      clearUserContext(); // Clear user context in Sentry and LogRocket
+      clearUserContext(); // Clear user context in Sentry
+      identifyUser(null); // Clear LogRocket identity
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -493,7 +505,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
           setLoading(false);
           authStateDeterminedRef.current = true;
-          clearUserContext(); // Clear user context in Sentry and LogRocket
+          clearUserContext(); // Clear user context in Sentry
+          identifyUser(null); // Clear LogRocket identity
         }
       }
     );

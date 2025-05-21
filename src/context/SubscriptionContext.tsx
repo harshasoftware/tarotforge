@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { getUserSubscription } from '../lib/stripe';
+import { updateSubscriptionData } from '../utils/analytics';
+import { getPlanNameFromPriceId } from '../utils/analytics';
 
 interface SubscriptionContextType {
   isSubscribed: boolean;
@@ -45,6 +47,21 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (hasChanged) {
         setSubscription(subscriptionData);
         console.log("Subscription status changed:", subscriptionData?.subscription_status);
+        
+        // Update LogRocket with subscription info when it changes
+        if (subscriptionData) {
+          // Determine subscription type from price_id
+          const subscriptionType = subscriptionData.price_id 
+            ? getPlanNameFromPriceId(subscriptionData.price_id)
+            : 'free';
+            
+          // Update LogRocket with subscription info
+          updateSubscriptionData(user.id, {
+            status: subscriptionData.subscription_status || 'none',
+            type: subscriptionType,
+            price_id: subscriptionData.price_id
+          });
+        }
       }
       
       // Mark that we've fetched the initial subscription data

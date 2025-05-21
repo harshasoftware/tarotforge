@@ -17,18 +17,23 @@ import {
   isPushNotificationSupported
 } from './utils/pwa-features';
 import * as Sentry from "@sentry/react";
-import mixpanel from 'mixpanel-browser';
+import { initializeLogRocket } from './utils/analytics';
 
-// Initialize Mixpanel
-if (import.meta.env.VITE_MIXPANEL_TOKEN) {
-  mixpanel.init(import.meta.env.VITE_MIXPANEL_TOKEN, {
-    debug: import.meta.env.DEV,
-    track_pageview: true,
-    persistence: 'localStorage'
-  });
-}
+// Initialize LogRocket
+initializeLogRocket();
 
-// Removed LogRocket integration with Mixpanel
+// Initialize Sentry
+Sentry.init({
+  dsn: "https://9c3c4747996da8b597048265023ff2f0@o4509354423156736.ingest.us.sentry.io/4509354424860677",
+  sendDefaultPii: true,
+  environment: import.meta.env.MODE,
+  integrations: [
+    new Sentry.BrowserTracing({
+      // Set sampling rate for performance monitoring
+      tracingOrigins: ['localhost', 'tarotforge.xyz'],
+    }),
+  ],
+});
 
 // Register service worker for PWA functionality
 const updateSW = registerSW({
