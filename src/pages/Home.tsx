@@ -299,6 +299,9 @@ const Home = () => {
 
   const selectSuggestion = async (suggestion: string) => {    
     // Generate and append an elaboration
+    // clear existing text
+    setThemePrompt('');
+
     try {
       setIsGeneratingElaboration(true);
       const elaboration = await generateElaborateTheme(suggestion);
