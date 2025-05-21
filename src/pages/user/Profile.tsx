@@ -9,7 +9,6 @@ import { supabase } from '../../lib/supabase';
 import { User } from '../../types';
 import CreditSummaryCard from '../../components/profile/CreditSummaryCard';
 import CreditTransactionHistory from '../../components/profile/CreditTransactionHistory';
-import { useCredits } from '../../context/CreditContext';
 
 interface ProfileFormData {
   username: string;
@@ -21,7 +20,6 @@ interface ProfileFormData {
 
 const Profile = () => {
   const { user, checkAuth } = useAuth();
-  const { refreshCredits } = useCredits();
   
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -73,9 +71,6 @@ const Profile = () => {
           setDeckStats(prev => ({ ...prev, created: createdDecks?.length || 0 }));
         }
         
-        // Ensure credits are refreshed when profile loads
-        refreshCredits();
-        
       } catch (error) {
         console.error('Error fetching profile data:', error);
       } finally {
@@ -84,7 +79,7 @@ const Profile = () => {
     };
     
     fetchProfileData();
-  }, [user?.id, reset, refreshCredits]);
+  }, [user?.id, reset]);
   
   // Handle form submission
   const onSubmit = async (data: ProfileFormData) => {

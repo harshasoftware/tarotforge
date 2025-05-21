@@ -9,12 +9,7 @@ interface CreditBadgeProps {
 }
 
 const CreditBadge: React.FC<CreditBadgeProps> = ({ showIcon = true, className = '', absolute = false }) => {
-  const { credits, loading, refreshCredits } = useCredits();
-  
-  // Fetch latest credits data on mount
-  React.useEffect(() => {
-    refreshCredits();
-  }, [refreshCredits]);
+  const { credits, loading } = useCredits();
   
   if (loading || !credits) {
     return null;
