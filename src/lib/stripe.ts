@@ -63,6 +63,7 @@ export const getUserSubscription = async () => {
       .maybeSingle();
     
     if (error) {
+      console.error('Error fetching user subscription:', error);
       throw error;
     }
     
@@ -70,6 +71,32 @@ export const getUserSubscription = async () => {
   } catch (error) {
     console.error('Error fetching user subscription:', error);
     return null;
+  }
+};
+
+/**
+ * Initializes or refreshes user credits based on their subscription
+ * @param userId The user ID
+ * @param priceId The Stripe price ID
+ * @returns Boolean indicating success
+ */
+export const initializeCreditsForSubscription = async (userId: string, priceId: string): Promise<boolean> => {
+  try {
+    // Call RPC function to initialize credits
+    const { error } = await supabase.rpc('initialize_subscription_credits', {
+      p_user_id: userId,
+      p_price_id: priceId
+    });
+    
+    if (error) {
+      console.error('Error initializing credits:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in initializeCreditsForSubscription:', error);
+    return false;
   }
 };
 

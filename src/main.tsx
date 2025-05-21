@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
-import { SubscriptionProvider } from './context/SubscriptionProvider';
+import { SubscriptionProvider } from './context/SubscriptionContext';
 import { CreditProvider } from './context/CreditContext';
 import { VideoCallProvider } from './context/VideoCallContext';
 import './index.css';
@@ -72,7 +72,6 @@ async function initPWAFeatures() {
   }
 }
 
-// Fix the circular dependency issue with correct SubscriptionProvider import
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Sparkles, Shield, Zap, ArrowLeft, Loader, CreditCard, Check, AlertCircle, Clock, ChevronsUpDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
@@ -14,6 +14,7 @@ const SubscriptionPage: React.FC = () => {
   const { subscription, isSubscribed, loading: subscriptionLoading } = useSubscription();
   const { credits, loading: creditLoading } = useCredits();
   const location = useLocation();
+  const navigate = useNavigate();
   const fromDeckCreation = location.state?.fromDeckCreation || false;
   
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
@@ -65,6 +66,11 @@ const SubscriptionPage: React.FC = () => {
       setCheckoutLoading(true);
       setError(null);
       const product = STRIPE_PRODUCTS[planKey];
+
+      // Save redirect information for after successful checkout
+      if (fromDeckCreation) {
+        localStorage.setItem('redirectToDeckCreation', 'true');
+      }
 
       const { url } = await createCheckoutSession({
         priceId: product.priceId,
