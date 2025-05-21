@@ -24,8 +24,8 @@ interface ApiResponse {
 // CORS headers for API responses
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
 };
 
 Deno.serve(async (req) => {
@@ -49,28 +49,19 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Get user ID from authorization header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return createErrorResponse('Missing or invalid authorization token', 401);
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return createErrorResponse('Unauthorized. Invalid user token.', 401);
-    }
-
-    // Get request parameters
+    // Get the request body
     const requestData = await req.json();
-    const { createNew = true } = requestData;
+    
+    // Optional parameters
+    const { userId = null, createNew = true } = requestData;
+    
+    // Use the provided userId or create admin-owned deck
+    const deckCreatorId = userId || '00000000-0000-0000-0000-000000000000'; // admin/system user ID
 
     // Prepare deck metadata
     const deckTitle = "Rider-Waite Tarot";
     const deckDescription = "The classic Rider-Waite tarot deck, illustrated by Pamela Colman Smith and published by the Rider Company in 1910. This iconic deck has become the standard for tarot readings worldwide.";
     
-    // Find if a Rider-Waite deck already exists to avoid duplicates
     let deckId: string;
     
     if (createNew) {
@@ -78,7 +69,7 @@ Deno.serve(async (req) => {
       const { data: newDeck, error: deckError } = await supabase
         .from('decks')
         .insert({
-          creator_id: user.id,
+          creator_id: deckCreatorId,
           title: deckTitle,
           description: deckDescription,
           theme: 'classic',
@@ -105,11 +96,11 @@ Deno.serve(async (req) => {
       
       deckId = newDeck.id;
     } else {
-      // Check if a Rider-Waite deck already exists for this user
+      // Check if a Rider-Waite deck already exists for this user ID
       const { data: existingDeck, error: findError } = await supabase
         .from('decks')
         .select('id')
-        .eq('creator_id', user.id)
+        .eq('creator_id', deckCreatorId)
         .eq('title', deckTitle)
         .single();
         
@@ -124,7 +115,7 @@ Deno.serve(async (req) => {
         const { data: newDeck, error: deckError } = await supabase
           .from('decks')
           .insert({
-            creator_id: user.id,
+            creator_id: deckCreatorId,
             title: deckTitle,
             description: deckDescription,
             theme: 'classic',
