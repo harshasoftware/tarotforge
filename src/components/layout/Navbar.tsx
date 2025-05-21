@@ -78,12 +78,6 @@ const Navbar = () => {
                 </button>
               </>
             )}
-            <NavLink to="/subscription">
-              <span className="flex items-center">
-                Premium
-                {isSubscribed && <Crown className="ml-1 h-3 w-3 text-primary" />}
-              </span>
-            </NavLink>
           </div>
 
           {/* Right side - Auth & Theme */}
@@ -218,19 +212,6 @@ const Navbar = () => {
                   <Link to="/collection" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                     My Collection
                   </Link>
-                  <Link to="/subscription" className="block py-2 px-4 rounded-md hover:bg-secondary/50 flex items-center">
-                    {isSubscribed ? (
-                      <>
-                        <Crown className="h-4 w-4 mr-2 text-primary" />
-                        Premium Membership
-                      </>
-                    ) : (
-                      <>
-                        <Crown className="h-4 w-4 mr-2 text-muted-foreground" />
-                        Upgrade to Premium
-                      </>
-                    )}
-                  </Link>
                   <Link to="/profile" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                     Profile
                   </Link>
@@ -262,9 +243,6 @@ const Navbar = () => {
                   >
                     Reading Room
                   </button>
-                  <Link to="/subscription" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
-                    Premium
-                  </Link>
                   <button
                     onClick={() => {
                       setIsOpen(false);
