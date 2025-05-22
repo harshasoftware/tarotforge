@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Menu, X, Moon, Sun, User, UserCheck, Crown } from 'lucide-react';
+import { Menu, X, Moon, Sun, User, UserCheck, Crown, WalletCards } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import SignInModal from '../auth/SignInModal';
 import TarotLogo from '../ui/TarotLogo';
 import DeckBadge from '../ui/CreditBadge';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
-import NavigateToHome from '../ui/NavigateToHome';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -79,10 +78,10 @@ const Navbar = () => {
       >
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           {/* Logo */}
-          <NavigateToHome className="flex items-center space-x-2">
+          <Link to="/" className="flex items-center space-x-2">
             <TarotLogo className="h-6 w-6 text-accent" />
             <span className="text-xl font-serif font-bold">Tarot Forge</span>
-          </NavigateToHome>
+          </Link>
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-1">

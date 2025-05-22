@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Github, Twitter, Instagram, Mail } from 'lucide-react';
 import TarotLogo from '../ui/TarotLogo';
-import NavigateToHome from '../ui/NavigateToHome';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -63,19 +62,17 @@ const Footer = () => {
             <h3 className="font-serif text-base font-medium mb-3">Explore</h3>
             <ul className="space-y-2">
               <li>
-                <Link 
-                  to="/marketplace" 
-                  className="text-sm text-muted-foreground hover:text-accent transition-colors"
-                >
+                <Link to="/marketplace" className="text-sm text-muted-foreground hover:text-accent transition-colors">
                   Browse Decks
                 </Link>
               </li>
               <li>
-                <NavigateToHome
-                  className="text-sm text-muted-foreground hover:text-accent transition-colors"
-                >
+                <Link to="/#" onClick={(e) => {
+                  e.preventDefault();
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }} className="text-sm text-muted-foreground hover:text-accent transition-colors">
                   Create Deck
-                </NavigateToHome>
+                </Link>
               </li>
               <li>
                 <Link to="/reading-room" className="text-sm text-muted-foreground hover:text-accent transition-colors">
