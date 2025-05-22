@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
-import { CreditProvider } from './context/CreditContext';
+import { DeckLimitProvider } from './context/DeckLimitContext';
 import { VideoCallProvider } from './context/VideoCallContext';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
@@ -82,11 +82,11 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <AuthProvider>
         <SubscriptionProvider>
-          <CreditProvider>
+          <DeckLimitProvider>
             <VideoCallProvider>
               <App />
             </VideoCallProvider>
-          </CreditProvider>
+          </DeckLimitProvider>
         </SubscriptionProvider>
       </AuthProvider>
     </BrowserRouter>
