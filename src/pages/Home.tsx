@@ -457,7 +457,7 @@ const Home = () => {
                       disabled={isGeneratingElaboration}
                     />
                     
-                    {/* Credits badge */}
+                    {/* Deck badge */}
                     { !user && (
                       <div className="absolute -top-3 right-3 bg-card border border-yellow-500 px-2 py-1 rounded-full shadow-sm flex items-center">
                         <WalletCards className="h-3 w-3 text-yellow-500 mr-1" />
