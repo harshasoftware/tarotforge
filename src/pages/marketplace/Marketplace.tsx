@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Filter, Zap, TrendingUp, Clock, Star, XCircle, AlertCircle, Loader } from 'lucide-react';
 import DeckPreview from '../../components/ui/DeckPreview';
-import TarotDeck from '../../components/ui/TarotDeck';
 import { Deck } from '../../types';
 import { fetchAllDecks } from '../../lib/deck-utils';
 import TarotLogo from '../../components/ui/TarotLogo';

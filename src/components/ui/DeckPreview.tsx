@@ -1,8 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Star, User, Zap, Eye, EyeOff, DollarSign } from 'lucide-react';
-import TarotDeck from './TarotDeck';
-import TarotDeck from './TarotDeck';
 import { Deck } from '../../types';
 
 interface DeckPreviewProps {
@@ -41,12 +39,12 @@ const DeckPreview = ({
         whileHover={{ y: -5, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' }}
       >
         {/* Image */}
-        <div className="relative aspect-[3/4] overflow-hidden flex items-center justify-center">
-          <TarotDeck 
-            boxImage={deck.cover_image}
-            cardImages={deck.sample_images && deck.sample_images.length > 0 ? deck.sample_images : [deck.cover_image]}
-            deckName={deck.title}
-            cardCount={deck.card_count}
+        <div className="relative aspect-[3/4] overflow-hidden">
+          <img 
+            src={deck.cover_image} 
+            alt={deck.title} 
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            loading="lazy"
           />
           
           {/* Overlay */}

@@ -3,7 +3,6 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ShoppingCart, Bookmark, Share2, Star, Download, Eye, Users, Calendar, Shield, Info, User, BookOpen, Zap, Video } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import TarotDeck from '../../components/ui/TarotDeck';
 import { Deck, Card } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { fetchDeckById, fetchCardsByDeckId } from '../../lib/deck-utils';
@@ -128,16 +127,15 @@ const DeckDetails = () => {
           {/* Deck Cover */}
           <div className="md:col-span-1">
             <motion.div 
-              className="rounded-xl overflow-hidden shadow-lg aspect-[3/4] relative flex items-center justify-center"
+              className="rounded-xl overflow-hidden shadow-lg aspect-[3/4] relative"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <TarotDeck 
-                boxImage={deck.cover_image}
-                cardImages={deck.sample_images && deck.sample_images.length > 0 ? deck.sample_images : [deck.cover_image]}
-                deckName={deck.title}
-                cardCount={deck.card_count}
+              <img 
+                src={deck.cover_image} 
+                alt={deck.title} 
+                className="w-full h-full object-cover"
               />
               {deck.is_nft && (
                 <div className="absolute top-3 left-3 bg-primary/90 text-primary-foreground font-medium px-3 py-1 rounded-full text-xs">
