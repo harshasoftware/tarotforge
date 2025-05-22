@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Menu, X, Moon, Sun, User, UserCheck, Crown, Wallet } from 'lucide-react';
+import { Menu, X, Moon, Sun, User, UserCheck, Crown, WalletCards } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import SignInModal from '../auth/SignInModal';
