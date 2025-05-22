@@ -4,7 +4,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Wand2, Crown, Check, ArrowRight, TrendingUp } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
-import { useCredits } from '../../context/CreditContext';
 import TarotLogo from '../ui/TarotLogo';
 
 interface CreatorOnboardingProps {
@@ -14,27 +13,33 @@ interface CreatorOnboardingProps {
 const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => {
   const { user } = useAuth();
   const { isSubscribed } = useSubscription();
-  const { credits } = useCredits();
   const navigate = useNavigate();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [canCreateMajorArcana, setCanCreateMajorArcana] = useState(true); // Default to true for simplified model
+  const [canCreateFullDeck, setCanCreateFullDeck] = useState(false);
 
   useEffect(() => {
     // If the user is not logged in, redirect to login
     if (!user) {
       navigate('/login');
     }
-  }, [user, navigate]);
 
-  // Check if user has enough credits to create a deck
-  const hasEnoughCredits = credits && (credits.basicCredits > 0 || credits.premiumCredits > 0);
-  const onlyHasMajorArcana = credits && credits.basicCredits >= 22 && credits.basicCredits < 78;
+    // Check if the user can create decks based on subscription status
+    if (isSubscribed) {
+      setCanCreateFullDeck(true);
+    } else {
+      // Free users can create Major Arcana (22 cards) but not full decks
+      setCanCreateMajorArcana(true);
+      setCanCreateFullDeck(false);
+    }
+  }, [user, navigate, isSubscribed]);
 
-  // If user is subscribed or has credits, they can proceed
+  // If user is subscribed or allowed to create at least Major Arcana, they can proceed
   const handleContinue = () => {
-    if ((isSubscribed || hasEnoughCredits) && acceptedTerms) {
+    if ((isSubscribed || canCreateMajorArcana || canCreateFullDeck) && acceptedTerms) {
       onComplete();
-    } else if (!isSubscribed && !hasEnoughCredits) {
-      // Redirect to subscription page if not subscribed and no credits
+    } else {
+      // Redirect to subscription page if not allowed to create any decks
       navigate('/subscription', { state: { fromDeckCreation: true } });
     }
   };
@@ -59,16 +64,16 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
           </p>
         </div>
 
-        {/* Credit Status */}
+        {/* Access Status */}
         <div className={`mb-6 p-4 rounded-xl ${
-          hasEnoughCredits 
+          canCreateFullDeck 
             ? 'border-success/30 bg-success/10' 
             : isSubscribed 
               ? 'border-success/30 bg-success/10' 
               : 'border-primary/30 bg-primary/10'
         }`}>
           <div className="flex items-start gap-3">
-            {hasEnoughCredits || isSubscribed ? (
+            {canCreateFullDeck || isSubscribed ? (
               <div className="p-2 rounded-full bg-success/20 mt-1">
                 <Check className="h-4 w-4 text-success" />
               </div>
@@ -79,40 +84,41 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
             )}
             <div>
               <h3 className="font-medium mb-1">
-                {hasEnoughCredits 
-                  ? onlyHasMajorArcana
-                    ? 'Credits Available for Major Arcana'
-                    : 'Credits Available'
-                  : isSubscribed 
-                    ? 'Premium Access Enabled' 
-                    : 'Credits Required'}
+                {canCreateFullDeck 
+                  ? 'Full Deck Access' 
+                  : canCreateMajorArcana
+                    ? 'Major Arcana Access'
+                    : isSubscribed 
+                      ? 'Premium Access Enabled' 
+                      : 'Subscription Required'}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {hasEnoughCredits
-                  ? onlyHasMajorArcana
-                    ? `You have ${credits?.basicCredits || 0} basic credits - enough for a Major Arcana deck (22 cards).`
-                    : `You have ${credits?.basicCredits || 0} basic and ${credits?.premiumCredits || 0} premium credits available for deck creation.`
-                  : isSubscribed 
-                    ? 'You have full access to create and publish your own custom tarot decks.' 
-                    : 'Creating custom tarot decks requires credits. Choose from our Explorer Plus upgrade, or subscribe to a plan to unlock deck creation features.'}
+                {canCreateFullDeck
+                  ? 'You can create complete 78-card tarot decks with your subscription.'
+                  : canCreateMajorArcana
+                    ? 'You can create Major Arcana decks (22 cards) with the free plan. To create complete 78-card decks, consider upgrading to Explorer Plus or subscribing.'
+                    : isSubscribed 
+                      ? 'You have full access to create and publish your own custom tarot decks.' 
+                      : 'Creating custom tarot decks requires a subscription or upgrade. Choose from our Explorer Plus, Mystic, Creator, or Visionary plans.'}
               </p>
               
-              {onlyHasMajorArcana && (
-                <div className="mt-3 bg-warning/10 border border-warning/30 p-2 rounded-lg">
-                  <p className="text-sm text-warning">
-                    You have enough credits for a Major Arcana deck. To create a complete 78-card deck, consider upgrading with Explorer Plus.
-                  </p>
-                  <Link to="/subscription?plan=explorer-plus" className="btn btn-warning mt-2 py-1.5 px-4 text-sm flex items-center w-fit">
+              {canCreateMajorArcana && !canCreateFullDeck && (
+                <div className="mt-3 flex gap-2 flex-wrap">
+                  <Link to="/subscription?plan=explorer-plus" className="btn btn-warning mt-2 py-1.5 px-4 text-sm flex items-center">
                     <TrendingUp className="h-4 w-4 mr-2" />
                     Upgrade One Deck ($5)
+                  </Link>
+                  <Link to="/subscription" className="btn btn-primary mt-2 py-1.5 px-4 text-sm flex items-center">
+                    <Crown className="h-4 w-4 mr-2" />
+                    View Subscription Plans
                   </Link>
                 </div>
               )}
               
-              {!hasEnoughCredits && !isSubscribed && (
+              {!canCreateMajorArcana && !isSubscribed && (
                 <Link to="/subscription" className="btn btn-primary mt-3 py-1.5 px-4 text-sm flex items-center w-fit">
                   <Crown className="h-4 w-4 mr-2" />
-                  Get Credits
+                  View Plans
                 </Link>
               )}
             </div>
@@ -127,7 +133,7 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
               <div className="mt-0.5 mr-3 text-accent">
                 <TarotLogo className="h-5 w-5" />
               </div>
-              <span>Generate stunning tarot cards with Gemini AI</span>
+              <span>Generate stunning tarot cards with AI</span>
             </div>
             <div className="flex items-start">
               <div className="mt-0.5 mr-3 text-accent">
@@ -145,7 +151,7 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
         </div>
 
         {/* Terms & Conditions Checkbox */}
-        {(isSubscribed || hasEnoughCredits) && (
+        {(isSubscribed || canCreateMajorArcana) && (
           <div className="mb-6">
             <label className="flex items-start cursor-pointer">
               <input
@@ -172,10 +178,10 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
 
           <button
             onClick={handleContinue}
-            disabled={(isSubscribed || hasEnoughCredits) && !acceptedTerms}
+            disabled={(isSubscribed || canCreateMajorArcana) && !acceptedTerms}
             className="btn btn-primary py-2 px-4 flex items-center"
           >
-            {isSubscribed || hasEnoughCredits ? (
+            {isSubscribed || canCreateMajorArcana ? (
               <>
                 Begin Creation
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -183,7 +189,7 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
             ) : (
               <>
                 <Crown className="mr-2 h-4 w-4" />
-                Get Credits
+                View Plans
               </>
             )}
           </button>

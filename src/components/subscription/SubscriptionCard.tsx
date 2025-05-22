@@ -109,12 +109,13 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({ product, isActive =
               {product.interval === 'once' ? '/one-time' : `/${product.interval}`}
             </span>
           </div>
+          <p className="text-sm text-muted-foreground mt-2">{product.description}</p>
+          
           {product.interval === 'year' && getMonthlyEquivalent() && (
             <div className="text-sm text-muted-foreground mt-1">
               Just ${getMonthlyEquivalent()}/month, billed annually
             </div>
           )}
-          <p className="text-sm text-muted-foreground mt-2">{product.description}</p>
         </div>
         
         <div className="space-y-3 mb-6">
@@ -139,7 +140,7 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({ product, isActive =
         >
           {isLoading ? (
             <>
-              <span className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
+              <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></span>
               Processing...
             </>
           ) : isActive ? (

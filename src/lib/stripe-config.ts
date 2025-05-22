@@ -13,28 +13,25 @@ export interface StripeProduct {
   price?: number;
   currency?: string;
   interval?: 'month' | 'year' | 'once';
-  baseCredits?: number;
-  premiumCredits?: number;
-  maxRolloverCredits?: number;
   features?: string[];
   popular?: boolean;
   cardImageQuality?: 'medium' | 'high';
+  deckCount?: number;
+  cardCount?: number;
 }
 
 export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
-  // One-time payment
+  // One-time payment for full deck in free plan
   'explorer-plus': {
-    priceId: 'price_1SXplrCzE3rkgdDIwV7o3c6T',
+    priceId: 'price_1RRafHCzE3rkgdDIkIuGj9KJ',
     name: 'Explorer Plus',
     description: 'Upgrade from Major Arcana to a complete 78-card deck',
     mode: 'payment',
     price: 5.00,
     currency: 'usd',
     interval: 'once',
-    baseCredits: 56, // Enough to complete a deck from Major Arcana (78-22)
-    premiumCredits: 0,
-    maxRolloverCredits: 0,
     cardImageQuality: 'medium',
+    cardCount: 78,
     features: [
       'Upgrade any Major Arcana to a complete 78-card deck',
       '56 additional cards for one deck',
@@ -55,10 +52,9 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
     price: 12.99,
     currency: 'usd',
     interval: 'month',
-    baseCredits: 156,
-    premiumCredits: 0,
-    maxRolloverCredits: 20,
     cardImageQuality: 'medium',
+    deckCount: 2,
+    cardCount: 156,
     features: [
       '2 complete decks (156 cards) per month',
       'Medium quality + enhanced style options',
@@ -79,10 +75,9 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
     price: 29.99,
     currency: 'usd',
     interval: 'month',
-    baseCredits: 234,
-    premiumCredits: 78,
-    maxRolloverCredits: 50,
     cardImageQuality: 'medium',
+    deckCount: 4,
+    cardCount: 312,
     features: [
       '4 complete decks (312 cards) per month',
       'Medium + High quality options',
@@ -107,10 +102,9 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
     price: 79.99,
     currency: 'usd',
     interval: 'month',
-    baseCredits: 312,
-    premiumCredits: 312,
-    maxRolloverCredits: 200,
     cardImageQuality: 'high',
+    deckCount: 8,
+    cardCount: 624,
     features: [
       '8 complete decks (624 cards) per month',
       'High quality cards with premium finishes',
@@ -137,10 +131,9 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
     price: 124.70,
     currency: 'usd',
     interval: 'year',
-    baseCredits: 1872, // 156 * 12
-    premiumCredits: 0,
-    maxRolloverCredits: 156, // More rollover for yearly
     cardImageQuality: 'medium',
+    deckCount: 24,
+    cardCount: 1872,
     features: [
       'Save 20% compared to monthly',
       '2 complete decks (156 cards) per month',
@@ -162,10 +155,9 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
     price: 287.90,
     currency: 'usd',
     interval: 'year',
-    baseCredits: 2808, // 234 * 12
-    premiumCredits: 936, // 78 * 12
-    maxRolloverCredits: 312, // More rollover for yearly
     cardImageQuality: 'medium',
+    deckCount: 48,
+    cardCount: 3744,
     features: [
       'Save 20% compared to monthly',
       '4 complete decks (312 cards) per month',
@@ -191,10 +183,9 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
     price: 767.99,
     currency: 'usd',
     interval: 'year',
-    baseCredits: 3744, // 312 * 12
-    premiumCredits: 3744, // 312 * 12
-    maxRolloverCredits: 624, // More rollover for yearly
     cardImageQuality: 'high',
+    deckCount: 96,
+    cardCount: 7488,
     features: [
       'Save 20% compared to monthly',
       '8 complete decks (624 cards) per month',

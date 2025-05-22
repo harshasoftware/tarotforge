@@ -4,7 +4,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Sparkles, Shield, Zap, ArrowLeft, Loader, CreditCard, Check, AlertCircle, Clock, ChevronsUpDown, TrendingUp } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
-import { useCredits } from '../../context/CreditContext';
 import { STRIPE_PRODUCTS, StripeProduct } from '../../lib/stripe-config';
 import { createCheckoutSession } from '../../lib/stripe';
 import TarotLogo from '../../components/ui/TarotLogo';
@@ -12,7 +11,6 @@ import TarotLogo from '../../components/ui/TarotLogo';
 const SubscriptionPage: React.FC = () => {
   const { user } = useAuth();
   const { subscription, isSubscribed, loading: subscriptionLoading } = useSubscription();
-  const { credits, loading: creditLoading } = useCredits();
   const location = useLocation();
   const navigate = useNavigate();
   const fromDeckCreation = location.state?.fromDeckCreation || false;
@@ -49,7 +47,10 @@ const SubscriptionPage: React.FC = () => {
         setSelectedPlan(productKey);
         // Set the billing interval based on the current subscription
         if (STRIPE_PRODUCTS[productKey].interval) {
-          setBillingInterval(STRIPE_PRODUCTS[productKey].interval as 'month' | 'year');
+          const interval = STRIPE_PRODUCTS[productKey].interval;
+          if (interval === 'month' || interval === 'year') {
+            setBillingInterval(interval);
+          }
         }
       }
     } else {
@@ -91,7 +92,7 @@ const SubscriptionPage: React.FC = () => {
     }
   };
 
-  const loading = subscriptionLoading || creditLoading;
+  const loading = subscriptionLoading;
 
   // Format date for better display
   const formatDate = (timestamp: number | null | undefined) => {
@@ -121,7 +122,7 @@ const SubscriptionPage: React.FC = () => {
             </div>
             <h1 className="text-3xl md:text-4xl font-serif font-bold mb-3">Choose Your Plan</h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Select a plan that fits your creative needs. Each plan provides a different number of credits for creating tarot cards.
+              Select a plan that fits your creative needs. Each plan provides a different number of decks you can generate.
             </p>
           </motion.div>
 
@@ -152,8 +153,8 @@ const SubscriptionPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Current credit balance - only show when logged in */}
-          {user && credits && !loading && (
+          {/* Current subscription info */}
+          {user && subscription && !loading && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -161,31 +162,45 @@ const SubscriptionPage: React.FC = () => {
               className="bg-card border border-border rounded-xl overflow-hidden shadow-md mb-8"
             >
               <div className="p-4 border-b border-border">
-                <h2 className="font-medium text-lg">Your Current Credit Balance</h2>
+                <h2 className="font-medium text-lg">Your Current Subscription</h2>
               </div>
               <div className="p-5">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-primary/10 rounded-lg p-4 text-center">
-                    <h3 className="text-sm text-muted-foreground mb-2">Basic Credits</h3>
-                    <p className="text-3xl font-bold">{credits.basicCredits}</p>
-                    <p className="text-xs text-muted-foreground mt-2">1 credit = 1 medium quality card</p>
-                  </div>
-                  
-                  <div className="bg-accent/10 rounded-lg p-4 text-center">
-                    <h3 className="text-sm text-muted-foreground mb-2">Premium Credits</h3>
-                    <p className="text-3xl font-bold">{credits.premiumCredits}</p>
-                    <p className="text-xs text-muted-foreground mt-2">3 credits = 1 high quality card</p>
+                    <h3 className="text-sm text-muted-foreground mb-2">Status</h3>
+                    <p className="text-lg font-bold capitalize">{subscription?.subscription_status || 'Free'}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {subscription?.subscription_id ? 'Active subscription' : 'No active subscription'}
+                    </p>
                   </div>
                   
                   <div className="bg-muted/20 rounded-lg p-4 text-center">
-                    <h3 className="text-sm text-muted-foreground mb-2">Next Refresh</h3>
-                    <p className="text-xl font-bold">
-                      {credits.nextRefreshDate 
-                        ? new Date(credits.nextRefreshDate).toLocaleDateString() 
-                        : 'Not scheduled'}
+                    <h3 className="text-sm text-muted-foreground mb-2">Current Period</h3>
+                    <p className="text-lg font-medium">
+                      {subscription?.current_period_start 
+                        ? formatDate(subscription.current_period_start) 
+                        : 'N/A'} - {subscription?.current_period_end 
+                        ? formatDate(subscription.current_period_end) 
+                        : 'N/A'}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
-                      Plan: <span className="capitalize">{credits.planTier}</span>
+                      {subscription?.cancel_at_period_end ? 'Cancels at period end' : 'Auto-renews'}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-muted/20 rounded-lg p-4 text-center">
+                    <h3 className="text-sm text-muted-foreground mb-2">Plan</h3>
+                    {selectedPlan ? (
+                      <p className="text-lg font-bold">
+                        {STRIPE_PRODUCTS[selectedPlan]?.name || 'Unknown Plan'}
+                      </p>
+                    ) : (
+                      <p className="text-lg font-bold">Free Plan</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {selectedPlan ? 
+                        `${STRIPE_PRODUCTS[selectedPlan]?.deckCount} decks per ${STRIPE_PRODUCTS[selectedPlan]?.interval}` : 
+                        '1 Major Arcana deck per month'}
                     </p>
                   </div>
                 </div>
@@ -349,7 +364,9 @@ const SubscriptionPage: React.FC = () => {
                       <div className="mb-6">
                         <div className="flex items-baseline">
                           <span className="text-3xl font-bold">${product.price}</span>
-                          <span className="text-muted-foreground ml-1">/{product.interval}</span>
+                          <span className="text-muted-foreground ml-1">
+                            {product.interval === 'once' ? '/one-time' : `/${product.interval}`}
+                          </span>
                         </div>
                         <p className="text-sm text-muted-foreground mt-2">{product.description}</p>
                         
@@ -369,23 +386,15 @@ const SubscriptionPage: React.FC = () => {
                       <div className="space-y-3 mb-6">
                         <div className="flex items-center justify-between">
                           <span className="text-sm">
-                            {product.interval === 'year' ? 'Yearly' : 'Monthly'} Basic Credits
+                            {product.interval === 'year' ? 'Yearly' : 'Monthly'} Deck Limit
                           </span>
-                          <span className="font-medium">{product.baseCredits}</span>
+                          <span className="font-medium">{product.deckCount} decks</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-sm">
-                            {product.interval === 'year' ? 'Yearly' : 'Monthly'} Premium Credits
+                            Total Card Capacity
                           </span>
-                          <span className="font-medium">{product.premiumCredits}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm">Credit Rollover</span>
-                          <span className="font-medium">
-                            {product.maxRolloverCredits === product.baseCredits + product.premiumCredits
-                              ? 'Full rollover'
-                              : `Up to ${product.maxRolloverCredits}`}
-                          </span>
+                          <span className="font-medium">{product.cardCount} cards</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-sm">Card Quality</span>
@@ -453,14 +462,14 @@ const SubscriptionPage: React.FC = () => {
             </>
           )}
 
-          {/* How Credits Work Section */}
+          {/* How Deck Generation Works */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
             className="max-w-4xl mx-auto bg-card border border-border rounded-xl p-6 mb-12"
           >
-            <h2 className="text-xl font-serif font-bold mb-4">How Credits Work</h2>
+            <h2 className="text-xl font-serif font-bold mb-4">How Deck Generation Works</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
                 <div className="flex items-start">
@@ -470,8 +479,8 @@ const SubscriptionPage: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <h3 className="font-medium mb-1">Basic Credits</h3>
-                    <p className="text-sm text-muted-foreground">1 basic credit generates 1 medium quality card. Available in Free, Mystic, and Creator plans.</p>
+                    <h3 className="font-medium mb-1">Free Plan</h3>
+                    <p className="text-sm text-muted-foreground">With the free plan, you can generate one Major Arcana deck (22 cards) per month. Upgrade to Explorer Plus to complete your deck.</p>
                   </div>
                 </div>
                 
@@ -482,8 +491,8 @@ const SubscriptionPage: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <h3 className="font-medium mb-1">Premium Credits</h3>
-                    <p className="text-sm text-muted-foreground">3 premium credits generate 1 high quality card. Only available in the Creator and Visionary plans.</p>
+                    <h3 className="font-medium mb-1">Explorer Plus</h3>
+                    <p className="text-sm text-muted-foreground">Pay a one-time fee of $5 to complete a specific Major Arcana deck with the remaining 56 Minor Arcana cards.</p>
                   </div>
                 </div>
               </div>
@@ -497,10 +506,10 @@ const SubscriptionPage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-medium mb-1">
-                      {billingInterval === 'month' ? 'Monthly' : 'Yearly'} Refresh
+                      {billingInterval === 'month' ? 'Monthly' : 'Yearly'} Subscription
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      Credits refresh at the beginning of each billing cycle. Unused credits may roll over based on your plan.
+                      Subscriptions give you a monthly allocation of complete deck generation. Decks refresh at the beginning of each billing cycle.
                     </p>
                   </div>
                 </div>
@@ -512,8 +521,8 @@ const SubscriptionPage: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <h3 className="font-medium mb-1">Rollover Credits</h3>
-                    <p className="text-sm text-muted-foreground">Unused credits can roll over to the next billing cycle, up to the limit specified in your plan. Free plan credits do not roll over.</p>
+                    <h3 className="font-medium mb-1">Regeneration Limit</h3>
+                    <p className="text-sm text-muted-foreground">Free plan allows 2 card regenerations per deck. Explorer Plus gives 5 regenerations. Subscriptions include unlimited regenerations.</p>
                   </div>
                 </div>
               </div>
@@ -533,16 +542,16 @@ const SubscriptionPage: React.FC = () => {
               </div>
               
               <div className="bg-card border border-border rounded-lg p-5">
-                <h3 className="font-medium mb-2">What happens if I run out of credits?</h3>
+                <h3 className="font-medium mb-2">What happens if I run out of decks?</h3>
                 <p className="text-sm text-muted-foreground">
-                  When you run out of credits, you won't be able to generate more cards until your credits refresh at your next billing cycle. You can still use all your previously created cards and decks.
+                  When you reach your monthly deck generation limit, you won't be able to create more decks until your allocation refreshes at the next billing cycle. You can still use all your previously created decks.
                 </p>
               </div>
               
               <div className="bg-card border border-border rounded-lg p-5">
                 <h3 className="font-medium mb-2">Can I upgrade or downgrade my plan?</h3>
                 <p className="text-sm text-muted-foreground">
-                  Yes, you can change your plan at any time. When upgrading, you'll receive the new credit allocation immediately. When downgrading, the change takes effect at the end of your current billing cycle.
+                  Yes, you can change your plan at any time. When upgrading, you'll receive the new deck allocation immediately. When downgrading, the change takes effect at the end of your current billing cycle.
                 </p>
               </div>
               

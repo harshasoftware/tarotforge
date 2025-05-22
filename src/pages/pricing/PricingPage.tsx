@@ -362,7 +362,7 @@ const PricingPage = () => {
                     <td className="text-center py-3">Medium</td>
                     <td className="text-center py-3">Medium + Styles</td>
                     <td className="text-center py-3">Medium + High</td>
-                    <td className="text-center py-3">High + Premium</td>
+                    <td className="text-center py-3">High Only</td>
                   </tr>
                   <tr className="border-b border-border">
                     <td className="py-3">Regenerations</td>
