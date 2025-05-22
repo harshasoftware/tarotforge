@@ -39,8 +39,8 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
     if ((isSubscribed || canCreateMajorArcana || canCreateFullDeck) && acceptedTerms) {
       onComplete();
     } else {
-      // Redirect to subscription page if not allowed to create any decks
-      navigate('/subscription', { state: { fromDeckCreation: true } });
+      // Even if not allowed to create decks, let them continue to see the preview
+      onComplete();
     }
   };
 
@@ -118,7 +118,7 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
               {!canCreateMajorArcana && !isSubscribed && (
                 <Link to="/subscription" className="btn btn-primary mt-3 py-1.5 px-4 text-sm flex items-center w-fit">
                   <Crown className="h-4 w-4 mr-2" />
-                  View Plans
+                  Upgrade This Deck ($5)
                 </Link>
               )}
             </div>

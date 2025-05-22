@@ -124,19 +124,19 @@ const DeckUsageEstimate: React.FC<DeckUsageEstimateProps> = ({
       </div>
       
       {needsUpgrade && (
-        <div className="flex items-start gap-3 bg-warning/10 border border-warning/30 rounded-md p-3">
+        <div className="flex items-start gap-3 bg-warning/10 border border-warning/30 rounded-lg p-3">
           <AlertCircle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-medium text-warning mb-1">Full Deck Creation</p>
             <p className="text-xs text-warning/90 mb-2">
               {imageQuality === 'high' 
                 ? 'Creating high-quality complete decks requires a Creator or Visionary subscription.'
-                : 'Creating complete 78-card decks requires a subscription or one-time upgrade.'}
+                : 'You can preview the deck generation, but upgrading is required to save the complete 78-card deck.'}
             </p>
             <div className="flex flex-wrap gap-2">
               <Link to="/subscription?plan=explorer-plus" className="btn btn-warning text-xs py-1 px-2 inline-flex items-center">
                 <TrendingUp className="h-3 w-3 mr-1" />
-                Upgrade One Deck ($5)
+                Upgrade This Deck ($5)
               </Link>
               <Link to="/subscription" className="btn btn-warning text-xs py-1 px-2 inline-flex items-center">
                 <Sparkles className="h-3 w-3 mr-1" />

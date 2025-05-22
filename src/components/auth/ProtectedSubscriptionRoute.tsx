@@ -29,7 +29,8 @@ const ProtectedSubscriptionRoute = () => {
   
   // Authenticated but not subscribed and no credits - show subscription required message
   if (!canCreateDeck) {
-    return <SubscriptionRequired />;
+    // Instead of blocking with SubscriptionRequired, allow access but with limitations
+    return <Outlet />;
   }
   
   // Authenticated and either subscribed or has credits - allow access
