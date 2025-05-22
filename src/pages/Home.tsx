@@ -459,7 +459,7 @@ const Home = () => {
                     {/* Credits badge */}
                     { !user && (
                       <div className="absolute -top-3 right-3 bg-card border border-yellow-500 px-2 py-1 rounded-full shadow-sm flex items-center">
-                        <Coins className="h-3 w-3 text-yellow-500 mr-1" />
+                        <WalletCard className="h-3 w-3 text-yellow-500 mr-1" />
                         <span className="text-xs font-medium">{getAvailableCredits()} free deck</span>
                       </div>
                     )}
