@@ -1068,7 +1068,11 @@ const Home = () => {
               Join our community of creators, readers, and collectors to explore the mystical world of tarot like never before.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/create-deck" className="btn btn-primary py-3 px-8 text-lg flex items-center justify-center">
+              <Link to="/#"
+  onClick={e => {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }} className="btn btn-primary py-3 px-8 text-lg flex items-center justify-center">
                 <Wand2 className="mr-2 h-5 w-5" />
                 Create Your First Deck
               </Link>
