@@ -8,7 +8,7 @@ import SubscriptionRequired from './SubscriptionRequired';
 const ProtectedSubscriptionRoute = () => {
   const { user, loading } = useAuth();
   const { isSubscribed, loading: subscriptionLoading } = useSubscription();
-  const { canGenerateCompleteDeck, loading: decksLoading } = useDeckLimits();
+  const { canGenerateMajorArcana, loading: decksLoading } = useDeckLimits();
   const location = useLocation();
   
   // Still loading authentication, subscription, or deck data
@@ -24,15 +24,15 @@ const ProtectedSubscriptionRoute = () => {
     return <Navigate to="/login" />;
   }
 
-  // Check if user can generate a deck (either subscribed or has deck allowance)
-  const canCreateDeck = isSubscribed || canGenerateCompleteDeck;
+  // Check if user can generate at least a Major Arcana deck
+  const canCreateDeck = isSubscribed || canGenerateMajorArcana;
   
-  // Authenticated but not subscribed and no credits - show subscription required message
+  // Authenticated but not allowed to create - show subscription required message
   if (!canCreateDeck) {
     return <SubscriptionRequired />;
   }
   
-  // Authenticated and either subscribed or has credits - allow access
+  // Authenticated and either subscribed or has deck allowance - allow access
   return <Outlet />;
 };
 
