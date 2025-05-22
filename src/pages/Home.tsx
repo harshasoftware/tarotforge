@@ -7,6 +7,7 @@ import TarotLogo from '../components/ui/TarotLogo';
 import { useAuth } from '../context/AuthContext';
 import { useCredits } from '../context/CreditContext';
 import { generateThemeSuggestions } from '../lib/gemini-ai';
+import CreditBadge from '../components/ui/CreditBadge';
 
 // Featured decks data
 const featuredDecks = [
@@ -459,7 +460,7 @@ const Home = () => {
                     {/* Credits badge */}
                     { !user && (
                       <div className="absolute -top-3 right-3 bg-card border border-yellow-500 px-2 py-1 rounded-full shadow-sm flex items-center">
-                        <WalletCard className="h-3 w-3 text-yellow-500 mr-1" />
+                        <Wallet className="h-3 w-3 text-yellow-500 mr-1" />
                         <span className="text-xs font-medium">{getAvailableCredits()} free deck</span>
                       </div>
                     )}
