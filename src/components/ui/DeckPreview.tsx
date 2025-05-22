@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Star, User, Zap, Eye, EyeOff, DollarSign } from 'lucide-react';
 import { Deck } from '../../types';
+import TarotDeck from './TarotDeck';
 
 interface DeckPreviewProps {
   deck: Deck;
@@ -40,11 +41,10 @@ const DeckPreview = ({
       >
         {/* Image */}
         <div className="relative aspect-[3/4] overflow-hidden">
-          <img 
-            src={deck.cover_image} 
-            alt={deck.title} 
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            loading="lazy"
+          <TarotDeck 
+            boxImage={deck.cover_image}
+            cardImages={deck.sample_images || []}
+            deckName={deck.title}
           />
           
           {/* Overlay */}
