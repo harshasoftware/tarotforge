@@ -67,7 +67,7 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <<ScrollToTop /> className="text-sm text-muted-foreground hover:text-accent transition-colors">
+                <<ScrollToTop className="text-sm text-muted-foreground hover:text-accent transition-colors">
                   Create Deck
                 </Link>
               </li>
