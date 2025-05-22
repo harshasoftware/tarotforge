@@ -10,6 +10,42 @@ import { generateThemeSuggestions } from '../lib/gemini-ai';
 import CreditBadge from '../components/ui/CreditBadge';
 import NavigateToHome from '../components/ui/NavigateToHome';
 
+const featuredDecks = [
+  {
+    id: '1',
+    creator_name: 'MysticArtist',
+    title: 'Celestial Journey',
+    description: 'A mystical deck featuring cosmic symbolism and celestial imagery',
+    cover_image: 'https://images.pexels.com/photos/2792157/pexels-photo-2792157.jpeg',
+    rating: 4.8,
+    purchase_count: 156,
+    is_free: false,
+    price: 24.99
+  },
+  {
+    id: '2',
+    creator_name: 'NatureMage',
+    title: 'Woodland Mysteries',
+    description: 'Connect with nature through this enchanted forest-themed deck',
+    cover_image: 'https://images.pexels.com/photos/15286/pexels-photo.jpg',
+    rating: 4.7,
+    purchase_count: 132,
+    is_free: true,
+    price: 0
+  },
+  {
+    id: '3',
+    creator_name: 'DreamWeaver',
+    title: 'Urban Oracle',
+    description: 'A modern take on traditional tarot with urban art influences',
+    cover_image: 'https://images.pexels.com/photos/1707820/pexels-photo-1707820.jpeg',
+    rating: 4.9,
+    purchase_count: 198,
+    is_free: false,
+    price: 19.99
+  }
+];
+
 const Home = () => {
   return (
     <div>
