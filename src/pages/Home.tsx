@@ -629,7 +629,7 @@ const Home = () => {
               <p className="text-muted-foreground mb-4">
                 Design unique tarot decks with our AI generation tools. Customize every aspect from artwork style to card symbolism.
               </p>
-              <Link to="/create-deck" className="text-primary hover:underline flex items-center text-sm">
+              <Link to="/" className="text-primary hover:underline flex items-center text-sm">
                 Create Your Deck
                 <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
