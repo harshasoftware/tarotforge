@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Star, User, Zap, Eye, EyeOff, DollarSign } from 'lucide-react';
 import TarotDeck from './TarotDeck';
+import TarotDeck from './TarotDeck';
 import { Deck } from '../../types';
 
 interface DeckPreviewProps {
