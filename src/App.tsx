@@ -42,6 +42,7 @@ const Marketplace = lazy(() => import('./pages/marketplace/Marketplace'));
 const DeckDetails = lazy(() => import('./pages/marketplace/DeckDetails'));
 const Collection = lazy(() => import('./pages/user/Collection')); 
 const ReadingRoom = lazy(() => import('./pages/reading/ReadingRoom'));
+const InteractiveReadingRoom = lazy(() => import('./pages/reading/InteractiveReadingRoom'));
 const Profile = lazy(() => import('./pages/user/Profile'));
 const Checkout = lazy(() => import('./pages/marketplace/Checkout'));
 const AuthCallback = lazy(() => import('./pages/auth/AuthCallback'));
@@ -156,6 +157,7 @@ function App() {
             
             {/* Make reading room directly accessible */}
             <Route path="reading-room/:deckId?" element={<ReadingRoom />} />
+            <Route path="interactive-reading/:deckId?" element={<InteractiveReadingRoom />} />
             
             <Route element={<ProtectedRoute />}>
               <Route path="collection" element={<Collection />} />
