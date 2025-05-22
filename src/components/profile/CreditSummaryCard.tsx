@@ -13,7 +13,7 @@ const DeckSummaryCard: React.FC = () => {
       <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center mb-4">
           <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center mr-3">
-            <Wallet className="h-4 w-4 text-primary" />
+            <WalletCards className="h-4 w-4 text-primary" />
           </div>
           <h3 className="font-medium">Deck Summary</h3>
         </div>
