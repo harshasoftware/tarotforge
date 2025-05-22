@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, Plus, ShoppingBag, Filter, Package, Zap, Edit, Trash2, Eye, EyeOff, DollarSign } from 'lucide-react';
+import TarotDeck from '../../components/ui/TarotDeck';
 import DeckPreview from '../../components/ui/DeckPreview';
 import { Deck } from '../../types';
 import { useAuth } from '../../context/AuthContext';
