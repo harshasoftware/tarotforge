@@ -231,35 +231,4 @@
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
   }
-  
-  /* 3D card flip utilities */
-  .perspective-600px {
-    perspective: 600px;
-  }
-  
-  .preserve-3d {
-    transform-style: preserve-3d;
-  }
-  
-  .backface-hidden {
-    backface-visibility: hidden;
-  }
-  
-  /* Fan card display for deck */
-  .fan-container {
-    --fan-angle: 3deg;
-    --fan-offset: -65px;
-    transform-style: preserve-3d;
-    perspective: 1000px;
-  }
-  
-  .fan-container > * {
-    transform-origin: bottom center;
-    transition: transform 0.3s ease;
-  }
-  
-  .fan-container > *:hover {
-    z-index: 10;
-    transform: translateY(-10px) scale(1.05);
-  }
 }

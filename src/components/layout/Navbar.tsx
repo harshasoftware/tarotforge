@@ -92,7 +92,6 @@ const Navbar = () => {
             {user ? (
               <>
                 <NavLink to="/reading-room">Reading Room</NavLink>
-                <NavLink to="/interactive-reading">Interactive Reading</NavLink>
                 <NavLink to="/collection">My Collection</NavLink>
               </>
             ) : (
@@ -243,9 +242,6 @@ const Navbar = () => {
                 <>
                   <Link to="/reading-room" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                     Reading Room
-                  </Link>
-                  <Link to="/interactive-reading" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
-                    Interactive Reading
                   </Link>
                   <Link to="/collection" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                     My Collection
