@@ -1,6 +1,6 @@
 import React from 'react';
 import { useDeckLimits } from '../../context/DeckLimitContext';
-import { Wallet } from 'lucide-react';
+import { WalletCards } from 'lucide-react';
 
 interface DeckBadgeProps {
   showIcon?: boolean;
