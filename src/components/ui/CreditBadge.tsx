@@ -27,7 +27,7 @@ const DeckBadge: React.FC<DeckBadgeProps> = ({ showIcon = true, className = '', 
         : 'bg-warning/20 text-warning border border-warning/30'
     } rounded-full shadow-sm px-2 py-1 ${absolute ? 'absolute -top-3 right-3' : ''} ${className}`}>
       {showIcon && (
-        <Wallet className="h-3 w-3 mr-1.5" />
+        <WalletCards className="h-3 w-3 mr-1.5" />
       )}
       <span className="text-xs font-medium">
         {totalDecks} {totalDecks === 1 ? 'deck' : 'decks'}
