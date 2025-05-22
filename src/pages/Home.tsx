@@ -679,7 +679,7 @@ const Home = () => {
       </section>
       
       {/* Featured Decks Section */}
-      <section className="py-20 px-4 bg-gradient-to-b from-background to-primary/5">
+      <section className="py-20 px-4 bg-gradient-to-b from-background to-primary/5 mt-8">
         <div className="container mx-auto">
           <motion.div 
             className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12"
@@ -759,111 +759,6 @@ const Home = () => {
               </motion.div>
             ))}
           </div>
-        </div>
-      </section>
-      
-      {/* How It Works Section */}
-      <section className="py-20 px-4">
-        <div className="container mx-auto">
-          <motion.div 
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">How It Works</h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Creating your own tarot deck is simple with our AI-powered platform
-            </p>
-          </motion.div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            {/* Step 1 */}
-            <motion.div
-              className="text-center"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              viewport={{ once: true }}
-            >
-              <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4 relative">
-                <span className="absolute -top-2 -right-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">1</span>
-                <Sparkles className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-lg font-serif font-bold mb-2">Describe Your Vision</h3>
-              <p className="text-sm text-muted-foreground">
-                Share your theme, style preferences, and creative direction for your deck
-              </p>
-            </motion.div>
-            
-            {/* Step 2 */}
-            <motion.div
-              className="text-center"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              viewport={{ once: true }}
-            >
-              <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4 relative">
-                <span className="absolute -top-2 -right-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">2</span>
-                <Wand2 className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-lg font-serif font-bold mb-2">AI Generation</h3>
-              <p className="text-sm text-muted-foreground">
-                Our AI creates unique card imagery and descriptions based on your input
-              </p>
-            </motion.div>
-            
-            {/* Step 3 */}
-            <motion.div
-              className="text-center"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              viewport={{ once: true }}
-            >
-              <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4 relative">
-                <span className="absolute -top-2 -right-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">3</span>
-                <RefreshCw className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-lg font-serif font-bold mb-2">Refine & Customize</h3>
-              <p className="text-sm text-muted-foreground">
-                Regenerate cards, adjust details, and perfect your deck until it's just right
-              </p>
-            </motion.div>
-            
-            {/* Step 4 */}
-            <motion.div
-              className="text-center"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              viewport={{ once: true }}
-            >
-              <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4 relative">
-                <span className="absolute -top-2 -right-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">4</span>
-                <ShoppingBag className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-lg font-serif font-bold mb-2">Share & Sell</h3>
-              <p className="text-sm text-muted-foreground">
-                Use your deck for readings, share with friends, or list it in our marketplace
-              </p>
-            </motion.div>
-          </div>
-          
-          <motion.div
-            className="text-center mt-12"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            viewport={{ once: true }}
-          >
-            <Link to="/create-deck" className="btn btn-primary py-2 px-6 flex items-center mx-auto">
-              Start Creating Now
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </motion.div>
         </div>
       </section>
       
