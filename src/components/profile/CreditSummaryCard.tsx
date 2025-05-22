@@ -1,21 +1,21 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CreditCard, Calendar, Sparkles, ArrowUpRight, Crown } from 'lucide-react';
-import { useCredits } from '../../context/CreditContext';
+import { Wallet, Calendar, Sparkles, ArrowUpRight, Crown } from 'lucide-react';
+import { useDeckLimits } from '../../context/DeckLimitContext';
 import { Link } from 'react-router-dom';
 import TarotLogo from '../ui/TarotLogo';
 
-const CreditSummaryCard: React.FC = () => {
-  const { credits, loading } = useCredits();
+const DeckSummaryCard: React.FC = () => {
+  const { limits, usage, loading } = useDeckLimits();
   
   if (loading) {
     return (
       <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center mb-4">
           <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center mr-3">
-            <CreditCard className="h-4 w-4 text-primary" />
+            <Wallet className="h-4 w-4 text-primary" />
           </div>
-          <h3 className="font-medium">Credit Summary</h3>
+          <h3 className="font-medium">Deck Summary</h3>
         </div>
         
         <div className="space-y-4">
@@ -26,18 +26,18 @@ const CreditSummaryCard: React.FC = () => {
     );
   }
   
-  if (!credits) {
+  if (!limits || !usage) {
     return (
       <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center mb-4">
           <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center mr-3">
-            <CreditCard className="h-4 w-4 text-primary" />
+            <Wallet className="h-4 w-4 text-primary" />
           </div>
-          <h3 className="font-medium">Credit Summary</h3>
+          <h3 className="font-medium">Deck Summary</h3>
         </div>
         
         <div className="text-center py-4">
-          <p className="text-sm text-muted-foreground">No credit information available.</p>
+          <p className="text-sm text-muted-foreground">No deck information available.</p>
         </div>
       </div>
     );
@@ -48,6 +48,11 @@ const CreditSummaryCard: React.FC = () => {
     if (!dateString) return 'Not scheduled';
     return new Date(dateString).toLocaleDateString();
   };
+  
+  // Calculate remaining decks
+  const remainingMajorArcana = Math.max(0, limits.majorArcanaLimit - usage.majorArcanaGenerated);
+  const remainingCompleteDecks = Math.max(0, limits.completeDeckLimit - usage.completeDecksGenerated);
+  const totalRemaining = remainingMajorArcana + remainingCompleteDecks;
   
   return (
     <motion.div
@@ -60,14 +65,14 @@ const CreditSummaryCard: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center mr-3">
-              <CreditCard className="h-4 w-4 text-primary" />
+              <Wallet className="h-4 w-4 text-primary" />
             </div>
-            <h3 className="font-medium">Credit Summary</h3>
+            <h3 className="font-medium">Deck Summary</h3>
           </div>
           
           <div className="flex items-center bg-muted/30 px-3 py-1 rounded-full">
             <Crown className="h-3 w-3 mr-1" />
-            <span className="text-xs capitalize">{credits.planTier} Plan</span>
+            <span className="text-xs capitalize">{usage.planType} Plan</span>
           </div>
         </div>
       </div>
@@ -75,18 +80,18 @@ const CreditSummaryCard: React.FC = () => {
       <div className="p-5">
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="bg-primary/10 p-3 rounded-lg text-center">
-            <p className="text-xs text-muted-foreground mb-1">Basic Credits</p>
-            <p className="text-2xl font-bold">{credits.basicCredits}</p>
+            <p className="text-xs text-muted-foreground mb-1">Major Arcana</p>
+            <p className="text-2xl font-bold">{remainingMajorArcana}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Medium quality
+              {remainingMajorArcana === 1 ? 'deck' : 'decks'} remaining
             </p>
           </div>
           
           <div className="bg-accent/10 p-3 rounded-lg text-center">
-            <p className="text-xs text-muted-foreground mb-1">Premium Credits</p>
-            <p className="text-2xl font-bold">{credits.premiumCredits}</p>
+            <p className="text-xs text-muted-foreground mb-1">Complete Decks</p>
+            <p className="text-2xl font-bold">{remainingCompleteDecks}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              High quality
+              {remainingCompleteDecks === 1 ? 'deck' : 'decks'} remaining
             </p>
           </div>
         </div>
@@ -96,7 +101,7 @@ const CreditSummaryCard: React.FC = () => {
             <Calendar className="h-4 w-4 text-muted-foreground mr-1" />
             <span className="text-muted-foreground">Next refresh:</span>
           </div>
-          <span>{formatDate(credits.nextRefreshDate)}</span>
+          <span>{formatDate(usage.nextResetDate)}</span>
         </div>
         
         <Link 
@@ -104,11 +109,11 @@ const CreditSummaryCard: React.FC = () => {
           className="btn btn-outline mt-4 w-full py-2 text-sm flex items-center justify-center"
         >
           <Sparkles className="h-4 w-4 mr-2" />
-          Manage Credits
+          Manage Plan
         </Link>
       </div>
     </motion.div>
   );
 };
 
-export default CreditSummaryCard;
+export default DeckSummaryCard;

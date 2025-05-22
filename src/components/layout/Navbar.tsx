@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Menu, X, Moon, Sun, User, UserCheck, Crown, Coins } from 'lucide-react';
+import { Menu, X, Moon, Sun, User, UserCheck, Crown, Wallet } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
-import { useCredits } from '../../context/CreditContext';
 import SignInModal from '../auth/SignInModal';
 import TarotLogo from '../ui/TarotLogo';
-import CreditBadge from '../ui/CreditBadge';
+import DeckBadge from '../ui/CreditBadge';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const Navbar = () => {
@@ -17,7 +16,6 @@ const Navbar = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { user, signOut, showSignInModal, setShowSignInModal } = useAuth();
   const { isSubscribed } = useSubscription();
-  const { credits } = useCredits();
   const location = useLocation();
   const isMobile = useMediaQuery('(max-width: 767px)');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -109,10 +107,10 @@ const Navbar = () => {
 
           {/* Right side - Auth & Theme */}
           <div className="flex items-center space-x-2">
-            {/* Credits Badge (Only show for authenticated users) */}
-            {user && credits && !isMobile && (
+            {/* Deck Badge (Only show for authenticated users) */}
+            {user && !isMobile && (
               <div className="relative mr-1">
-                <CreditBadge showIcon={true} className="py-1" absolute={false} />
+                <DeckBadge showIcon={true} className="py-1" absolute={false} />
               </div>
             )}
             

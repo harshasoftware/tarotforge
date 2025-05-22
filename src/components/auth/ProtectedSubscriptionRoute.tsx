@@ -1,18 +1,18 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
-import { useCredits } from '../../context/CreditContext';
+import { useDeckLimits } from '../../context/DeckLimitContext';
 import LoadingScreen from '../ui/LoadingScreen';
 import SubscriptionRequired from './SubscriptionRequired';
 
 const ProtectedSubscriptionRoute = () => {
   const { user, loading } = useAuth();
   const { isSubscribed, loading: subscriptionLoading } = useSubscription();
-  const { credits, loading: creditLoading } = useCredits();
+  const { canGenerateCompleteDeck, loading: decksLoading } = useDeckLimits();
   const location = useLocation();
   
-  // Still loading authentication, subscription, or credit data
-  if (loading || subscriptionLoading || creditLoading) {
+  // Still loading authentication, subscription, or deck data
+  if (loading || subscriptionLoading || decksLoading) {
     return <LoadingScreen />;
   }
   
@@ -24,11 +24,11 @@ const ProtectedSubscriptionRoute = () => {
     return <Navigate to="/login" />;
   }
 
-  // Check if user has any credits (basic or premium) to create a deck
-  const hasCredits = credits && (credits.basicCredits > 0 || credits.premiumCredits > 0);
+  // Check if user can generate a deck (either subscribed or has deck allowance)
+  const canCreateDeck = isSubscribed || canGenerateCompleteDeck;
   
   // Authenticated but not subscribed and no credits - show subscription required message
-  if (!isSubscribed && !hasCredits) {
+  if (!canCreateDeck) {
     return <SubscriptionRequired />;
   }
   
