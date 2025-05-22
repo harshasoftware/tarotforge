@@ -10,6 +10,7 @@ import * as Sentry from "@sentry/react";
 import setupLogRocketReact from 'logrocket-react';
 import LogRocket from 'logrocket';
 import { trackPageView } from './utils/analytics';
+import ScrollToTop from './ui/ScrollToTop';
 
 // Initialize LogRocket React plugin
 setupLogRocketReact(LogRocket);
