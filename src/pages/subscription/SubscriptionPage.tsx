@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Sparkles, Shield, Zap, ArrowLeft, Loader, CreditCard, Check, AlertCircle, Clock, ChevronsUpDown } from 'lucide-react';
+import { Sparkles, Shield, Zap, ArrowLeft, Loader, CreditCard, Check, AlertCircle, Clock, ChevronsUpDown, TrendingUp } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useCredits } from '../../context/CreditContext';
@@ -21,6 +21,7 @@ const SubscriptionPage: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showExplorerPlus, setShowExplorerPlus] = useState(true);
 
   // Calculate savings percentage for yearly plans
   const calculateSavings = (monthlyPrice: number, yearlyPrice: number): number => {
@@ -118,9 +119,9 @@ const SubscriptionPage: React.FC = () => {
                 <TarotLogo className="h-10 w-10 text-primary" />
               </div>
             </div>
-            <h1 className="text-3xl md:text-4xl font-serif font-bold mb-3">Credit-Based Plans</h1>
+            <h1 className="text-3xl md:text-4xl font-serif font-bold mb-3">Choose Your Plan</h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Choose a plan that fits your creative needs. Each plan provides a different number of credits for creating tarot cards.
+              Select a plan that fits your creative needs. Each plan provides a different number of credits for creating tarot cards.
             </p>
           </motion.div>
 
@@ -227,8 +228,8 @@ const SubscriptionPage: React.FC = () => {
                       <Zap className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-serif font-bold">Free Plan</h3>
-                      <p className="text-sm text-muted-foreground max-w-md">Try out basic features with 5 monthly credits for medium quality cards</p>
+                      <h3 className="text-xl font-serif font-bold">🌙 Explorer (Free)</h3>
+                      <p className="text-sm text-muted-foreground max-w-md">1 Major Arcana deck (22 cards) per month with basic features</p>
                     </div>
                   </div>
                   
@@ -251,6 +252,53 @@ const SubscriptionPage: React.FC = () => {
                   </div>
                 </div>
               </motion.div>
+              
+              {/* Explorer Plus - One Time Upgrade */}
+              {showExplorerPlus && (
+                <motion.div
+                  className={`bg-card border ${selectedPlan === 'explorer-plus' ? 'border-warning' : 'border-warning/30'} rounded-xl overflow-hidden shadow mb-8 bg-warning/5`}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.05 }}
+                >
+                  <div className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between">
+                    <div className="flex items-center mb-4 md:mb-0">
+                      <div className="p-2 bg-warning/20 rounded-full mr-4">
+                        <TrendingUp className="h-5 w-5 text-warning" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-serif font-bold">⚡ Explorer Plus</h3>
+                        <p className="text-sm text-muted-foreground max-w-md">Upgrade any Major Arcana to a complete 78-card deck</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <div className="bg-card/80 px-4 py-2 rounded-lg mr-4">
+                        <span className="text-2xl font-bold">$5</span>
+                        <span className="text-muted-foreground text-sm">/per deck</span>
+                      </div>
+                      
+                      <button
+                        onClick={() => handleSubscribe('explorer-plus')}
+                        disabled={checkoutLoading}
+                        className="bg-warning text-warning-foreground hover:bg-warning/90 py-2 px-4 rounded-md font-medium flex items-center"
+                      >
+                        {checkoutLoading ? (
+                          <>
+                            <span className="h-4 w-4 border-2 border-warning-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <TrendingUp className="h-4 w-4 mr-2" />
+                            Upgrade a Deck
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
               
               {/* Paid Plans Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
@@ -346,7 +394,7 @@ const SubscriptionPage: React.FC = () => {
                       </div>
                       
                       <div className="space-y-3 mb-6">
-                        {product.features?.map((feature, index) => (
+                        {product.features?.slice(0, 5).map((feature, index) => (
                           <div key={index} className="flex items-start">
                             <div className="flex-shrink-0 mt-1">
                               <Check className="h-4 w-4 text-success" />
@@ -354,6 +402,16 @@ const SubscriptionPage: React.FC = () => {
                             <span className="ml-2 text-sm">{feature}</span>
                           </div>
                         ))}
+                        
+                        {product.features && product.features.length > 5 && (
+                          <button
+                            className="flex items-center text-sm text-primary hover:underline mt-2"
+                            onClick={() => {}}
+                          >
+                            <ChevronsUpDown className="h-4 w-4 mr-1" />
+                            Show all features
+                          </button>
+                        )}
                       </div>
                       
                       <button
@@ -425,7 +483,7 @@ const SubscriptionPage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-medium mb-1">Premium Credits</h3>
-                    <p className="text-sm text-muted-foreground">3 premium credits generate 1 high quality card. Only available in the Visionary plan.</p>
+                    <p className="text-sm text-muted-foreground">3 premium credits generate 1 high quality card. Only available in the Creator and Visionary plans.</p>
                   </div>
                 </div>
               </div>
@@ -468,6 +526,13 @@ const SubscriptionPage: React.FC = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
               <div className="bg-card border border-border rounded-lg p-5">
+                <h3 className="font-medium mb-2">What is Explorer Plus?</h3>
+                <p className="text-sm text-muted-foreground">
+                  Explorer Plus is a one-time purchase to upgrade a single Major Arcana deck (22 cards) to a full 78-card deck. It's perfect if you want to complete just one deck without committing to a subscription.
+                </p>
+              </div>
+              
+              <div className="bg-card border border-border rounded-lg p-5">
                 <h3 className="font-medium mb-2">What happens if I run out of credits?</h3>
                 <p className="text-sm text-muted-foreground">
                   When you run out of credits, you won't be able to generate more cards until your credits refresh at your next billing cycle. You can still use all your previously created cards and decks.
@@ -482,16 +547,9 @@ const SubscriptionPage: React.FC = () => {
               </div>
               
               <div className="bg-card border border-border rounded-lg p-5">
-                <h3 className="font-medium mb-2">What's the difference between monthly and yearly billing?</h3>
-                <p className="text-sm text-muted-foreground">
-                  Yearly billing offers significant savings (up to 20%) compared to monthly billing. You'll be charged once per year and receive all credits upfront with higher rollover limits.
-                </p>
-              </div>
-              
-              <div className="bg-card border border-border rounded-lg p-5">
                 <h3 className="font-medium mb-2">What's the difference between medium and high quality?</h3>
                 <p className="text-sm text-muted-foreground">
-                  High quality images (available in the Visionary plan) feature enhanced detail, more consistent style across cards, and generally more polished artwork compared to medium quality images.
+                  High quality images (available in the Creator and Visionary plans) feature enhanced detail, more consistent style across cards, and generally more polished artwork compared to medium quality images.
                 </p>
               </div>
             </div>

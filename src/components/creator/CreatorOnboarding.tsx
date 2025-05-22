@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
-import { Wand2, Crown, Check, ArrowRight } from 'lucide-react';
+import { Wand2, Crown, Check, ArrowRight, TrendingUp } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useCredits } from '../../context/CreditContext';
@@ -27,6 +27,7 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
 
   // Check if user has enough credits to create a deck
   const hasEnoughCredits = credits && (credits.basicCredits > 0 || credits.premiumCredits > 0);
+  const onlyHasMajorArcana = credits && credits.basicCredits >= 22 && credits.basicCredits < 78;
 
   // If user is subscribed or has credits, they can proceed
   const handleContinue = () => {
@@ -79,18 +80,35 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
             <div>
               <h3 className="font-medium mb-1">
                 {hasEnoughCredits 
-                  ? 'Credits Available' 
+                  ? onlyHasMajorArcana
+                    ? 'Credits Available for Major Arcana'
+                    : 'Credits Available'
                   : isSubscribed 
                     ? 'Premium Access Enabled' 
                     : 'Credits Required'}
               </h3>
               <p className="text-sm text-muted-foreground">
                 {hasEnoughCredits
-                  ? `You have ${credits?.basicCredits || 0} basic and ${credits?.premiumCredits || 0} premium credits available for deck creation.`
+                  ? onlyHasMajorArcana
+                    ? `You have ${credits?.basicCredits || 0} basic credits - enough for a Major Arcana deck (22 cards).`
+                    : `You have ${credits?.basicCredits || 0} basic and ${credits?.premiumCredits || 0} premium credits available for deck creation.`
                   : isSubscribed 
                     ? 'You have full access to create and publish your own custom tarot decks.' 
-                    : 'Creating custom tarot decks requires credits. Choose from our Explorer, Mystic, Creator, or Visionary plans to unlock deck creation features.'}
+                    : 'Creating custom tarot decks requires credits. Choose from our Explorer Plus upgrade, or subscribe to a plan to unlock deck creation features.'}
               </p>
+              
+              {onlyHasMajorArcana && (
+                <div className="mt-3 bg-warning/10 border border-warning/30 p-2 rounded-lg">
+                  <p className="text-sm text-warning">
+                    You have enough credits for a Major Arcana deck. To create a complete 78-card deck, consider upgrading with Explorer Plus.
+                  </p>
+                  <Link to="/subscription?plan=explorer-plus" className="btn btn-warning mt-2 py-1.5 px-4 text-sm flex items-center w-fit">
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Upgrade One Deck ($5)
+                  </Link>
+                </div>
+              )}
+              
               {!hasEnoughCredits && !isSubscribed && (
                 <Link to="/subscription" className="btn btn-primary mt-3 py-1.5 px-4 text-sm flex items-center w-fit">
                   <Crown className="h-4 w-4 mr-2" />

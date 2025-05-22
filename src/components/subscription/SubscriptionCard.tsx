@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Check, Zap, Star, Crown, Shield, Clock } from 'lucide-react';
+import { Check, Zap, Star, Crown, Shield, Clock, TrendingUp, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { StripeProduct } from '../../lib/stripe-config';
@@ -50,6 +50,36 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({ product, isActive =
     }
   };
 
+  // Get appropriate icon based on plan type
+  const getPlanIcon = () => {
+    if (product.name.includes('Explorer Plus')) {
+      return <TrendingUp className="h-5 w-5 text-warning" />;
+    } else if (product.name.includes('Mystic')) {
+      return <Sparkles className="h-5 w-5 text-primary" />;
+    } else if (product.name.includes('Creator')) {
+      return <CreditCard className="h-5 w-5 text-accent" />;
+    } else if (product.name.includes('Visionary')) {
+      return <Shield className="h-5 w-5 text-teal" />;
+    } else {
+      return <Zap className="h-5 w-5 text-primary" />;
+    }
+  };
+
+  // Get appropriate button style based on plan type
+  const getButtonStyle = () => {
+    if (product.name.includes('Explorer Plus')) {
+      return 'bg-warning text-warning-foreground hover:bg-warning/90';
+    } else if (product.name.includes('Mystic')) {
+      return 'bg-primary text-primary-foreground hover:bg-primary/90';
+    } else if (product.name.includes('Creator')) {
+      return 'bg-accent text-accent-foreground hover:bg-accent/90';
+    } else if (product.name.includes('Visionary')) {
+      return 'bg-teal text-teal-foreground hover:bg-teal/90';
+    } else {
+      return 'bg-primary text-primary-foreground hover:bg-primary/90';
+    }
+  };
+
   return (
     <motion.div
       className={`bg-card border ${isActive ? 'border-primary' : 'border-border'} rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all`}
@@ -68,14 +98,16 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({ product, isActive =
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-serif font-bold">{product.name.replace(' (Yearly)', '').replace(' (Monthly)', '')}</h3>
           <div className="p-2 bg-primary/20 rounded-full">
-            <Crown className="h-5 w-5 text-primary" />
+            {getPlanIcon()}
           </div>
         </div>
         
         <div className="mb-6">
           <div className="flex items-baseline">
             <span className="text-3xl font-bold">${product.price}</span>
-            <span className="text-muted-foreground ml-1">/{product.interval}</span>
+            <span className="text-muted-foreground ml-1">
+              {product.interval === 'once' ? '/one-time' : `/${product.interval}`}
+            </span>
           </div>
           {product.interval === 'year' && getMonthlyEquivalent() && (
             <div className="text-sm text-muted-foreground mt-1">
@@ -102,7 +134,7 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({ product, isActive =
           className={`w-full py-2 rounded-md font-medium transition-colors ${
             isActive 
               ? 'bg-success/20 text-success cursor-default'
-              : 'bg-primary text-primary-foreground hover:bg-primary/90'
+              : getButtonStyle()
           } flex items-center justify-center`}
         >
           {isLoading ? (
@@ -117,8 +149,17 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({ product, isActive =
             </>
           ) : (
             <>
-              <Zap className="h-4 w-4 mr-2" />
-              Subscribe Now
+              {product.interval === 'once' ? (
+                <>
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Upgrade Now
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" />
+                  Subscribe Now
+                </>
+              )}
             </>
           )}
         </button>

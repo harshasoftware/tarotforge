@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Crown, ArrowRight, Zap } from 'lucide-react';
+import { Crown, ArrowRight, Zap, TrendingUp } from 'lucide-react';
 import TarotLogo from '../ui/TarotLogo';
 import { useCredits } from '../../context/CreditContext';
 
@@ -30,14 +30,14 @@ const SubscriptionRequired = () => {
           </h2>
           <p className="text-muted-foreground mb-6">
             {needsMoreCredits 
-              ? "You've used all your available credits for deck creation. Please subscribe to a plan to get more credits."
-              : "To create your own tarot decks, you need credits. Upgrade to our Premium membership or purchase credits to unlock all creative features."}
+              ? "You've used all your available credits for deck creation. Please choose an option below to continue creating."
+              : "To create your own tarot decks, you need credits. Choose from our subscription plans or one-time upgrade to unlock creative features."}
           </p>
           
           <div className="space-y-3 mb-6">
             <div className="flex items-center justify-center">
               <TarotLogo className="h-4 w-4 text-accent mr-2" />
-              <span className="text-sm">Complete deck creation (78 cards)</span>
+              <span className="text-sm">Create full 78-card tarot decks</span>
             </div>
             <div className="flex items-center justify-center">
               <TarotLogo className="h-4 w-4 text-accent mr-2" />
@@ -49,14 +49,24 @@ const SubscriptionRequired = () => {
             </div>
           </div>
           
-          <Link
-            to="/subscription"
-            className="btn btn-primary w-full py-2 flex items-center justify-center"
-          >
-            <Crown className="mr-2 h-4 w-4" />
-            {needsMoreCredits ? "Get More Credits" : "Upgrade to Premium"}
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
+          <div className="space-y-3">
+            <Link
+              to="/subscription"
+              className="btn btn-primary w-full py-2 flex items-center justify-center"
+            >
+              <Crown className="mr-2 h-4 w-4" />
+              View Subscription Plans
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+            
+            <Link
+              to="/subscription?plan=explorer-plus"
+              className="btn btn-secondary w-full py-2 flex items-center justify-center"
+            >
+              <TrendingUp className="mr-2 h-4 w-4" />
+              Upgrade One Deck ($5)
+            </Link>
+          </div>
         </div>
       </motion.div>
     </div>

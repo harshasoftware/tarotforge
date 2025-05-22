@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Sparkles, Shield, Zap, CreditCard, ArrowRight, Check } from 'lucide-react';
+import { Sparkles, Shield, Zap, ArrowRight, Check, CreditCard, TrendingUp, Star, Crown, Flame } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { STRIPE_PRODUCTS } from '../../lib/stripe-config';
 import TarotLogo from '../../components/ui/TarotLogo';
@@ -99,7 +99,7 @@ const PricingPage = () => {
                 </div>
                 <div>
                   <h3 className="text-xl font-serif font-bold">🌙 Explorer (Free Plan)</h3>
-                  <p className="text-sm text-muted-foreground max-w-md">Try out basic features with 5 monthly credits for medium quality cards</p>
+                  <p className="text-sm text-muted-foreground max-w-md">Generate 1 Major Arcana deck (22 cards) per month with basic features</p>
                 </div>
               </div>
               
@@ -114,6 +114,40 @@ const PricingPage = () => {
                   className="btn btn-secondary py-2 px-4 flex items-center"
                 >
                   Get Started
+                </button>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Explorer Plus (one-time) */}
+          <motion.div
+            className="bg-card border border-warning/30 rounded-xl overflow-hidden shadow mb-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
+            <div className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between bg-warning/5">
+              <div className="flex items-center mb-4 md:mb-0">
+                <div className="p-2 bg-warning/20 rounded-full mr-4">
+                  <TrendingUp className="h-5 w-5 text-warning" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-serif font-bold">⚡ Explorer Plus</h3>
+                  <p className="text-sm text-muted-foreground max-w-md">Upgrade any Major Arcana deck to a complete 78-card deck for a one-time fee</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center">
+                <div className="bg-card/80 px-4 py-2 rounded-lg mr-4">
+                  <span className="text-2xl font-bold">$5</span>
+                  <span className="text-muted-foreground text-sm">/per deck</span>
+                </div>
+                
+                <button
+                  onClick={handleGetStarted}
+                  className="btn bg-warning text-warning-foreground hover:bg-warning/90 py-2 px-4 flex items-center"
+                >
+                  Upgrade a Deck
                 </button>
               </div>
             </div>
@@ -207,6 +241,90 @@ const PricingPage = () => {
             ))}
           </div>
 
+          {/* Additional Services */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="mb-12"
+          >
+            <h2 className="text-2xl font-serif font-bold text-center mb-6">Additional Services</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Reading Platform */}
+              <div className="bg-card border border-border rounded-xl p-6">
+                <div className="flex items-center mb-4">
+                  <div className="p-2 bg-primary/20 rounded-full mr-3">
+                    <Star className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="font-serif font-bold">Reading Platform</h3>
+                </div>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-start">
+                    <Check className="h-4 w-4 text-success mt-0.5 mr-2 flex-shrink-0" />
+                    <span>Book professional readings using custom AI decks</span>
+                  </li>
+                  <li className="flex items-start">
+                    <Check className="h-4 w-4 text-success mt-0.5 mr-2 flex-shrink-0" />
+                    <span>Monetize your tarot reading skills with integrated booking</span>
+                  </li>
+                  <li className="flex items-start">
+                    <Check className="h-4 w-4 text-success mt-0.5 mr-2 flex-shrink-0" />
+                    <span>Interactive card layouts with real-time collaboration</span>
+                  </li>
+                </ul>
+              </div>
+              
+              {/* Physical Products */}
+              <div className="bg-card border border-border rounded-xl p-6">
+                <div className="flex items-center mb-4">
+                  <div className="p-2 bg-accent/20 rounded-full mr-3">
+                    <CreditCard className="h-5 w-5 text-accent" />
+                  </div>
+                  <h3 className="font-serif font-bold">Physical Products</h3>
+                </div>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-start">
+                    <Check className="h-4 w-4 text-success mt-0.5 mr-2 flex-shrink-0" />
+                    <span>Print-on-demand physical copies of your digital decks</span>
+                  </li>
+                  <li className="flex items-start">
+                    <Check className="h-4 w-4 text-success mt-0.5 mr-2 flex-shrink-0" />
+                    <span>Standard, premium, and luxury card stock options</span>
+                  </li>
+                  <li className="flex items-start">
+                    <Check className="h-4 w-4 text-success mt-0.5 mr-2 flex-shrink-0" />
+                    <span>Worldwide shipping through partner fulfillment network</span>
+                  </li>
+                </ul>
+              </div>
+              
+              {/* NFT Marketplace */}
+              <div className="bg-card border border-border rounded-xl p-6">
+                <div className="flex items-center mb-4">
+                  <div className="p-2 bg-teal/20 rounded-full mr-3">
+                    <Crown className="h-5 w-5 text-teal" />
+                  </div>
+                  <h3 className="font-serif font-bold">NFT Marketplace</h3>
+                </div>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-start">
+                    <Check className="h-4 w-4 text-success mt-0.5 mr-2 flex-shrink-0" />
+                    <span>Mint unique NFT collections from your AI-generated cards</span>
+                  </li>
+                  <li className="flex items-start">
+                    <Check className="h-4 w-4 text-success mt-0.5 mr-2 flex-shrink-0" />
+                    <span>Earn ongoing royalties from secondary market sales</span>
+                  </li>
+                  <li className="flex items-start">
+                    <Check className="h-4 w-4 text-success mt-0.5 mr-2 flex-shrink-0" />
+                    <span>Rare and limited edition deck releases for collectors</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </motion.div>
+
           {/* Features Comparison Table */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -223,6 +341,7 @@ const PricingPage = () => {
                   <tr className="border-b border-border">
                     <th className="text-left pb-4">Feature</th>
                     <th className="text-center pb-4">🌙 Explorer</th>
+                    <th className="text-center pb-4">⚡ Explorer Plus</th>
                     <th className="text-center pb-4">⭐ Mystic</th>
                     <th className="text-center pb-4">💫 Creator</th>
                     <th className="text-center pb-4">✨ Visionary</th>
@@ -231,57 +350,65 @@ const PricingPage = () => {
                 <tbody>
                   <tr className="border-b border-border">
                     <td className="py-3">Monthly Generation</td>
-                    <td className="text-center py-3">1 deck (78 cards)</td>
-                    <td className="text-center py-3">2 decks (156 cards)</td>
-                    <td className="text-center py-3">3 decks (234 cards)</td>
-                    <td className="text-center py-3">5 decks (390 cards)</td>
+                    <td className="text-center py-3">1 Major Arcana (22 cards)</td>
+                    <td className="text-center py-3">Upgrade to 78 cards</td>
+                    <td className="text-center py-3">2 complete decks (156 cards)</td>
+                    <td className="text-center py-3">4 complete decks (312 cards)</td>
+                    <td className="text-center py-3">8 complete decks (624 cards)</td>
                   </tr>
                   <tr className="border-b border-border">
                     <td className="py-3">Card Image Quality</td>
+                    <td className="text-center py-3">Medium</td>
                     <td className="text-center py-3">Medium</td>
                     <td className="text-center py-3">Medium + Styles</td>
                     <td className="text-center py-3">Medium + High</td>
                     <td className="text-center py-3">High + Premium</td>
                   </tr>
                   <tr className="border-b border-border">
+                    <td className="py-3">Regenerations</td>
+                    <td className="text-center py-3">2 per deck</td>
+                    <td className="text-center py-3">5 per deck</td>
+                    <td className="text-center py-3">Unlimited</td>
+                    <td className="text-center py-3">Unlimited</td>
+                    <td className="text-center py-3">Unlimited</td>
+                  </tr>
+                  <tr className="border-b border-border">
                     <td className="py-3">Usage Rights</td>
                     <td className="text-center py-3">Personal use only</td>
-                    <td className="text-center py-3">Personal use</td>
-                    <td className="text-center py-3">Commercial use</td>
-                    <td className="text-center py-3">Extended commercial</td>
+                    <td className="text-center py-3">Personal use only</td>
+                    <td className="text-center py-3">Personal + limited commercial</td>
+                    <td className="text-center py-3">Full commercial</td>
+                    <td className="text-center py-3">Extended commercial + merchandising</td>
                   </tr>
                   <tr className="border-b border-border">
                     <td className="py-3">Deck Privacy</td>
                     <td className="text-center py-3">Public only</td>
                     <td className="text-center py-3">Private option</td>
-                    <td className="text-center py-3">Full privacy</td>
-                    <td className="text-center py-3">Content protection</td>
+                    <td className="text-center py-3">Public or private</td>
+                    <td className="text-center py-3">Full privacy controls</td>
+                    <td className="text-center py-3">Advanced content protection</td>
                   </tr>
                   <tr className="border-b border-border">
                     <td className="py-3">Storage</td>
-                    <td className="text-center py-3">3 decks</td>
-                    <td className="text-center py-3">10 decks</td>
-                    <td className="text-center py-3">25 decks</td>
+                    <td className="text-center py-3">3 Major Arcana decks</td>
+                    <td className="text-center py-3">3 decks (mixed)</td>
+                    <td className="text-center py-3">15 complete decks</td>
+                    <td className="text-center py-3">50 complete decks</td>
                     <td className="text-center py-3">Unlimited</td>
                   </tr>
                   <tr className="border-b border-border">
                     <td className="py-3">Marketplace</td>
                     <td className="text-center py-3">Browse only</td>
-                    <td className="text-center py-3">30% commission</td>
-                    <td className="text-center py-3">25% commission</td>
-                    <td className="text-center py-3">15% commission</td>
-                  </tr>
-                  <tr className="border-b border-border">
-                    <td className="py-3">Card Regeneration</td>
-                    <td className="text-center py-3">
-                      <span className="inline-block w-4 h-4 bg-destructive/20 rounded-full"></span>
-                    </td>
-                    <td className="text-center py-3">10 cards/month</td>
-                    <td className="text-center py-3">Unlimited</td>
-                    <td className="text-center py-3">Unlimited</td>
+                    <td className="text-center py-3">Browse only</td>
+                    <td className="text-center py-3">30% platform fee</td>
+                    <td className="text-center py-3">25% platform fee</td>
+                    <td className="text-center py-3">15% platform fee</td>
                   </tr>
                   <tr>
                     <td className="py-3">Advanced Features</td>
+                    <td className="text-center py-3">
+                      <span className="inline-block w-4 h-4 bg-destructive/20 rounded-full"></span>
+                    </td>
                     <td className="text-center py-3">
                       <span className="inline-block w-4 h-4 bg-destructive/20 rounded-full"></span>
                     </td>
@@ -316,14 +443,14 @@ const PricingPage = () => {
                     <Star key={i} className="h-4 w-4 fill-current" />
                   ))}
                 </div>
-                <p className="text-muted-foreground mb-4">"Tarot Forge has transformed my spiritual practice. Creating my own deck that perfectly resonates with my energy has been incredibly fulfilling."</p>
+                <p className="text-muted-foreground mb-4">"I started with the free plan to test it out, then upgraded individual decks I loved with Explorer Plus. Perfect for a casual enthusiast like me!"</p>
                 <div className="flex items-center">
                   <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center mr-3">
-                    <span className="font-medium text-primary">CM</span>
+                    <span className="font-medium text-primary">SK</span>
                   </div>
                   <div>
-                    <p className="font-medium">Crystal Moonflower</p>
-                    <p className="text-xs text-muted-foreground">Mystic Plan</p>
+                    <p className="font-medium">Star Keeper</p>
+                    <p className="text-xs text-muted-foreground">Explorer Plus</p>
                   </div>
                 </div>
               </div>
@@ -334,13 +461,13 @@ const PricingPage = () => {
                     <Star key={i} className="h-4 w-4 fill-current" />
                   ))}
                 </div>
-                <p className="text-muted-foreground mb-4">"As a professional tarot reader, the Creator plan has been a game-changer. I've sold multiple custom decks and my clients love having readings with decks I've designed."</p>
+                <p className="text-muted-foreground mb-4">"The Creator plan has been game-changing for my tarot business. I've created multiple themed decks that my clients absolutely love. The commercial rights make it totally worth it!"</p>
                 <div className="flex items-center">
                   <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center mr-3">
-                    <span className="font-medium text-accent">AS</span>
+                    <span className="font-medium text-accent">MV</span>
                   </div>
                   <div>
-                    <p className="font-medium">Astral Seeker</p>
+                    <p className="font-medium">Mystic Voyager</p>
                     <p className="text-xs text-muted-foreground">Creator Plan</p>
                   </div>
                 </div>
@@ -352,13 +479,13 @@ const PricingPage = () => {
                     <Star key={i} className="h-4 w-4 fill-current" />
                   ))}
                 </div>
-                <p className="text-muted-foreground mb-4">"The quality of the Visionary plan's card generation is astounding. I've created multiple decks with consistent style and intricate details that exceeded my expectations."</p>
+                <p className="text-muted-foreground mb-4">"Our publishing studio uses the Visionary plan to create custom decks for our clients. The high-quality output and merchandising rights are exactly what we needed. Worth every penny!"</p>
                 <div className="flex items-center">
                   <div className="w-10 h-10 rounded-full bg-teal/20 flex items-center justify-center mr-3">
-                    <span className="font-medium text-teal">EW</span>
+                    <span className="font-medium text-teal">CS</span>
                   </div>
                   <div>
-                    <p className="font-medium">Ethereal Wanderer</p>
+                    <p className="font-medium">Celestial Studios</p>
                     <p className="text-xs text-muted-foreground">Visionary Plan</p>
                   </div>
                 </div>
@@ -396,26 +523,6 @@ const PricingPage = () => {
         </div>
       </div>
     </div>
-  );
-};
-
-// Star icon for testimonials
-const Star = (props: React.SVGProps<SVGSVGElement>) => {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-    </svg>
   );
 };
 

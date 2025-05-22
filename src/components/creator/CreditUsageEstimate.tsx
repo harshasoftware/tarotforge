@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCredits } from '../../context/CreditContext';
-import { AlertCircle, ZoomIn, Sparkles } from 'lucide-react';
+import { AlertCircle, ZoomIn, Sparkles, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface CreditUsageEstimateProps {
@@ -19,6 +19,9 @@ const CreditUsageEstimate: React.FC<CreditUsageEstimateProps> = ({
   }
   
   const estimation = getEstimatedCreditConsumption(imageQuality, cardCount);
+  const isMajorArcana = cardCount <= 22; // Check if this is a Major Arcana deck (22 cards)
+  const canCreateMajorArcana = credits.basicCredits >= 22;
+  const needsUpgrade = isMajorArcana && canCreateMajorArcana && credits.basicCredits < 78;
   
   return (
     <div className="rounded-lg bg-card/60 border border-border p-4 mb-6">
@@ -81,10 +84,27 @@ const CreditUsageEstimate: React.FC<CreditUsageEstimateProps> = ({
           <div>
             <p className="text-sm font-medium text-warning mb-1">Not Enough Credits</p>
             <p className="text-xs text-warning/90 mb-2">You don't have enough credits to generate all these cards.</p>
-            <Link to="/subscription" className="btn btn-warning text-xs py-1 px-2 inline-flex items-center">
-              <Sparkles className="h-3 w-3 mr-1" />
-              Get More Credits
-            </Link>
+            
+            {needsUpgrade && (
+              <div>
+                <p className="text-xs text-warning/90 mb-2">You have enough credits for a Major Arcana deck, but not a full deck.</p>
+                <div className="flex gap-2">
+                  <Link to="/subscription" className="btn btn-warning text-xs py-1 px-2 inline-flex items-center">
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    Subscribe
+                  </Link>
+                  <Link to="/subscription?plan=explorer-plus" className="btn btn-warning text-xs py-1 px-2 inline-flex items-center">
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    Upgrade One Deck ($5)
+                  </Link>
+                </div>
+              </div>
+            ) else {
+              <Link to="/subscription" className="btn btn-warning text-xs py-1 px-2 inline-flex items-center">
+                <Sparkles className="h-3 w-3 mr-1" />
+                Get More Credits
+              </Link>
+            }
           </div>
         </div>
       )}
