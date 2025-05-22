@@ -67,7 +67,10 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/" className="text-sm text-muted-foreground hover:text-accent transition-colors">
+                <Link to="/"  onClick={e => {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }} className="text-sm text-muted-foreground hover:text-accent transition-colors">
                   Create Deck
                 </Link>
               </li>
