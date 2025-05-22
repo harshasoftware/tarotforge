@@ -85,7 +85,7 @@ const CreditUsageEstimate: React.FC<CreditUsageEstimateProps> = ({
             <p className="text-sm font-medium text-warning mb-1">Not Enough Credits</p>
             <p className="text-xs text-warning/90 mb-2">You don't have enough credits to generate all these cards.</p>
             
-            {needsUpgrade && (
+            {needsUpgrade ? (
               <div>
                 <p className="text-xs text-warning/90 mb-2">You have enough credits for a Major Arcana deck, but not a full deck.</p>
                 <div className="flex gap-2">
@@ -99,12 +99,12 @@ const CreditUsageEstimate: React.FC<CreditUsageEstimateProps> = ({
                   </Link>
                 </div>
               </div>
-            ) else {
+            ) : (
               <Link to="/subscription" className="btn btn-warning text-xs py-1 px-2 inline-flex items-center">
                 <Sparkles className="h-3 w-3 mr-1" />
                 Get More Credits
               </Link>
-            }
+            )}
           </div>
         </div>
       )}
