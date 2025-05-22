@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Shuffle, Save, Info, RotateCcw, Zap, BookOpen, Search, X, ChevronLeft, ChevronRight, HelpCircle, Settings, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { ArrowLeft, Shuffle, Save, Info, RotateCcw, Zap, BookOpen, Search, X, ChevronLeft, ChevronRight, HelpCircle, Settings, ChevronRight as ChevronRightIcon, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { fetchDeckById, fetchCardsByDeckId } from '../../lib/deck-utils';
 import { 
@@ -68,7 +68,7 @@ const readingLayouts: ReadingLayout[] = [
       { id: 4, name: 'Crown', meaning: 'The best outcome that could happen', x: 15, y: 40 },
       { id: 5, name: 'Future', meaning: 'The immediate future', x: 55, y: 40 },
       { id: 6, name: 'Self', meaning: 'Your attitude or approach', x: 75, y: 15 },
-      { id: 7, name: 'Environment', meaning: 'Others' attitudes or external influences', x: 75, y: 35 },
+      { id: 7, name: 'Environment', meaning: "Others' attitudes or external influences", x: 75, y: 35 },
       { id: 8, name: 'Hopes/Fears', meaning: 'Your hopes and fears regarding the outcome', x: 75, y: 55 },
       { id: 9, name: 'Outcome', meaning: 'The final outcome', x: 75, y: 75 }
     ]
