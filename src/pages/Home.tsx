@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Wand2, Sparkles, BookOpen, Crown, Zap, ChevronRight, Star, Shield, WalletCards } from 'lucide-react';
+import { Wand2, Sparkles, BookOpen, Crown, Zap, ChevronRight, Star, Shield, WalletCards, TrendingUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import { STRIPE_PRODUCTS } from '../lib/stripe-config';
