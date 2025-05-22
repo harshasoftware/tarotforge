@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense } from 'react';
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Layout from './components/layout/Layout';
 import LoadingScreen from './components/ui/LoadingScreen';
@@ -89,6 +89,7 @@ const SentryErrorBoundary = Sentry.withErrorBoundary(ErrorBoundary, {
 function App() {
   const { checkAuth, loading, user } = useAuth();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   // Initial auth check - only run once on component mount
@@ -120,6 +121,19 @@ function App() {
       }
     }
   }, [location, loading, user, navigate]);
+
+  // Handle navigation to home with scrollToTop parameter
+  useEffect(() => {
+    const scrollToTop = searchParams.get('scrollToTop');
+    if (scrollToTop === 'true' && location.pathname === '/') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // Remove the query parameter without triggering a navigation
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('scrollToTop');
+      window.history.replaceState({}, '', newUrl.toString());
+    }
+  }, [searchParams, location.pathname]);
 
   // Scroll to top on route change and track page view
   useEffect(() => {
