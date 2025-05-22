@@ -685,7 +685,84 @@ const Home = () => {
         <div className="container mx-auto">
           <motion.div 
             className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12"
-            initial={{ opacity:  0, y: 20 }}
+            initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            viewport={{ once:
+            viewport={{ once: true }}
+          >
+            <div>
+              <h2 className="text-3xl md:text-4xl font-serif font-bold mb-2">Featured Decks</h2>
+              <p className="text-xl text-muted-foreground">
+                Discover unique tarot decks from our community
+              </p>
+            </div>
+            <Link 
+              to="/marketplace" 
+              className="mt-4 md:mt-0 btn btn-outline flex items-center"
+            >
+              View All Decks
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </motion.div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {featuredDecks.map((deck, index) => (
+              <motion.div
+                key={deck.id}
+                className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-lg transition-shadow"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                viewport={{ once: true }}
+              >
+                <div className="relative aspect-[3/4]">
+                  <img 
+                    src={deck.cover_image} 
+                    alt={deck.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <h3 className="text-xl font-serif font-bold text-white mb-1">{deck.title}</h3>
+                    <p className="text-sm text-white/80">by {deck.creator_name}</p>
+                  </div>
+                  {deck.is_nft && (
+                    <div className="absolute top-4 right-4 bg-primary/90 text-primary-foreground px-2 py-1 rounded-full text-xs font-medium">
+                      NFT
+                    </div>
+                  )}
+                  {deck.is_free && (
+                    <div className="absolute top-4 right-4 bg-accent/90 text-accent-foreground px-2 py-1 rounded-full text-xs font-medium">
+                      Free
+                    </div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {deck.description}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                      <span className="text-sm font-medium">{deck.rating}</span>
+                      <span className="text-sm text-muted-foreground">({deck.purchase_count})</span>
+                    </div>
+                    <div className="text-right">
+                      {deck.is_free ? (
+                        <span className="text-sm font-medium text-accent">Free</span>
+                      ) : (
+                        <span className="text-sm font-medium">${deck.price}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export default Home;
