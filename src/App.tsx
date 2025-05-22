@@ -10,7 +10,7 @@ import * as Sentry from "@sentry/react";
 import setupLogRocketReact from 'logrocket-react';
 import LogRocket from 'logrocket';
 import { trackPageView } from './utils/analytics';
-import ScrollToTop from '../ui/ScrollToTop';
+import ScrollToTop from './components/ui/ScrollToTop';
 
 // Initialize LogRocket React plugin
 setupLogRocketReact(LogRocket);
@@ -123,8 +123,6 @@ function App() {
 
   // Scroll to top on route change and track page view
   useEffect(() => {
-    window.scrollTo(0, 0);
-    
     // Track page view in analytics
     const pageName = location.pathname.split('/')[1] || 'home';
     trackPageView(pageName, {
@@ -137,6 +135,7 @@ function App() {
   return (
     <SentryErrorBoundary>
       <Suspense fallback={<LoadingScreen />}>
+        <ScrollToTop />
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
