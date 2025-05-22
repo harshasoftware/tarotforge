@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Github, Twitter, Instagram, Mail } from 'lucide-react';
 import TarotLogo from '../ui/TarotLogo';
+import ScrollToTop from '../ui/ScrollToTop';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
