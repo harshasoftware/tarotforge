@@ -1,9 +1,25 @@
 import { Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Github, Twitter, Instagram, Mail } from 'lucide-react';
 import TarotLogo from '../ui/TarotLogo';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Handle navigation to home page
+  const navigateToHome = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    // If already on home page, just scroll to top
+    if (location.pathname === '/') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // Navigate to home page
+      navigate('/');
+    }
+  };
 
   return (
     <footer className="bg-card border-t border-border">
@@ -62,7 +78,10 @@ const Footer = () => {
             <h3 className="font-serif text-base font-medium mb-3">Explore</h3>
             <ul className="space-y-2">
               <li>
-                <Link to="/marketplace" className="text-sm text-muted-foreground hover:text-accent transition-colors">
+                <Link 
+                  to="/marketplace" 
+                  className="text-sm text-muted-foreground hover:text-accent transition-colors"
+                >
                   Browse Decks
                 </Link>
               </li>
@@ -70,7 +89,11 @@ const Footer = () => {
                 <Link to="/#" onClick={(e) => {
                   e.preventDefault();
                   window.scrollTo({ top: 0, behavior: 'smooth' });
-                }} className="text-sm text-muted-foreground hover:text-accent transition-colors">
+                <Link 
+                  to="/" 
+                  onClick={navigateToHome}
+                  className="text-sm text-muted-foreground hover:text-accent transition-colors"
+                >
                   Create Deck
                 </Link>
               </li>

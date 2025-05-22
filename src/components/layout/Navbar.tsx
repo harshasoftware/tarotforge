@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Menu, X, Moon, Sun, User, UserCheck, Crown, WalletCards } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { useSubscription } from '../../context/SubscriptionContext';
 import SignInModal from '../auth/SignInModal';
 import TarotLogo from '../ui/TarotLogo';
@@ -16,6 +17,7 @@ const Navbar = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { user, signOut, showSignInModal, setShowSignInModal } = useAuth();
   const { isSubscribed } = useSubscription();
+  const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useMediaQuery('(max-width: 767px)');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -69,6 +71,19 @@ const Navbar = () => {
     setDropdownOpen(!dropdownOpen);
   };
 
+  // Handle navigation to home page
+  const navigateToHome = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    // If already on home page, just scroll to top
+    if (location.pathname === '/') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // Navigate to home page
+      navigate('/');
+    }
+  };
+
   return (
     <>
       <nav 
@@ -78,7 +93,7 @@ const Navbar = () => {
       >
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
+          <Link to="/" onClick={navigateToHome} className="flex items-center space-x-2">
             <TarotLogo className="h-6 w-6 text-accent" />
             <span className="text-xl font-serif font-bold">Tarot Forge</span>
           </Link>
