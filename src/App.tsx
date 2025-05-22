@@ -89,7 +89,6 @@ const SentryErrorBoundary = Sentry.withErrorBoundary(ErrorBoundary, {
 function App() {
   const { checkAuth, loading, user } = useAuth();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
