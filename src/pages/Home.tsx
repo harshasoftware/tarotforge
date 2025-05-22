@@ -142,6 +142,7 @@ const Home = () => {
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
   const [lastLoadedIndex, setLastLoadedIndex] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
+  const [isPlaying, setIsPlaying] = useState(false);
   
   // Cookie for tracking if first-time user has used their credits
   const [hasUsedCredits, setHasUsedCredits] = useState(() => {
@@ -859,7 +860,10 @@ const Home = () => {
                   
                   {/* Play button overlay */}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-16 h-16 rounded-full bg-primary/80 flex items-center justify-center cursor-pointer hover:bg-primary transition-colors">
+                    <div 
+                      className="w-16 h-16 rounded-full bg-primary/80 flex items-center justify-center cursor-pointer hover:bg-primary transition-colors"
+                      onClick={() => setIsPlaying(!isPlaying)}
+                    >
                       <div className="w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-l-[16px] border-l-white ml-1"></div>
                     </div>
                   </div>
@@ -867,10 +871,18 @@ const Home = () => {
               </div>
               
               {/* Floating card elements */}
+              {/* Left card */}
               <motion.div
                 className="absolute -bottom-6 -left-6 w-32 h-48 rounded-lg overflow-hidden shadow-xl"
-                animate={{ y: [0, -5, 0] }}
-                transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+                initial={{ x: 0, y: 0 }}
+                animate={{ 
+                  y: [0, -5, 0],
+                  x: isPlaying ? -200 : 0
+                }}
+                transition={{ 
+                  y: { repeat: Infinity, duration: 3, ease: "easeInOut" },
+                  x: { duration: 0.7, ease: "easeOut" }
+                }}
               >
                 <img 
                   src="https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/sign/card-images/a8c392fb-7759-44bb-9515-8785280622d2/the-world-1747580504415.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2NhNzI0OTYwLTIwYmMtNDkwNi05YmJjLTU1OGE4ZGUzNDAwZSJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9hOGMzOTJmYi03NzU5LTQ0YmItOTUxNS04Nzg1MjgwNjIyZDIvdGhlLXdvcmxkLTE3NDc1ODA1MDQ0MTUucG5nIiwiaWF0IjoxNzQ3OTQ0MzYxLCJleHAiOjE5MDU2MjQzNjF9.azpqLKtzVOzu5y-Brjr9tRsaAkwtuxng0px-sSdjKDI" 
@@ -879,10 +891,18 @@ const Home = () => {
                 />
               </motion.div>
               
+              {/* Right card */}
               <motion.div
                 className="absolute -top-6 -right-6 w-32 h-48 rounded-lg overflow-hidden shadow-xl"
-                animate={{ y: [0, 5, 0] }}
-                transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+                initial={{ x: 0, y: 0 }}
+                animate={{ 
+                  y: [0, 5, 0],
+                  x: isPlaying ? 200 : 0
+                }}
+                transition={{ 
+                  y: { repeat: Infinity, duration: 4, ease: "easeInOut" },
+                  x: { duration: 0.7, ease: "easeOut" }
+                }}
               >
                 <img 
                   src="https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/sign/card-images/a8c392fb-7759-44bb-9515-8785280622d2/judgement-1747580310932.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2NhNzI0OTYwLTIwYmMtNDkwNi05YmJjLTU1OGE4ZGUzNDAwZSJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9hOGMzOTJmYi03NzU5LTQ0YmItOTUxNS04Nzg1MjgwNjIyZDIvanVkZ2VtZW50LTE3NDc1ODAzMTA5MzIucG5nIiwiaWF0IjoxNzQ3OTQ0NTE1LCJleHAiOjE5MDU2MjQ1MTV9.DKPpgchmlQNcAfD-B4LztQaF8G53F52El9PgZnguVQc" 
