@@ -874,14 +874,16 @@ const Home = () => {
               {/* Left card */}
               <motion.div
                 className="absolute -bottom-6 -left-6 w-32 h-48 rounded-lg overflow-hidden shadow-xl"
-                initial={{ x: 0, y: 0 }}
+                initial={{ x: 0, y: 0, opacity: 1 }}
                 animate={{ 
                   y: [0, -5, 0],
-                  x: isPlaying ? -200 : 0
+                  x: isPlaying ? window.innerWidth < 768 ? -200 : 0 : 0,
+                  opacity: isPlaying ? window.innerWidth >= 768 ? 0 : 1 : 1
                 }}
                 transition={{ 
                   y: { repeat: Infinity, duration: 3, ease: "easeInOut" },
-                  x: { duration: 0.7, ease: "easeOut" }
+                  x: { duration: 0.7, ease: "easeOut" },
+                  opacity: { duration: 0.5, ease: "easeOut" }
                 }}
               >
                 <img 
@@ -894,14 +896,16 @@ const Home = () => {
               {/* Right card */}
               <motion.div
                 className="absolute -top-6 -right-6 w-32 h-48 rounded-lg overflow-hidden shadow-xl"
-                initial={{ x: 0, y: 0 }}
+                initial={{ x: 0, y: 0, opacity: 1 }}
                 animate={{ 
                   y: [0, 5, 0],
-                  x: isPlaying ? 200 : 0
+                  x: isPlaying ? window.innerWidth < 768 ? 200 : 0 : 0,
+                  opacity: isPlaying ? window.innerWidth >= 768 ? 0 : 1 : 1
                 }}
                 transition={{ 
                   y: { repeat: Infinity, duration: 4, ease: "easeInOut" },
-                  x: { duration: 0.7, ease: "easeOut" }
+                  x: { duration: 0.7, ease: "easeOut" },
+                  opacity: { duration: 0.5, ease: "easeOut" }
                 }}
               >
                 <img 
