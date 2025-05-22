@@ -885,7 +885,7 @@ const Home = () => {
                 transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
               >
                 <img 
-                  src="https://upload.wikimedia.org/wikipedia/commons/9/90/RWS_Tarot_00_Fool.jpg" 
+                  src="https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/sign/card-images/a8c392fb-7759-44bb-9515-8785280622d2/the-world-1747580504415.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2NhNzI0OTYwLTIwYmMtNDkwNi05YmJjLTU1OGE4ZGUzNDAwZSJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9hOGMzOTJmYi03NzU5LTQ0YmItOTUxNS04Nzg1MjgwNjIyZDIvdGhlLXdvcmxkLTE3NDc1ODA1MDQ0MTUucG5nIiwiaWF0IjoxNzQ3OTQ0MzYxLCJleHAiOjE5MDU2MjQzNjF9.azpqLKtzVOzu5y-Brjr9tRsaAkwtuxng0px-sSdjKDI" 
                   alt="Tarot card" 
                   className="w-full h-full object-cover"
                 />
