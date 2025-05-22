@@ -143,6 +143,7 @@ const Home = () => {
   const [lastLoadedIndex, setLastLoadedIndex] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [videoEnded, setVideoEnded] = useState(false);
   
   // Cookie for tracking if first-time user has used their credits
   const [hasUsedCredits, setHasUsedCredits] = useState(() => {
@@ -861,10 +862,17 @@ const Home = () => {
                   {/* Play button overlay */}
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div 
-                      className="w-16 h-16 rounded-full bg-primary/80 flex items-center justify-center cursor-pointer hover:bg-primary transition-colors"
+                      className={`w-16 h-16 rounded-full ${isPlaying ? 'bg-primary' : 'bg-primary/80'} flex items-center justify-center cursor-pointer hover:bg-primary transition-colors`}
                       onClick={() => setIsPlaying(!isPlaying)}
                     >
-                      <div className="w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-l-[16px] border-l-white ml-1"></div>
+                      {isPlaying ? (
+                        <div className="w-4 h-10 flex justify-center">
+                          <div className="w-1.5 h-10 bg-white rounded-sm mr-1"></div>
+                          <div className="w-1.5 h-10 bg-white rounded-sm"></div>
+                        </div>
+                      ) : (
+                        <div className="w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-l-[16px] border-l-white ml-1"></div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -877,13 +885,13 @@ const Home = () => {
                 initial={{ x: 0, y: 0, opacity: 1 }}
                 animate={{ 
                   y: [0, -5, 0],
-                  x: isPlaying ? window.innerWidth < 768 ? -200 : 0 : 0,
-                  opacity: isPlaying ? window.innerWidth >= 768 ? 0 : 1 : 1
+                  x: isPlaying ? -200 : 0,
+                  opacity: isPlaying ? window.innerWidth < 768 ? 0.3 : 0.3 : 1
                 }}
                 transition={{ 
                   y: { repeat: Infinity, duration: 3, ease: "easeInOut" },
-                  x: { duration: 0.7, ease: "easeOut" },
-                  opacity: { duration: 0.5, ease: "easeOut" }
+                  x: { duration: 0.7, ease: isPlaying ? "easeOut" : "easeIn" },
+                  opacity: { duration: 0.5 }
                 }}
               >
                 <img 
@@ -899,13 +907,13 @@ const Home = () => {
                 initial={{ x: 0, y: 0, opacity: 1 }}
                 animate={{ 
                   y: [0, 5, 0],
-                  x: isPlaying ? window.innerWidth < 768 ? 200 : 0 : 0,
-                  opacity: isPlaying ? window.innerWidth >= 768 ? 0 : 1 : 1
+                  x: isPlaying ? 200 : 0,
+                  opacity: isPlaying ? window.innerWidth < 768 ? 0.3 : 0.3 : 1
                 }}
                 transition={{ 
                   y: { repeat: Infinity, duration: 4, ease: "easeInOut" },
-                  x: { duration: 0.7, ease: "easeOut" },
-                  opacity: { duration: 0.5, ease: "easeOut" }
+                  x: { duration: 0.7, ease: isPlaying ? "easeOut" : "easeIn" },
+                  opacity: { duration: 0.5 }
                 }}
               >
                 <img 
@@ -914,6 +922,28 @@ const Home = () => {
                   className="w-full h-full object-cover"
                 />
               </motion.div>
+              
+              {/* Video element (hidden) to simulate video playback */}
+              <video 
+                className="hidden"
+                onEnded={() => {
+                  setIsPlaying(false);
+                  setVideoEnded(true);
+                }}
+                onPause={() => {
+                  if (!videoEnded) setIsPlaying(false);
+                }}
+                ref={(el) => {
+                  if (el && isPlaying) {
+                    el.currentTime = 0;
+                    el.play().catch(e => console.log("Auto-play prevented:", e));
+                  } else if (el && !isPlaying) {
+                    el.pause();
+                  }
+                }}
+              >
+                <source src="about:blank" type="video/mp4" />
+              </video>
             </motion.div>
           </div>
         </div>
