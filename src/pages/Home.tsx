@@ -885,7 +885,7 @@ const Home = () => {
                 transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
               >
                 <img 
-                  src="https://images.pexels.com/photos/6044266/pexels-photo-6044266.jpeg?auto=compress&cs=tinysrgb&w=1600" 
+                  src="https://upload.wikimedia.org/wikipedia/commons/9/90/RWS_Tarot_00_Fool.jpg" 
                   alt="Tarot card" 
                   className="w-full h-full object-cover"
                 />
