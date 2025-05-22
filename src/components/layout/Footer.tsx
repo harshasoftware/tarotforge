@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Github, Twitter, Instagram, Mail } from 'lucide-react';
 import TarotLogo from '../ui/TarotLogo';
-import ScrollToTop from '../ui/ScrollToTop';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -68,10 +67,9 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <ScrollToTop className="text-sm text-muted-foreground hover:text-accent transition-colors">
-                  
+                <Link to="/#" className="text-sm text-muted-foreground hover:text-accent transition-colors">
                   Create Deck
-                </ScrollToTop>
+                </Link>
               </li>
               <li>
                 <Link to="/reading-room" className="text-sm text-muted-foreground hover:text-accent transition-colors">
