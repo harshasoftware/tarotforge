@@ -134,7 +134,6 @@ function App() {
   return (
     <SentryErrorBoundary>
       <Suspense fallback={<LoadingScreen />}>
-        <ScrollToTop />
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
