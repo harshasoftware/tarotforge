@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Wallet, Calendar, Sparkles, ArrowUpRight, Crown } from 'lucide-react';
+import { WalletCards, Calendar, Sparkles, ArrowUpRight, Crown } from 'lucide-react';
 import { useDeckLimits } from '../../context/DeckLimitContext';
 import { Link } from 'react-router-dom';
 import TarotLogo from '../ui/TarotLogo';
