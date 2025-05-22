@@ -36,11 +36,13 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
     maxRolloverCredits: 5,
     cardImageQuality: 'medium',
     features: [
-      '22 monthly basic credits',
-      'Create complete Major Arcana (22 cards)',
-      'Medium quality image generation',
-      'Rollover up to 5 unused credits',
-      'Deck sharing capabilities'
+      '2 complete decks (156 cards) per month',
+      'Medium quality + style options',
+      'Private deck option available',
+      'Store up to 10 decks',
+      'Basic seller profile (30% commission)',
+      'Custom layouts + deck sharing',
+      'Card regeneration (10 cards/month)'
     ]
   },
   'creator-monthly': {
@@ -56,11 +58,15 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
     maxRolloverCredits: 15,
     cardImageQuality: 'medium',
     features: [
-      '78 monthly basic credits',
-      'Create complete full tarot deck (78 cards)',
-      'Medium quality image generation',
-      'Rollover up to 15 unused credits',
-      'Sell your decks in marketplace'
+      '3 complete decks (234 cards) per month',
+      'Medium + High quality options',
+      'Commercial use rights',
+      'Full privacy controls',
+      'Store up to 25 decks',
+      'Enhanced seller profile (25% commission)',
+      'Professional reader tools',
+      'Unlimited card regeneration',
+      'Batch deck generation'
     ],
     popular: true
   },
@@ -77,11 +83,15 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
     maxRolloverCredits: 118,
     cardImageQuality: 'high',
     features: [
-      '118 monthly premium credits',
-      'High quality image generation',
-      'Style consistency between cards',
-      'Full rollover of unused credits',
-      'Exclusive visionary-only decks'
+      '5 complete decks (390 cards) per month',
+      'High quality only with premium finishes',
+      'Extended commercial + merchandising rights',
+      'Content protection and complete privacy',
+      'Unlimited deck storage',
+      'Verified creator badge (15% commission)',
+      'White-label reading room',
+      'Priority generation queue',
+      'Advanced customization options'
     ]
   },
   
@@ -100,10 +110,13 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
     cardImageQuality: 'medium',
     features: [
       'Save 20% compared to monthly',
-      '264 yearly basic credits',
-      'Medium quality image generation',
-      'Rollover up to 22 unused credits',
-      'Deck sharing capabilities'
+      '2 complete decks (156 cards) per month',
+      'Medium quality + style options',
+      'Private deck option available',
+      'Store up to 10 decks',
+      'Basic seller profile (30% commission)',
+      'Custom layouts + deck sharing',
+      'Card regeneration (10 cards/month)'
     ]
   },
   'creator-yearly': {
@@ -120,10 +133,15 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
     cardImageQuality: 'medium',
     features: [
       'Save 17% compared to monthly',
-      '936 yearly basic credits',
-      'Medium quality image generation',
-      'Rollover up to 78 unused credits',
-      'Sell your decks in marketplace'
+      '3 complete decks (234 cards) per month',
+      'Medium + High quality options',
+      'Commercial use rights',
+      'Full privacy controls',
+      'Store up to 25 decks',
+      'Enhanced seller profile (25% commission)',
+      'Professional reader tools',
+      'Unlimited card regeneration',
+      'Batch deck generation'
     ],
     popular: true
   },
@@ -141,11 +159,15 @@ export const STRIPE_PRODUCTS: Record<string, StripeProduct> = {
     cardImageQuality: 'high',
     features: [
       'Save 20% compared to monthly',
-      '1,416 yearly premium credits',
-      'High quality image generation',
-      'Style consistency between cards',
-      'Full rollover of unused credits',
-      'Exclusive visionary-only decks'
+      '5 complete decks (390 cards) per month',
+      'High quality only with premium finishes',
+      'Extended commercial + merchandising rights',
+      'Content protection and complete privacy',
+      'Unlimited deck storage',
+      'Verified creator badge (15% commission)',
+      'White-label reading room',
+      'Priority generation queue',
+      'Advanced customization options'
     ]
   }
 };

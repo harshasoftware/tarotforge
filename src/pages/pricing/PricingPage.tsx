@@ -98,7 +98,7 @@ const PricingPage = () => {
                   <Zap className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-serif font-bold">Free Plan</h3>
+                  <h3 className="text-xl font-serif font-bold">🌙 Explorer (Free Plan)</h3>
                   <p className="text-sm text-muted-foreground max-w-md">Try out basic features with 5 monthly credits for medium quality cards</p>
                 </div>
               </div>
@@ -139,6 +139,7 @@ const PricingPage = () => {
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-serif font-bold">
+                      {key.includes('mystic') ? '⭐ ' : key.includes('creator') ? '💫 ' : '✨ '}
                       {product.name.replace(' (Yearly)', '').replace(' (Monthly)', '')}
                     </h3>
                     {key.includes('mystic') && (
@@ -175,33 +176,6 @@ const PricingPage = () => {
                         </span>
                       </div>
                     )}
-                  </div>
-                  
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">
-                        {product.interval === 'year' ? 'Yearly' : 'Monthly'} Basic Credits
-                      </span>
-                      <span className="font-medium">{product.baseCredits}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">
-                        {product.interval === 'year' ? 'Yearly' : 'Monthly'} Premium Credits
-                      </span>
-                      <span className="font-medium">{product.premiumCredits}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Credit Rollover</span>
-                      <span className="font-medium">
-                        {product.maxRolloverCredits === product.baseCredits + product.premiumCredits
-                          ? 'Full rollover'
-                          : `Up to ${product.maxRolloverCredits}`}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Card Quality</span>
-                      <span className="font-medium capitalize">{product.cardImageQuality}</span>
-                    </div>
                   </div>
                   
                   <div className="space-y-3 mb-6">
@@ -248,81 +222,66 @@ const PricingPage = () => {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left pb-4">Feature</th>
-                    <th className="text-center pb-4">Free</th>
-                    <th className="text-center pb-4">Mystic</th>
-                    <th className="text-center pb-4">Creator</th>
-                    <th className="text-center pb-4">Visionary</th>
+                    <th className="text-center pb-4">🌙 Explorer</th>
+                    <th className="text-center pb-4">⭐ Mystic</th>
+                    <th className="text-center pb-4">💫 Creator</th>
+                    <th className="text-center pb-4">✨ Visionary</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="border-b border-border">
-                    <td className="py-3">Monthly Credits</td>
-                    <td className="text-center py-3">5 Basic</td>
-                    <td className="text-center py-3">22 Basic</td>
-                    <td className="text-center py-3">78 Basic</td>
-                    <td className="text-center py-3">118 Premium</td>
+                    <td className="py-3">Monthly Generation</td>
+                    <td className="text-center py-3">1 deck (78 cards)</td>
+                    <td className="text-center py-3">2 decks (156 cards)</td>
+                    <td className="text-center py-3">3 decks (234 cards)</td>
+                    <td className="text-center py-3">5 decks (390 cards)</td>
                   </tr>
                   <tr className="border-b border-border">
                     <td className="py-3">Card Image Quality</td>
                     <td className="text-center py-3">Medium</td>
-                    <td className="text-center py-3">Medium</td>
-                    <td className="text-center py-3">Medium</td>
-                    <td className="text-center py-3">High</td>
+                    <td className="text-center py-3">Medium + Styles</td>
+                    <td className="text-center py-3">Medium + High</td>
+                    <td className="text-center py-3">High + Premium</td>
                   </tr>
                   <tr className="border-b border-border">
-                    <td className="py-3">Credit Rollover</td>
-                    <td className="text-center py-3">None</td>
-                    <td className="text-center py-3">Up to 5</td>
-                    <td className="text-center py-3">Up to 15</td>
-                    <td className="text-center py-3">Full Rollover</td>
+                    <td className="py-3">Usage Rights</td>
+                    <td className="text-center py-3">Personal use only</td>
+                    <td className="text-center py-3">Personal use</td>
+                    <td className="text-center py-3">Commercial use</td>
+                    <td className="text-center py-3">Extended commercial</td>
                   </tr>
                   <tr className="border-b border-border">
-                    <td className="py-3">Sell Decks on Marketplace</td>
-                    <td className="text-center py-3">
-                      <span className="inline-block w-4 h-4 bg-destructive/20 rounded-full"></span>
-                    </td>
-                    <td className="text-center py-3">
-                      <span className="inline-block w-4 h-4 bg-destructive/20 rounded-full"></span>
-                    </td>
-                    <td className="text-center py-3">
-                      <Check className="h-4 w-4 text-success inline-block" />
-                    </td>
-                    <td className="text-center py-3">
-                      <Check className="h-4 w-4 text-success inline-block" />
-                    </td>
+                    <td className="py-3">Deck Privacy</td>
+                    <td className="text-center py-3">Public only</td>
+                    <td className="text-center py-3">Private option</td>
+                    <td className="text-center py-3">Full privacy</td>
+                    <td className="text-center py-3">Content protection</td>
                   </tr>
                   <tr className="border-b border-border">
-                    <td className="py-3">Style Consistency</td>
-                    <td className="text-center py-3">
-                      <span className="inline-block w-4 h-4 bg-destructive/20 rounded-full"></span>
-                    </td>
-                    <td className="text-center py-3">
-                      <span className="inline-block w-4 h-4 bg-destructive/20 rounded-full"></span>
-                    </td>
-                    <td className="text-center py-3">
-                      <span className="inline-block w-4 h-4 bg-destructive/20 rounded-full"></span>
-                    </td>
-                    <td className="text-center py-3">
-                      <Check className="h-4 w-4 text-success inline-block" />
-                    </td>
+                    <td className="py-3">Storage</td>
+                    <td className="text-center py-3">3 decks</td>
+                    <td className="text-center py-3">10 decks</td>
+                    <td className="text-center py-3">25 decks</td>
+                    <td className="text-center py-3">Unlimited</td>
                   </tr>
                   <tr className="border-b border-border">
-                    <td className="py-3">AI Reading Interpretations</td>
+                    <td className="py-3">Marketplace</td>
+                    <td className="text-center py-3">Browse only</td>
+                    <td className="text-center py-3">30% commission</td>
+                    <td className="text-center py-3">25% commission</td>
+                    <td className="text-center py-3">15% commission</td>
+                  </tr>
+                  <tr className="border-b border-border">
+                    <td className="py-3">Card Regeneration</td>
                     <td className="text-center py-3">
                       <span className="inline-block w-4 h-4 bg-destructive/20 rounded-full"></span>
                     </td>
-                    <td className="text-center py-3">
-                      <Check className="h-4 w-4 text-success inline-block" />
-                    </td>
-                    <td className="text-center py-3">
-                      <Check className="h-4 w-4 text-success inline-block" />
-                    </td>
-                    <td className="text-center py-3">
-                      <Check className="h-4 w-4 text-success inline-block" />
-                    </td>
+                    <td className="text-center py-3">10 cards/month</td>
+                    <td className="text-center py-3">Unlimited</td>
+                    <td className="text-center py-3">Unlimited</td>
                   </tr>
                   <tr>
-                    <td className="py-3">Priority Support</td>
+                    <td className="py-3">Advanced Features</td>
                     <td className="text-center py-3">
                       <span className="inline-block w-4 h-4 bg-destructive/20 rounded-full"></span>
                     </td>

@@ -89,7 +89,7 @@ const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => 
                   ? `You have ${credits?.basicCredits || 0} basic and ${credits?.premiumCredits || 0} premium credits available for deck creation.`
                   : isSubscribed 
                     ? 'You have full access to create and publish your own custom tarot decks.' 
-                    : 'Creating custom tarot decks requires credits. Subscribe to a plan or purchase credits to unlock this creative feature.'}
+                    : 'Creating custom tarot decks requires credits. Choose from our Explorer, Mystic, Creator, or Visionary plans to unlock deck creation features.'}
               </p>
               {!hasEnoughCredits && !isSubscribed && (
                 <Link to="/subscription" className="btn btn-primary mt-3 py-1.5 px-4 text-sm flex items-center w-fit">

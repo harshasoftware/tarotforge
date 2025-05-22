@@ -37,11 +37,11 @@ const SubscriptionRequired = () => {
           <div className="space-y-3 mb-6">
             <div className="flex items-center justify-center">
               <TarotLogo className="h-4 w-4 text-accent mr-2" />
-              <span className="text-sm">Unlimited deck creation</span>
+              <span className="text-sm">Complete deck creation (78 cards)</span>
             </div>
             <div className="flex items-center justify-center">
               <TarotLogo className="h-4 w-4 text-accent mr-2" />
-              <span className="text-sm">Advanced AI image generation</span>
+              <span className="text-sm">Medium and high quality options</span>
             </div>
             <div className="flex items-center justify-center">
               <TarotLogo className="h-4 w-4 text-accent mr-2" />
