@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw, WalletCards } from 'lucide-react';
+import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw, CreditCard } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TarotLogo from '../components/ui/TarotLogo';
@@ -460,7 +460,7 @@ const Home = () => {
                     {/* Deck badge */}
                     { !user && (
                       <div className="absolute -top-3 right-3 bg-card border border-yellow-500 px-2 py-1 rounded-full shadow-sm flex items-center">
-                        <WalletCards className="h-3 w-3 text-yellow-500 mr-1" />
+                        <CreditCard className="h-3 w-3 text-yellow-500 mr-1" />
                         <span className="text-xs font-medium">1 free deck</span>
                       </div>
                     )}
