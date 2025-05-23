@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Minimize2, Maximize2, Move, Pin } from 'lucide-react';
 
@@ -27,6 +27,37 @@ const DraggableVideo: React.FC<DraggableVideoProps> = ({
   const [position, setPosition] = useState(initialPosition);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
+  const [constraints, setConstraints] = useState({
+    left: 0,
+    right: window.innerWidth - (isMinimized ? 128 : 320),
+    top: 0,
+    bottom: window.innerHeight - (isMinimized ? 96 : 180)
+  });
+
+  // Update constraints when window is resized
+  useEffect(() => {
+    const updateConstraints = () => {
+      setConstraints({
+        left: 0,
+        right: window.innerWidth - (isMinimized ? 128 : 320),
+        top: 0,
+        bottom: window.innerHeight - (isMinimized ? 96 : 180)
+      });
+    };
+
+    window.addEventListener('resize', updateConstraints);
+    return () => window.removeEventListener('resize', updateConstraints);
+  }, [isMinimized]);
+
+  // Update constraints when minimized state changes
+  useEffect(() => {
+    setConstraints({
+      left: 0,
+      right: window.innerWidth - (isMinimized ? 128 : 320),
+      top: 0,
+      bottom: window.innerHeight - (isMinimized ? 96 : 180)
+    });
+  }, [isMinimized]);
 
   // Handle drag start
   const handleDragStart = () => {
@@ -34,13 +65,24 @@ const DraggableVideo: React.FC<DraggableVideoProps> = ({
   };
 
   // Handle drag end
-  const handleDragEnd = () => {
+  const handleDragEnd = (event: any, info: any) => {
     setIsDragging(false);
+    
+    // Ensure the position stays within bounds
+    const newX = Math.max(constraints.left, Math.min(info.point.x, constraints.right));
+    const newY = Math.max(constraints.top, Math.min(info.point.y, constraints.bottom));
+    
+    const newPosition = { x: newX, y: newY };
+    setPosition(newPosition);
+    
+    if (onPositionChange) {
+      onPositionChange(newPosition);
+    }
   };
 
   // Handle drag
-  const handleDrag = (e: any, data: any) => {
-    const newPosition = { x: data.x, y: data.y };
+  const handleDrag = (event: any, info: any) => {
+    const newPosition = { x: info.point.x, y: info.point.y };
     setPosition(newPosition);
     if (onPositionChange) {
       onPositionChange(newPosition);
@@ -62,12 +104,12 @@ const DraggableVideo: React.FC<DraggableVideoProps> = ({
   return (
     <motion.div
       className={`fixed ${isMinimized ? 'w-32 h-24' : 'w-64 md:w-80'} 
-                 bg-black/80 rounded-full overflow-hidden shadow-lg cursor-move z-50 
+                 bg-black/80 rounded-lg overflow-hidden shadow-lg cursor-move z-50 
                  draggable-video ${isDragging ? 'dragging' : ''} ${className}`}
       drag={!isPinned}
       dragMomentum={false}
       dragElastic={0}
-      dragConstraints={{ left: 0, right: window.innerWidth - (isMinimized ? 128 : 320), top: 0, bottom: window.innerHeight - (isMinimized ? 96 : 180) }}
+      dragConstraints={constraints}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDrag={handleDrag}
@@ -75,15 +117,21 @@ const DraggableVideo: React.FC<DraggableVideoProps> = ({
         x: position.x,
         y: position.y,
         scale: isDragging ? 1.02 : 1,
-        zIndex: 50,
-        borderRadius: isMinimized ? '9999px' : '16px'
+        zIndex: isDragging ? 51 : 50,
+        borderRadius: isMinimized ? '16px' : '16px'
       }}
-      transition={{ duration: 0.3 }}
+      transition={{ 
+        duration: 0.3,
+        type: "spring",
+        damping: 20,
+        stiffness: 300
+      }}
       style={{ 
         position: 'fixed',
-        left: initialPosition.x, 
-        top: initialPosition.y,
-        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)'
+        left: 0,
+        top: 0,
+        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)',
+        touchAction: 'none'
       }}
     >
       {stream ? (

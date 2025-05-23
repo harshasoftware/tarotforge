@@ -11,6 +11,7 @@ type VideoCallContextType = {
   startCall: (mode: 'reader' | 'client', existingSessionId?: string) => Promise<string | undefined>;
   endCall: () => void;
   error: string | null;
+  setError: (error: string | null) => void;
   generateShareableLink: (sessionId: string) => string;
   joinWithLink: (url: string) => Promise<boolean>;
   requestPermissions: () => Promise<boolean>;
@@ -39,6 +40,7 @@ const VideoCallContext = createContext<VideoCallContextType>({
   startCall: async () => { return undefined; },
   endCall: () => {},
   error: null,
+  setError: () => {},
   generateShareableLink: () => "",
   joinWithLink: async () => false,
   requestPermissions: async () => false,
@@ -68,12 +70,12 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
   
   // Function to create a new WebRTC peer
-  const createPeer = useCallback((initiator: boolean): Peer.Instance => {
+  const createPeer = useCallback((initiator: boolean, stream: MediaStream): Peer.Instance => {
     try {
       const peer = new Peer({
         initiator,
         trickle: true,
-        stream: localStream || undefined,
+        stream,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
@@ -83,9 +85,9 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
       
       // Handle receiving remote stream
-      peer.on('stream', (stream) => {
+      peer.on('stream', (remoteStream) => {
         console.log('Received remote stream');
-        setRemoteStream(stream);
+        setRemoteStream(remoteStream);
       });
       
       // Handle ICE candidates
@@ -105,7 +107,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           sendSignal({
             type: signalType,
             sender: user?.id || 'anonymous',
-            recipient: null, // In a real app, you'd specify the recipient
+            recipient: null,
             sessionId: sessionId,
             data
           });
@@ -138,7 +140,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setError(`Failed to create connection: ${err.message}`);
       throw err;
     }
-  }, [localStream, sessionId, user]);
+  }, [sessionId, user]);
   
   // Subscribe to signaling channel in Supabase
   useEffect(() => {
@@ -387,7 +389,6 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         });
         
         console.log('Successfully got audio-only permissions');
-        addMessage('System', 'Unable to access camera. Continuing with audio only.');
         return { stream: audioStream, audioOnly: true };
       } catch (audioErr: any) {
         console.error('Failed to get audio permissions:', audioErr);
@@ -402,16 +403,6 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return { stream: null, audioOnly: false };
       }
     }
-  }, []);
-  
-  // Add a message to the chat
-  const addMessage = useCallback((sender: string, content: string) => {
-    setMessages(prev => [...prev, {
-      id: uuidv4(),
-      sender,
-      content,
-      timestamp: new Date()
-    }]);
   }, []);
   
   // Start video call
@@ -447,17 +438,9 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       
       setLocalStream(stream);
       
-      // Create peer connection
-      // The initiator should be the one who starts the call (reader)
-      // This ensures the signaling flow works correctly
-      const peer = createPeer(mode === 'reader');
+      // Create peer connection only after we have the stream
+      const peer = createPeer(mode === 'reader', stream);
       peerRef.current = peer;
-      
-      // Add system message
-      addMessage('System', mode === 'reader' 
-        ? 'Share the invitation link to start your reading session with a client.' 
-        : 'Connecting to the reading session...'
-      );
       
       return callSessionId;
     } catch (err: any) {
@@ -466,7 +449,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setConnectionStatus('disconnected');
       return undefined;
     }
-  }, [checkMediaDevices, createPeer, requestMediaPermissions, addMessage]);
+  }, [checkMediaDevices, createPeer, requestMediaPermissions]);
   
   // End call and clean up resources
   const endCall = useCallback(() => {
@@ -547,6 +530,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     startCall,
     endCall,
     error,
+    setError,
     generateShareableLink,
     joinWithLink,
     requestPermissions,
