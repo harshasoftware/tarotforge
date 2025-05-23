@@ -939,13 +939,6 @@ const ReadingRoom = () => {
                             }}
                             whileHover={{ scale: 1.05 }}
                             animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
-                            style={{ 
-                              position: 'absolute',
-                              left: `${selectedCard.x}%`, 
-                              top: `${selectedCard.y}%`,
-                              transform: 'translate(-50%, -50%)',
-                              zIndex: activeCardIndex === index ? 20 : 10 + index
-                            }}
                           >
                             <motion.div 
                               className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`}
@@ -1007,18 +1000,98 @@ const ReadingRoom = () => {
                 {shuffledDeck.length > 0 && (
                   <div className={`absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2' : 'bottom-8 left-1/2 transform -translate-x-1/2'} z-20`}>
                     {isMobile ? (
-                      /* Mobile: Compact curved spread with hover effects */
-                      <div className="relative w-72 h-24">
-                        {shuffledDeck.slice(0, Math.min(6, shuffledDeck.length)).map((card: Card, index: number) => {
-                          const totalCards = Math.min(6, shuffledDeck.length);
-                          const angle = (index - (totalCards - 1) / 2) * 15; // 15 degrees between cards for mobile
-                          const radius = 85; // Radius of the arc
+                      /* Mobile: Full deck with horizontal panning - all 78 cards */
+                      <div className="relative w-screen h-24 overflow-hidden">
+                        <div 
+                          className="relative h-24"
+                          style={{ width: `${shuffledDeck.length * 8}px` }} // Dynamic width based on card count
+                        >
+                          {shuffledDeck.map((card: Card, index: number) => {
+                            const totalCards = shuffledDeck.length;
+                            const angle = (index - (totalCards - 1) / 2) * 1.2; // 1.2 degrees between cards for mobile shallow arc
+                            const radius = 200; // Radius for mobile arc
+                            const x = Math.sin((angle * Math.PI) / 180) * radius + (shuffledDeck.length * 4); // Center the arc
+                            const y = Math.cos((angle * Math.PI) / 180) * radius * 0.12; // Very shallow curve for mobile
+                            
+                            return (
+                              <motion.div
+                                key={`deck-mobile-${index}`}
+                                className="absolute w-10 h-15 cursor-grab active:cursor-grabbing"
+                                style={{
+                                  left: `${x}px`,
+                                  bottom: '0',
+                                  transformOrigin: 'bottom center'
+                                }}
+                                initial={{
+                                  transform: `translateY(${y}px) rotate(${angle}deg)`,
+                                  zIndex: totalCards - index,
+                                }}
+                                whileHover={{
+                                  transform: `translateY(${y - 12}px) rotate(${angle}deg) scale(1.15)`,
+                                  zIndex: 100,
+                                  transition: { duration: 0.2 }
+                                }}
+                                whileTap={{
+                                  scale: 0.9,
+                                  transition: { duration: 0.1 }
+                                }}
+                                drag="x"
+                                dragElastic={0.1}
+                                dragConstraints={{
+                                  left: -(shuffledDeck.length * 6),
+                                  right: shuffledDeck.length * 6
+                                }}
+                                draggable={true}
+                                onDragStart={(e) => handleDragStart(card, index, e)}
+                                onMouseDown={(e) => handleDragStart(card, index, e)}
+                                onTouchStart={(e) => handleDragStart(card, index, e)}
+                                onMouseMove={handleDragMove}
+                                onTouchMove={handleDragMove}
+                              >
+                                <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 rounded-md border border-primary-foreground flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
+                                  <div className="text-center">
+                                    <div className="w-3 h-3 mx-auto mb-0.5 opacity-60">
+                                      <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                      </svg>
+                                    </div>
+                                    <span className="text-xs text-primary-foreground opacity-75">
+                                      {index < 5 ? 'Drag' : ''}
+                                    </span>
+                                  </div>
+                                </div>
+                                {index === Math.floor(totalCards / 2) && (
+                                  <div className="absolute -top-2 -right-1 bg-accent text-accent-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center shadow-md">
+                                    {shuffledDeck.length}
+                                  </div>
+                                )}
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                        
+                        {/* Mobile navigation hints */}
+                        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 bg-muted/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs text-muted-foreground">
+                          ← Swipe to browse all {shuffledDeck.length} cards →
+                        </div>
+                        
+                        {/* Left/Right gradient overlays to indicate more cards */}
+                        <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background/80 to-transparent pointer-events-none"></div>
+                        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background/80 to-transparent pointer-events-none"></div>
+                      </div>
+                    ) : (
+                      /* Desktop: Full deck in shallow arc - all 78 cards */
+                      <div className="relative w-[1400px] h-32">
+                        {shuffledDeck.map((card: Card, index: number) => {
+                          const totalCards = shuffledDeck.length;
+                          const angle = (index - (totalCards - 1) / 2) * 1.4; // 1.4 degrees between cards for shallow arc
+                          const radius = 400; // Large radius for very gentle curve
                           const x = Math.sin((angle * Math.PI) / 180) * radius;
-                          const y = Math.cos((angle * Math.PI) / 180) * radius * 0.3; // Flatten the curve
+                          const y = Math.cos((angle * Math.PI) / 180) * radius * 0.15; // Very shallow curve
                           
                           return (
                             <motion.div
-                              key={`deck-mobile-${index}`}
+                              key={`deck-desktop-${index}`}
                               className="absolute w-12 h-18 cursor-grab active:cursor-grabbing"
                               style={{
                                 left: '50%',
@@ -1030,95 +1103,35 @@ const ReadingRoom = () => {
                                 zIndex: totalCards - index,
                               }}
                               whileHover={{
-                                transform: `translateX(-50%) translateX(${x}px) translateY(${y - 8}px) rotate(${angle}deg) scale(1.1)`,
-                                zIndex: 50,
-                                transition: { duration: 0.2 }
+                                transform: `translateX(-50%) translateX(${x}px) translateY(${y - 20}px) rotate(${angle}deg) scale(1.2)`,
+                                zIndex: 100,
+                                transition: { duration: 0.3, ease: "easeOut" }
                               }}
                               whileTap={{
-                                scale: 0.95,
+                                scale: 0.9,
                                 transition: { duration: 0.1 }
                               }}
-                              draggable={index === 0}
-                              onDragStart={(e) => index === 0 && handleDragStart(card, 0, e)}
-                              onMouseDown={(e) => index === 0 && handleDragStart(card, 0, e)}
-                              onTouchStart={(e) => index === 0 && handleDragStart(card, 0, e)}
+                              draggable={true}
+                              onDragStart={(e) => handleDragStart(card, index, e)}
+                              onMouseDown={(e) => handleDragStart(card, index, e)}
+                              onTouchStart={(e) => handleDragStart(card, index, e)}
                               onMouseMove={handleDragMove}
                               onTouchMove={handleDragMove}
                             >
-                              <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 rounded-md border border-primary-foreground flex items-center justify-center shadow-lg">
+                              <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 rounded-md border border-primary-foreground flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                                 <div className="text-center">
                                   <div className="w-4 h-4 mx-auto mb-0.5 opacity-60">
                                     <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
                                       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                                     </svg>
                                   </div>
-                                  {index === 0 && (
-                                    <span className="text-xs text-primary-foreground opacity-75">Drag</span>
-                                  )}
+                                  <span className="text-xs text-primary-foreground opacity-75">
+                                    {index < 10 ? 'Drag' : ''}
+                                  </span>
                                 </div>
                               </div>
                               {index === 0 && (
-                                <div className="absolute -top-2 -right-1 bg-accent text-accent-foreground rounded-full w-5 h-5 text-xs flex items-center justify-center shadow-md">
-                                  {shuffledDeck.length}
-                                </div>
-                              )}
-                            </motion.div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      /* Desktop: Elegant curved arc spread with enhanced hover */
-                      <div className="relative w-96 h-32">
-                        {shuffledDeck.slice(0, Math.min(8, shuffledDeck.length)).map((card: Card, index: number) => {
-                          const totalCards = Math.min(8, shuffledDeck.length);
-                          const angle = (index - (totalCards - 1) / 2) * 10; // 10 degrees between cards
-                          const radius = 120; // Radius of the arc
-                          const x = Math.sin((angle * Math.PI) / 180) * radius;
-                          const y = Math.cos((angle * Math.PI) / 180) * radius * 0.4; // Flatten the curve
-                          
-                          return (
-                            <motion.div
-                              key={`deck-desktop-${index}`}
-                              className="absolute w-16 h-24 cursor-grab active:cursor-grabbing"
-                              style={{
-                                left: '50%',
-                                bottom: '0',
-                                transformOrigin: 'bottom center'
-                              }}
-                              initial={{
-                                transform: `translateX(-50%) translateX(${x}px) translateY(${y}px) rotate(${angle}deg)`,
-                                zIndex: totalCards - index,
-                              }}
-                              whileHover={{
-                                transform: `translateX(-50%) translateX(${x}px) translateY(${y - 12}px) rotate(${angle}deg) scale(1.1)`,
-                                zIndex: 50,
-                                transition: { duration: 0.3, ease: "easeOut" }
-                              }}
-                              whileTap={{
-                                scale: 0.95,
-                                transition: { duration: 0.1 }
-                              }}
-                              draggable={index === 0}
-                              onDragStart={(e) => index === 0 && handleDragStart(card, 0, e)}
-                              onMouseDown={(e) => index === 0 && handleDragStart(card, 0, e)}
-                              onTouchStart={(e) => index === 0 && handleDragStart(card, 0, e)}
-                              onMouseMove={handleDragMove}
-                              onTouchMove={handleDragMove}
-                            >
-                              <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 rounded-md border border-primary-foreground flex items-center justify-center shadow-lg">
-                                <div className="text-center">
-                                  <div className="w-6 h-6 mx-auto mb-1 opacity-60">
-                                    <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
-                                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                                    </svg>
-                                  </div>
-                                  {index === 0 && (
-                                    <span className="text-xs text-primary-foreground opacity-75">Drag</span>
-                                  )}
-                                </div>
-                              </div>
-                              {index === 0 && (
-                                <div className="absolute -top-3 -right-2 bg-accent text-accent-foreground rounded-full w-6 h-6 text-xs flex items-center justify-center shadow-lg">
+                                <div className="absolute -top-3 -right-2 bg-accent text-accent-foreground rounded-full w-5 h-5 text-xs flex items-center justify-center shadow-lg">
                                   {shuffledDeck.length}
                                 </div>
                               )}
@@ -1127,14 +1140,14 @@ const ReadingRoom = () => {
                         })}
                         
                         {/* Shuffle button for desktop */}
-                        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2">
+                        <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
                           <button 
                             onClick={shuffleDeck}
-                            className="btn btn-ghost p-2 text-xs flex items-center gap-1 bg-card/80 backdrop-blur-sm rounded-full border border-border hover:bg-card/90 transition-colors"
+                            className="btn btn-ghost p-3 text-sm flex items-center gap-2 bg-card/90 backdrop-blur-sm rounded-full border border-border hover:bg-card transition-colors shadow-lg"
                             title="Shuffle Deck"
                           >
-                            <Shuffle className="h-3 w-3" />
-                            <span>Shuffle</span>
+                            <Shuffle className="h-4 w-4" />
+                            <span>Shuffle All {shuffledDeck.length} Cards</span>
                           </button>
                         </div>
                       </div>
