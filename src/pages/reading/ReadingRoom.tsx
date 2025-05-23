@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, MessageSquare, Video, PhoneCall, Zap, Link as LinkIcon } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, MessageSquare, Video, PhoneCall, Zap, Link as LinkIcon, Copy, Check } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { fetchDeckById, fetchCardsByDeckId } from '../../lib/deck-utils';
@@ -9,6 +9,7 @@ import { getReadingInterpretation } from '../../lib/gemini-ai';
 import VideoChat from '../../components/video/VideoChat';
 import JoinByLinkModal from '../../components/video/JoinByLinkModal';
 import TarotLogo from '../../components/ui/TarotLogo';
+import { v4 as uuidv4 } from 'uuid';
 
 // Mock reading layouts
 const readingLayouts: ReadingLayout[] = [
@@ -79,17 +80,41 @@ const ReadingRoom = () => {
   const [showVideoChat, setShowVideoChat] = useState(false);
   const [isVideoConnecting, setIsVideoConnecting] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [roomId, setRoomId] = useState<string | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showCopied, setShowCopied] = useState(false);
   
   // Function to show the join by link modal
   const showJoinByLinkModal = () => {
     setShowJoinModal(true);
   };
   
+  // Function to show the share link modal
+  const showShareLinkModal = () => {
+    setShowShareModal(true);
+  };
+  
   // Function to handle successful join
   const handleJoinSuccess = () => {
     setShowJoinModal(false);
     navigate('/reading-room');
+  };
+  
+  // Function to copy room link to clipboard
+  const copyRoomLink = () => {
+    if (roomId) {
+      const shareableLink = generateShareableLink(roomId);
+      navigator.clipboard.writeText(shareableLink);
+      setShowCopied(true);
+      setTimeout(() => setShowCopied(false), 3000);
+    }
+  };
+  
+  // Generate a shareable link for the room
+  const generateShareableLink = (id: string): string => {
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/reading-room?join=${id}`;
   };
   
   // Check for join parameter in URL on load
@@ -99,6 +124,7 @@ const ReadingRoom = () => {
     
     if (joinSessionId) {
       setSessionId(joinSessionId);
+      setRoomId(joinSessionId);
       setShowVideoChat(true);
       
       const newUrl = new URL(window.location.href);
@@ -106,6 +132,14 @@ const ReadingRoom = () => {
       window.history.replaceState({}, '', newUrl.toString());
     }
   }, [location.search]);
+  
+  // Create a unique room ID when the component mounts
+  useEffect(() => {
+    if (!roomId && !sessionId) {
+      const newRoomId = uuidv4();
+      setRoomId(newRoomId);
+    }
+  }, [roomId, sessionId]);
   
   // Fetch deck and cards data
   useEffect(() => {
@@ -286,10 +320,18 @@ const ReadingRoom = () => {
             <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
               <button 
                 onClick={showJoinByLinkModal}
-                className="btn btn-ghost border border-input px-4 py-2 flex items-center"
+                className="btn btn-secondary px-4 py-2 flex items-center"
               >
                 <LinkIcon className="mr-2 h-4 w-4" />
                 Join by Link
+              </button>
+              
+              <button 
+                onClick={showShareLinkModal}
+                className="btn btn-ghost border border-input px-4 py-2 flex items-center"
+              >
+                <Share2 className="mr-2 h-4 w-4" />
+                Share Room
               </button>
               
               <button 
@@ -314,11 +356,7 @@ const ReadingRoom = () => {
                   </>
                 )}
               </button>
-              
-              <button className="btn btn-secondary px-4 py-2 flex items-center">
-                <Share2 className="mr-2 h-4 w-4" />
-                Share
-              </button>
+
               <button className="btn btn-primary px-4 py-2 flex items-center">
                 <Save className="mr-2 h-4 w-4" />
                 Save Reading
@@ -637,9 +675,74 @@ const ReadingRoom = () => {
       {/* Join by link modal */}
       {showJoinModal && (
         <JoinByLinkModal 
-          onClose={() => setShowJoinModal(false)}
-          onJoinSuccess={handleJoinSuccess}
+          onClose={() => {
+            setShowVideoChat(false);
+            setSessionId(null);
+          }}
+          sessionId={sessionId || roomId}
         />
+      )}
+      
+      {/* Share Room Modal */}
+      {showShareModal && roomId && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <motion.div 
+            className="relative bg-card max-w-md w-full rounded-xl overflow-hidden"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
+              <h3 className="font-serif font-bold">Share Reading Room</h3>
+              <button 
+                onClick={() => setShowShareModal(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <p className="mb-4">
+                Share this link with others to invite them to your reading room. They'll be able to join your video call and chat.
+              </p>
+              
+              <div className="mb-6">
+                <label htmlFor="roomLink" className="block text-sm font-medium mb-2">
+                  Room Invitation Link
+                </label>
+                <div className="flex">
+                  <input
+                    id="roomLink"
+                    type="text"
+                    value={generateShareableLink(roomId)}
+                    readOnly
+                    className="flex-1 p-2 rounded-l-md border border-r-0 border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <button
+                    onClick={copyRoomLink}
+                    className="p-2 bg-primary text-primary-foreground rounded-r-md hover:bg-primary/90 transition-colors flex items-center"
+                  >
+                    {showCopied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
+                  </button>
+                </div>
+                {showCopied && (
+                  <p className="text-xs text-success mt-2">Link copied to clipboard!</p>
+                )}
+              </div>
+              
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowShareModal(false)}
+                  className="btn btn-primary px-4 py-2"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
       )}
     </div>
   );
