@@ -157,7 +157,17 @@ const DeckCreator: React.FC = () => {
     setLimitCheckResult(limitCheck);
     
     if (!limitCheck.canGenerate) {
+      // Set error message based on the reason
+      if (limitCheck.reason === 'limit_reached') {
+        setError(`You've reached your ${deckType === 'major_arcana' ? 'Major Arcana' : 'Complete Deck'} generation limit for this billing period.`);
+      } else {
+        setError('You cannot generate more decks at this time.');
+      }
+      
+      // Show upgrade modal
       setShowUpgradeModal(true);
+      
+      // Return early to prevent further execution
       return;
     }
     
@@ -212,6 +222,7 @@ const DeckCreator: React.FC = () => {
     
     // Check if we should stop at Major Arcana (22 cards) for free users
     if (index >= majorArcanaCards.length && !(isSubscribed || canGenerateCompleteDeck)) {
+      setError('You need to upgrade to generate Minor Arcana cards.');
       setShowUpgradeModal(true);
       return;
     }
@@ -483,6 +494,14 @@ const DeckCreator: React.FC = () => {
         <div className="max-w-6xl mx-auto">
           <h1 className="text-3xl font-serif font-bold mb-6 mt-8">Create Your Tarot Deck</h1>
           
+          {/* Error message */}
+          {saveError && (
+            <div className="mb-6 p-4 border border-destructive/30 bg-destructive/10 rounded-lg flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+              <p className="text-sm text-destructive">{saveError}</p>
+            </div>
+          )}
+          
           {/* Card Generation Progress */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -599,11 +618,11 @@ const DeckCreator: React.FC = () => {
                 {limitCheckResult?.reason === 'limit_reached' ? 'Deck Limit Reached' : 'Upgrade to Continue'}
               </h2>
               <p className="text-muted-foreground mb-6">
-                {limitCheckResult?.reason === 'limit_reached' && limitCheckResult?.planType === 'free' && generatedCards.length === 0
-                  ? `You've used all ${limitCheckResult.limit} of your free deck generations this month. Your limit will reset on ${new Date(limitCheckResult.nextResetDate).toLocaleDateString()}.`
+                {limitCheckResult?.reason === 'limit_reached' && limitCheckResult?.planType === 'free'
+                  ? `You've used all ${limitCheckResult.limit} of your ${generatedCards.length === 0 ? 'free deck generations' : 'Major Arcana decks'} this month. Your limit will reset on ${limitCheckResult.nextResetDate ? new Date(limitCheckResult.nextResetDate).toLocaleDateString() : 'the first of next month'}.`
                   : generatedCards.length === 0
-                    ? "You've reached your deck generation limit. To create more decks, you'll need to upgrade."
-                    : "You've generated all 22 Major Arcana cards. To generate the remaining 56 Minor Arcana cards, you'll need to upgrade."}
+                    ? "You've reached your deck generation limit. To create more decks, you'll need to upgrade your plan."
+                    : "You've generated all 22 Major Arcana cards. To generate the remaining 56 Minor Arcana cards, you'll need to upgrade to a paid plan."}
               </p>
               
               <div className="space-y-3">
@@ -624,12 +643,17 @@ const DeckCreator: React.FC = () => {
                 </a>
                 
                 {generatedCards.length > 0 && (
-                  <button
-                    onClick={() => setShowUpgradeModal(false)}
-                    className="btn btn-ghost border border-input w-full py-2"
-                  >
-                    Continue with Major Arcana Only
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setShowUpgradeModal(false)}
+                      className="btn btn-ghost border border-input w-full py-2"
+                    >
+                      Continue with Major Arcana Only
+                    </button>
+                    <p className="text-xs text-muted-foreground text-center mt-2">
+                      You can still use and publish your Major Arcana deck with 22 cards.
+                    </p>
+                  </>
                 )}
               </div>
             </div>
