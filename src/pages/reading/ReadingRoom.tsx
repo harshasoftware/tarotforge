@@ -1064,6 +1064,34 @@ const ReadingRoom = () => {
           
           {/* Right side - Action buttons - horizontal for both mobile and desktop */}
           <div className={`flex ${isMobile ? 'items-center gap-1' : 'items-center gap-1 md:gap-2'}`}>
+            {/* Deck change button - show when deck is selected */}
+            {deck && (
+              <button 
+                onClick={() => {
+                  // Reset to deck selection
+                  setDeck(null);
+                  setCards([]);
+                  setShuffledDeck([]);
+                  setSelectedDeckId(null);
+                  updateSession({
+                    selectedLayout: null,
+                    selectedCards: [],
+                    readingStep: 'setup',
+                    interpretation: '',
+                    activeCardIndex: null,
+                    zoomLevel: 1,
+                    question: ''
+                  });
+                  window.history.replaceState({}, '', '/reading-room');
+                }}
+                className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''}`}
+                title="Change deck"
+              >
+                <Package className="h-4 w-4" />
+                {!isMobile && <span className="text-xs">Deck</span>}
+              </button>
+            )}
+            
             {/* Guest upgrade button */}
             {isGuest && (
               <button 
@@ -1144,7 +1172,7 @@ const ReadingRoom = () => {
                   </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                       {userOwnedDecks.map((ownedDeck) => (
                         <motion.div
                           key={ownedDeck.id}
@@ -1224,40 +1252,24 @@ const ReadingRoom = () => {
             <div className={`absolute inset-0 flex items-center justify-center ${isMobile ? (isLandscape ? 'px-6 pt-12 pb-4' : 'px-4 pt-16 pb-4') : 'p-4 pt-24'}`}>
               <div className={`w-full ${isMobile ? (isLandscape ? 'max-w-2xl max-h-full overflow-y-auto' : 'max-h-full overflow-y-auto') : 'max-w-md'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
                 {/* Deck info */}
-                <div className="flex items-center justify-between mb-4 p-3 bg-muted/30 rounded-lg">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-10 h-14 rounded-md overflow-hidden bg-primary/10 shrink-0">
-                      {deck.cover_image ? (
-                        <img 
-                          src={deck.cover_image} 
-                          alt={deck.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <TarotLogo className="h-4 w-4 text-primary/50" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-medium text-sm truncate">{deck.title}</h3>
-                      <p className="text-xs text-muted-foreground">by {deck.creator_name}</p>
-                    </div>
+                <div className="flex items-center gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
+                  <div className="w-10 h-14 rounded-md overflow-hidden bg-primary/10 shrink-0">
+                    {deck.cover_image ? (
+                      <img 
+                        src={deck.cover_image} 
+                        alt={deck.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <TarotLogo className="h-4 w-4 text-primary/50" />
+                      </div>
+                    )}
                   </div>
-                  <button 
-                    onClick={() => {
-                      // Reset to deck selection
-                      setDeck(null);
-                      setCards([]);
-                      setShuffledDeck([]);
-                      setSelectedDeckId(null);
-                      window.history.replaceState({}, '', '/reading-room');
-                    }}
-                    className="btn btn-ghost text-xs px-2 py-1 shrink-0"
-                    title="Change deck"
-                  >
-                    Change
-                  </button>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-medium text-sm truncate">{deck.title}</h3>
+                    <p className="text-xs text-muted-foreground">by {deck.creator_name || 'Unknown Creator'}</p>
+                  </div>
                 </div>
                 
                 <h2 className={`${isMobile ? 'text-lg' : 'text-lg md:text-xl'} font-serif font-bold ${isMobile ? 'mb-3' : 'mb-4'}`}>Select a Layout</h2>
