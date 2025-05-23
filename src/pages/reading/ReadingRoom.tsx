@@ -156,6 +156,35 @@ const ReadingRoom = () => {
     }
   }, [joinSessionId, isGuest, sessionLoading, hasShownInviteUpgrade]);
   
+  // Update session wrappers for state changes (moved before touch handlers)
+  const setZoomLevelWrapped = useCallback((newZoomLevel: number) => {
+    updateSession({ zoomLevel: newZoomLevel });
+  }, [updateSession]);
+
+  const setActiveCardIndexWrapped = useCallback((index: number | null) => {
+    updateSession({ activeCardIndex: index });
+  }, [updateSession]);
+
+  const setReadingStepWrapped = useCallback((step: 'setup' | 'drawing' | 'interpretation') => {
+    updateSession({ readingStep: step });
+  }, [updateSession]);
+
+  const handleLayoutSelect = useCallback((layout: ReadingLayout) => {
+    updateSession({
+      selectedLayout: layout,
+      selectedCards: [],
+      readingStep: 'drawing',
+      interpretation: '',
+      activeCardIndex: null,
+      zoomLevel: isMobile ? (layout.id === 'celtic-cross' ? 0.6 : 0.8) : (layout.id === 'celtic-cross' ? 0.8 : 1)
+    });
+    setShuffledDeck([...cards].sort(() => Math.random() - 0.5));
+  }, [updateSession, cards, isMobile]);
+
+  const handleQuestionChange = useCallback((newQuestion: string) => {
+    updateSession({ question: newQuestion });
+  }, [updateSession]);
+  
   // Pinch to Zoom functionality
   const getTouchDistance = (touches: TouchList) => {
     if (touches.length < 2) return 0;
@@ -211,35 +240,6 @@ const ReadingRoom = () => {
     };
   }, [handleTouchStart, handleTouchMove, handleTouchEnd, isMobile]);
   
-  // Update session wrappers for state changes
-  const handleLayoutSelect = useCallback((layout: ReadingLayout) => {
-    updateSession({
-      selectedLayout: layout,
-      selectedCards: [],
-      readingStep: 'drawing',
-      interpretation: '',
-      activeCardIndex: null,
-      zoomLevel: isMobile ? (layout.id === 'celtic-cross' ? 0.6 : 0.8) : (layout.id === 'celtic-cross' ? 0.8 : 1)
-    });
-    setShuffledDeck([...cards].sort(() => Math.random() - 0.5));
-  }, [updateSession, cards, isMobile]);
-
-  const handleQuestionChange = useCallback((newQuestion: string) => {
-    updateSession({ question: newQuestion });
-  }, [updateSession]);
-
-  const setZoomLevelWrapped = useCallback((newZoomLevel: number) => {
-    updateSession({ zoomLevel: newZoomLevel });
-  }, [updateSession]);
-
-  const setActiveCardIndexWrapped = useCallback((index: number | null) => {
-    updateSession({ activeCardIndex: index });
-  }, [updateSession]);
-
-  const setReadingStepWrapped = useCallback((step: 'setup' | 'drawing' | 'interpretation') => {
-    updateSession({ readingStep: step });
-  }, [updateSession]);
-
   // Fetch deck and cards data
   useEffect(() => {
     const fetchDeckData = async () => {
