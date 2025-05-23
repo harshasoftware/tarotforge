@@ -896,16 +896,13 @@ const ReadingRoom = () => {
                           <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
                             <div 
                               className="text-center"
-                              style={{
-                                transform: (selectedCard as any).isReversed ? 'rotate(-180deg)' : 'none'
-                              }}
                             >
                               <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
                                 <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
                                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
                                 </svg>
                               </div>
-                              <span className="text-xs text-primary-foreground opacity-75">Click to reveal</span>
+                              <span className="text-xs text-white font-medium">Click to reveal</span>
                             </div>
                           </div>
                         )}
@@ -968,7 +965,10 @@ const ReadingRoom = () => {
                         {selectedCard && (
                           <motion.div
                             initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
+                            animate={{ 
+                              opacity: 1, 
+                              scale: activeCardIndex === index ? 1.1 : 1 
+                            }}
                             transition={{ duration: 0.5 }}
                             className="relative"
                             onClick={() => {
@@ -979,7 +979,6 @@ const ReadingRoom = () => {
                               }
                             }}
                             whileHover={{ scale: 1.05 }}
-                            animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
                           >
                             <motion.div 
                               className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`}
@@ -1004,16 +1003,13 @@ const ReadingRoom = () => {
                                 <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
                                   <div 
                                     className="text-center"
-                                    style={{
-                                      transform: (selectedCard as any).isReversed ? 'rotate(-180deg)' : 'none'
-                                    }}
                                   >
                                     <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
                                       <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
                                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
                                       </svg>
                                     </div>
-                                    <span className="text-xs text-primary-foreground opacity-75">Click to reveal</span>
+                                    <span className="text-xs text-white font-medium">Click to reveal</span>
                                   </div>
                                 </div>
                               )}
@@ -1317,16 +1313,13 @@ const ReadingRoom = () => {
                           <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
                             <div 
                               className="text-center"
-                              style={{
-                                transform: (selectedCard as any).isReversed ? 'rotate(-180deg)' : 'none'
-                              }}
                             >
                               <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
                                 <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
                                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
                                 </svg>
                               </div>
-                              <span className="text-xs text-primary-foreground opacity-75">Click to reveal</span>
+                              <span className="text-xs text-white font-medium">Click to reveal</span>
                             </div>
                           </div>
                         )}
@@ -1387,16 +1380,13 @@ const ReadingRoom = () => {
                               <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
                                 <div 
                                   className="text-center"
-                                  style={{
-                                    transform: (selectedCard as any).isReversed ? 'rotate(-180deg)' : 'none'
-                                  }}
                                 >
                                   <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
                                     <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
                                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
                                     </svg>
                                   </div>
-                                  <span className="text-xs text-primary-foreground opacity-75">Click to reveal</span>
+                                  <span className="text-xs text-white font-medium">Click to reveal</span>
                                 </div>
                               </div>
                             )}
