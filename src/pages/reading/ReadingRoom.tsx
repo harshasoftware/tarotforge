@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, MessageSquare, Video, PhoneCall, Zap, Link as LinkIcon, Copy, Check } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, MessageSquare, Video, PhoneCall, Zap, Copy, Check } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { fetchDeckById, fetchCardsByDeckId } from '../../lib/deck-utils';
 import { getReadingInterpretation } from '../../lib/gemini-ai';
 import VideoChat from '../../components/video/VideoChat';
-import JoinByLinkModal from '../../components/video/JoinByLinkModal';
 import TarotLogo from '../../components/ui/TarotLogo';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -81,24 +80,12 @@ const ReadingRoom = () => {
   const [isVideoConnecting, setIsVideoConnecting] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
-  const [showJoinModal, setShowJoinModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
-  
-  // Function to show the join by link modal
-  const showJoinByLinkModal = () => {
-    setShowJoinModal(true);
-  };
   
   // Function to show the share link modal
   const showShareLinkModal = () => {
     setShowShareModal(true);
-  };
-  
-  // Function to handle successful join
-  const handleJoinSuccess = () => {
-    setShowJoinModal(false);
-    navigate('/reading-room');
   };
   
   // Function to copy room link to clipboard
@@ -318,14 +305,6 @@ const ReadingRoom = () => {
             </div>
             
             <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
-              <button 
-                onClick={showJoinByLinkModal}
-                className="btn btn-secondary px-4 py-2 flex items-center"
-              >
-                <LinkIcon className="mr-2 h-4 w-4" />
-                Join by Link
-              </button>
-              
               <button 
                 onClick={showShareLinkModal}
                 className="btn btn-ghost border border-input px-4 py-2 flex items-center"
@@ -671,17 +650,6 @@ const ReadingRoom = () => {
           </div>
         </div>
       </div>
-      
-      {/* Join by link modal */}
-      {showJoinModal && (
-        <JoinByLinkModal 
-          onClose={() => {
-            setShowVideoChat(false);
-            setSessionId(null);
-          }}
-          sessionId={sessionId || roomId}
-        />
-      )}
       
       {/* Share Room Modal */}
       {showShareModal && roomId && (
