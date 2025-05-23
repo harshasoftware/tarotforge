@@ -104,7 +104,7 @@ const DraggableVideo: React.FC<DraggableVideoProps> = ({
   return (
     <motion.div
       className={`fixed ${isMinimized ? 'w-32 h-24' : 'w-64 md:w-80'} 
-                 bg-black/80 rounded-lg overflow-hidden shadow-lg cursor-move z-50 
+                 bg-black/80 rounded-lg overflow-hidden shadow-lg cursor-move
                  draggable-video ${isDragging ? 'dragging' : ''} ${className}`}
       drag={!isPinned}
       dragMomentum={false}
@@ -117,7 +117,7 @@ const DraggableVideo: React.FC<DraggableVideoProps> = ({
         x: position.x,
         y: position.y,
         scale: isDragging ? 1.02 : 1,
-        zIndex: isDragging ? 51 : 50,
+        zIndex: isDragging ? 1000 : 999,
         borderRadius: isMinimized ? '16px' : '16px'
       }}
       transition={{ 

@@ -86,7 +86,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   return (
     <motion.div
-      className="fixed bg-card/95 backdrop-blur-sm border border-border rounded-lg overflow-hidden shadow-lg z-40"
+      className="fixed bg-card/95 backdrop-blur-sm border border-border rounded-lg overflow-hidden shadow-lg z-[998]"
       drag
       dragMomentum={false}
       dragElastic={0}

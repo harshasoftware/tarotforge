@@ -40,7 +40,7 @@ const JoinByLinkModal = ({ onClose, onJoinSuccess }: JoinByLinkModalProps) => {
   };
   
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1003] p-4">
       <motion.div 
         className="relative bg-card max-w-md w-full rounded-xl overflow-hidden"
         initial={{ scale: 0.9, opacity: 0 }}
