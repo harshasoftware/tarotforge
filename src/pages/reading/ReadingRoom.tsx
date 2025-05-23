@@ -128,6 +128,10 @@ const ReadingRoom = () => {
   const [lastTapTime, setLastTapTime] = useState(0);
   const [tapCount, setTapCount] = useState(0);
   
+  // Double click state for desktop
+  const [lastClickTime, setLastClickTime] = useState(0);
+  const [clickCount, setClickCount] = useState(0);
+  
   // Layout dropdown state
   const [showLayoutDropdown, setShowLayoutDropdown] = useState(false);
   
@@ -138,6 +142,7 @@ const ReadingRoom = () => {
   // Dragged placed card state (for moving cards in free layout)
   const [draggedPlacedCard, setDraggedPlacedCard] = useState<any>(null);
   const [draggedPlacedCardIndex, setDraggedPlacedCardIndex] = useState<number | null>(null);
+  const [isDraggingPlacedCard, setIsDraggingPlacedCard] = useState(false);
   
   // Use session state instead of local state
   const selectedLayout = sessionState?.selectedLayout;
@@ -627,6 +632,31 @@ const ReadingRoom = () => {
     }
   };
   
+  // Handle double click for desktop card activation
+  const handleCardDoubleClick = (cardIndex: number, event: React.MouseEvent) => {
+    if (isMobile) return;
+    
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const now = Date.now();
+    const timeDiff = now - lastClickTime;
+    
+    if (timeDiff < 300 && clickCount === 1) {
+      // Double click detected - activate card if revealed
+      const selectedCard = selectedCards[cardIndex];
+      if ((selectedCard as any)?.revealed) {
+        setActiveCardIndexWrapped(cardIndex);
+      }
+      setClickCount(0);
+    } else {
+      // First click or outside double-click window
+      setClickCount(1);
+    }
+    
+    setLastClickTime(now);
+  };
+  
   // Handle card flip when clicked
   const handleCardFlip = (cardIndex: number) => {
     const newSelectedCards = [...selectedCards];
@@ -1071,10 +1101,13 @@ const ReadingRoom = () => {
                       whileHover={{ scale: 1.05 }}
                       whileDrag={{ scale: 1.1, zIndex: 50 }}
                       onClick={() => {
-                        if ((selectedCard as any).revealed) {
-                          setActiveCardIndexWrapped(index);
-                        } else {
+                        if (!(selectedCard as any).revealed) {
                           handleCardFlip(index);
+                        }
+                      }}
+                      onDoubleClick={(e) => {
+                        if (!isMobile && (selectedCard as any).revealed) {
+                          handleCardDoubleClick(index, e);
                         }
                       }}
                       onTouchEnd={(e) => {
@@ -1088,9 +1121,6 @@ const ReadingRoom = () => {
                         className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${
                           activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
                         }`}
-                        style={{ 
-                          transform: (selectedCard as any).isReversed ? 'rotate(180deg)' : 'none'
-                        }}
                         animate={{ 
                           rotateY: (selectedCard as any).revealed ? 0 : 180 
                         }}
@@ -1103,7 +1133,7 @@ const ReadingRoom = () => {
                           <img 
                             src={selectedCard.image_url} 
                             alt={selectedCard.name} 
-                            className="w-full h-full object-cover"
+                            className={`w-full h-full object-cover ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
                           />
                         ) : (
                           <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
@@ -1115,7 +1145,6 @@ const ReadingRoom = () => {
                                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
                                 </svg>
                               </div>
-                              <span className="text-xs text-white font-medium">Click to reveal</span>
                             </div>
                           </div>
                         )}
@@ -1207,9 +1236,6 @@ const ReadingRoom = () => {
                           >
                             <motion.div 
                               className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`}
-                              style={{ 
-                                transform: (selectedCard as any).isReversed ? 'rotate(180deg)' : 'none'
-                              }}
                               animate={{ 
                                 rotateY: (selectedCard as any).revealed ? 0 : 180 
                               }}
@@ -1222,7 +1248,7 @@ const ReadingRoom = () => {
                                 <img 
                                   src={selectedCard.image_url} 
                                   alt={selectedCard.name} 
-                                  className="w-full h-full object-cover"
+                                  className={`w-full h-full object-cover ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
                                 />
                               ) : (
                                 <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
@@ -1234,7 +1260,6 @@ const ReadingRoom = () => {
                                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
                                       </svg>
                                     </div>
-                                    <span className="text-xs text-white font-medium">Click to reveal</span>
                                   </div>
                                 </div>
                               )}
@@ -1507,12 +1532,27 @@ const ReadingRoom = () => {
                   {selectedLayout?.id === 'free-layout' && selectedCards.map((selectedCard: any, index: number) => (
                     <motion.div
                       key={`free-interp-${index}`}
-                      className="relative"
+                      className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-move"
+                      style={{ 
+                        left: `${selectedCard.x}%`, 
+                        top: `${selectedCard.y}%`,
+                        zIndex: activeCardIndex === index ? 20 : 10 + index
+                      }}
+                      drag
+                      dragMomentum={false}
+                      dragElastic={0}
+                      onDrag={(event, info) => handlePlacedCardDrag(index, event, info)}
+                      whileHover={{ scale: 1.05 }}
+                      whileDrag={{ scale: 1.1, zIndex: 50 }}
+                      animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
                       onClick={() => {
-                        if (selectedCard.revealed) {
-                          setActiveCardIndexWrapped(index);
-                        } else {
+                        if (!(selectedCard as any).revealed) {
                           handleCardFlip(index);
+                        }
+                      }}
+                      onDoubleClick={(e) => {
+                        if (!isMobile && (selectedCard as any).revealed) {
+                          handleCardDoubleClick(index, e);
                         }
                       }}
                       onTouchEnd={(e) => {
@@ -1521,23 +1561,11 @@ const ReadingRoom = () => {
                           handleCardDoubleTap(index, e);
                         }
                       }}
-                      whileHover={{ scale: 1.05 }}
-                      animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
-                      style={{ 
-                        position: 'absolute',
-                        left: `${selectedCard.x}%`, 
-                        top: `${selectedCard.y}%`,
-                        transform: 'translate(-50%, -50%)',
-                        zIndex: activeCardIndex === index ? 20 : 10 + index
-                      }}
                     >
                       <motion.div 
                         className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${
                           activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
                         }`}
-                        style={{ 
-                          transform: (selectedCard as any).isReversed ? 'rotate(180deg)' : 'none'
-                        }}
                         animate={{ 
                           rotateY: (selectedCard as any).revealed ? 0 : 180 
                         }}
@@ -1550,7 +1578,7 @@ const ReadingRoom = () => {
                           <img 
                             src={selectedCard.image_url} 
                             alt={selectedCard.name} 
-                            className="w-full h-full object-cover"
+                            className={`w-full h-full object-cover ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
                           />
                         ) : (
                           <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
@@ -1562,7 +1590,6 @@ const ReadingRoom = () => {
                                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
                                 </svg>
                               </div>
-                              <span className="text-xs text-white font-medium">Click to reveal</span>
                             </div>
                           </div>
                         )}
@@ -1608,9 +1635,6 @@ const ReadingRoom = () => {
                         >
                           <motion.div 
                             className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`}
-                            style={{ 
-                              transform: (selectedCard as any).isReversed ? 'rotate(180deg)' : 'none'
-                            }}
                             animate={{ 
                               rotateY: (selectedCard as any).revealed ? 0 : 180 
                             }}
@@ -1623,7 +1647,7 @@ const ReadingRoom = () => {
                               <img 
                                 src={selectedCard.image_url} 
                                 alt={selectedCard.name} 
-                                className="w-full h-full object-cover"
+                                className={`w-full h-full object-cover ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
                               />
                             ) : (
                               <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
@@ -1635,7 +1659,6 @@ const ReadingRoom = () => {
                                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
                                     </svg>
                                   </div>
-                                  <span className="text-xs text-white font-medium">Click to reveal</span>
                                 </div>
                               </div>
                             )}
