@@ -128,6 +128,12 @@ const ReadingRoom = () => {
   const [lastTapTime, setLastTapTime] = useState(0);
   const [tapCount, setTapCount] = useState(0);
   
+  // Pan state for drag-to-pan functionality
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStartPos, setPanStartPos] = useState({ x: 0, y: 0 });
+  const [panStartOffset, setPanStartOffset] = useState({ x: 0, y: 0 });
+  
   // Double click state for desktop
   const [lastClickTime, setLastClickTime] = useState(0);
   const [clickCount, setClickCount] = useState(0);
@@ -286,14 +292,20 @@ const ReadingRoom = () => {
   
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (e.touches.length === 2) {
+      // Two fingers - pinch to zoom
       setIsZooming(true);
       setLastTouchDistance(getTouchDistance(e.touches));
       e.preventDefault();
+    } else if (e.touches.length === 1 && zoomLevel > 1) {
+      // One finger when zoomed - start panning
+      const touch = e.touches[0];
+      handlePanStart(touch.clientX, touch.clientY);
     }
-  }, []);
+  }, [zoomLevel]);
   
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (isZooming && e.touches.length === 2) {
+      // Two fingers - continue pinch to zoom
       const currentDistance = getTouchDistance(e.touches);
       const scale = currentDistance / lastTouchDistance;
       
@@ -302,13 +314,21 @@ const ReadingRoom = () => {
         setLastTouchDistance(currentDistance);
       }
       e.preventDefault();
+    } else if (isPanning && e.touches.length === 1) {
+      // One finger - continue panning
+      const touch = e.touches[0];
+      handlePanMove(touch.clientX, touch.clientY);
+      e.preventDefault();
     }
-  }, [isZooming, lastTouchDistance, zoomLevel, setZoomLevelWrapped]);
+  }, [isZooming, isPanning, lastTouchDistance, zoomLevel, setZoomLevelWrapped]);
   
   const handleTouchEnd = useCallback((e: TouchEvent) => {
     if (e.touches.length < 2) {
       setIsZooming(false);
       setLastTouchDistance(0);
+    }
+    if (e.touches.length === 0) {
+      handlePanEnd();
     }
   }, []);
   
@@ -572,6 +592,36 @@ const ReadingRoom = () => {
   const resetZoom = () => {
     setZoomLevelWrapped(1);
     setZoomFocus(null);
+    setPanOffset({ x: 0, y: 0 });
+  };
+  
+  // Pan functionality for dragging the view when zoomed
+  const handlePanStart = (clientX: number, clientY: number) => {
+    if (zoomLevel <= 1) return; // Only allow panning when zoomed in
+    
+    setIsPanning(true);
+    setPanStartPos({ x: clientX, y: clientY });
+    setPanStartOffset({ ...panOffset });
+  };
+  
+  const handlePanMove = (clientX: number, clientY: number) => {
+    if (!isPanning || zoomLevel <= 1) return;
+    
+    const deltaX = clientX - panStartPos.x;
+    const deltaY = clientY - panStartPos.y;
+    
+    // Apply sensitivity and constraints
+    const sensitivity = 1;
+    const maxPan = 200; // Maximum pan distance in pixels
+    
+    const newPanX = Math.max(-maxPan, Math.min(maxPan, panStartOffset.x + deltaX * sensitivity));
+    const newPanY = Math.max(-maxPan, Math.min(maxPan, panStartOffset.y + deltaY * sensitivity));
+    
+    setPanOffset({ x: newPanX, y: newPanY });
+  };
+  
+  const handlePanEnd = () => {
+    setIsPanning(false);
   };
   
   // Double tap zoom functionality for mobile
@@ -693,16 +743,20 @@ const ReadingRoom = () => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
         setDragPosition({ x: e.clientX, y: e.clientY });
+      } else if (isPanning) {
+        handlePanMove(e.clientX, e.clientY);
       }
     };
     
     const handleMouseUp = () => {
       if (isDragging) {
         handleDragEnd();
+      } else if (isPanning) {
+        handlePanEnd();
       }
     };
     
-    if (isDragging) {
+    if (isDragging || isPanning) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     }
@@ -711,7 +765,7 @@ const ReadingRoom = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging]);
+  }, [isDragging, isPanning]);
   
   // Generate shareable link using session ID
   const generateShareableLink = (id: string): string => {
@@ -1075,6 +1129,16 @@ const ReadingRoom = () => {
                     handleFreeLayoutDrop(e);
                   }
                 }}
+                onMouseDown={(e) => {
+                  // Only start panning if not on mobile, zoomed in, and clicking on empty space
+                  if (!isMobile && zoomLevel > 1 && !isDragging && e.target === e.currentTarget) {
+                    e.preventDefault();
+                    handlePanStart(e.clientX, e.clientY);
+                  }
+                }}
+                style={{
+                  cursor: zoomLevel > 1 && !isDragging ? (isPanning ? 'grabbing' : 'grab') : 'default'
+                }}
               >
                 {/* Zoom controls with shuffle button - repositioned for mobile */}
                 <div className={`absolute ${isMobile ? (isLandscape ? 'top-10 left-1/2 transform -translate-x-1/2 flex-row' : 'top-16 left-1/2 transform -translate-x-1/2 flex-row') : 'top-4 left-4 flex-col'} flex gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
@@ -1111,8 +1175,8 @@ const ReadingRoom = () => {
                       <div className="flex items-center gap-2">
                         <span>
                           {selectedLayout?.id === 'free-layout' 
-                            ? 'Drag cards anywhere • Pinch to zoom • Double-tap card to focus' 
-                            : 'Drag cards from deck • Pinch to zoom • Double-tap card to focus'}
+                            ? 'Drag cards anywhere • Pinch to zoom • Drag to pan when zoomed • Double-tap card to focus' 
+                            : 'Drag cards from deck • Pinch to zoom • Drag to pan when zoomed • Double-tap card to focus'}
                         </span>
                         <XCircle className="h-3 w-3 cursor-pointer hover:opacity-80" />
                       </div>
@@ -1125,8 +1189,8 @@ const ReadingRoom = () => {
                   className="absolute inset-0 transition-transform duration-300 ease-in-out"
                   style={{
                     transform: zoomFocus 
-                      ? `scale(${zoomLevel}) translate(${50 - zoomFocus.x}%, ${50 - zoomFocus.y}%)`
-                      : `scale(${zoomLevel})`,
+                      ? `scale(${zoomLevel}) translate(${50 - zoomFocus.x}%, ${50 - zoomFocus.y}%) translate(${panOffset.x}px, ${panOffset.y}px)`
+                      : `scale(${zoomLevel}) translate(${panOffset.x}px, ${panOffset.y}px)`,
                     transformOrigin: zoomFocus ? `${zoomFocus.x}% ${zoomFocus.y}%` : 'center center',
                     height: '100%',
                     width: '100%'
@@ -1572,8 +1636,8 @@ const ReadingRoom = () => {
                   className="absolute inset-0 transition-transform duration-300 ease-in-out"
                   style={{
                     transform: zoomFocus 
-                      ? `scale(${zoomLevel}) translate(${50 - zoomFocus.x}%, ${50 - zoomFocus.y}%)`
-                      : `scale(${zoomLevel})`,
+                      ? `scale(${zoomLevel}) translate(${50 - zoomFocus.x}%, ${50 - zoomFocus.y}%) translate(${panOffset.x}px, ${panOffset.y}px)`
+                      : `scale(${zoomLevel}) translate(${panOffset.x}px, ${panOffset.y}px)`,
                     transformOrigin: zoomFocus ? `${zoomFocus.x}% ${zoomFocus.y}%` : 'center center',
                     height: '100%',
                     width: '100%'
