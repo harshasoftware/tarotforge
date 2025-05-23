@@ -53,6 +53,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   
   const peerRef = useRef<Peer.Instance | null>(null);
   const channelRef = useRef<any>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
   
   // Handle cleanup when component unmounts
   useEffect(() => {
@@ -408,6 +409,9 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const peer = createPeer(mode === 'reader', stream);
       peerRef.current = peer;
       
+      // Store the stream in a ref for cleanup
+      localStreamRef.current = stream;
+      
       return callSessionId;
     } catch (err: any) {
       console.error('Error starting call:', err);
@@ -427,12 +431,13 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       
       // Stop local media tracks
-      if (localStream) {
-        localStream.getTracks().forEach(track => {
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => {
           track.stop();
         });
-        setLocalStream(null);
       }
+      setLocalStream(null);
+      localStreamRef.current = null;
       
       // Stop remote media tracks
       if (remoteStream) {
