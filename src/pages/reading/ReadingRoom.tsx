@@ -1,6 +1,34 @@
-Here's the fixed version with all missing closing brackets added:
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { XCircle, Copy, Check } from 'lucide-react';
 
-```jsx
+const ReadingRoom = () => {
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showCopied, setShowCopied] = useState(false);
+  const [roomId, setRoomId] = useState('');
+
+  const generateShareableLink = (id: string) => {
+    return `${window.location.origin}/reading-room/${id}`;
+  };
+
+  const copyRoomLink = async () => {
+    try {
+      await navigator.clipboard.writeText(generateShareableLink(roomId));
+      setShowCopied(true);
+      setTimeout(() => setShowCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  };
+
+  return (
+    <div className="relative">
+      {showShareModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setShowShareModal(false)}
+        >
+          <motion.div
             className="relative bg-card max-w-md w-full rounded-xl overflow-hidden"
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -47,4 +75,3 @@ Here's the fixed version with all missing closing brackets added:
 };
 
 export default ReadingRoom;
-```
