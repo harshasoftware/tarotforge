@@ -287,8 +287,7 @@ const Home = () => {
       navigate('/create-deck', { 
         state: {
           initialTheme: themePrompt,
-          autoGenerate: true,
-          startGenerating: true
+          autoGenerate: true
         }
       });
       
