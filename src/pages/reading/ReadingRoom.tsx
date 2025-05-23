@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, MessageSquare, Video, PhoneCall, Zap, Copy, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { fetchDeckById, fetchCardsByDeckId } from '../../lib/deck-utils';
@@ -67,21 +67,35 @@ const ReadingRoom = () => {
   const [shuffledDeck, setShuffledDeck] = useState<Card[]>([]);
   const [selectedCards, setSelectedCards] = useState<(Card & { position: string; isReversed: boolean })[]>([]);
   const [question, setQuestion] = useState('');
-  const [showQuestion, setShowQuestion] = useState(false);
   
-  const [readingStarted, setReadingStarted] = useState(false);
-  const [readingComplete, setReadingComplete] = useState(false);
+  const [readingStep, setReadingStep] = useState<'setup' | 'drawing' | 'interpretation'>('setup');
   const [interpretation, setInterpretation] = useState('');
   const [isGeneratingInterpretation, setIsGeneratingInterpretation] = useState(false);
-  const [showAIMode, setShowAIMode] = useState(false);
+  
+  // UI State
+  const [activeCardIndex, setActiveCardIndex] = useState<number | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showCopied, setShowCopied] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showMobileInterpretation, setShowMobileInterpretation] = useState(false);
   
   // Video chat state
   const [showVideoChat, setShowVideoChat] = useState(false);
   const [isVideoConnecting, setIsVideoConnecting] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [showCopied, setShowCopied] = useState(false);
+  
+  // Check for mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   // Function to show the share link modal
   const showShareLinkModal = () => {
@@ -167,22 +181,18 @@ const ReadingRoom = () => {
   const handleLayoutSelect = (layout: ReadingLayout) => {
     setSelectedLayout(layout);
     setSelectedCards([]);
-    setReadingStarted(false);
-    setReadingComplete(false);
+    setReadingStep('drawing');
     setInterpretation('');
+    // Auto-zoom for mobile and complex layouts
+    if (isMobile) {
+      setZoomLevel(layout.id === 'celtic-cross' ? 0.6 : 0.8);
+    } else {
+      setZoomLevel(layout.id === 'celtic-cross' ? 0.8 : 1);
+    }
   };
   
   const shuffleDeck = () => {
     setShuffledDeck([...shuffledDeck].sort(() => Math.random() - 0.5));
-  };
-  
-  const startReading = () => {
-    if (!selectedLayout) return;
-    
-    setReadingStarted(true);
-    setSelectedCards([]);
-    setReadingComplete(false);
-    setInterpretation('');
   };
   
   const handleCardSelection = () => {
@@ -208,17 +218,18 @@ const ReadingRoom = () => {
     setShuffledDeck(shuffledDeck.slice(cardsNeeded));
     
     if (newSelectedCards.length === selectedLayout.card_count) {
-      setReadingComplete(true);
+      // Auto-generate interpretation when all cards are drawn
+      generateInterpretation(newSelectedCards);
     }
   };
   
-  const generateInterpretation = async () => {
-    if (!deck || !selectedCards.length) return;
+  const generateInterpretation = async (cards = selectedCards) => {
+    if (!deck || !cards.length) return;
     
     try {
       setIsGeneratingInterpretation(true);
       
-      const formattedCards = selectedCards.map(card => ({
+      const formattedCards = cards.map(card => ({
         name: card.name,
         position: card.position,
         isReversed: card.isReversed
@@ -231,7 +242,7 @@ const ReadingRoom = () => {
       );
       
       setInterpretation(result);
-      setShowAIMode(true);
+      setReadingStep('interpretation');
     } catch (error) {
       console.error('Error generating interpretation:', error);
       setInterpretation('Unable to generate an interpretation at this time. Please try again later.');
@@ -249,9 +260,31 @@ const ReadingRoom = () => {
     }, 500);
   };
   
+  const resetReading = () => {
+    setReadingStep('setup');
+    setSelectedLayout(null);
+    setSelectedCards([]);
+    setInterpretation('');
+    setShuffledDeck([...cards].sort(() => Math.random() - 0.5));
+    setActiveCardIndex(null);
+    setZoomLevel(1);
+  };
+  
+  const zoomIn = () => {
+    setZoomLevel(prev => Math.min(prev + 0.2, 2));
+  };
+  
+  const zoomOut = () => {
+    setZoomLevel(prev => Math.max(prev - 0.2, 0.5));
+  };
+  
+  const resetZoom = () => {
+    setZoomLevel(1);
+  };
+  
   if (loading) {
     return (
-      <div className="min-h-screen pt-16 pb-20 flex items-center justify-center">
+      <div className="h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-muted-foreground">Preparing reading room...</p>
@@ -262,12 +295,12 @@ const ReadingRoom = () => {
   
   if (error) {
     return (
-      <div className="min-h-screen pt-16 pb-20 flex flex-col items-center justify-center">
+      <div className="h-screen flex flex-col items-center justify-center p-4">
         <div className="text-center max-w-md mx-auto p-6 bg-card border border-border rounded-xl">
           <HelpCircle className="h-16 w-16 text-warning mx-auto mb-4" />
-          <h2 className="text-2xl font-serif font-bold mb-4">Something Went Wrong</h2>
-          <p className="text-muted-foreground mb-6">{error}</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <h2 className="text-xl md:text-2xl font-serif font-bold mb-4">Something Went Wrong</h2>
+          <p className="text-muted-foreground mb-6 text-sm md:text-base">{error}</p>
+          <div className="flex flex-col gap-4 justify-center">
             <Link to="/collection" className="btn btn-secondary px-6 py-2">
               My Collection
             </Link>
@@ -281,251 +314,152 @@ const ReadingRoom = () => {
   }
   
   return (
-    <div className="min-h-screen pt-12 pb-20">
-      <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="py-8">
-          <Link to="/collection" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-4">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Collection
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Header - compact for mobile */}
+      <header className="py-2 md:py-3 px-3 md:px-6 border-b border-border flex justify-between items-center bg-background z-10">
+        <div className="flex items-center">
+          <Link to="/collection" className="inline-flex items-center text-muted-foreground hover:text-foreground mr-2 md:mr-4">
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            <span className="hidden md:inline">Back</span>
           </Link>
-          
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-            <div>
-              <h1 className="text-3xl font-serif font-bold mb-2">Reading Room</h1>
-              <p className="text-muted-foreground">
+          <div>
+            <h1 className="text-lg md:text-xl font-serif font-bold">Reading Room</h1>
+            {!isMobile && (
+              <p className="text-xs text-muted-foreground">
                 {deck?.title ? `Using ${deck.title} by ${deck.creator_name}` : 'Select a deck to begin'}
-                {deck?.is_free && (
-                  <span className="inline-flex items-center ml-2 text-success">
-                    <Zap className="h-4 w-4 mr-1" />
-                    Free Deck
-                  </span>
-                )}
               </p>
-            </div>
-            
-            <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
-              <button 
-                onClick={showShareLinkModal}
-                className="btn btn-ghost border border-input px-4 py-2 flex items-center"
-              >
-                <Share2 className="mr-2 h-4 w-4" />
-                Share Room
-              </button>
-              
-              <button 
-                onClick={() => !isVideoConnecting && !showVideoChat && initiateVideoChat()}
-                className={`btn ${showVideoChat ? 'btn-success' : 'btn-secondary'} px-4 py-2 flex items-center`}
-                disabled={isVideoConnecting}
-              >
-                {isVideoConnecting ? (
-                  <>
-                    <span className="mr-2 h-4 w-4 border-2 border-secondary-foreground border-t-transparent rounded-full animate-spin"></span>
-                    Connecting...
-                  </>
-                ) : showVideoChat ? (
-                  <>
-                    <Video className="mr-2 h-4 w-4" />
-                    End Call
-                  </>
-                ) : (
-                  <>
-                    <PhoneCall className="mr-2 h-4 w-4" />
-                    Start Reading Call
-                  </>
-                )}
-              </button>
-
-              <button className="btn btn-primary px-4 py-2 flex items-center">
-                <Save className="mr-2 h-4 w-4" />
-                Save Reading
-              </button>
-            </div>
+            )}
           </div>
         </div>
         
-        {/* Reading Area */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Panel - Layout Selection */}
-          <div className="lg:col-span-1">
-            <div className="bg-card rounded-xl border border-border p-6 sticky top-24">
-              <h2 className="text-xl font-serif font-bold mb-4">Reading Setup</h2>
-              
-              {!readingStarted ? (
-                <>
-                  {/* Layout selection */}
-                  <div className="space-y-4 mb-6">
-                    <h3 className="font-medium">Select a Layout</h3>
-                    <div className="space-y-3">
-                      {readingLayouts.map((layout) => (
-                        <div 
-                          key={layout.id}
-                          className={`border rounded-lg p-3 cursor-pointer transition-colors ${
-                            selectedLayout?.id === layout.id 
-                              ? 'border-primary bg-primary/5' 
-                              : 'border-input hover:border-primary/50'
-                          }`}
-                          onClick={() => handleLayoutSelect(layout)}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium">{layout.name}</h4>
-                            <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
-                              {layout.card_count} {layout.card_count === 1 ? 'card' : 'cards'}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground">{layout.description}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Question input */}
-                  <div className="space-y-2 mb-6">
-                    <div className="flex justify-between">
-                      <h3 className="font-medium">Your Question</h3>
-                      <button 
-                        className="text-xs text-primary"
-                        onClick={() => setShowQuestion(!showQuestion)}
-                      >
-                        {showQuestion ? 'Hide' : 'Show'}
-                      </button>
-                    </div>
-                    
-                    {showQuestion && (
-                      <textarea
-                        value={question}
-                        onChange={(e) => setQuestion(e.target.value)}
-                        placeholder="What would you like guidance on?"
-                        className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                        rows={3}
-                      ></textarea>
-                    )}
-                  </div>
-                  
-                  {/* Start reading button */}
-                  <button 
-                    onClick={startReading}
-                    disabled={!selectedLayout}
-                    className="w-full btn btn-primary py-2 flex items-center justify-center disabled:opacity-50"
-                  >
-                    Start Reading
-                  </button>
-                </>
-              ) : (
-                <>
-                  {/* Reading info */}
-                  <div className="mb-6">
-                    <div className="bg-muted/30 rounded-lg p-3 mb-4">
-                      <h3 className="font-medium mb-1">{selectedLayout?.name}</h3>
-                
-                      <p className="text-sm text-muted-foreground">{selectedLayout?.description}</p>
-                    </div>
-                    
-                    {question && (
-                      <div className="mb-4">
-                        <h3 className="font-medium mb-1">Your Question</h3>
-                        <p className="text-sm italic">"{question}"</p>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">
-                        {selectedCards.length} of {selectedLayout?.card_count} cards drawn
-                      </span>
-                      
-                      <button 
-                        onClick={shuffleDeck}
-                        disabled={readingComplete}
-                        className="btn btn-ghost p-2 text-sm flex items-center disabled:opacity-50"
-                      >
-                        <Shuffle className="mr-1 h-4 w-4" />
-                        Shuffle
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Card selection */}
-                  {!readingComplete ? (
-                    <div className="mb-6">
-                      <button 
-                        onClick={handleCardSelection}
-                        className="w-full btn btn-primary py-2 flex items-center justify-center"
-                      >
-                        Draw Next Card
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      {/* AI interpretation */}
-                      <div className="mb-6">
-                        <button 
-                          onClick={generateInterpretation}
-                          disabled={isGeneratingInterpretation}
-                          className="w-full btn btn-primary py-2 flex items-center justify-center disabled:opacity-50"
-                        >
-                          {isGeneratingInterpretation ? (
-                            <>
-                              <span className="mr-2 h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></span>
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <TarotLogo className="mr-2 h-4 w-4" />
-                              AI Interpretation
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      
-                      {/* Reset reading */}
-                      <button 
-                        onClick={() => {
-                          setReadingStarted(false);
-                          setReadingComplete(false);
-                          setSelectedCards([]);
-                          setInterpretation('');
-                          setShuffledDeck([...cards].sort(() => Math.random() - 0.5));
-                        }}
-                        className="w-full btn btn-ghost border border-input py-2"
-                      >
-                        Reset Reading
-                      </button>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
+        <div className="flex items-center gap-1 md:gap-2">
+          <button 
+            onClick={showShareLinkModal}
+            className="btn btn-ghost border border-input p-1.5 md:p-2 text-sm flex items-center"
+          >
+            <Share2 className="h-4 w-4" />
+          </button>
           
-          {/* Right Panel - Reading Display */}
-          <div className="lg:col-span-2">
-            {/* Video Chat - Only shown when active */}
-            {showVideoChat && (
-              <VideoChat 
-                onClose={() => setShowVideoChat(false)}
-                sessionId={sessionId}
-              />
+          <button 
+            onClick={() => !isVideoConnecting && !showVideoChat && initiateVideoChat()}
+            className={`btn ${showVideoChat ? 'btn-success' : 'btn-secondary'} p-1.5 md:p-2 text-sm flex items-center`}
+            disabled={isVideoConnecting}
+          >
+            {isVideoConnecting ? (
+              <span className="h-4 w-4 border-2 border-secondary-foreground border-t-transparent rounded-full animate-spin"></span>
+            ) : (
+              <PhoneCall className="h-4 w-4" />
             )}
-            
-            {/* Reading board */}
-            <div className="aspect-video bg-card/50 rounded-xl border border-border overflow-hidden relative mb-6">
-              {/* Guidance */}
-              {!readingStarted && (
-                <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-                  <HelpCircle className="h-16 w-16 text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-serif font-medium mb-2">Select a Layout to Begin</h3>
-                  <p className="text-muted-foreground max-w-md">
-                    Choose a card layout from the left panel, then start your reading.
-                    Each layout provides different insights into your question.
-                  </p>
+          </button>
+
+          <button className="btn btn-primary p-1.5 md:p-2 text-sm flex items-center">
+            <Save className="h-4 w-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* Main content - responsive layout */}
+      <main className="flex-1 flex overflow-hidden relative">
+        {/* Reading table */}
+        <div className="flex-1 relative bg-gradient-to-b from-background to-background/80">
+          {/* Step 1: Setup Screen */}
+          {readingStep === 'setup' && (
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              <div className="max-w-md w-full p-4 md:p-6 bg-card border border-border rounded-xl shadow-lg">
+                <h2 className="text-lg md:text-xl font-serif font-bold mb-4">Select a Layout</h2>
+                
+                <div className="space-y-3 mb-4">
+                  {readingLayouts.map((layout) => (
+                    <div 
+                      key={layout.id}
+                      className="border rounded-lg p-3 cursor-pointer transition-colors hover:border-primary/50 active:bg-primary/5"
+                      onClick={() => handleLayoutSelect(layout)}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <h4 className="font-medium text-sm md:text-base">{layout.name}</h4>
+                        <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
+                          {layout.card_count} {layout.card_count === 1 ? 'card' : 'cards'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{layout.description}</p>
+                    </div>
+                  ))}
                 </div>
-              )}
+                
+                <div className="mb-4">
+                  <label htmlFor="question" className="block text-sm font-medium mb-1">
+                    Your Question (Optional)
+                  </label>
+                  <input
+                    id="question"
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="What would you like guidance on?"
+                    className="w-full p-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Step 2: Drawing Cards */}
+          {readingStep === 'drawing' && selectedLayout && (
+            <div className="absolute inset-0 flex flex-col">
+              {/* Reading info bar - compact for mobile */}
+              <div className="bg-card border-b border-border p-2 md:p-3 flex justify-between items-center">
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium text-sm md:text-base truncate block">{selectedLayout.name}</span>
+                  {question && !isMobile && (
+                    <span className="text-xs text-muted-foreground italic">"{question}"</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 md:gap-3 ml-2">
+                  <span className="text-xs md:text-sm whitespace-nowrap">
+                    {selectedCards.length}/{selectedLayout.card_count}
+                  </span>
+                  
+                  <button 
+                    onClick={shuffleDeck}
+                    className="btn btn-ghost p-1 text-sm flex items-center"
+                  >
+                    <Shuffle className="h-4 w-4" />
+                  </button>
+                  
+                  <button 
+                    onClick={resetReading}
+                    className="btn btn-ghost p-1 text-sm flex items-center text-warning"
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
               
-              {/* Reading in progress */}
-              {readingStarted && (
-                <div className="h-full p-6 relative">
-                  {/* Layout visualization */}
-                  {selectedLayout && selectedLayout.positions && selectedLayout.positions.map((position, index) => {
+              {/* Reading table with mobile-friendly zoom controls */}
+              <div className="flex-1 relative">
+                {/* Zoom controls - repositioned for mobile */}
+                <div className={`absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2 flex-row' : 'top-4 left-4 flex-col'} flex gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-50`}>
+                  <button onClick={zoomOut} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom Out">
+                    <ZoomOut className="h-4 w-4 md:h-5 md:w-5" />
+                  </button>
+                  <button onClick={resetZoom} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Reset Zoom">
+                    <RotateCcw className="h-4 w-4 md:h-5 md:w-5" />
+                  </button>
+                  <button onClick={zoomIn} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom In">
+                    <ZoomIn className="h-4 w-4 md:h-5 md:w-5" />
+                  </button>
+                </div>
+              
+                {/* Layout visualization with mobile-responsive card sizes */}
+                <div 
+                  className="absolute inset-0 transition-transform duration-300 ease-in-out"
+                  style={{
+                    transform: `scale(${zoomLevel})`,
+                    transformOrigin: 'center center',
+                    height: '100%',
+                    width: '100%'
+                  }}
+                >
+                  {selectedLayout.positions && selectedLayout.positions.map((position, index) => {
                     const selectedCard = selectedCards[index];
                     
                     return (
@@ -538,26 +472,27 @@ const ReadingRoom = () => {
                           zIndex: selectedCard ? 10 + index : 1
                         }}
                       >
-                        {/* Card position indicator */}
+                        {/* Card position indicator - responsive size */}
                         {!selectedCard && (
                           <div 
-                            className="w-24 h-36 md:w-32 md:h-48 border-2 border-dashed border-muted-foreground/30 rounded-md flex flex-col items-center justify-center"
+                            className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} border-2 border-dashed border-muted-foreground/30 rounded-md flex flex-col items-center justify-center`}
                             style={{ transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none' }}
                           >
-                            <span className="text-xs text-muted-foreground">{position.name}</span>
+                            <span className="text-xs text-muted-foreground text-center px-1">{position.name}</span>
                           </div>
                         )}
                         
-                        {/* Selected card */}
+                        {/* Selected card - responsive size */}
                         {selectedCard && (
                           <motion.div
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ duration: 0.5 }}
                             className="relative"
+                            onClick={() => setActiveCardIndex(index)}
                           >
                             <div 
-                              className="w-24 h-36 md:w-32 md:h-48 rounded-md overflow-hidden shadow-lg cursor-pointer"
+                              className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`}
                               style={{ 
                                 transform: selectedCard.isReversed 
                                   ? `rotate(180deg)${position.rotation ? ` rotate(${position.rotation}deg)` : ''}` 
@@ -570,8 +505,8 @@ const ReadingRoom = () => {
                                 className="w-full h-full object-cover"
                               />
                             </div>
-                            <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-xs px-2 py-0.5 rounded-full text-xs">
-                              {position.name} {selectedCard.isReversed && '(Reversed)'}
+                            <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
+                              {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {selectedCard.isReversed && '(R)'}
                             </div>
                           </motion.div>
                         )}
@@ -579,139 +514,314 @@ const ReadingRoom = () => {
                     );
                   })}
                 </div>
-              )}
-            </div>
-            
-            {/* AI Interpretation */}
-            {interpretation && showAIMode && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="bg-card rounded-xl border border-border overflow-hidden mb-6"
-              >
-                <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
-                  <div className="flex items-center">
-                    <TarotLogo className="h-5 w-5 text-primary mr-2" />
-                    <h3 className="font-medium">AI Interpretation</h3>
-                  </div>
-                  <button onClick={() => setShowAIMode(false)}>
-                    <XCircle className="h-5 w-5 text-muted-foreground hover:text-foreground" />
-                  </button>
-                </div>
-                <div className="p-6 max-h-96 overflow-y-auto">
-                  <div className="prose prose-invert max-w-none">
-                    {interpretation.split('\n').map((paragraph, i) => (
-                      <p key={i}>{paragraph}</p>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-            
-            {/* Card details */}
-            {selectedCards.length > 0 && (
-              <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <div className="p-4 border-b border-border">
-                  <h3 className="font-medium">Card Details</h3>
-                </div>
-                <div className="p-6 max-h-96 overflow-y-auto">
-                  <div className="space-y-6">
-                    {selectedCards.map((card, index) => (
-                      <div key={index} className="flex gap-4">
-                        <div className="shrink-0 w-16 h-24 rounded-md overflow-hidden">
-                          <img 
-                            src={card.image_url} 
-                            alt={card.name} 
-                            className={`w-full h-full object-cover ${card.isReversed ? 'rotate-180' : ''}`}
-                          />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-lg">{card.name} {card.isReversed && '(Reversed)'}</h4>
-                          <p className="text-sm text-accent mb-2">{card.position}</p>
-                          <p className="text-sm text-muted-foreground">{card.description}</p>
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {card.keywords && card.keywords.map((keyword, i) => (
-                              <span 
-                                key={i} 
-                                className="text-xs px-2 py-0.5 bg-primary/10 rounded-full"
-                              >
-                                {keyword}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      
-      {/* Share Room Modal */}
-      {showShareModal && roomId && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <motion.div 
-            className="relative bg-card max-w-md w-full rounded-xl overflow-hidden"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
-              <h3 className="font-serif font-bold">Share Reading Room</h3>
-              <button 
-                onClick={() => setShowShareModal(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <XCircle className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="p-6">
-              <p className="mb-4">
-                Share this link with others to invite them to your reading room. They'll be able to join your video call and chat.
-              </p>
-              
-              <div className="mb-6">
-                <label htmlFor="roomLink" className="block text-sm font-medium mb-2">
-                  Room Invitation Link
-                </label>
-                <div className="flex">
-                  <input
-                    id="roomLink"
-                    type="text"
-                    value={generateShareableLink(roomId)}
-                    readOnly
-                    className="flex-1 p-2 rounded-l-md border border-r-0 border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <button
-                    onClick={copyRoomLink}
-                    className="p-2 bg-primary text-primary-foreground rounded-r-md hover:bg-primary/90 transition-colors flex items-center"
+                
+                {/* Deck - responsive positioning */}
+                {selectedCards.length < selectedLayout.card_count && (
+                  <div 
+                    className={`absolute ${isMobile ? 'right-4 bottom-16' : 'right-8 bottom-8'} cursor-pointer`}
+                    onClick={handleCardSelection}
                   >
-                    {showCopied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
-                  </button>
-                </div>
-                {showCopied && (
-                  <p className="text-xs text-success mt-2">Link copied to clipboard!</p>
+                    <div className={`relative ${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'}`}>
+                      <div className="absolute inset-0 bg-card border border-border rounded-md transform translate-x-1 translate-y-1"></div>
+                      <div className="absolute inset-0 bg-card border border-border rounded-md transform translate-x-0.5 translate-y-0.5"></div>
+                      <div className="bg-card border border-border rounded-md w-full h-full flex items-center justify-center">
+                        <span className="text-xs text-center text-muted-foreground px-1">
+                          {isMobile ? 'Tap to Draw' : 'Click to Draw Card'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* All cards drawn - show interpretation button */}
+                {selectedCards.length === selectedLayout.card_count && !isGeneratingInterpretation && readingStep === 'drawing' && (
+                  <div className={`absolute ${isMobile ? 'bottom-4 right-4' : 'bottom-8 right-8'}`}>
+                    <button 
+                      onClick={() => generateInterpretation()}
+                      className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm"
+                    >
+                      <TarotLogo className="mr-1 md:mr-2 h-4 w-4" />
+                      <span className="hidden md:inline">See Interpretation</span>
+                      <span className="md:hidden">Read</span>
+                    </button>
+                  </div>
+                )}
+                
+                {/* Loading indicator for interpretation */}
+                {isGeneratingInterpretation && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
+                    <div className="bg-card p-4 md:p-6 rounded-xl shadow-lg text-center mx-4">
+                      <div className="w-8 h-8 md:w-12 md:h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-muted-foreground text-sm md:text-base">Generating interpretation...</p>
+                    </div>
+                  </div>
                 )}
               </div>
-              
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setShowShareModal(false)}
-                  className="btn btn-primary px-4 py-2"
+            </div>
+          )}
+          
+          {/* Step 3: Interpretation - mobile responsive layout */}
+          {readingStep === 'interpretation' && (
+            <div className={`absolute inset-0 ${isMobile ? 'flex-col' : 'flex'}`}>
+              {/* Reading display */}
+              <div className={`${isMobile ? (showMobileInterpretation ? 'hidden' : 'flex-1') : 'w-3/5'} relative`}>
+                {/* Zoom controls */}
+                <div className={`absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2 flex-row' : 'top-4 left-4 flex-col'} flex gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-50`}>
+                  <button onClick={zoomOut} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom Out">
+                    <ZoomOut className="h-4 w-4 md:h-5 md:w-5" />
+                  </button>
+                  <button onClick={resetZoom} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Reset Zoom">
+                    <RotateCcw className="h-4 w-4 md:h-5 md:w-5" />
+                  </button>
+                  <button onClick={zoomIn} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom In">
+                    <ZoomIn className="h-4 w-4 md:h-5 md:w-5" />
+                  </button>
+                </div>
+                
+                {/* Card layout with zoom applied */}
+                <div 
+                  className="absolute inset-0 transition-transform duration-300 ease-in-out"
+                  style={{
+                    transform: `scale(${zoomLevel})`,
+                    transformOrigin: 'center center',
+                    height: '100%',
+                    width: '100%'
+                  }}
                 >
-                  Done
-                </button>
+                  {selectedLayout && selectedLayout.positions.map((position, index) => {
+                    const selectedCard = selectedCards[index];
+                    if (!selectedCard) return null;
+                    
+                    return (
+                      <div 
+                        key={position.id}
+                        className="absolute transform -translate-x-1/2 -translate-y-1/2"
+                        style={{ 
+                          left: `${position.x}%`, 
+                          top: `${position.y}%`,
+                          zIndex: activeCardIndex === index ? 20 : 10 + index
+                        }}
+                      >
+                        <motion.div
+                          className="relative"
+                          onClick={() => setActiveCardIndex(index)}
+                          whileHover={{ scale: 1.05 }}
+                          animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
+                        >
+                          <div 
+                            className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${
+                              activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
+                            }`}
+                            style={{ 
+                              transform: selectedCard.isReversed 
+                                ? `rotate(180deg)${position.rotation ? ` rotate(${position.rotation}deg)` : ''}` 
+                                : position.rotation ? `rotate(${position.rotation}deg)` : 'none'
+                            }}
+                          >
+                            <img 
+                              src={selectedCard.image_url} 
+                              alt={selectedCard.name} 
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
+                            {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {selectedCard.isReversed && '(R)'}
+                          </div>
+                        </motion.div>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {/* Reading controls */}
+                <div className={`absolute ${isMobile ? 'top-4 right-4' : 'bottom-6 right-6'} flex gap-2 md:gap-3`}>
+                  {isMobile && (
+                    <button 
+                      onClick={() => setShowMobileInterpretation(true)}
+                      className="btn btn-primary px-3 py-1.5 text-sm flex items-center"
+                    >
+                      <Menu className="mr-1 h-4 w-4" />
+                      Read
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => setReadingStep('drawing')}
+                    className="btn btn-secondary px-3 md:px-4 py-1.5 md:py-2 text-sm"
+                  >
+                    {isMobile ? 'Back' : 'Back to Table'}
+                  </button>
+                  
+                  <button 
+                    onClick={resetReading}
+                    className="btn btn-ghost border border-input px-3 md:px-4 py-1.5 md:py-2 text-sm"
+                  >
+                    {isMobile ? 'New' : 'New Reading'}
+                  </button>
+                </div>
+              </div>
+              
+              {/* Interpretation panel - responsive layout */}
+              <div className={`${isMobile ? (showMobileInterpretation ? 'flex-1' : 'hidden') : 'w-2/5'} bg-card ${isMobile ? '' : 'border-l'} border-border flex flex-col h-full`}>
+                <div className="p-3 md:p-4 border-b border-border bg-primary/5 flex justify-between items-center">
+                  <div className="flex items-center">
+                    <TarotLogo className="h-4 w-4 md:h-5 md:w-5 text-primary mr-2" />
+                    <h3 className="font-medium text-sm md:text-base">Reading Interpretation</h3>
+                  </div>
+                  {isMobile && (
+                    <button 
+                      onClick={() => setShowMobileInterpretation(false)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <XCircle className="h-5 w-5" />
+                    </button>
+                  )}
+                </div>
+                
+                <div className="flex-1 p-3 md:p-4 overflow-y-auto">
+                  {/* Card information */}
+                  {activeCardIndex !== null && selectedCards[activeCardIndex] && (
+                    <div className="mb-4 md:mb-6 p-2 md:p-3 bg-muted/30 border border-border rounded-lg">
+                      <div className="flex gap-2 md:gap-3">
+                        <div className="shrink-0 w-10 h-15 md:w-12 md:h-18 rounded-md overflow-hidden">
+                          <img 
+                            src={selectedCards[activeCardIndex].image_url} 
+                            alt={selectedCards[activeCardIndex].name} 
+                            className={`w-full h-full object-cover ${selectedCards[activeCardIndex].isReversed ? 'rotate-180' : ''}`}
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-medium text-sm md:text-base">{selectedCards[activeCardIndex].name} {selectedCards[activeCardIndex].isReversed && '(Reversed)'}</h4>
+                          <p className="text-xs text-accent mb-1">{selectedCards[activeCardIndex].position}</p>
+                          <p className="text-xs text-muted-foreground">{selectedCards[activeCardIndex].description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Interpretation text */}
+                  <div className="prose prose-sm prose-invert max-w-none">
+                    {interpretation.split('\n').map((paragraph, i) => (
+                      <p key={i} className="mb-2 md:mb-3 text-sm md:text-base">{paragraph}</p>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Card navigation */}
+                {selectedCards.length > 1 && (
+                  <div className="p-2 md:p-3 border-t border-border flex justify-between items-center">
+                    <button 
+                      onClick={() => setActiveCardIndex(prev => prev !== null && prev > 0 ? prev - 1 : selectedCards.length - 1)}
+                      className="btn btn-ghost p-1"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    
+                    <div className="text-sm text-muted-foreground">
+                      {activeCardIndex !== null ? activeCardIndex + 1 : 1} of {selectedCards.length} cards
+                    </div>
+                    
+                    <button 
+                      onClick={() => setActiveCardIndex(prev => prev !== null && prev < selectedCards.length - 1 ? prev + 1 : 0)}
+                      className="btn btn-ghost p-1"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-          </motion.div>
+          )}
         </div>
-      )}
+      </main>
+      
+      {/* Video chat overlay - mobile responsive */}
+      <AnimatePresence>
+        {showVideoChat && (
+          <motion.div 
+            className={`absolute ${isMobile ? 'top-14 right-2 w-40 h-30' : 'top-16 right-4 w-1/4 h-1/3 min-w-[300px] min-h-[200px]'} bg-card shadow-xl border border-border rounded-xl overflow-hidden z-20`}
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+          >
+            <div className="absolute top-1 right-1 z-30">
+              <button 
+                onClick={() => setShowVideoChat(false)}
+                className="bg-background/80 p-0.5 md:p-1 rounded-full text-muted-foreground hover:text-foreground"
+              >
+                <XCircle className="h-4 w-4 md:h-5 md:w-5" />
+              </button>
+            </div>
+            <VideoChat 
+              onClose={() => setShowVideoChat(false)}
+              sessionId={sessionId}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Share Room Modal - mobile responsive */}
+      <AnimatePresence>
+        {showShareModal && roomId && (
+          <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+            <motion.div 
+              className="relative bg-card max-w-md w-full rounded-xl overflow-hidden"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
+                <h3 className="font-serif font-bold">Share Reading Room</h3>
+                <button 
+                  onClick={() => setShowShareModal(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <XCircle className="h-5 w-5" />
+                </button>
+              </div>
+              
+              <div className="p-6">
+                <p className="mb-4 text-sm md:text-base">
+                  Share this link with others to invite them to your reading room.
+                </p>
+                
+                <div className="mb-6">
+                  <label htmlFor="roomLink" className="block text-sm font-medium mb-2">
+                    Room Invitation Link
+                  </label>
+                  <div className="flex">
+                    <input
+                      id="roomLink"
+                      type="text"
+                      value={generateShareableLink(roomId)}
+                      readOnly
+                      className="flex-1 p-2 text-sm rounded-l-md border border-r-0 border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <button
+                      onClick={copyRoomLink}
+                      className="p-2 bg-primary text-primary-foreground rounded-r-md hover:bg-primary/90 transition-colors flex items-center"
+                    >
+                      {showCopied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
+                    </button>
+                  </div>
+                  {showCopied && (
+                    <p className="text-xs text-success mt-2">Link copied to clipboard!</p>
+                  )}
+                </div>
+                
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setShowShareModal(false)}
+                    className="btn btn-primary px-4 py-2"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
