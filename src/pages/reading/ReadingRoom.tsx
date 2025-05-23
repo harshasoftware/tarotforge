@@ -132,6 +132,20 @@ const ReadingRoom = () => {
   const activeCardIndex = sessionState?.activeCardIndex;
   const sessionId = sessionState?.id;
 
+  // Debug session state
+  useEffect(() => {
+    console.log('Session state updated:', {
+      sessionState,
+      readingStep,
+      selectedLayout,
+      sessionLoading,
+      loading,
+      cards: cards?.length || 0,
+      error,
+      sessionError
+    });
+  }, [sessionState, readingStep, selectedLayout, sessionLoading, loading, cards, error, sessionError]);
+
   // Check for mobile screen size
   useEffect(() => {
     const checkMobile = () => {
@@ -170,15 +184,25 @@ const ReadingRoom = () => {
   }, [updateSession]);
 
   const handleLayoutSelect = useCallback((layout: ReadingLayout) => {
-    updateSession({
-      selectedLayout: layout,
-      selectedCards: [],
-      readingStep: 'drawing',
-      interpretation: '',
-      activeCardIndex: null,
-      zoomLevel: isMobile ? (layout.id === 'celtic-cross' ? 0.6 : 0.8) : (layout.id === 'celtic-cross' ? 0.8 : 1)
-    });
-    setShuffledDeck([...cards].sort(() => Math.random() - 0.5));
+    try {
+      console.log('Layout selected:', layout);
+      updateSession({
+        selectedLayout: layout,
+        selectedCards: [],
+        readingStep: 'drawing',
+        interpretation: '',
+        activeCardIndex: null,
+        zoomLevel: isMobile ? (layout.id === 'celtic-cross' ? 0.6 : 0.8) : (layout.id === 'celtic-cross' ? 0.8 : 1)
+      });
+      
+      // Only shuffle if cards are loaded
+      if (cards && cards.length > 0) {
+        setShuffledDeck([...cards].sort(() => Math.random() - 0.5));
+      }
+    } catch (error) {
+      console.error('Error selecting layout:', error);
+      setError('Failed to select layout. Please try again.');
+    }
   }, [updateSession, cards, isMobile]);
 
   const handleQuestionChange = useCallback((newQuestion: string) => {
@@ -316,7 +340,7 @@ const ReadingRoom = () => {
   const handleCardDrop = (positionIndex?: number, freePosition?: { x: number; y: number }) => {
     if (!draggedCard || !selectedLayout) return;
     
-    let newCard;
+    let newCard: any;
     
     if (selectedLayout.id === 'free-layout' && freePosition) {
       // Free layout - place at custom position
@@ -360,9 +384,9 @@ const ReadingRoom = () => {
     handleDragEnd();
     
     // Check if reading is complete (only for predefined layouts)
-    if (selectedLayout.id !== 'free-layout' && selectedCards.filter(card => card).length === selectedLayout.card_count - 1) {
+    if (selectedLayout.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout.card_count - 1) {
       // Auto-generate interpretation when all cards are placed
-      setTimeout(() => generateInterpretation([...selectedCards.filter(card => card), newCard]), 500);
+      setTimeout(() => generateInterpretation([...selectedCards.filter((card: any) => card), newCard]), 500);
     }
   };
 
@@ -664,7 +688,7 @@ const ReadingRoom = () => {
                   <input
                     id="question"
                     value={question}
-                    onChange={(e) => handleQuestionChange(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleQuestionChange(e.target.value)}
                     placeholder="What would you like guidance on?"
                     className="w-full p-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                   />
