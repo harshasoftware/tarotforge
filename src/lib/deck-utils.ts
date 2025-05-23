@@ -176,3 +176,38 @@ export const fetchUserCreatedDecks = async (userId: string): Promise<Deck[]> => 
     return [];
   }
 };
+
+/**
+ * Fetches all decks available to the user (created + free + purchased)
+ * @param userId The ID of the user (optional for guests)
+ * @returns Array of decks the user can access
+ */
+export const fetchUserOwnedDecks = async (userId?: string): Promise<Deck[]> => {
+  try {
+    let ownedDecks: Deck[] = [];
+    
+    // Always include free decks
+    const freeDecks = await fetchFreeDecks();
+    ownedDecks = [...freeDecks];
+    
+    // If user is authenticated, add their created decks
+    if (userId) {
+      const createdDecks = await fetchUserCreatedDecks(userId);
+      // Add created decks that aren't already in the free decks list
+      const uniqueCreatedDecks = createdDecks.filter(
+        created => !ownedDecks.some(owned => owned.id === created.id)
+      );
+      ownedDecks = [...ownedDecks, ...uniqueCreatedDecks];
+    }
+    
+    // TODO: Add purchased decks when purchase system is implemented
+    // const purchasedDecks = await fetchUserPurchasedDecks(userId);
+    // ownedDecks = [...ownedDecks, ...purchasedDecks];
+    
+    return ownedDecks;
+  } catch (error) {
+    console.error('Error in fetchUserOwnedDecks:', error);
+    // If there's an error, at least return the Rider Waite deck
+    return [rwDeck];
+  }
+};

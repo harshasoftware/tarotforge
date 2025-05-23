@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { fetchDeckById, fetchCardsByDeckId } from '../../lib/deck-utils';
+import { fetchDeckById, fetchCardsByDeckId, fetchUserOwnedDecks } from '../../lib/deck-utils';
 import { getReadingInterpretation } from '../../lib/gemini-ai';
 import VideoChat from '../../components/video/VideoChat';
 import TarotLogo from '../../components/ui/TarotLogo';
@@ -160,6 +160,11 @@ const ReadingRoom = () => {
   const activeCardIndex = sessionState?.activeCardIndex;
   const sessionId = sessionState?.id;
 
+  // Deck selection state
+  const [userOwnedDecks, setUserOwnedDecks] = useState<Deck[]>([]);
+  const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
+  const [deckSelectionLoading, setDeckSelectionLoading] = useState(false);
+
   // Debug session state
   useEffect(() => {
     console.log('ReadingRoom state updated:', {
@@ -279,6 +284,41 @@ const ReadingRoom = () => {
     updateSession({ question: newQuestion });
   }, [updateSession]);
   
+  // Handle deck selection
+  const handleDeckSelect = useCallback(async (deck: Deck) => {
+    try {
+      await fetchAndSetDeck(deck.id);
+      // Update URL to reflect selected deck
+      window.history.replaceState({}, '', `/reading-room/${deck.id}`);
+    } catch (error) {
+      console.error('Error selecting deck:', error);
+      setError('Failed to select deck. Please try again.');
+    }
+  }, []);
+  
+  // Handle deck change during reading (resets the session)
+  const handleDeckChange = useCallback(async (deck: Deck) => {
+    try {
+      // Reset the entire session when changing decks
+      updateSession({
+        selectedLayout: null,
+        selectedCards: [],
+        readingStep: 'setup',
+        interpretation: '',
+        activeCardIndex: null,
+        zoomLevel: 1,
+        question: ''
+      });
+      
+      await fetchAndSetDeck(deck.id);
+      // Update URL to reflect new deck
+      window.history.replaceState({}, '', `/reading-room/${deck.id}`);
+    } catch (error) {
+      console.error('Error changing deck:', error);
+      setError('Failed to change deck. Please try again.');
+    }
+  }, [updateSession]);
+  
   // Pinch to Zoom functionality
   const getTouchDistance = (touches: TouchList) => {
     if (touches.length < 2) return 0;
@@ -365,39 +405,68 @@ const ReadingRoom = () => {
   
   // Fetch deck and cards data
   useEffect(() => {
-    const fetchDeckData = async () => {
+    const fetchInitialData = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        const deckData = await fetchDeckById(deckId || 'rider-waite-classic');
+        // First, fetch user's owned decks
+        const ownedDecks = await fetchUserOwnedDecks(user?.id);
+        setUserOwnedDecks(ownedDecks);
         
-        if (deckData) {
-          setDeck(deckData);
-          
-          // Fetch cards for this deck
-          const cardsData = await fetchCardsByDeckId(deckData.id);
-          
-          if (cardsData && cardsData.length > 0) {
-            setCards(cardsData);
-            setShuffledDeck([...cardsData].sort(() => Math.random() - 0.5));
-          } else {
-            throw new Error("No cards found for this deck");
-          }
+        // If there's a deckId in the URL, use that deck
+        if (deckId) {
+          await fetchAndSetDeck(deckId);
         } else {
-          throw new Error("Deck not found");
+          // No deck specified, keep on loading screen until deck is selected
+          setLoading(false);
         }
-        
-        setLoading(false);
       } catch (error: any) {
-        console.error('Error fetching deck data:', error);
-        setError(error.message || "An error occurred loading the deck. Please try again.");
+        console.error('Error fetching initial data:', error);
+        setError(error.message || "An error occurred loading the reading room. Please try again.");
         setLoading(false);
       }
     };
     
-    fetchDeckData();
-  }, [deckId]);
+    fetchInitialData();
+  }, [deckId, user?.id]);
+  
+  // Function to fetch and set a specific deck
+  const fetchAndSetDeck = async (targetDeckId: string) => {
+    try {
+      setDeckSelectionLoading(true);
+      
+      const deckData = await fetchDeckById(targetDeckId);
+      
+      if (deckData) {
+        setDeck(deckData);
+        setSelectedDeckId(targetDeckId);
+        
+        // Fetch cards for this deck
+        const cardsData = await fetchCardsByDeckId(targetDeckId);
+        
+        if (cardsData && cardsData.length > 0) {
+          setCards(cardsData);
+          setShuffledDeck([...cardsData].sort(() => Math.random() - 0.5));
+        } else {
+          throw new Error("No cards found for this deck");
+        }
+        
+        // Move to setup step if not already in a reading
+        if (!readingStep || readingStep === 'setup') {
+          setReadingStepWrapped('setup');
+        }
+      } else {
+        throw new Error("Deck not found");
+      }
+    } catch (error: any) {
+      console.error('Error fetching deck data:', error);
+      setError(error.message || "An error occurred loading the deck. Please try again.");
+    } finally {
+      setDeckSelectionLoading(false);
+      setLoading(false);
+    }
+  };
   
   const shuffleDeck = () => {
     setShuffledDeck([...shuffledDeck].sort(() => Math.random() - 0.5));
@@ -1040,10 +1109,157 @@ const ReadingRoom = () => {
 
         {/* Reading table */}
         <div className="h-full relative bg-gradient-to-b from-background to-background/80">
+          {/* Step 0: Deck Selection Screen */}
+          {!deck && !deckSelectionLoading && (
+            <div className={`absolute inset-0 flex items-center justify-center ${isMobile ? (isLandscape ? 'px-6 pt-12 pb-4' : 'px-4 pt-16 pb-4') : 'p-4 pt-24'}`}>
+              <div className={`w-full ${isMobile ? (isLandscape ? 'max-w-4xl max-h-full overflow-y-auto' : 'max-h-full overflow-y-auto') : 'max-w-4xl'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
+                <div className="text-center mb-6">
+                  <h2 className={`${isMobile ? 'text-lg' : 'text-xl md:text-2xl'} font-serif font-bold mb-2`}>Choose Your Deck</h2>
+                  <p className="text-muted-foreground text-sm md:text-base">
+                    Select a tarot deck from your collection to begin your reading
+                  </p>
+                </div>
+                
+                {userOwnedDecks.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No Decks Available</h3>
+                    <p className="text-muted-foreground mb-6">
+                      You don't have any decks in your collection yet. Explore options below to get started.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <Link to="/collection" className="btn btn-secondary px-4 py-2 flex items-center">
+                        <Package className="mr-2 h-4 w-4" />
+                        My Collection
+                      </Link>
+                      <Link to="/marketplace" className="btn btn-primary px-4 py-2 flex items-center">
+                        <ShoppingBag className="mr-2 h-4 w-4" />
+                        Browse Marketplace
+                      </Link>
+                      <Link to="/" className="btn btn-accent px-4 py-2 flex items-center">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create Deck
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                      {userOwnedDecks.map((ownedDeck) => (
+                        <motion.div
+                          key={ownedDeck.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5 }}
+                          className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                          onClick={() => handleDeckSelect(ownedDeck)}
+                        >
+                          <div className="aspect-[3/4] bg-primary/10 overflow-hidden">
+                            {ownedDeck.cover_image ? (
+                              <img 
+                                src={ownedDeck.cover_image} 
+                                alt={ownedDeck.title}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <TarotLogo className="h-12 w-12 text-primary/50" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-3">
+                            <h3 className="font-medium text-sm md:text-base mb-1 truncate">{ownedDeck.title}</h3>
+                            <p className="text-xs text-muted-foreground mb-2">by {ownedDeck.creator_name}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{ownedDeck.description}</p>
+                            {ownedDeck.is_free && (
+                              <div className="flex items-center mt-2">
+                                <Zap className="h-3 w-3 text-primary mr-1" />
+                                <span className="text-xs text-primary font-medium">Free</span>
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                    
+                    <div className="border-t border-border pt-4">
+                      <p className="text-sm text-muted-foreground text-center mb-3">
+                        Need more decks? Explore our collection
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                        <Link to="/collection" className="btn btn-ghost border border-input px-4 py-2 text-sm flex items-center">
+                          <Package className="mr-2 h-4 w-4" />
+                          My Collection
+                        </Link>
+                        <Link to="/marketplace" className="btn btn-secondary px-4 py-2 text-sm flex items-center">
+                          <ShoppingBag className="mr-2 h-4 w-4" />
+                          Browse Marketplace
+                        </Link>
+                        <Link to="/" className="btn btn-accent px-4 py-2 text-sm flex items-center">
+                          <Home className="mr-2 h-4 w-4" />
+                          Create Deck
+                        </Link>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Deck selection loading */}
+          {deckSelectionLoading && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-muted-foreground">
+                  Loading deck...
+                </p>
+              </div>
+            </div>
+          )}
+          
           {/* Step 1: Setup Screen */}
-          {readingStep === 'setup' && (
+          {readingStep === 'setup' && deck && (
             <div className={`absolute inset-0 flex items-center justify-center ${isMobile ? (isLandscape ? 'px-6 pt-12 pb-4' : 'px-4 pt-16 pb-4') : 'p-4 pt-24'}`}>
               <div className={`w-full ${isMobile ? (isLandscape ? 'max-w-2xl max-h-full overflow-y-auto' : 'max-h-full overflow-y-auto') : 'max-w-md'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
+                {/* Deck info */}
+                <div className="flex items-center justify-between mb-4 p-3 bg-muted/30 rounded-lg">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-14 rounded-md overflow-hidden bg-primary/10 shrink-0">
+                      {deck.cover_image ? (
+                        <img 
+                          src={deck.cover_image} 
+                          alt={deck.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <TarotLogo className="h-4 w-4 text-primary/50" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium text-sm truncate">{deck.title}</h3>
+                      <p className="text-xs text-muted-foreground">by {deck.creator_name}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      // Reset to deck selection
+                      setDeck(null);
+                      setCards([]);
+                      setShuffledDeck([]);
+                      setSelectedDeckId(null);
+                      window.history.replaceState({}, '', '/reading-room');
+                    }}
+                    className="btn btn-ghost text-xs px-2 py-1 shrink-0"
+                    title="Change deck"
+                  >
+                    Change
+                  </button>
+                </div>
+                
                 <h2 className={`${isMobile ? 'text-lg' : 'text-lg md:text-xl'} font-serif font-bold ${isMobile ? 'mb-3' : 'mb-4'}`}>Select a Layout</h2>
                 
                 <div className={`space-y-2 ${isMobile ? 'mb-3' : 'mb-4'}`}>
