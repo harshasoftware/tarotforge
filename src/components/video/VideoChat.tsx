@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useVideoCall } from '../../context/VideoCallContext';
 import { useAuth } from '../../context/AuthContext';
-import { User, Video, X, Copy, Check, AlertCircle, Share2, MessageSquare } from 'lucide-react';
+import { User, Video, X, Copy, Check, AlertCircle, Share2, MessageSquare, Minimize2, Maximize2, Send } from 'lucide-react';
 import { motion } from 'framer-motion';
 import VideoControls from './VideoControls';
 import DraggableVideo from './DraggableVideo';
 import ChatPanel from './ChatPanel';
 import { useChat } from '../../context/ChatContext';
+import ChatBubble from './ChatBubble';
 
 interface VideoChatProps {
   onClose: () => void;
@@ -22,15 +23,17 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     startCall, 
     endCall, 
     error,
+    setError,
     generateShareableLink,
     requestPermissions,
     permissionDenied
   } = useVideoCall();
   
-  const { joinRoom, leaveRoom } = useChat();
+  const { joinRoom, leaveRoom, messages } = useChat();
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
@@ -49,6 +52,32 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   const [isChatVisible, setIsChatVisible] = useState(true);
   const [isChatDragging, setIsChatDragging] = useState(false);
   const [actualSessionId, setActualSessionId] = useState<string | null>(null);
+
+  // Position update handlers
+  const updateLocalVideoPosition = (position: { x: number; y: number }) => {
+    setLocalVideoPosition(position);
+  };
+
+  const updateRemoteVideoPosition = (position: { x: number; y: number }) => {
+    setRemoteVideoPosition(position);
+  };
+
+  const updateChatPosition = (position: { x: number; y: number }) => {
+    setChatPosition(position);
+  };
+
+  // Chat handlers
+  const toggleChatMinimized = () => {
+    setChatMinimized(!chatMinimized);
+  };
+
+  const handleChatDragStart = () => {
+    setIsChatDragging(true);
+  };
+
+  const handleChatDragEnd = () => {
+    setIsChatDragging(false);
+  };
   
   // Initialize call
   useEffect(() => {
