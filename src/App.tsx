@@ -135,6 +135,9 @@ function App() {
     <SentryErrorBoundary>
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
+          {/* Reading room outside Layout for full-screen experience */}
+          <Route path="reading-room/:deckId?" element={<ReadingRoom />} />
+          
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="login" element={<Login />} />
@@ -151,9 +154,6 @@ function App() {
             
             {/* Authentication callback route */}
             <Route path="auth/callback" element={<AuthCallback />} />
-            
-            {/* Make reading room directly accessible */}
-            <Route path="reading-room/:deckId?" element={<ReadingRoom />} />
             
             <Route element={<ProtectedRoute />}>
               <Route path="collection" element={<Collection />} />

@@ -353,6 +353,7 @@ const ReadingRoom = () => {
         position: `Card ${selectedCards.length + 1}`,
         customPosition: `Custom Position ${selectedCards.length + 1}`,
         isReversed,
+        revealed: false, // Card starts face-down
         x: freePosition.x,
         y: freePosition.y
       };
@@ -369,7 +370,8 @@ const ReadingRoom = () => {
       newCard = {
         ...draggedCard,
         position: position.name,
-        isReversed
+        isReversed,
+        revealed: false // Card starts face-down
       };
       
       // Update selected cards
@@ -471,6 +473,18 @@ const ReadingRoom = () => {
   
   const resetZoom = () => {
     setZoomLevelWrapped(1);
+  };
+  
+  // Handle card flip when clicked
+  const handleCardFlip = (cardIndex: number) => {
+    const newSelectedCards = [...selectedCards];
+    if (newSelectedCards[cardIndex]) {
+      newSelectedCards[cardIndex] = {
+        ...newSelectedCards[cardIndex],
+        revealed: !(newSelectedCards[cardIndex] as any).revealed
+      } as any;
+      updateSession({ selectedCards: newSelectedCards });
+    }
   };
   
   // Add mouse move handler to document for dragging
@@ -813,24 +827,50 @@ const ReadingRoom = () => {
                         top: `${selectedCard.y}%`,
                         zIndex: activeCardIndex === index ? 20 : 10 + index
                       }}
-                      onClick={() => setActiveCardIndexWrapped(index)}
+                      onClick={() => {
+                        if ((selectedCard as any).revealed) {
+                          setActiveCardIndexWrapped(index);
+                        } else {
+                          handleCardFlip(index);
+                        }
+                      }}
                     >
-                      <div 
+                      <motion.div 
                         className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${
                           activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
                         }`}
                         style={{ 
-                          transform: selectedCard.isReversed ? 'rotate(180deg)' : 'none'
+                          transform: (selectedCard as any).isReversed ? 'rotate(180deg)' : 'none'
+                        }}
+                        animate={{ 
+                          rotateY: (selectedCard as any).revealed ? 0 : 180 
+                        }}
+                        transition={{ 
+                          duration: 0.6, 
+                          ease: "easeInOut" 
                         }}
                       >
-                        <img 
-                          src={selectedCard.image_url} 
-                          alt={selectedCard.name} 
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
+                        {(selectedCard as any).revealed ? (
+                          <img 
+                            src={selectedCard.image_url} 
+                            alt={selectedCard.name} 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
+                            <div className="text-center">
+                              <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
+                                <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
+                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
+                                </svg>
+                              </div>
+                              <span className="text-xs text-primary-foreground opacity-75">Click to reveal</span>
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
                       <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
-                        {selectedCard.position} {selectedCard.isReversed && '(R)'}
+                        {selectedCard.position} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
                       </div>
                     </motion.div>
                   ))}
@@ -890,24 +930,57 @@ const ReadingRoom = () => {
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ duration: 0.5 }}
                             className="relative"
-                            onClick={() => setActiveCardIndexWrapped(index)}
+                            onClick={() => {
+                              if ((selectedCard as any).revealed) {
+                                setActiveCardIndexWrapped(index);
+                              } else {
+                                handleCardFlip(index);
+                              }
+                            }}
+                            whileHover={{ scale: 1.05 }}
+                            animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
+                            style={{ 
+                              position: 'absolute',
+                              left: `${selectedCard.x}%`, 
+                              top: `${selectedCard.y}%`,
+                              transform: 'translate(-50%, -50%)',
+                              zIndex: activeCardIndex === index ? 20 : 10 + index
+                            }}
                           >
-                            <div 
+                            <motion.div 
                               className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`}
                               style={{ 
-                                transform: selectedCard.isReversed 
-                                  ? `rotate(180deg)${position.rotation ? ` rotate(${position.rotation}deg)` : ''}` 
-                                  : position.rotation ? `rotate(${position.rotation}deg)` : 'none'
+                                transform: (selectedCard as any).isReversed ? 'rotate(180deg)' : 'none'
+                              }}
+                              animate={{ 
+                                rotateY: (selectedCard as any).revealed ? 0 : 180 
+                              }}
+                              transition={{ 
+                                duration: 0.6, 
+                                ease: "easeInOut" 
                               }}
                             >
-                              <img 
-                                src={selectedCard.image_url} 
-                                alt={selectedCard.name} 
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
+                              {(selectedCard as any).revealed ? (
+                                <img 
+                                  src={selectedCard.image_url} 
+                                  alt={selectedCard.name} 
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
+                                  <div className="text-center">
+                                    <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
+                                      <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
+                                      </svg>
+                                    </div>
+                                    <span className="text-xs text-primary-foreground opacity-75">Click to reveal</span>
+                                  </div>
+                                </div>
+                              )}
+                            </motion.div>
                             <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
-                              {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {selectedCard.isReversed && '(R)'}
+                              {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
                             </div>
                           </motion.div>
                         )}
@@ -1089,7 +1162,13 @@ const ReadingRoom = () => {
                     <motion.div
                       key={`free-interp-${index}`}
                       className="relative"
-                      onClick={() => setActiveCardIndexWrapped(index)}
+                      onClick={() => {
+                        if (selectedCard.revealed) {
+                          setActiveCardIndexWrapped(index);
+                        } else {
+                          handleCardFlip(index);
+                        }
+                      }}
                       whileHover={{ scale: 1.05 }}
                       animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
                       style={{ 
@@ -1100,22 +1179,42 @@ const ReadingRoom = () => {
                         zIndex: activeCardIndex === index ? 20 : 10 + index
                       }}
                     >
-                      <div 
+                      <motion.div 
                         className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${
                           activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
                         }`}
                         style={{ 
-                          transform: selectedCard.isReversed ? 'rotate(180deg)' : 'none'
+                          transform: (selectedCard as any).isReversed ? 'rotate(180deg)' : 'none'
+                        }}
+                        animate={{ 
+                          rotateY: (selectedCard as any).revealed ? 0 : 180 
+                        }}
+                        transition={{ 
+                          duration: 0.6, 
+                          ease: "easeInOut" 
                         }}
                       >
-                        <img 
-                          src={selectedCard.image_url} 
-                          alt={selectedCard.name} 
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
+                        {(selectedCard as any).revealed ? (
+                          <img 
+                            src={selectedCard.image_url} 
+                            alt={selectedCard.name} 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
+                            <div className="text-center">
+                              <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
+                                <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
+                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
+                                </svg>
+                              </div>
+                              <span className="text-xs text-primary-foreground opacity-75">Click to reveal</span>
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
                       <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
-                        {selectedCard.position} {selectedCard.isReversed && '(R)'}
+                        {selectedCard.position} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
                       </div>
                     </motion.div>
                   ))}
@@ -1137,7 +1236,13 @@ const ReadingRoom = () => {
                       >
                         <motion.div
                           className="relative"
-                          onClick={() => setActiveCardIndexWrapped(index)}
+                          onClick={() => {
+                            if (selectedCard.revealed) {
+                              setActiveCardIndexWrapped(index);
+                            } else {
+                              handleCardFlip(index);
+                            }
+                          }}
                           whileHover={{ scale: 1.05 }}
                           animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
                         >
@@ -1146,19 +1251,30 @@ const ReadingRoom = () => {
                               activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
                             }`}
                             style={{ 
-                              transform: selectedCard.isReversed 
-                                ? `rotate(180deg)${position.rotation ? ` rotate(${position.rotation}deg)` : ''}` 
-                                : position.rotation ? `rotate(${position.rotation}deg)` : 'none'
+                              transform: (selectedCard as any).isReversed ? 'rotate(180deg)' : 'none'
                             }}
                           >
-                            <img 
-                              src={selectedCard.image_url} 
-                              alt={selectedCard.name} 
-                              className="w-full h-full object-cover"
-                            />
+                            {selectedCard.revealed ? (
+                              <img 
+                                src={selectedCard.image_url} 
+                                alt={selectedCard.name} 
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
+                                <div className="text-center">
+                                  <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
+                                    <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
+                                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
+                                    </svg>
+                                  </div>
+                                  <span className="text-xs text-primary-foreground opacity-75">Click to reveal</span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                           <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
-                            {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {selectedCard.isReversed && '(R)'}
+                            {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {selectedCard.revealed && selectedCard.isReversed && '(R)'}
                           </div>
                         </motion.div>
                       </div>
