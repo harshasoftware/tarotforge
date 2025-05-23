@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home } from 'lucide-react';
@@ -12,7 +12,7 @@ import GuestAccountUpgrade from '../../components/ui/GuestAccountUpgrade';
 import { v4 as uuidv4 } from 'uuid';
 import { useReadingSession } from '../../hooks/useReadingSession';
 
-// Mock reading layouts
+// Mock reading layouts - moved outside component to prevent recreation
 const readingLayouts: ReadingLayout[] = [
   {
     id: 'free-layout',
@@ -167,23 +167,40 @@ const ReadingRoom = () => {
   const [userOwnedDecks, setUserOwnedDecks] = useState<Deck[]>([]);
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const [deckSelectionLoading, setDeckSelectionLoading] = useState(false);
-
-  // Debug session state
-  useEffect(() => {
-    console.log('ReadingRoom state updated:', {
-      sessionState,
-      readingStep,
-      selectedLayout,
-      sessionLoading,
-      loading,
-      cards: cards?.length || 0,
-      error,
-      sessionError,
-      sessionId: sessionState?.id,
-      user: user?.id || 'anonymous',
-      isGuest
-    });
-  }, [sessionState, readingStep, selectedLayout, sessionLoading, loading, cards, error, sessionError, user, isGuest]);
+  
+  // Memoized computed values to prevent unnecessary recalculations
+  const cardCounts = useMemo(() => {
+    const placedCards = selectedCards.filter(card => card).length;
+    const totalRequired = selectedLayout?.card_count === 999 ? '∞' : selectedLayout?.card_count || 0;
+    return { placedCards, totalRequired };
+  }, [selectedCards, selectedLayout?.card_count]);
+  
+  const isReadingComplete = useMemo(() => {
+    if (!selectedLayout) return false;
+    if (selectedLayout.id === 'free-layout') return selectedCards.length > 0;
+    return selectedCards.filter(card => card).length === selectedLayout.card_count;
+  }, [selectedLayout, selectedCards]);
+  
+  const participantNames = useMemo(() => 
+    participants.map(p => p.name || 'Anonymous').join(', ')
+  , [participants]);
+  
+  // Memoized URLs and computed values
+  const shareableLink = useMemo(() => 
+    sessionId ? generateShareableLink(sessionId) : ''
+  , [sessionId]);
+  
+  // Optimized mobile layout classes
+  const mobileLayoutClasses = useMemo(() => ({
+    topControls: isMobile 
+      ? (isLandscape 
+          ? 'top-1 left-2 right-2 flex justify-between items-center' 
+          : 'top-2 left-2 right-2 flex justify-between items-center')
+      : 'top-4 left-4 right-4 flex justify-between items-start',
+    mainPadding: isMobile ? (isLandscape ? 'px-6 pt-12 pb-4' : 'px-4 pt-16 pb-4') : 'p-4 pt-24',
+    cardSize: isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36',
+    buttonSize: isMobile ? 'p-1.5' : 'p-2'
+  }), [isMobile, isLandscape]);
 
   // Check for mobile screen size and landscape orientation
   useEffect(() => {
@@ -249,19 +266,19 @@ const ReadingRoom = () => {
   }, [isMobile, readingStep, hasShownInitialHint]);
 
   // Function to show hint manually (via help button)
-  const showHint = () => {
+  const showHint = useCallback(() => {
     setShowPinchHint(true);
     
     // Auto-hide after 4 seconds
     setTimeout(() => {
       setShowPinchHint(false);
     }, 4000);
-  };
+  }, []);
 
   // Function to hide hint manually
-  const hideHint = () => {
+  const hideHint = useCallback(() => {
     setShowPinchHint(false);
-  };
+  }, []);
   
   // Update session wrappers for state changes (moved before touch handlers)
   const setZoomLevelWrapped = useCallback((newZoomLevel: number) => {
@@ -486,12 +503,12 @@ const ReadingRoom = () => {
     }
   };
   
-  const shuffleDeck = () => {
-    setShuffledDeck([...shuffledDeck].sort(() => Math.random() - 0.5));
-  };
+  const shuffleDeck = useCallback(() => {
+    setShuffledDeck(prev => [...prev].sort(() => Math.random() - 0.5));
+  }, []);
   
   // Handle moving placed cards in free layout
-  const handlePlacedCardDrag = (cardIndex: number, event: any, info: any) => {
+  const handlePlacedCardDrag = useCallback((cardIndex: number, event: any, info: any) => {
     if (selectedLayout?.id !== 'free-layout' || !readingAreaRef.current) return;
     
     const rect = readingAreaRef.current.getBoundingClientRect();
@@ -510,7 +527,36 @@ const ReadingRoom = () => {
         updateSession({ selectedCards: newSelectedCards });
       }
     }
-  };
+  }, [selectedLayout?.id, selectedCards, updateSession]);
+  
+  const zoomIn = useCallback(() => {
+    setZoomLevelWrapped(Math.min(zoomLevel + 0.2, 2));
+  }, [setZoomLevelWrapped, zoomLevel]);
+  
+  const zoomOut = useCallback(() => {
+    setZoomLevelWrapped(Math.max(zoomLevel - 0.2, 0.5));
+  }, [setZoomLevelWrapped, zoomLevel]);
+  
+  const resetZoom = useCallback(() => {
+    setZoomLevelWrapped(1);
+    setZoomFocus(null);
+    setPanOffset({ x: 0, y: 0 });
+  }, [setZoomLevelWrapped]);
+  
+  const resetReading = useCallback(() => {
+    updateSession({
+      readingStep: 'setup',
+      selectedLayout: null,
+      selectedCards: [],
+      interpretation: '',
+      activeCardIndex: null,
+      zoomLevel: 1
+    });
+    if (cards.length > 0) {
+      setShuffledDeck([...cards].sort(() => Math.random() - 0.5));
+    }
+    setShowMobileInterpretation(false);
+  }, [updateSession, cards]);
   
   // Drag and Drop Functions
   const handleDragStart = (card: Card, index: number, e: any) => {
@@ -655,33 +701,6 @@ const ReadingRoom = () => {
     }, 500);
   };
   
-  const resetReading = () => {
-    updateSession({
-      readingStep: 'setup',
-      selectedLayout: null,
-      selectedCards: [],
-      interpretation: '',
-      activeCardIndex: null,
-      zoomLevel: 1
-    });
-    setShuffledDeck([...cards].sort(() => Math.random() - 0.5));
-    setShowMobileInterpretation(false);
-  };
-  
-  const zoomIn = () => {
-    setZoomLevelWrapped(Math.min(zoomLevel + 0.2, 2));
-  };
-  
-  const zoomOut = () => {
-    setZoomLevelWrapped(Math.max(zoomLevel - 0.2, 0.5));
-  };
-  
-  const resetZoom = () => {
-    setZoomLevelWrapped(1);
-    setZoomFocus(null);
-    setPanOffset({ x: 0, y: 0 });
-  };
-  
   // Pan functionality for dragging the view when zoomed
   const handlePanStart = (clientX: number, clientY: number) => {
     if (zoomLevel <= 1) return; // Only allow panning when zoomed in
@@ -814,7 +833,7 @@ const ReadingRoom = () => {
   };
   
   // Handle card flip when clicked
-  const handleCardFlip = (cardIndex: number) => {
+  const handleCardFlip = useCallback((cardIndex: number) => {
     const newSelectedCards = [...selectedCards];
     if (newSelectedCards[cardIndex]) {
       newSelectedCards[cardIndex] = {
@@ -823,7 +842,7 @@ const ReadingRoom = () => {
       } as any;
       updateSession({ selectedCards: newSelectedCards });
     }
-  };
+  }, [selectedCards, updateSession]);
   
   // Add mouse move handler to document for dragging
   useEffect(() => {
@@ -855,21 +874,20 @@ const ReadingRoom = () => {
   }, [isDragging, isPanning]);
   
   // Generate shareable link using session ID
-  const generateShareableLink = (id: string): string => {
+  const generateShareableLink = useCallback((id: string): string => {
     const baseUrl = window.location.origin;
     const currentPath = window.location.pathname;
     return `${baseUrl}${currentPath}?join=${id}`;
-  };
+  }, []);
 
   // Function to copy room link to clipboard
-  const copyRoomLink = () => {
+  const copyRoomLink = useCallback(() => {
     if (sessionId) {
-      const shareableLink = generateShareableLink(sessionId);
       navigator.clipboard.writeText(shareableLink);
       setShowCopied(true);
       setTimeout(() => setShowCopied(false), 3000);
     }
-  };
+  }, [sessionId, shareableLink]);
   
   // Handle sharing with native share API on mobile or modal on desktop
   const handleShare = async () => {
@@ -987,13 +1005,7 @@ const ReadingRoom = () => {
       {/* Main content - full screen with floating controls */}
       <main className="flex-1 overflow-hidden relative">
         {/* Floating controls - redesigned mobile layout */}
-        <div className={`absolute z-50 ${
-          isMobile 
-            ? (isLandscape 
-                ? 'top-1 left-2 right-2 flex justify-between items-center' 
-                : 'top-2 left-2 right-2 flex justify-between items-center')
-            : 'top-4 left-4 right-4 flex justify-between items-start'
-        }`}>
+        <div className={`absolute z-50 ${mobileLayoutClasses.topControls}`}>
           {/* Left side - Back button and title for mobile, back button and session info for desktop */}
           <div className={`flex ${isMobile ? 'items-center gap-2' : 'items-center gap-1 md:gap-2'}`}>
             <Link 
@@ -1064,7 +1076,7 @@ const ReadingRoom = () => {
                   {participants.length > 0 && (
                     <div 
                       className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full cursor-pointer"
-                      title={participants.map(p => p.name || 'Anonymous').join(', ')}
+                      title={participantNames}
                     >
                       <Users className="h-3 w-3" />
                       <span className="text-xs">{participants.length}</span>
@@ -1160,8 +1172,8 @@ const ReadingRoom = () => {
         <div className="h-full relative bg-gradient-to-b from-background to-background/80">
           {/* Step 0: Deck Selection Screen */}
           {!deck && !deckSelectionLoading && (
-            <div className={`absolute inset-0 flex items-center justify-center ${isMobile ? (isLandscape ? 'px-6 pt-12 pb-4' : 'px-4 pt-16 pb-4') : 'p-4 pt-24'}`}>
-              <div className={`w-full ${isMobile ? (isLandscape ? 'max-w-4xl max-h-full overflow-y-auto' : 'max-h-full overflow-y-auto') : 'max-w-4xl'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
+            <div className={`absolute inset-0 flex items-center justify-center ${mobileLayoutClasses.mainPadding}`}>
+              <div className={`w-full ${isMobile ? 'max-w-4xl max-h-full overflow-y-auto' : 'max-w-4xl'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
                 <div className="text-center mb-6">
                   <h2 className={`${isMobile ? 'text-lg' : 'text-xl md:text-2xl'} font-serif font-bold mb-2`}>Choose Your Deck</h2>
                   <p className="text-muted-foreground text-sm md:text-base">
@@ -1270,8 +1282,8 @@ const ReadingRoom = () => {
           
           {/* Step 1: Setup Screen */}
           {readingStep === 'setup' && deck && (
-            <div className={`absolute inset-0 flex items-center justify-center ${isMobile ? (isLandscape ? 'px-6 pt-12 pb-4' : 'px-4 pt-16 pb-4') : 'p-4 pt-24'}`}>
-              <div className={`w-full ${isMobile ? (isLandscape ? 'max-w-2xl max-h-full overflow-y-auto' : 'max-h-full overflow-y-auto') : 'max-w-md'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
+            <div className={`absolute inset-0 flex items-center justify-center ${mobileLayoutClasses.mainPadding}`}>
+              <div className={`w-full ${isMobile ? 'max-w-2xl max-h-full overflow-y-auto' : 'max-w-md'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
                 {/* Deck info */}
                 <div className="flex items-center gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
                   <div className="w-10 h-14 rounded-md overflow-hidden bg-primary/10 shrink-0">
@@ -2205,7 +2217,7 @@ const ReadingRoom = () => {
                     <input
                       id="roomLink"
                       type="text"
-                      value={generateShareableLink(sessionId)}
+                      value={shareableLink}
                       readOnly
                       className="flex-1 p-2 text-sm rounded-l-md border border-r-0 border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                     />
@@ -2260,4 +2272,4 @@ const ReadingRoom = () => {
   );
 };
 
-export default ReadingRoom;
+export default memo(ReadingRoom);
