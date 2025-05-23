@@ -273,23 +273,21 @@ const Home = () => {
   const handleThemeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (themePrompt.trim()) {
-      // Check if user is authenticated
-      if (!user) {
+      if (user) {
+        // User is authenticated, proceed directly to deck creation
+        navigate('/create-deck', { 
+          state: {
+            initialTheme: themePrompt,
+            autoGenerate: true,
+            startGenerating: true // Add flag to start generation immediately
+          }
+        });
+      } else {
         // Store deck creation intent in localStorage
         localStorage.setItem('pending_deck_theme', themePrompt);
-        // Show the sign-in modal instead of redirecting
+        // Show the sign-in modal
         setShowSignInModal(true);
-        return;
       }
-      
-      // User is already authenticated, proceed immediately to deck creation
-      // Skip the manual form input step and auto-generate deck details from the prompt
-      navigate('/create-deck', { 
-        state: {
-          initialTheme: themePrompt,
-          autoGenerate: true
-        }
-      });
       
       // Update the used credits flag after navigating
       if (!hasUsedCredits) {

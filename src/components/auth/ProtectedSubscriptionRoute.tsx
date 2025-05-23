@@ -27,11 +27,8 @@ const ProtectedSubscriptionRoute = () => {
   // Check if user can generate a deck (either subscribed or has deck allowance)
   const canCreateDeck = isSubscribed || canGenerateCompleteDeck;
   
-  // Authenticated but not subscribed and no credits - show subscription required message
+  // Authenticated but not subscribed and no credits - still allow access but with limitations
   if (!canCreateDeck) {
-    // Instead of blocking with SubscriptionRequired, allow access but with limitations
-    // We'll show the subscription required component to inform the user
-    // but still allow them to proceed with limited functionality
     return <Outlet />;
   }
   

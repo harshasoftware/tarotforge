@@ -10,6 +10,8 @@ export const checkDeckGenerationEligibility = async (
   userId: string,
   deckType: 'major_arcana' | 'complete'
 ): Promise<boolean> => {
+  if (!userId) return false;
+  
   try {
     // Fetch the user's current usage and plan limits
     const { data: usageData, error: usageError } = await supabase
@@ -63,6 +65,8 @@ export const recordDeckGeneration = async (
   userId: string,
   deckType: 'major_arcana' | 'complete'
 ): Promise<boolean> => {
+  if (!userId) return false;
+  
   try {
     // Determine which counter to increment
     const updateField = deckType === 'major_arcana' ? 'major_arcana_generated' : 'complete_decks_generated';
@@ -95,6 +99,8 @@ export const recordRegenerations = async (
   userId: string,
   count: number = 1
 ): Promise<boolean> => {
+  if (!userId) return false;
+  
   try {
     // Get current regeneration count
     const { data: usageData, error: usageError } = await supabase
@@ -141,6 +147,8 @@ export const recordRegenerations = async (
  * @returns Usage and limit information
  */
 export const getDeckGenerationStatus = async (userId: string) => {
+  if (!userId) return null;
+  
   try {
     // Get the user's current usage
     const { data: usageData, error: usageError } = await supabase
