@@ -7,6 +7,7 @@ import { SubscriptionProvider } from './context/SubscriptionContext';
 import { DeckLimitProvider } from './context/DeckLimitContext'; 
 import { VideoCallProvider } from './context/VideoCallContext';
 import { DeckQuotaProvider } from './context/DeckQuotaContext';
+import { ChatProvider } from './context/ChatContext';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 import { 

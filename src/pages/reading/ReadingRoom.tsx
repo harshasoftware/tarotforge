@@ -629,8 +629,8 @@ const ReadingRoom = () => {
       {/* Card Details Modal */}
       {showCardDetails && selectedCardForDetails && (
         <motion.div
-          initial={{ opacity: 0 }} 
-          animate={{ opacity: 1 }} 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
           className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
           onClick={() => setShowCardDetails(false)}
@@ -638,7 +638,7 @@ const ReadingRoom = () => {
           <motion.div 
             className="bg-card rounded-xl border border-border overflow-hidden max-w-2xl w-full"
             initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }} 
+            animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.3 }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -690,4 +690,4 @@ const ReadingRoom = () => {
       {showShareModal && roomId && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <motion.div
-            className="relative bg-card max-w-md w-full rounded-xl overflow-
+            className="relative bg-card max-w-md w-full rounded-xl overflow-hidden"
