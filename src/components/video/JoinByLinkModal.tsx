@@ -12,7 +12,7 @@ const JoinByLinkModal = ({ onClose, onJoinSuccess }: JoinByLinkModalProps) => {
   const [inviteLink, setInviteLink] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { joinWithLink } = useVideoCall();
+  const { joinWithLink, setError: setVideoCallError } = useVideoCall();
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +25,7 @@ const JoinByLinkModal = ({ onClose, onJoinSuccess }: JoinByLinkModalProps) => {
     try {
       setLoading(true);
       setError('');
+      setVideoCallError(null);
       
       const success = await joinWithLink(inviteLink.trim());
       if (success) {
@@ -72,15 +73,20 @@ const JoinByLinkModal = ({ onClose, onJoinSuccess }: JoinByLinkModalProps) => {
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                   <LinkIcon className="h-4 w-4" />
                 </div>
-                <input
-                  id="inviteLink"
-                  type="text"
-                  value={inviteLink}
-                  onChange={(e) => setInviteLink(e.target.value)}
-                  placeholder="https://example.com/reading-room?join=..."
-                  className={`w-full pl-9 pr-4 py-2 rounded-md border ${error ? 'border-destructive' : 'border-input'} 
-                    bg-background focus:outline-none focus:ring-2 focus:ring-primary`}
-                />
+                <div className="flex-1">
+                  <input
+                    id="inviteLink"
+                    type="text"
+                    value={inviteLink}
+                    onChange={(e) => setInviteLink(e.target.value)}
+                    placeholder="https://example.com/reading-room?join=..."
+                    className={`w-full pl-9 pr-4 py-2 rounded-md border ${error ? 'border-destructive' : 'border-input'} 
+                      bg-background focus:outline-none focus:ring-2 focus:ring-primary`}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Paste the full invitation link shared by the reading room host
+                  </p>
+                </div>
               </div>
               {error && (
                 <p className="text-sm text-destructive">{error}</p>

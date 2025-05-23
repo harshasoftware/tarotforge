@@ -41,7 +41,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   const [generatedSessionId, setGeneratedSessionId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
-  const [isCreatingRoom, setIsCreatingRoom] = useState(!sessionId);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [message, setMessage] = useState('');
   
   // Video position states
@@ -87,26 +87,39 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         
         if (sessionId) {
           // Join existing call as client
-          const result = await startCall('client', sessionId);
-          if (result) {
-            setActualSessionId(result);
-            joinRoom(result);
-          } else {
-            console.log('Failed to join call - no session ID returned');
+          setIsCreatingRoom(false);
+          try {
+            const result = await startCall('client', sessionId);
+            if (result) {
+              setActualSessionId(result);
+              joinRoom(result);
+            } else {
+              console.log('Failed to join call - no session ID returned');
+            }
+          } catch (err) {
+            console.error('Error joining call:', err);
+            setError('Failed to join the call. Please try again.');
           }
         } else {
           // Start new call as reader
-          const newSessionId = await startCall('reader');
-          if (newSessionId) {
-            setGeneratedSessionId(newSessionId);
-            setActualSessionId(newSessionId);
-            joinRoom(newSessionId);
-          } else {
-            console.log('Failed to start call - no session ID generated');
+          setIsCreatingRoom(true);
+          try {
+            const newSessionId = await startCall('reader');
+            if (newSessionId) {
+              setGeneratedSessionId(newSessionId);
+              setActualSessionId(newSessionId);
+              joinRoom(newSessionId);
+            } else {
+              console.log('Failed to start call - no session ID generated');
+            }
+          } catch (err) {
+            console.error('Error starting call:', err);
+            setError('Failed to start the call. Please try again.');
           }
         }
       } catch (err) {
         console.error('Failed to initialize call:', err);
+        setError('Failed to initialize the call. Please check your connection and try again.');
       } finally {
         setIsInitializing(false);
       }
@@ -116,9 +129,47 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     
     return () => {
       endCall();
-      leaveRoom();
+      if (actualSessionId) {
+        leaveRoom();
+      }
     };
   }, []);
+  
+  // Effect to update the session ID if it changes
+  useEffect(() => {
+    if (sessionId && sessionId !== actualSessionId) {
+      const updateSession = async () => {
+        // Clean up existing call if any
+        endCall();
+        if (actualSessionId) {
+          leaveRoom();
+        }
+        
+        setIsInitializing(true);
+        setIsCreatingRoom(false);
+        
+        try {
+          // Join with the new session ID
+          const result = await startCall('client', sessionId);
+          if (result) {
+            setActualSessionId(result);
+            joinRoom(result);
+          } else {
+            console.log('Failed to join call - no session ID returned');
+          }
+        } else {
+          console.log('No session ID provided');
+        }
+      } catch (err) {
+        console.error('Error updating session:', err);
+        setError('Failed to join the call. Please try again.');
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    
+    updateSession();
+  }, [sessionId]);
   
   // Handle local video stream
   useEffect(() => {
@@ -226,7 +277,9 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   // Get shareable link for the session
   const getShareableLink = () => {
     if (!generatedSessionId) return '';
-    return generateShareableLink(generatedSessionId);
+    
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/reading-room?join=${generatedSessionId}`;
   };
   
   // Handle sending a chat message
@@ -282,7 +335,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         {/* Invitation link - floating */}
         {isCreatingRoom && generatedSessionId && (
           <motion.div 
-            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[1001] bg-card border border-border rounded-lg p-4 max-w-md shadow-lg"
+            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[1001] bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 max-w-md shadow-lg"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
           >
@@ -300,16 +353,29 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
                 type="text"
                 value={getShareableLink()}
                 readOnly
-                className="flex-grow p-2 text-sm bg-background border border-input rounded-l-md focus:outline-none"
+                className="flex-grow p-2 text-sm bg-background/80 border border-input rounded-l-md focus:outline-none"
               />
               <button 
                 onClick={copySessionId}
-                className="p-2 bg-primary text-primary-foreground rounded-r-md hover:bg-primary/90 transition-colors"
+                className="p-2 bg-primary text-primary-foreground rounded-r-md hover:bg-primary/90 transition-colors flex items-center"
                 title="Copy to clipboard"
               >
-                {showCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {showCopied ? (
+                  <>
+                    <Check className="h-4 w-4 mr-1" />
+                    <span className="text-xs">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-1" />
+                    <span className="text-xs">Copy</span>
+                  </>
+                )}
               </button>
             </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Share this link with others to invite them to your reading session.
+            </p>
           </motion.div>
         )}
 
