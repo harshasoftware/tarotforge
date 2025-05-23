@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useVideoCall } from '../../context/VideoCallContext';
 import { useAuth } from '../../context/AuthContext';
-import { User, Video, X, Phone, Mic, MicOff, VideoOff, Copy, Check, AlertCircle, Share2 } from 'lucide-react';
+import { User, Video, X, Phone, Mic, MicOff, VideoOff, Copy, Check, AlertCircle, Share2, MessageSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
 import VideoControls from './VideoControls';
 import DraggableVideo from './DraggableVideo';
