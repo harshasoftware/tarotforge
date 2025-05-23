@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useVideoCall } from '../../context/VideoCallContext';
 import { useAuth } from '../../context/AuthContext';
-import { User, Video, X, Phone, Mic, MicOff, VideoOff, Copy, Check, AlertCircle, Share2, MessageSquare } from 'lucide-react';
+import { User, Video, X, Phone, Mic, MicOff, VideoOff, Copy, Check, AlertCircle, Share2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import VideoControls from './VideoControls';
 import DraggableVideo from './DraggableVideo';
-import { useChat } from '../../context/ChatContext';
-import ChatPanel from './ChatPanel';
 
 interface VideoChatProps {
   onClose: () => void;
@@ -38,10 +36,6 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const [chatPosition, setChatPosition] = useState({ x: window.innerWidth - 320, y: 200 });
-  const [isChatMinimized, setIsChatMinimized] = useState(false);
-  const [isChatDragging, setIsChatDragging] = useState(false);
   
   // Video position states
   const [localVideoPosition, setLocalVideoPosition] = useState({ x: 20, y: 20 });
@@ -55,11 +49,6 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
 
   const updateRemoteVideoPosition = (position: { x: number; y: number }) => {
     setRemoteVideoPosition(position);
-  };
-  
-  // Chat position update handler
-  const updateChatPosition = (position: { x: number; y: number }) => {
-    setChatPosition(position);
   };
 
   // Initialize call
@@ -423,32 +412,8 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
               onEndCall={handleEndCall}
               disabled={!localStream}
             />
-            
-            {/* Chat toggle button */}
-            <button
-              onClick={toggleChat}
-              className={`p-3 rounded-full ${showChat ? 'bg-primary text-primary-foreground' : 'bg-muted/30 text-foreground hover:bg-muted/50'} transition-colors`}
-              title={showChat ? "Hide Chat" : "Show Chat"}
-            >
-              <MessageSquare className="h-5 w-5" />
-            </button>
           </div>
         </motion.div>
-        
-        {/* Chat Panel */}
-        {actualSessionId && (
-          <ChatPanel
-            roomId={actualSessionId}
-            isVisible={showChat}
-            isMinimized={isChatMinimized}
-            position={chatPosition}
-            onClose={() => setShowChat(false)}
-            onMinimize={() => setIsChatMinimized(!isChatMinimized)}
-            onPositionChange={updateChatPosition}
-            onDragStart={() => setIsChatDragging(true)}
-            onDragEnd={() => setIsChatDragging(false)}
-          />
-        )}
     </>
   );
 };
