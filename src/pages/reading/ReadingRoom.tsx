@@ -599,98 +599,111 @@ const ReadingRoom = () => {
   
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      {/* Header - compact for mobile with participant count */}
-      <header className="py-2 md:py-3 px-3 md:px-6 border-b border-border flex justify-between items-center bg-background z-10">
-        <div className="flex items-center">
-          <Link to="/collection" className="inline-flex items-center text-muted-foreground hover:text-foreground mr-2 md:mr-4">
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            <span className="hidden md:inline">Back</span>
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg md:text-xl font-serif font-bold">Reading Room</h1>
-              {participants.length > 0 && (
-                <div 
-                  className="flex items-center gap-1 bg-muted px-2 py-1 rounded-full cursor-pointer"
-                  title={participants.map(p => p.name || 'Anonymous').join(', ')}
-                >
-                  <Users className="h-3 w-3" />
-                  <span className="text-xs">{participants.length}</span>
-                </div>
-              )}
-              {!isHost && (
-                <span className="text-xs bg-accent px-2 py-1 rounded-full">Guest</span>
-              )}
-            </div>
+      {/* Main content - full screen with floating controls */}
+      <main className="flex-1 overflow-hidden relative">
+        {/* Floating controls in top corner - more compact for mobile */}
+        <div className={`absolute ${isMobile ? 'top-2 left-2 right-2' : 'top-4 left-4 right-4'} z-50 flex justify-between items-start`}>
+          {/* Left side - Back button and session info */}
+          <div className="flex items-center gap-1 md:gap-2">
+            <Link 
+              to="/collection" 
+              className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} flex items-center text-muted-foreground hover:text-foreground`}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {!isMobile && <span className="ml-1 text-sm">Back</span>}
+            </Link>
+            
+            {/* Session info - more compact for mobile */}
             {!isMobile && (
-              <p className="text-xs text-muted-foreground">
-                {deck?.title ? `Using ${deck.title} by ${deck.creator_name}` : 'Select a deck to begin'}
-                {sessionId && ` • Session: ${sessionId.slice(0, 8)}...`}
-              </p>
+              <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2 max-w-xs">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-sm font-serif font-bold truncate">Reading Room</h1>
+                  {participants.length > 0 && (
+                    <div 
+                      className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full cursor-pointer"
+                      title={participants.map(p => p.name || 'Anonymous').join(', ')}
+                    >
+                      <Users className="h-3 w-3" />
+                      <span className="text-xs">{participants.length}</span>
+                    </div>
+                  )}
+                  {!isHost && (
+                    <span className="text-xs bg-accent px-2 py-0.5 rounded-full">Guest</span>
+                  )}
+                </div>
+                {deck && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {deck.title} by {deck.creator_name}
+                  </p>
+                )}
+              </div>
             )}
           </div>
-        </div>
-        
-        <div className="flex items-center gap-1 md:gap-2">
-          {/* Guest upgrade button */}
-          {isGuest && (
-            <button 
-              onClick={() => setShowGuestUpgrade(true)}
-              className="btn btn-accent border border-accent/50 p-1.5 md:p-2 text-sm flex items-center gap-1"
-              title="Create account to save your progress"
-            >
-              <UserPlus className="h-4 w-4" />
-              {!isMobile && <span className="text-xs">Upgrade</span>}
-            </button>
-          )}
           
-          <button 
-            onClick={() => setShowShareModal(true)}
-            className="btn btn-ghost border border-input p-1.5 md:p-2 text-sm flex items-center"
-            disabled={!sessionId}
-          >
-            <Share2 className="h-4 w-4" />
-          </button>
-          
-          <button 
-            onClick={() => !isVideoConnecting && !showVideoChat && setShowVideoChat(true)}
-            className={`btn ${showVideoChat ? 'btn-success' : 'btn-secondary'} p-1.5 md:p-2 text-sm flex items-center`}
-            disabled={isVideoConnecting}
-          >
-            {isVideoConnecting ? (
-              <span className="h-4 w-4 border-2 border-secondary-foreground border-t-transparent rounded-full animate-spin"></span>
-            ) : (
-              <PhoneCall className="h-4 w-4" />
+          {/* Right side - Action buttons - more compact for mobile */}
+          <div className="flex items-center gap-1 md:gap-2">
+            {/* Guest upgrade button */}
+            {isGuest && (
+              <button 
+                onClick={() => setShowGuestUpgrade(true)}
+                className={`btn btn-accent bg-accent/80 backdrop-blur-sm border border-accent/50 ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''}`}
+                title="Create account to save your progress"
+              >
+                <UserPlus className="h-4 w-4" />
+                {!isMobile && <span className="text-xs">Upgrade</span>}
+              </button>
             )}
-          </button>
+            
+            <button 
+              onClick={() => setShowShareModal(true)}
+              className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
+              disabled={!sessionId}
+              title="Share reading room"
+            >
+              <Share2 className="h-4 w-4" />
+            </button>
+            
+            <button 
+              onClick={() => !isVideoConnecting && !showVideoChat && setShowVideoChat(true)}
+              className={`btn ${showVideoChat ? 'btn-success' : 'btn-secondary'} bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
+              disabled={isVideoConnecting}
+              title="Video chat"
+            >
+              {isVideoConnecting ? (
+                <span className="h-4 w-4 border-2 border-secondary-foreground border-t-transparent rounded-full animate-spin"></span>
+              ) : (
+                <PhoneCall className="h-4 w-4" />
+              )}
+            </button>
 
-          <button className="btn btn-primary p-1.5 md:p-2 text-sm flex items-center">
-            <Save className="h-4 w-4" />
-          </button>
+            <button 
+              className={`btn btn-primary bg-primary/80 backdrop-blur-sm border border-primary ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
+              title="Save reading"
+            >
+              <Save className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-      </header>
 
-      {/* Main content - responsive layout */}
-      <main className="flex-1 flex overflow-hidden relative">
         {/* Reading table */}
-        <div className="flex-1 relative bg-gradient-to-b from-background to-background/80">
+        <div className="h-full relative bg-gradient-to-b from-background to-background/80">
           {/* Step 1: Setup Screen */}
           {readingStep === 'setup' && (
-            <div className="absolute inset-0 flex items-center justify-center p-4">
-              <div className="max-w-md w-full p-4 md:p-6 bg-card border border-border rounded-xl shadow-lg">
-                <h2 className="text-lg md:text-xl font-serif font-bold mb-4">Select a Layout</h2>
+            <div className={`absolute inset-0 flex items-center justify-center ${isMobile ? 'px-4 pt-16 pb-4' : 'p-4 pt-24'}`}>
+              <div className={`w-full ${isMobile ? 'max-h-full overflow-y-auto' : 'max-w-md'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
+                <h2 className={`${isMobile ? 'text-lg' : 'text-lg md:text-xl'} font-serif font-bold ${isMobile ? 'mb-3' : 'mb-4'}`}>Select a Layout</h2>
                 
-                <div className="space-y-3 mb-4">
+                <div className={`space-y-2 ${isMobile ? 'mb-3' : 'mb-4'}`}>
                   {readingLayouts.map((layout) => (
                     <div 
                       key={layout.id}
-                      className="border rounded-lg p-3 cursor-pointer transition-colors hover:border-primary/50 active:bg-primary/5"
+                      className={`border rounded-lg ${isMobile ? 'p-2' : 'p-3'} cursor-pointer transition-colors hover:border-primary/50 active:bg-primary/5`}
                       onClick={() => handleLayoutSelect(layout)}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <h4 className="font-medium text-sm md:text-base">{layout.name}</h4>
+                        <h4 className={`font-medium ${isMobile ? 'text-sm' : 'text-sm md:text-base'}`}>{layout.name}</h4>
                         <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
-                          {layout.card_count} {layout.card_count === 1 ? 'card' : 'cards'}
+                          {layout.card_count === 999 ? 'Free' : `${layout.card_count} ${layout.card_count === 1 ? 'card' : 'cards'}`}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">{layout.description}</p>
@@ -698,7 +711,7 @@ const ReadingRoom = () => {
                   ))}
                 </div>
                 
-                <div className="mb-4">
+                <div className={isMobile ? 'mb-3' : 'mb-4'}>
                   <label htmlFor="question" className="block text-sm font-medium mb-1">
                     Your Question (Optional)
                   </label>
@@ -707,7 +720,7 @@ const ReadingRoom = () => {
                     value={question}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleQuestionChange(e.target.value)}
                     placeholder="What would you like guidance on?"
-                    className="w-full p-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                    className={`w-full ${isMobile ? 'p-2 text-sm' : 'p-2 text-sm'} rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary`}
                   />
                 </div>
               </div>
@@ -716,30 +729,30 @@ const ReadingRoom = () => {
           
           {/* Step 2: Drawing Cards */}
           {readingStep === 'drawing' && selectedLayout && (
-            <div className="absolute inset-0 flex flex-col">
+            <div className={`absolute inset-0 flex flex-col ${isMobile ? 'pt-12' : 'pt-20'}`}>
               {/* Reading info bar - compact for mobile */}
-              <div className="bg-card border-b border-border p-2 md:p-3 flex justify-between items-center">
+              <div className={`bg-card/80 backdrop-blur-sm border-b border-border ${isMobile ? 'p-1.5' : 'p-2 md:p-3'} flex justify-between items-center`}>
                 <div className="flex-1 min-w-0">
-                  <span className="font-medium text-sm md:text-base truncate block">{selectedLayout.name}</span>
+                  <span className={`font-medium ${isMobile ? 'text-sm' : 'text-sm md:text-base'} truncate block`}>{selectedLayout.name}</span>
                   {question && !isMobile && (
                     <span className="text-xs text-muted-foreground italic">"{question}"</span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 md:gap-3 ml-2">
+                <div className={`flex items-center ${isMobile ? 'gap-1' : 'gap-2 md:gap-3'} ml-2`}>
                   <span className="text-xs md:text-sm whitespace-nowrap">
-                    {selectedCards.filter(card => card).length}/{selectedLayout.card_count}
+                    {selectedCards.filter(card => card).length}/{selectedLayout.card_count === 999 ? '∞' : selectedLayout.card_count}
                   </span>
                   
                   <button 
                     onClick={shuffleDeck}
-                    className="btn btn-ghost p-1 text-sm flex items-center"
+                    className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'} text-sm flex items-center`}
                   >
                     <Shuffle className="h-4 w-4" />
                   </button>
                   
                   <button 
                     onClick={resetReading}
-                    className="btn btn-ghost p-1 text-sm flex items-center text-warning"
+                    className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'} text-sm flex items-center text-warning`}
                   >
                     <XCircle className="h-4 w-4" />
                   </button>
@@ -763,7 +776,7 @@ const ReadingRoom = () => {
                 }}
               >
                 {/* Zoom controls - repositioned for mobile */}
-                <div className={`absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2 flex-row' : 'top-4 left-4 flex-col'} flex gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-50`}>
+                <div className={`absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2 flex-row' : 'top-20 left-4 flex-col'} flex gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
                   <button onClick={zoomOut} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom Out">
                     <ZoomOut className="h-4 w-4 md:h-5 md:w-5" />
                   </button>
@@ -776,7 +789,7 @@ const ReadingRoom = () => {
                 </div>
                 
                 {isMobile && (
-                  <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-muted/80 px-3 py-1 rounded-full text-xs z-40">
+                  <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-muted/80 px-3 py-1 rounded-full text-xs z-40">
                     {selectedLayout?.id === 'free-layout' 
                       ? 'Drag cards anywhere • Pinch to zoom' 
                       : 'Drag cards from deck • Pinch to zoom'}
@@ -925,37 +938,86 @@ const ReadingRoom = () => {
                 
                 {/* Deck pile - show cards that can be dragged */}
                 {shuffledDeck.length > 0 && (
-                  <div className={`absolute ${isMobile ? 'right-4 bottom-16' : 'right-8 bottom-8'} z-20`}>
-                    <div className="relative">
-                      {/* Show top 3 cards in deck */}
-                      {shuffledDeck.slice(0, Math.min(3, shuffledDeck.length)).map((card: Card, index: number) => (
-                        <div
-                          key={`deck-${index}`}
-                          className={`absolute ${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} cursor-grab active:cursor-grabbing`}
-                          style={{
-                            transform: `translate(${index * 2}px, ${index * 2}px)`,
-                            zIndex: 10 - index
-                          }}
-                          draggable={index === 0}
-                          onDragStart={(e) => index === 0 && handleDragStart(card, 0, e)}
-                          onMouseDown={(e) => index === 0 && handleDragStart(card, 0, e)}
-                          onTouchStart={(e) => index === 0 && handleDragStart(card, 0, e)}
-                          onMouseMove={handleDragMove}
-                          onTouchMove={handleDragMove}
-                        >
-                          <div className="w-full h-full bg-primary rounded-md border-2 border-primary-foreground flex items-center justify-center shadow-lg">
-                            <span className="text-xs text-primary-foreground text-center px-1">
-                              {isMobile ? 'Drag' : 'Drag to Place'}
-                            </span>
+                  <div className={`absolute ${isMobile ? 'bottom-4 left-4 right-4' : 'right-8 bottom-8'} z-20`}>
+                    {isMobile ? (
+                      /* Mobile: Horizontal spread at bottom */
+                      <div className="flex justify-center items-end space-x-2 overflow-x-auto pb-2">
+                        {shuffledDeck.slice(0, Math.min(6, shuffledDeck.length)).map((card: Card, index: number) => (
+                          <div
+                            key={`deck-mobile-${index}`}
+                            className="flex-shrink-0 w-12 h-18 cursor-grab active:cursor-grabbing relative"
+                            style={{
+                              transform: `rotate(${(index - 2.5) * 8}deg) translateY(${index === 0 ? '0px' : `${Math.abs(index - 2.5) * 4}px`})`,
+                              zIndex: 10 - Math.abs(index - 2.5)
+                            }}
+                            draggable={index === 0}
+                            onDragStart={(e) => index === 0 && handleDragStart(card, 0, e)}
+                            onMouseDown={(e) => index === 0 && handleDragStart(card, 0, e)}
+                            onTouchStart={(e) => index === 0 && handleDragStart(card, 0, e)}
+                            onMouseMove={handleDragMove}
+                            onTouchMove={handleDragMove}
+                          >
+                            <div className="w-full h-full bg-primary rounded-md border border-primary-foreground flex items-center justify-center shadow-lg transition-shadow hover:shadow-xl">
+                              <span className="text-xs text-primary-foreground text-center px-1 rotate-0">
+                                {index === 0 ? 'Drag' : ''}
+                              </span>
+                            </div>
+                            {index === 0 && (
+                              <div className="absolute -top-1 -right-1 bg-accent text-accent-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center">
+                                {shuffledDeck.length}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ))}
-                      
-                      {/* Deck count */}
-                      <div className="absolute -top-2 -right-2 bg-accent text-accent-foreground rounded-full w-6 h-6 text-xs flex items-center justify-center z-20">
-                        {shuffledDeck.length}
+                        ))}
                       </div>
-                    </div>
+                    ) : (
+                      /* Desktop: Fan-like spread */
+                      <div className="relative w-32 h-40">
+                        {shuffledDeck.slice(0, Math.min(7, shuffledDeck.length)).map((card: Card, index: number) => (
+                          <div
+                            key={`deck-desktop-${index}`}
+                            className="absolute w-20 h-30 cursor-grab active:cursor-grabbing"
+                            style={{
+                              transform: `rotate(${(index - 3) * 12}deg) translate(${index * 3}px, ${index * 2}px)`,
+                              transformOrigin: 'bottom center',
+                              zIndex: 10 - index,
+                              left: '50%',
+                              bottom: '0',
+                              marginLeft: '-40px'
+                            }}
+                            draggable={index === 0}
+                            onDragStart={(e) => index === 0 && handleDragStart(card, 0, e)}
+                            onMouseDown={(e) => index === 0 && handleDragStart(card, 0, e)}
+                            onTouchStart={(e) => index === 0 && handleDragStart(card, 0, e)}
+                            onMouseMove={handleDragMove}
+                            onTouchMove={handleDragMove}
+                          >
+                            <div className="w-full h-full bg-primary rounded-md border border-primary-foreground flex items-center justify-center shadow-lg transition-all hover:shadow-xl hover:scale-105">
+                              <span className="text-xs text-primary-foreground text-center px-1">
+                                {index === 0 ? 'Drag to Place' : ''}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {/* Deck count for desktop */}
+                        <div className="absolute -top-3 -right-3 bg-accent text-accent-foreground rounded-full w-8 h-8 text-sm flex items-center justify-center z-30 shadow-lg">
+                          {shuffledDeck.length}
+                        </div>
+                        
+                        {/* Shuffle button for desktop */}
+                        <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
+                          <button 
+                            onClick={shuffleDeck}
+                            className="btn btn-ghost p-2 text-xs flex items-center gap-1 bg-card/80 backdrop-blur-sm rounded-full"
+                            title="Shuffle Deck"
+                          >
+                            <Shuffle className="h-3 w-3" />
+                            <span>Shuffle</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 
@@ -1002,19 +1064,19 @@ const ReadingRoom = () => {
           
           {/* Step 3: Interpretation - mobile responsive layout */}
           {readingStep === 'interpretation' && (
-            <div className={`absolute inset-0 ${isMobile ? 'flex-col' : 'flex'}`}>
+            <div className={`absolute inset-0 ${isMobile ? 'flex-col pt-12' : 'flex pt-20'}`}>
               {/* Reading display */}
               <div className={`${isMobile ? (showMobileInterpretation ? 'hidden' : 'flex-1') : 'w-3/5'} relative`}>
                 {/* Zoom controls */}
-                <div className={`absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2 flex-row' : 'top-4 left-4 flex-col'} flex gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-50`}>
-                  <button onClick={zoomOut} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom Out">
-                    <ZoomOut className="h-4 w-4 md:h-5 md:w-5" />
+                <div className={`absolute ${isMobile ? 'bottom-2 left-1/2 transform -translate-x-1/2 flex-row' : 'top-4 left-4 flex-col'} flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
+                  <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm" title="Zoom Out">
+                    <ZoomOut className="h-4 w-4" />
                   </button>
-                  <button onClick={resetZoom} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Reset Zoom">
-                    <RotateCcw className="h-4 w-4 md:h-5 md:w-5" />
+                  <button onClick={resetZoom} className="p-1 hover:bg-muted rounded-sm" title="Reset Zoom">
+                    <RotateCcw className="h-4 w-4" />
                   </button>
-                  <button onClick={zoomIn} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom In">
-                    <ZoomIn className="h-4 w-4 md:h-5 md:w-5" />
+                  <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm" title="Zoom In">
+                    <ZoomIn className="h-4 w-4" />
                   </button>
                 </div>
                 
@@ -1111,26 +1173,26 @@ const ReadingRoom = () => {
                 </div>
                 
                 {/* Reading controls */}
-                <div className={`absolute ${isMobile ? 'top-4 right-4' : 'bottom-6 right-6'} flex gap-2 md:gap-3`}>
+                <div className={`absolute ${isMobile ? 'top-2 right-2' : 'bottom-6 right-6'} flex gap-1 md:gap-3`}>
                   {isMobile && (
                     <button 
                       onClick={() => setShowMobileInterpretation(true)}
-                      className="btn btn-primary px-3 py-1.5 text-sm flex items-center"
+                      className="btn btn-primary px-2 py-1 text-xs flex items-center"
                     >
-                      <Menu className="mr-1 h-4 w-4" />
+                      <Menu className="mr-1 h-3 w-3" />
                       Read
                     </button>
                   )}
                   <button 
                     onClick={() => setReadingStepWrapped('drawing')}
-                    className="btn btn-secondary px-3 md:px-4 py-1.5 md:py-2 text-sm"
+                    className={`btn btn-secondary ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}
                   >
                     {isMobile ? 'Back' : 'Back to Table'}
                   </button>
                   
                   <button 
                     onClick={resetReading}
-                    className="btn btn-ghost border border-input px-3 md:px-4 py-1.5 md:py-2 text-sm"
+                    className={`btn btn-ghost border border-input ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}
                   >
                     {isMobile ? 'New' : 'New Reading'}
                   </button>
@@ -1139,27 +1201,27 @@ const ReadingRoom = () => {
               
               {/* Interpretation panel - responsive layout */}
               <div className={`${isMobile ? (showMobileInterpretation ? 'flex-1' : 'hidden') : 'w-2/5'} bg-card ${isMobile ? '' : 'border-l'} border-border flex flex-col h-full`}>
-                <div className="p-3 md:p-4 border-b border-border bg-primary/5 flex justify-between items-center">
+                <div className={`${isMobile ? 'p-2' : 'p-3 md:p-4'} border-b border-border bg-primary/5 flex justify-between items-center`}>
                   <div className="flex items-center">
-                    <TarotLogo className="h-4 w-4 md:h-5 md:w-5 text-primary mr-2" />
-                    <h3 className="font-medium text-sm md:text-base">Reading Interpretation</h3>
+                    <TarotLogo className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4 md:h-5 md:w-5'} text-primary mr-2`} />
+                    <h3 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm md:text-base'}`}>Reading Interpretation</h3>
                   </div>
                   {isMobile && (
                     <button 
                       onClick={() => setShowMobileInterpretation(false)}
                       className="text-muted-foreground hover:text-foreground"
                     >
-                      <XCircle className="h-5 w-5" />
+                      <XCircle className="h-4 w-4" />
                     </button>
                   )}
                 </div>
                 
-                <div className="flex-1 p-3 md:p-4 overflow-y-auto">
+                <div className={`flex-1 ${isMobile ? 'p-2' : 'p-3 md:p-4'} overflow-y-auto`}>
                   {/* Card information */}
-                  {activeCardIndex !== null && selectedCards[activeCardIndex] && (
-                    <div className="mb-4 md:mb-6 p-2 md:p-3 bg-muted/30 border border-border rounded-lg">
-                      <div className="flex gap-2 md:gap-3">
-                        <div className="shrink-0 w-10 h-15 md:w-12 md:h-18 rounded-md overflow-hidden">
+                  {activeCardIndex !== null && activeCardIndex !== undefined && selectedCards[activeCardIndex] && (
+                    <div className={`${isMobile ? 'mb-3 p-2' : 'mb-4 md:mb-6 p-2 md:p-3'} bg-muted/30 border border-border rounded-lg`}>
+                      <div className={`flex ${isMobile ? 'gap-1' : 'gap-2 md:gap-3'}`}>
+                        <div className={`shrink-0 ${isMobile ? 'w-8 h-12' : 'w-10 h-15 md:w-12 md:h-18'} rounded-md overflow-hidden`}>
                           <img 
                             src={selectedCards[activeCardIndex].image_url} 
                             alt={selectedCards[activeCardIndex].name} 
@@ -1167,7 +1229,7 @@ const ReadingRoom = () => {
                           />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="font-medium text-sm md:text-base">{selectedCards[activeCardIndex].name} {selectedCards[activeCardIndex].isReversed && '(Reversed)'}</h4>
+                          <h4 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm md:text-base'}`}>{selectedCards[activeCardIndex].name} {selectedCards[activeCardIndex].isReversed && '(Reversed)'}</h4>
                           <p className="text-xs text-accent mb-1">{selectedCards[activeCardIndex].position}</p>
                           <p className="text-xs text-muted-foreground">{selectedCards[activeCardIndex].description}</p>
                         </div>
@@ -1178,30 +1240,38 @@ const ReadingRoom = () => {
                   {/* Interpretation text */}
                   <div className="prose prose-sm prose-invert max-w-none">
                     {interpretation.split('\n').map((paragraph: string, i: number) => (
-                      <p key={i} className="mb-2 md:mb-3 text-sm md:text-base">{paragraph}</p>
+                      <p key={i} className={`${isMobile ? 'mb-1 text-xs' : 'mb-2 md:mb-3 text-sm md:text-base'}`}>{paragraph}</p>
                     ))}
                   </div>
                 </div>
                 
                 {/* Card navigation */}
                 {selectedCards.length > 1 && (
-                  <div className="p-2 md:p-3 border-t border-border flex justify-between items-center">
+                  <div className={`${isMobile ? 'p-1' : 'p-2 md:p-3'} border-t border-border flex justify-between items-center`}>
                     <button 
-                      onClick={() => setActiveCardIndexWrapped((prev: number | null) => prev !== null && prev > 0 ? prev - 1 : selectedCards.length - 1)}
-                      className="btn btn-ghost p-1"
+                      onClick={() => {
+                        const currentIndex = activeCardIndex ?? 0;
+                        const newIndex = currentIndex > 0 ? currentIndex - 1 : selectedCards.length - 1;
+                        setActiveCardIndexWrapped(newIndex);
+                      }}
+                      className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'}`}
                     >
-                      <ChevronLeft className="h-5 w-5" />
+                      <ChevronLeft className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
                     </button>
                     
-                    <div className="text-sm text-muted-foreground">
-                      {activeCardIndex !== null ? activeCardIndex + 1 : 1} of {selectedCards.length} cards
+                    <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
+                      {(activeCardIndex ?? 0) + 1} of {selectedCards.length} cards
                     </div>
                     
                     <button 
-                      onClick={() => setActiveCardIndexWrapped((prev: number | null) => prev !== null && prev < selectedCards.length - 1 ? prev + 1 : 0)}
-                      className="btn btn-ghost p-1"
+                      onClick={() => {
+                        const currentIndex = activeCardIndex ?? 0;
+                        const newIndex = currentIndex < selectedCards.length - 1 ? currentIndex + 1 : 0;
+                        setActiveCardIndexWrapped(newIndex);
+                      }}
+                      className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'}`}
                     >
-                      <ChevronRight className="h-5 w-5" />
+                      <ChevronRight className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
                     </button>
                   </div>
                 )}
@@ -1304,15 +1374,24 @@ const ReadingRoom = () => {
       
       {/* Guest Account Upgrade Modal */}
       <AnimatePresence>
-        {showGuestUpgrade && isGuest && (
-          <GuestAccountUpgrade
-            onUpgradeSuccess={handleGuestUpgrade}
-            onClose={handleCloseGuestUpgrade}
-            participantCount={participants.length}
-            isInviteJoin={!!joinSessionId}
-            onGuestNameSet={handleGuestNameSet}
-          />
-        )}
+        {showGuestUpgrade && isGuest && (() => {
+          console.log('Rendering GuestAccountUpgrade modal', { 
+            showGuestUpgrade, 
+            isGuest, 
+            joinSessionId, 
+            participantCount: participants.length,
+            isInviteJoin: !!joinSessionId 
+          });
+          return (
+            <GuestAccountUpgrade
+              onUpgradeSuccess={handleGuestUpgrade}
+              onClose={handleCloseGuestUpgrade}
+              participantCount={participants.length}
+              isInviteJoin={!!joinSessionId}
+              onGuestNameSet={handleGuestNameSet}
+            />
+          );
+        })()}
       </AnimatePresence>
     </div>
   );

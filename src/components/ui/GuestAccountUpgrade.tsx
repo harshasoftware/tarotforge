@@ -26,13 +26,18 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
   isInviteJoin = false,
   onGuestNameSet
 }) => {
+  console.log('GuestAccountUpgrade rendered with props:', {
+    showAsModal,
+    participantCount,
+    isInviteJoin,
+    hasOnGuestNameSet: !!onGuestNameSet
+  });
+
   const { signIn, signUp, signInWithGoogle, magicLinkSent, setMagicLinkSent } = useAuth();
   const [isSignUp, setIsSignUp] = useState(true);
-  const [guestName, setGuestName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasSetGuestName, setHasSetGuestName] = useState(false);
 
   const { 
     register, 
@@ -93,15 +98,6 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
     }
   };
 
-  const handleGuestNameSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (guestName.trim() && onGuestNameSet) {
-      onGuestNameSet(guestName.trim());
-      setHasSetGuestName(true);
-      onClose();
-    }
-  };
-
   const benefits = [
     'Save your reading sessions',
     'Host your own rooms',
@@ -130,7 +126,7 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
         <div className="mb-4 md:mb-6">
           <p className="text-xs md:text-sm text-muted-foreground mb-3 leading-relaxed">
             {isInviteJoin 
-              ? `Welcome! You've been invited to join this reading room${participantCount > 1 ? ` with ${participantCount - 1} other participant${participantCount > 2 ? 's' : ''}` : ''}. Create an account to unlock more features, or continue as a guest.`
+              ? `Welcome! You've been invited to join this reading room${participantCount > 1 ? ` with ${participantCount - 1} other participant${participantCount > 2 ? 's' : ''}` : ''}. Create an account to unlock more features.`
               : `You're currently in the reading room as a guest${participantCount > 1 ? ` with ${participantCount - 1} other participant${participantCount > 2 ? 's' : ''}` : ''}. Create an account to unlock more features!`
             }
           </p>
@@ -142,42 +138,6 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
                 {benefit}
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Guest Name Section */}
-        <div className="mb-6 p-4 bg-muted/30 rounded-lg border border-border">
-          <h4 className="font-medium text-sm mb-2">First, let others know who you are:</h4>
-          <form onSubmit={handleGuestNameSubmit} className="space-y-3">
-            <div>
-              <label htmlFor="guestName" className="block text-sm font-medium mb-1">
-                Your Name
-              </label>
-              <input
-                id="guestName"
-                type="text"
-                value={guestName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGuestName(e.target.value)}
-                placeholder="Enter your name"
-                className="w-full p-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full bg-accent text-accent-foreground py-3 rounded-md font-medium text-sm hover:bg-accent/90 transition-colors min-h-[44px]"
-            >
-              Continue as {guestName.trim() ? guestName.trim().slice(0, 12) + (guestName.trim().length > 12 ? '...' : '') : 'Guest'}
-            </button>
-          </form>
-        </div>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-border"></div>
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">Or create an account</span>
           </div>
         </div>
 
