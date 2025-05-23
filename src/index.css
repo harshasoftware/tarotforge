@@ -231,4 +231,55 @@
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
   }
+  
+  /* Draggable video elements */
+  .draggable-video {
+    cursor: move;
+    user-select: none;
+    touch-action: none;
+  }
+  
+  .draggable-video.dragging {
+    z-index: 100;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  }
+  
+  .video-controls-overlay {
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+  }
+  
+  .draggable-video:hover .video-controls-overlay {
+    opacity: 1;
+  }
+  
+  /* Bubble chat style */
+  .chat-bubble {
+    position: relative;
+    padding: 0.75rem;
+    border-radius: 1rem;
+    max-width: 80%;
+    margin-bottom: 0.5rem;
+  }
+  
+  .chat-bubble.sent {
+    background-color: hsl(var(--primary) / 0.2);
+    margin-left: auto;
+    border-bottom-right-radius: 0;
+  }
+  
+  .chat-bubble.received {
+    background-color: hsl(var(--muted) / 0.3);
+    margin-right: auto;
+    border-bottom-left-radius: 0;
+  }
+  
+  .chat-bubble.system {
+    background-color: hsl(var(--accent) / 0.1);
+    margin-left: auto;
+    margin-right: auto;
+    border-radius: 0.5rem;
+    font-style: italic;
+    text-align: center;
+  }
 }

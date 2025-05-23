@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useVideoCall } from '../../context/VideoCallContext';
 import { useAuth } from '../../context/AuthContext';
-import { User, Video, X, Send, Copy, Check, AlertCircle, Share2 } from 'lucide-react';
+import { User, Video, X, Send, Copy, Check, AlertCircle, Share2, Minimize2, Maximize2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import VideoControls from './VideoControls';
+import DraggableVideo from './DraggableVideo';
+import ChatBubble from './ChatBubble';
 
 interface VideoChatProps {
   onClose: () => void;
@@ -38,6 +40,11 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(!sessionId);
+  
+  // Video position states
+  const [localVideoPosition, setLocalVideoPosition] = useState({ x: 0, y: 0 });
+  const [remoteVideoPosition, setRemoteVideoPosition] = useState({ x: 200, y: 0 });
+  const [chatMinimized, setChatMinimized] = useState(false);
   
   // Initialize call
   useEffect(() => {
@@ -192,6 +199,21 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     if (!generatedSessionId) return '';
     return generateShareableLink(generatedSessionId);
   };
+  
+  // Update local video position
+  const updateLocalVideoPosition = (data: { x: number; y: number }) => {
+    setLocalVideoPosition({ x: data.x, y: data.y });
+  };
+  
+  // Update remote video position
+  const updateRemoteVideoPosition = (data: { x: number; y: number }) => {
+    setRemoteVideoPosition({ x: data.x, y: data.y });
+  };
+
+  // Toggle chat minimized state
+  const toggleChatMinimized = () => {
+    setChatMinimized(!chatMinimized);
+  };
 
   return (
     <motion.div 
@@ -229,9 +251,11 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
       </div>
       
       <div className="p-4">
+        {/* Main container for draggable elements */}
+        <div className="relative min-h-[500px] mb-4">
         {/* Show invitation link for sharing (only for reader) */}
-        {isCreatingRoom && generatedSessionId && (
-          <div className="mb-4 p-3 bg-muted/30 rounded-lg">
+        {isCreatingRoom && generatedSessionId && !chatMinimized && (
+          <div className="mb-4 p-3 bg-muted/30 rounded-lg z-30 relative">
             <p className="text-sm mb-2 font-medium">Share this invitation link with your client:</p>
             <div className="flex items-center">
               <input
@@ -292,31 +316,16 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         )}
         
         {/* Video area */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          {/* Local video */}
-          <div className="aspect-video bg-black/80 rounded-lg overflow-hidden relative">
-            {localStream ? (
-              <>
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-                {/* Fallback when video is disabled or not available */}
-                {isVideoOff && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/90">
-                    <div className="text-center">
-                      <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <User className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                      <p className="text-white">Camera Off</p>
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
+        
+          {/* Local video - using DraggableVideo component */}
+          <DraggableVideo
+            videoRef={localVideoRef}
+            stream={localStream}
+            isVideoOff={isVideoOff}
+            label={`You${isVideoOff ? " (Camera Off)" : ""}`}
+            initialPosition={{ x: 0, y: 0 }}
+            onPositionChange={updateLocalVideoPosition}
+            fallbackContent={
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
                   <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -332,22 +341,18 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
                   )}
                 </div>
               </div>
-            )}
-            <div className="absolute bottom-3 left-3 text-white text-sm bg-black/60 px-2 py-1 rounded">
-              You {isVideoOff && "(Camera Off)"}
-            </div>
-          </div>
+            }
+          />
           
-          {/* Remote video */}
-          <div className="aspect-video bg-black/80 rounded-lg overflow-hidden relative">
-            {remoteStream ? (
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-              />
-            ) : (
+          {/* Remote video - using DraggableVideo component */}
+          <DraggableVideo
+            videoRef={remoteVideoRef}
+            stream={remoteStream}
+            isVideoOff={false}
+            label={isCreatingRoom ? 'Client' : 'Reader'}
+            initialPosition={{ x: 200, y: 0 }}
+            onPositionChange={updateRemoteVideoPosition}
+            fallbackContent={
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
                   <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -363,13 +368,8 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
                   )}
                 </div>
               </div>
-            )}
-            {remoteStream && (
-              <div className="absolute bottom-3 left-3 text-white text-sm bg-black/60 px-2 py-1 rounded">
-                {isCreatingRoom ? 'Client' : 'Reader'}
-              </div>
-            )}
-          </div>
+            }
+          />
         </div>
         
         {/* Controls */}
@@ -385,22 +385,36 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         </div>
         
         {/* Chat */}
-        <div className="rounded-lg bg-muted/30 border border-border p-4">
-          <h3 className="font-medium mb-2">Chat</h3>
-          <div className="h-40 overflow-y-auto mb-3 text-sm p-2 bg-card/50 rounded-lg">
+        <motion.div 
+          className="rounded-lg bg-muted/30 border border-border overflow-hidden"
+          animate={{ height: chatMinimized ? '40px' : 'auto' }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="p-3 border-b border-border flex items-center justify-between cursor-pointer"
+               onClick={toggleChatMinimized}>
+            <h3 className="font-medium">Chat</h3>
+            <button className="p-1 rounded-full hover:bg-muted/50 transition-colors">
+              {chatMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+            </button>
+          </div>
+          
+          {!chatMinimized && <div className="p-4">
+          <div className="h-40 overflow-y-auto mb-3 text-sm p-2 bg-card/50 rounded-lg scrollbar-hide">
             {messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
+              <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
                 <p>No messages yet</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {messages.map((msg) => (
-                  <div key={msg.id} className="mb-2">
-                    <p className="font-medium text-xs text-muted-foreground">{msg.sender}</p>
-                    <div className={`${msg.sender === 'System' ? 'bg-primary/10' : 'bg-card'} p-2 rounded-lg inline-block max-w-full`}>
-                      <p className="break-words">{msg.content}</p>
-                    </div>
-                  </div>
+                  <ChatBubble
+                    key={msg.id}
+                    sender={msg.sender}
+                    content={msg.content}
+                    isCurrentUser={msg.sender === (user?.username || user?.email)}
+                    isSystem={msg.sender === 'System'}
+                    timestamp={msg.timestamp}
+                  />
                 ))}
                 <div ref={messagesEndRef} />
               </div>
@@ -409,22 +423,23 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
           <div className="flex items-center gap-2">
             <input 
               type="text" 
+              placeholder="Type a message..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              placeholder="Type a message..." 
-              className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
               disabled={connectionStatus !== 'connected'}
             />
             <button 
               onClick={handleSendMessage}
-              className="btn btn-primary p-2"
+              className="btn btn-primary p-2 flex-shrink-0"
               disabled={connectionStatus !== 'connected' || !message.trim()}
             >
               <Send className="h-4 w-4" />
             </button>
           </div>
-        </div>
+          </div>}
+        </motion.div>
       </div>
     </motion.div>
   );
