@@ -585,36 +585,55 @@ const ReadingRoom = () => {
     const timeDiff = now - lastTapTime;
     
     if (timeDiff < 300 && tapCount === 1) {
-      // Double tap detected - zoom to card
+      // Double tap detected
       const selectedCard = selectedCards[cardIndex];
       if (!selectedCard) return;
       
-      let cardX: number, cardY: number;
-      
-      if (selectedLayout?.id === 'free-layout') {
-        // For free layout, use the card's stored position
-        cardX = selectedCard.x || 50;
-        cardY = selectedCard.y || 50;
-      } else {
-        // For predefined layouts, use the position from layout
-        const position = selectedLayout?.positions?.[cardIndex];
-        if (position) {
-          cardX = position.x;
-          cardY = position.y;
+      // If card is revealed, activate it and zoom to it
+      if ((selectedCard as any)?.revealed) {
+        setActiveCardIndexWrapped(cardIndex);
+        
+        let cardX: number, cardY: number;
+        
+        if (selectedLayout?.id === 'free-layout') {
+          // For free layout, use the card's stored position
+          cardX = selectedCard.x || 50;
+          cardY = selectedCard.y || 50;
         } else {
-          return;
+          // For predefined layouts, use the position from layout
+          const position = selectedLayout?.positions?.[cardIndex];
+          if (position) {
+            cardX = position.x;
+            cardY = position.y;
+          } else {
+            return;
+          }
         }
+        
+        // Set zoom focus to the card position and zoom in significantly
+        setZoomFocus({ x: cardX, y: cardY });
+        setZoomLevelWrapped(2.5); // High zoom for detail viewing
       }
-      
-      // Set zoom focus to the card position and zoom in significantly
-      setZoomFocus({ x: cardX, y: cardY });
-      setZoomLevelWrapped(2.5); // High zoom for detail viewing
       
       // Reset tap count
       setTapCount(0);
     } else {
-      // First tap or outside double-tap window
+      // First tap or outside double-tap window - handle single tap
       setTapCount(1);
+      
+      // Set a timer to handle single tap after double-tap window expires
+      setTimeout(() => {
+        if (tapCount === 1) {
+          // This was a single tap - handle card flip or activation
+          const selectedCard = selectedCards[cardIndex];
+          if ((selectedCard as any)?.revealed) {
+            setActiveCardIndexWrapped(cardIndex);
+          } else {
+            handleCardFlip(cardIndex);
+          }
+          setTapCount(0);
+        }
+      }, 300);
     }
     
     setLastTapTime(now);
