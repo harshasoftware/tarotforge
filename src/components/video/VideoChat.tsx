@@ -5,6 +5,8 @@ import { User, Video, X, Phone, Mic, MicOff, VideoOff, Copy, Check, AlertCircle,
 import { motion } from 'framer-motion';
 import VideoControls from './VideoControls';
 import DraggableVideo from './DraggableVideo';
+import { useChat } from '../../context/ChatContext';
+import ChatPanel from './ChatPanel';
 
 interface VideoChatProps {
   onClose: () => void;
@@ -36,6 +38,10 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [chatPosition, setChatPosition] = useState({ x: window.innerWidth - 320, y: 200 });
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
+  const [isChatDragging, setIsChatDragging] = useState(false);
   
   // Video position states
   const [localVideoPosition, setLocalVideoPosition] = useState({ x: 20, y: 20 });
@@ -49,6 +55,11 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
 
   const updateRemoteVideoPosition = (position: { x: number; y: number }) => {
     setRemoteVideoPosition(position);
+  };
+  
+  // Chat position update handler
+  const updateChatPosition = (position: { x: number; y: number }) => {
+    setChatPosition(position);
   };
 
   // Initialize call
@@ -238,11 +249,17 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   // Get shareable link for the session
   const getShareableLink = () => {
     if (!generatedSessionId) return '';
-    
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/reading-room?join=${generatedSessionId}`;
+    return generateShareableLink(generatedSessionId);
   };
   
+  // Toggle chat panel
+  const toggleChat = () => {
+    setShowChat(!showChat);
+    if (!showChat) {
+      setIsChatMinimized(false);
+    }
+  };
+
   return (
     <>
         {/* Main container for draggable elements */}
@@ -390,15 +407,41 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
         >
-          <VideoControls
-            isMuted={isMuted}
-            isVideoOff={isVideoOff}
-            onToggleMute={toggleMute}
-            onToggleVideo={toggleVideo}
-            onEndCall={handleEndCall}
-            disabled={!localStream}
-          />
+          <div className="flex items-center space-x-2">
+            <VideoControls
+              isMuted={isMuted}
+              isVideoOff={isVideoOff}
+              onToggleMute={toggleMute}
+              onToggleVideo={toggleVideo}
+              onEndCall={handleEndCall}
+              disabled={!localStream}
+            />
+            
+            {/* Chat toggle button */}
+            <button
+              onClick={toggleChat}
+              className={`p-3 rounded-full ${showChat ? 'bg-primary text-primary-foreground' : 'bg-muted/30 text-foreground hover:bg-muted/50'} transition-colors`}
+              title={showChat ? "Hide Chat" : "Show Chat"}
+            >
+              <MessageSquare className="h-5 w-5" />
+            </button>
+          </div>
         </motion.div>
+        
+        {/* Chat Panel */}
+        {actualSessionId && (
+          <ChatPanel
+            roomId={actualSessionId}
+            isVisible={showChat}
+            isMinimized={isChatMinimized}
+            position={chatPosition}
+            onClose={() => setShowChat(false)}
+            onMinimize={() => setIsChatMinimized(!isChatMinimized)}
+            onPositionChange={updateChatPosition}
+            onDragStart={() => setIsChatDragging(true)}
+            onDragEnd={() => setIsChatDragging(false)}
+          />
+        )}
     </>
   );
 };

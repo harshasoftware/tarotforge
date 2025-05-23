@@ -33,6 +33,13 @@ const DraggableVideo: React.FC<DraggableVideoProps> = ({
     top: 0,
     bottom: window.innerHeight - (isMinimized ? 96 : 180)
   });
+  
+  // Ensure video is muted if it's the local stream
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = label === 'You';
+    }
+  }, [videoRef, label]);
 
   // Update constraints when window is resized
   useEffect(() => {
@@ -139,7 +146,7 @@ const DraggableVideo: React.FC<DraggableVideoProps> = ({
           <video
             ref={videoRef}
             autoPlay
-            muted={label === 'You'}
+            muted={label === 'You'} // Always mute local video to prevent feedback
             playsInline
             className="w-full h-full object-cover"
           />
