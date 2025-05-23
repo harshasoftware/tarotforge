@@ -635,10 +635,14 @@ const ReadingRoom = () => {
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Main content - full screen with floating controls */}
       <main className="flex-1 overflow-hidden relative">
-        {/* Floating controls in top corner - more compact for mobile */}
-        <div className={`absolute ${isMobile ? 'top-2 left-2 right-2' : 'top-4 left-4 right-4'} z-50 flex justify-between items-start`}>
+        {/* Floating controls - mobile: vertical on left, desktop: horizontal across top */}
+        <div className={`absolute z-50 ${
+          isMobile 
+            ? 'top-2 left-2 flex flex-col gap-2' 
+            : 'top-4 left-4 right-4 flex justify-between items-start'
+        }`}>
           {/* Left side - Back button and session info */}
-          <div className="flex items-center gap-1 md:gap-2">
+          <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-center gap-1 md:gap-2'}`}>
             <Link 
               to="/collection" 
               className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} flex items-center text-muted-foreground hover:text-foreground`}
@@ -674,8 +678,8 @@ const ReadingRoom = () => {
             )}
           </div>
           
-          {/* Right side - Action buttons - more compact for mobile */}
-          <div className="flex items-center gap-1 md:gap-2">
+          {/* Right side - Action buttons - mobile: vertical stack, desktop: horizontal */}
+          <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-center gap-1 md:gap-2'}`}>
             {/* Guest upgrade button */}
             {isGuest && (
               <button 
