@@ -1144,6 +1144,12 @@ const ReadingRoom = () => {
                             handleCardDrop(index);
                           }
                         }}
+                        onTouchEnd={(e) => {
+                          if (isMobile && isDragging && draggedCard && !selectedCard) {
+                            e.preventDefault();
+                            handleCardDrop(index);
+                          }
+                        }}
                       >
                         {/* Card position indicator - responsive size */}
                         {!selectedCard && (
@@ -1288,18 +1294,18 @@ const ReadingRoom = () => {
                                   scale: 0.9,
                                   transition: { duration: 0.1 }
                                 }}
-                                drag="x"
-                                dragElastic={0.1}
-                                dragConstraints={{
-                                  left: -(shuffledDeck.length * 6),
-                                  right: shuffledDeck.length * 6
-                                }}
                                 draggable={true}
                                 onDragStart={(e) => handleDragStart(card, index, e)}
                                 onMouseDown={(e) => handleDragStart(card, index, e)}
                                 onTouchStart={(e) => handleDragStart(card, index, e)}
                                 onMouseMove={handleDragMove}
                                 onTouchMove={handleDragMove}
+                                onTouchEnd={(e) => {
+                                  if (isMobile && isDragging) {
+                                    e.preventDefault();
+                                    handleFreeLayoutDrop(e);
+                                  }
+                                }}
                               >
                                 <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 rounded-md border border-primary-foreground flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
                                   <div className="text-center">
@@ -1370,6 +1376,12 @@ const ReadingRoom = () => {
                               onTouchStart={(e) => handleDragStart(card, index, e)}
                               onMouseMove={handleDragMove}
                               onTouchMove={handleDragMove}
+                              onTouchEnd={(e) => {
+                                if (isDragging) {
+                                  e.preventDefault();
+                                  handleFreeLayoutDrop(e);
+                                }
+                              }}
                             >
                               <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 rounded-lg border border-primary-foreground flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow">
                                 <div className="text-center">
