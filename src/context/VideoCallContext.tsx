@@ -26,13 +26,6 @@ interface SignalData {
   data: any;
 }
 
-interface ChatMessage {
-  id: string;
-  sender: string;
-  content: string;
-  timestamp: Date;
-}
-
 const VideoCallContext = createContext<VideoCallContextType>({
   localStream: null,
   remoteStream: null,
@@ -259,44 +252,42 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setPermissionDenied(false);
     
     try {
-      console.log("Explicitly requesting camera and microphone permissions...");
+      console.log("Explicitly requesting camera and microphone permissions");
       
-      // First try with both video and audio with more explicit constraints
-      const constraints = {
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: true
-      };
-      
-      console.log("Using constraints:", JSON.stringify(constraints));
-      
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
-        .catch(async (err) => {
-          console.error("Failed with ideal constraints:", err);
-          // Fallback to basic constraints
-          return navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        });
-      
-      // Log tracks to verify both audio and video were obtained
-      const videoTracks = stream.getVideoTracks();
-      const audioTracks = stream.getAudioTracks();
-      console.log("Obtained media tracks:", { 
-        videoTracks: videoTracks.length, 
-        audioTracks: audioTracks.length,
-        videoLabels: videoTracks.map(t => t.label),
-        audioLabels: audioTracks.map(t => t.label)
+      // Try to get audio-only first to ensure at least audio works
+      const audioStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: true,
+        video: false
       });
       
-      if (videoTracks.length === 0) {
-        console.warn("No video tracks obtained despite permissions");
+      console.log("Audio permission granted successfully");
+      
+      // Now try to get video
+      try {
+        const videoStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+        
+        console.log("Video permission granted successfully");
+        
+        // Combine the streams
+        videoStream.getAudioTracks().forEach(track => {
+          track.stop(); // Stop any audio tracks from video stream
+        });
+        
+        // Add video tracks to audio stream
+        videoStream.getVideoTracks().forEach(track => {
+          audioStream.addTrack(track);
+        });
+      } catch (videoErr) {
+        console.warn("Could not get video permission, continuing with audio only:", videoErr);
       }
       
-      // If successful, clean up the stream
-      stream.getTracks().forEach(track => track.stop());
+      // Clean up the test stream
+      audioStream.getTracks().forEach(track => track.stop());
       
-      console.log("Camera and microphone permissions granted successfully");
+      console.log("Media permissions test completed successfully");
       return true;
     } catch (err: any) {
       console.error('Error requesting permissions:', err);
@@ -319,57 +310,33 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Request both audio and video permissions explicitly
   const requestMediaPermissions = useCallback(async (): Promise<{ stream: MediaStream | null, audioOnly: boolean }> => {
     try {
-      // First try to get both video and audio with explicit constraints
-      console.log('Requesting camera and microphone permissions with explicit constraints...');
-      
-      const constraints = {
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: true
-      };
-      
-      console.log("Using constraints:", JSON.stringify(constraints));
-      
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
-        .catch(async (err) => {
-          console.error("Failed with ideal constraints:", err);
-          // Fallback to basic constraints
-          return navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        });
-      
-      // Log tracks to verify both audio and video were obtained
-      const videoTracks = stream.getVideoTracks();
-      const audioTracks = stream.getAudioTracks();
-      console.log("Obtained media tracks:", { 
-        videoTracks: videoTracks.length, 
-        audioTracks: audioTracks.length,
-        videoLabels: videoTracks.map(t => t.label),
-        audioLabels: audioTracks.map(t => t.label)
+      // First try to get audio only - this is most important for a call
+      console.log('Requesting audio permissions first...');
+      const audioStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: true,
+        video: false
       });
       
-      if (videoTracks.length === 0) {
-        console.warn("No video tracks obtained despite permissions");
-        // If no video tracks were obtained, try again explicitly for video
-        try {
-          const videoOnlyStream = await navigator.mediaDevices.getUserMedia({ 
-            video: true,
-            audio: false
-          });
-          
-          // Add the video tracks to our existing stream
-          videoOnlyStream.getVideoTracks().forEach(track => {
-            stream.addTrack(track);
-          });
-          
-          console.log("Successfully added video tracks in second attempt");
-        } catch (videoErr) {
-          console.error("Failed to add video in second attempt:", videoErr);
-        }
-      }
+      console.log('Audio permissions granted, now trying video...');
       
-      return { stream, audioOnly: videoTracks.length === 0 };
+      // Now try to get video
+      try {
+        const videoStream = await navigator.mediaDevices.getUserMedia({ 
+          video: true,
+          audio: false
+        });
+        
+        // Combine the streams
+        videoStream.getVideoTracks().forEach(track => {
+          audioStream.addTrack(track);
+        });
+        
+        console.log('Successfully obtained both audio and video permissions');
+        return { stream: audioStream, audioOnly: false };
+      } catch (videoErr) {
+        console.warn('Could not get video permissions, continuing with audio only:', videoErr);
+        return { stream: audioStream, audioOnly: true };
+      }
     } catch (err: any) {
       console.warn('Failed to get video and audio permissions:', err);
       

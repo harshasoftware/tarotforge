@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useVideoCall } from '../../context/VideoCallContext';
 import { useAuth } from '../../context/AuthContext';
-import { useChat } from '../../context/ChatContext';
-import { User, Video, X, Phone, Mic, MicOff, VideoOff, Send, Copy, Check, AlertCircle, Share2, MessageSquare, Minimize2, Maximize2, Move, Pin } from 'lucide-react';
+import { User, Video, X, Phone, Mic, MicOff, VideoOff, Copy, Check, AlertCircle, Share2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import VideoControls from './VideoControls';
 import DraggableVideo from './DraggableVideo';
-import ChatPanel from './ChatPanel';
-import ChatBubble from './ChatBubble';
 
 interface VideoChatProps {
   onClose: () => void;
@@ -29,11 +26,8 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     permissionDenied
   } = useVideoCall();
   
-  const { joinRoom, leaveRoom, messages, sendMessage } = useChat();
-  
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
@@ -42,15 +36,10 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
-  const [message, setMessage] = useState('');
   
   // Video position states
   const [localVideoPosition, setLocalVideoPosition] = useState({ x: 20, y: 20 });
   const [remoteVideoPosition, setRemoteVideoPosition] = useState({ x: window.innerWidth - 320, y: 20 });
-  const [chatMinimized, setChatMinimized] = useState(false);
-  const [chatPosition, setChatPosition] = useState({ x: window.innerWidth / 2 - 150, y: window.innerHeight - 300 });
-  const [isChatVisible, setIsChatVisible] = useState(true);
-  const [isChatDragging, setIsChatDragging] = useState(false);
   const [actualSessionId, setActualSessionId] = useState<string | null>(null);
 
   // Position update handlers
@@ -62,23 +51,6 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     setRemoteVideoPosition(position);
   };
 
-  const updateChatPosition = (position: { x: number; y: number }) => {
-    setChatPosition(position);
-  };
-
-  // Chat handlers
-  const toggleChatMinimized = () => {
-    setChatMinimized(!chatMinimized);
-  };
-
-  const handleChatDragStart = () => {
-    setIsChatDragging(true);
-  };
-
-  const handleChatDragEnd = () => {
-    setIsChatDragging(false);
-  };
-  
   // Initialize call
   useEffect(() => {
     const initializeCall = async () => {
@@ -92,7 +64,6 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
             const result = await startCall('client', sessionId);
             if (result) {
               setActualSessionId(result);
-              joinRoom(result);
             } else {
               console.log('Failed to join call - no session ID returned');
             }
@@ -108,7 +79,6 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
             if (newSessionId) {
               setGeneratedSessionId(newSessionId);
               setActualSessionId(newSessionId);
-              joinRoom(newSessionId);
             } else {
               console.log('Failed to start call - no session ID generated');
             }
@@ -129,9 +99,6 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     
     return () => {
       endCall();
-      if (actualSessionId) {
-        leaveRoom();
-      }
     };
   }, []);
   
@@ -153,7 +120,6 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
           const result = await startCall('client', sessionId);
           if (result) {
             setActualSessionId(result);
-            joinRoom(result);
           } else {
             console.log('Failed to join call - no session ID returned');
           }
@@ -232,9 +198,6 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   // Handle call end
   const handleEndCall = () => {
     endCall();
-    if (actualSessionId) {
-      leaveRoom();
-    }
     onClose();
   };
   
@@ -280,14 +243,6 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     return `${baseUrl}/reading-room?join=${generatedSessionId}`;
   };
   
-  // Handle sending a chat message
-  const handleSendMessage = () => {
-    if (message.trim() && actualSessionId) {
-      sendMessage(actualSessionId, message);
-      setMessage('');
-    }
-  };
-
   return (
     <>
         {/* Main container for draggable elements */}
@@ -377,7 +332,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
           </motion.div>
         )}
 
-        {/* Local video bubble */}
+        {/* Local video bubble - higher z-index */}
         <DraggableVideo
           videoRef={localVideoRef}
           stream={localStream}
@@ -385,6 +340,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
           label={`You${isVideoOff ? " (Camera Off)" : ""}`}
           initialPosition={localVideoPosition}
           onPositionChange={updateLocalVideoPosition}
+          className="z-[1000]"
           fallbackContent={
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
@@ -404,12 +360,13 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
           }
         />
         
-        {/* Remote video bubble */}
+        {/* Remote video bubble - higher z-index */}
         <DraggableVideo
           videoRef={remoteVideoRef}
           stream={remoteStream}
           isVideoOff={false}
           label={isCreatingRoom ? 'Client' : 'Reader'}
+          className="z-[1000]"
           initialPosition={remoteVideoPosition}
           onPositionChange={updateRemoteVideoPosition}
           fallbackContent={
@@ -426,97 +383,8 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
           }
         />
         
-        {/* Floating chat bubble */}
-        {isChatVisible && (
-          <motion.div
-            className="fixed bg-card/95 backdrop-blur-sm border border-border rounded-lg overflow-hidden shadow-lg z-[998]"
-            drag
-            dragMomentum={false}
-            dragElastic={0}
-            dragConstraints={{ left: 0, right: window.innerWidth - 300, top: 0, bottom: window.innerHeight - 300 }}
-            onDragStart={handleChatDragStart}
-            onDragEnd={handleChatDragEnd}
-            animate={{
-              x: chatPosition.x,
-              y: chatPosition.y,
-              width: chatMinimized ? 200 : 300,
-              height: chatMinimized ? 40 : 300,
-              scale: isChatDragging ? 1.02 : 1
-            }}
-            transition={{ duration: 0.3 }}
-            style={{ 
-              position: 'fixed',
-              left: 0,
-              top: 0
-            }}
-            onDrag={(e, info) => updateChatPosition(info.point)}
-          >
-            <div className="p-2 border-b border-border flex items-center justify-between cursor-move"
-                 onDoubleClick={toggleChatMinimized}>
-              <h3 className="text-sm font-medium">Chat</h3>
-              <div className="flex items-center space-x-1">
-                <button 
-                  onClick={toggleChatMinimized}
-                  className="p-1 rounded-full hover:bg-muted/50 transition-colors"
-                >
-                  {chatMinimized ? <Maximize2 className="h-3 w-3" /> : <Minimize2 className="h-3 w-3" />}
-                </button>
-                <button 
-                  onClick={() => setIsChatVisible(false)}
-                  className="p-1 rounded-full hover:bg-muted/50 transition-colors"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            </div>
-            
-            {!chatMinimized && (
-              <div className="p-2 flex flex-col h-[calc(100%-40px)]">
-                <div className="flex-grow overflow-y-auto mb-2 text-sm p-2 bg-background/50 rounded-lg scrollbar-hide">
-                  {messages.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
-                      <p>No messages yet</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {messages.map((msg) => (
-                        <ChatBubble
-                          key={msg.id}
-                          sender={msg.username}
-                          content={msg.content}
-                          isCurrentUser={msg.user_id === user?.id}
-                          isSystem={msg.user_id === 'system'}
-                          timestamp={new Date(msg.created_at)}
-                        />
-                      ))}
-                      <div ref={messagesEndRef} />
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  <input 
-                    type="text" 
-                    placeholder="Type a message..."
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    className="w-full p-1.5 text-xs rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <button 
-                    onClick={handleSendMessage}
-                    className="p-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-                    disabled={!message.trim()}
-                  >
-                    <Send className="h-3 w-3" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </motion.div>
-        )}
-        
-        {/* Floating controls */}
-        <motion.div
+        {/* Floating controls - higher z-index */}
+        <motion.div 
           className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-[1002] bg-card/95 backdrop-blur-sm border border-border rounded-full shadow-lg p-2"
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -531,20 +399,6 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
             disabled={!localStream}
           />
         </motion.div>
-        
-        {/* Chat toggle button (only visible when chat is hidden) */}
-        {!isChatVisible && (
-          <motion.button
-            className="fixed bottom-20 right-4 z-[1002] bg-primary text-primary-foreground rounded-full p-3 shadow-lg hover:bg-primary/90 transition-colors"
-            onClick={() => setIsChatVisible(true)}
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            whileHover={{ scale: 1.1 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-          >
-            <MessageSquare className="h-5 w-5" />
-          </motion.button>
-        )}
     </>
   );
 };
