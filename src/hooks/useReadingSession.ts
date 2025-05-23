@@ -122,26 +122,70 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
 
   // Update session state
   const updateSession = useCallback(async (updates: Partial<ReadingSessionState>) => {
-    if (!sessionState?.id) return;
+    if (!sessionState?.id) {
+      console.warn('No session ID available for update');
+      return;
+    }
 
     try {
+      // Build update object only with defined values
+      const updateData: any = {};
+      
+      if (updates.selectedLayout !== undefined) {
+        updateData.selected_layout = updates.selectedLayout;
+      }
+      if (updates.question !== undefined) {
+        updateData.question = updates.question;
+      }
+      if (updates.readingStep !== undefined) {
+        updateData.reading_step = updates.readingStep;
+      }
+      if (updates.selectedCards !== undefined) {
+        updateData.selected_cards = updates.selectedCards;
+      }
+      if (updates.interpretation !== undefined) {
+        updateData.interpretation = updates.interpretation;
+      }
+      if (updates.zoomLevel !== undefined) {
+        updateData.zoom_level = updates.zoomLevel;
+      }
+      if (updates.activeCardIndex !== undefined) {
+        updateData.active_card_index = updates.activeCardIndex;
+      }
+
+      console.log('Updating session with data:', updateData);
+
       const { error } = await supabase
         .from('reading_sessions')
-        .update({
-          selected_layout: updates.selectedLayout,
-          question: updates.question,
-          reading_step: updates.readingStep,
-          selected_cards: updates.selectedCards,
-          interpretation: updates.interpretation,
-          zoom_level: updates.zoomLevel,
-          active_card_index: updates.activeCardIndex
-        })
+        .update(updateData)
         .eq('id', sessionState.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database update error:', error);
+        throw error;
+      }
+
+      // Update local state immediately for better UX
+      setSessionState((prev: ReadingSessionState | null) => prev ? {
+        ...prev,
+        ...updates,
+        updatedAt: new Date().toISOString()
+      } : null);
+
     } catch (err: any) {
       console.error('Error updating session:', err);
-      setError(err.message);
+      
+      // For development/guest users, update local state even if DB update fails
+      if (err.message?.includes('permission') || err.message?.includes('policy')) {
+        console.warn('Database update failed due to permissions, updating local state only');
+        setSessionState((prev: ReadingSessionState | null) => prev ? {
+          ...prev,
+          ...updates,
+          updatedAt: new Date().toISOString()
+        } : null);
+      } else {
+        setError(err.message);
+      }
     }
   }, [sessionState?.id]);
 
@@ -238,10 +282,10 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
     channel
       .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'reading_sessions', filter: `id=eq.${sessionState.id}` },
-        (payload) => {
+        (payload: any) => {
           console.log('Session updated:', payload);
           const newSession = payload.new as any;
-          setSessionState(prev => prev ? {
+          setSessionState((prev: ReadingSessionState | null) => prev ? {
             ...prev,
             selectedLayout: newSession.selected_layout,
             question: newSession.question,
@@ -301,11 +345,35 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
 
         if (!sessionId) {
           // Create new session
+          console.log('Creating new session for user:', user?.id || 'anonymous');
           sessionId = await createSession();
-          if (!sessionId) return;
+          if (!sessionId) {
+            // If database creation fails, create a local session for development
+            console.warn('Database session creation failed, creating local session');
+            sessionId = uuidv4();
+            setSessionState({
+              id: sessionId,
+              hostUserId: user?.id || null,
+              deckId: deckId,
+              selectedLayout: null,
+              question: '',
+              readingStep: 'setup',
+              selectedCards: [],
+              interpretation: '',
+              zoomLevel: 1.0,
+              activeCardIndex: null,
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            });
+            setIsHost(true);
+            setIsLoading(false);
+            return;
+          }
           setIsHost(true);
         } else {
           // Join existing session
+          console.log('Joining existing session:', sessionId);
           sessionId = await joinSession(sessionId);
           if (!sessionId) return;
           setIsHost(false);
@@ -318,39 +386,64 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
           .eq('id', sessionId)
           .single();
 
-        if (sessionError) throw sessionError;
+        if (sessionError) {
+          console.error('Failed to fetch session:', sessionError);
+          // If we can't fetch from database, create a minimal local session
+          if (sessionId) {
+            setSessionState({
+              id: sessionId,
+              hostUserId: user?.id || null,
+              deckId: deckId,
+              selectedLayout: null,
+              question: '',
+              readingStep: 'setup',
+              selectedCards: [],
+              interpretation: '',
+              zoomLevel: 1.0,
+              activeCardIndex: null,
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            });
+          }
+        } else {
+          // Convert database format to component format
+          setSessionState({
+            id: session.id,
+            hostUserId: session.host_user_id,
+            deckId: session.deck_id,
+            selectedLayout: session.selected_layout,
+            question: session.question || '',
+            readingStep: session.reading_step,
+            selectedCards: session.selected_cards || [],
+            interpretation: session.interpretation || '',
+            zoomLevel: session.zoom_level || 1.0,
+            activeCardIndex: session.active_card_index,
+            isActive: session.is_active,
+            createdAt: session.created_at,
+            updatedAt: session.updated_at
+          });
 
-        // Convert database format to component format
-        setSessionState({
-          id: session.id,
-          hostUserId: session.host_user_id,
-          deckId: session.deck_id,
-          selectedLayout: session.selected_layout,
-          question: session.question || '',
-          readingStep: session.reading_step,
-          selectedCards: session.selected_cards || [],
-          interpretation: session.interpretation || '',
-          zoomLevel: session.zoom_level || 1.0,
-          activeCardIndex: session.active_card_index,
-          isActive: session.is_active,
-          createdAt: session.created_at,
-          updatedAt: session.updated_at
-        });
-
-        // Check if current user is host
-        if (user && session.host_user_id === user.id) {
-          setIsHost(true);
+          // Check if current user is host
+          if (user && session.host_user_id === user.id) {
+            setIsHost(true);
+          }
         }
 
-        // Fetch participants
-        const { data: participantsData } = await supabase
-          .from('session_participants')
-          .select('*')
-          .eq('session_id', sessionId)
-          .eq('is_active', true);
+        // Fetch participants (optional, don't fail if this doesn't work)
+        try {
+          const { data: participantsData } = await supabase
+            .from('session_participants')
+            .select('*')
+            .eq('session_id', sessionId)
+            .eq('is_active', true);
 
-        if (participantsData) {
-          setParticipants(participantsData);
+          if (participantsData) {
+            setParticipants(participantsData);
+          }
+        } catch (participantsError) {
+          console.warn('Failed to fetch participants:', participantsError);
+          // Continue without participants data
         }
 
       } catch (err: any) {
@@ -362,7 +455,7 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
     };
 
     initializeSession();
-  }, [initialSessionId, createSession, joinSession, user]);
+  }, [initialSessionId, createSession, joinSession, user, deckId]);
 
   // Cleanup on unmount
   useEffect(() => {

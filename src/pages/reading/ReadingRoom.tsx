@@ -134,7 +134,7 @@ const ReadingRoom = () => {
 
   // Debug session state
   useEffect(() => {
-    console.log('Session state updated:', {
+    console.log('ReadingRoom state updated:', {
       sessionState,
       readingStep,
       selectedLayout,
@@ -142,9 +142,12 @@ const ReadingRoom = () => {
       loading,
       cards: cards?.length || 0,
       error,
-      sessionError
+      sessionError,
+      sessionId: sessionState?.id,
+      user: user?.id || 'anonymous',
+      isGuest
     });
-  }, [sessionState, readingStep, selectedLayout, sessionLoading, loading, cards, error, sessionError]);
+  }, [sessionState, readingStep, selectedLayout, sessionLoading, loading, cards, error, sessionError, user, isGuest]);
 
   // Check for mobile screen size
   useEffect(() => {
@@ -545,13 +548,27 @@ const ReadingRoom = () => {
     }
   };
   
-  if (loading || sessionLoading) {
+  if (loading) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-muted-foreground">
-            {sessionLoading ? 'Connecting to reading room...' : 'Preparing reading room...'}
+            Preparing reading room...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show session loading only if deck data is also loading
+  if (sessionLoading && loading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">
+            Connecting to reading room...
           </p>
         </div>
       </div>
