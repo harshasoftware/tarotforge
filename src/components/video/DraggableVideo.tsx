@@ -33,22 +33,32 @@ const DraggableVideo: React.FC<DraggableVideoProps> = ({
   // Calculate sizes based on mobile and minimized state
   const getVideoSize = () => {
     if (isMobile) {
-      return isMinimized ? 'w-20 h-16' : 'w-32 h-24';
+      return isMinimized ? 'w-16 h-16' : 'w-24 h-24'; // Square for circular shape on mobile
     } else {
       return isMinimized ? 'w-32 h-24' : 'w-64 md:w-80';
     }
   };
   
   const getConstraints = () => {
-    const videoWidth = isMobile ? (isMinimized ? 80 : 128) : (isMinimized ? 128 : 320);
-    const videoHeight = isMobile ? (isMinimized ? 64 : 96) : (isMinimized ? 96 : 180);
-    
-    return {
-      left: 0,
-      right: window.innerWidth - videoWidth,
-      top: 0,
-      bottom: window.innerHeight - videoHeight
-    };
+    if (isMobile) {
+      const videoSize = isMinimized ? 64 : 96; // Square size for mobile
+      return {
+        left: 0,
+        right: window.innerWidth - videoSize,
+        top: 0,
+        bottom: window.innerHeight - videoSize
+      };
+    } else {
+      const videoWidth = isMinimized ? 128 : 320;
+      const videoHeight = isMinimized ? 96 : 180;
+      
+      return {
+        left: 0,
+        right: window.innerWidth - videoWidth,
+        top: 0,
+        bottom: window.innerHeight - videoHeight
+      };
+    }
   };
   
   const [constraints, setConstraints] = useState(getConstraints());
@@ -116,7 +126,7 @@ const DraggableVideo: React.FC<DraggableVideoProps> = ({
   return (
     <motion.div
       className={`fixed ${getVideoSize()} 
-                 bg-black/80 rounded-lg overflow-hidden shadow-lg cursor-move
+                 bg-black/80 ${isMobile ? 'rounded-full' : 'rounded-lg'} overflow-hidden shadow-lg cursor-move
                  draggable-video ${isDragging ? 'dragging' : ''} ${className}`}
       drag={!isPinned}
       dragMomentum={false}
@@ -130,7 +140,7 @@ const DraggableVideo: React.FC<DraggableVideoProps> = ({
         y: position.y,
         scale: isDragging ? 1.02 : 1,
         zIndex: isDragging ? 1000 : 999,
-        borderRadius: isMinimized ? '12px' : '16px'
+        borderRadius: isMobile ? '50%' : (isMinimized ? '12px' : '16px')
       }}
       transition={{ 
         duration: 0.3,

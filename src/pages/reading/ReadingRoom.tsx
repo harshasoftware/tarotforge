@@ -635,14 +635,14 @@ const ReadingRoom = () => {
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Main content - full screen with floating controls */}
       <main className="flex-1 overflow-hidden relative">
-        {/* Floating controls - mobile: vertical on left, desktop: horizontal across top */}
+        {/* Floating controls - redesigned mobile layout */}
         <div className={`absolute z-50 ${
           isMobile 
-            ? 'top-2 left-2 flex flex-col gap-2' 
+            ? 'top-2 left-2 right-2 flex justify-between items-center' 
             : 'top-4 left-4 right-4 flex justify-between items-start'
         }`}>
-          {/* Left side - Back button and session info */}
-          <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-center gap-1 md:gap-2'}`}>
+          {/* Left side - Back button and title for mobile, back button and session info for desktop */}
+          <div className={`flex ${isMobile ? 'items-center gap-2' : 'items-center gap-1 md:gap-2'}`}>
             <Link 
               to="/collection" 
               className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} flex items-center text-muted-foreground hover:text-foreground`}
@@ -651,7 +651,14 @@ const ReadingRoom = () => {
               {!isMobile && <span className="ml-1 text-sm">Back</span>}
             </Link>
             
-            {/* Session info - more compact for mobile */}
+            {/* Mobile title display */}
+            {isMobile && selectedLayout && (
+              <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-1">
+                <span className="text-sm font-medium truncate">{selectedLayout.name}</span>
+              </div>
+            )}
+            
+            {/* Desktop session info */}
             {!isMobile && (
               <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2 max-w-xs">
                 <div className="flex items-center gap-2">
@@ -678,8 +685,8 @@ const ReadingRoom = () => {
             )}
           </div>
           
-          {/* Right side - Action buttons - mobile: vertical stack, desktop: horizontal */}
-          <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-center gap-1 md:gap-2'}`}>
+          {/* Right side - Action buttons - horizontal for both mobile and desktop */}
+          <div className={`flex ${isMobile ? 'items-center gap-1' : 'items-center gap-1 md:gap-2'}`}>
             {/* Guest upgrade button */}
             {isGuest && (
               <button 
