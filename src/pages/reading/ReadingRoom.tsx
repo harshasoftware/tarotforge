@@ -1005,78 +1005,132 @@ const ReadingRoom = () => {
                 
                 {/* Deck pile - show cards that can be dragged */}
                 {shuffledDeck.length > 0 && (
-                  <div className={`absolute ${isMobile ? 'bottom-4 left-4 right-4' : 'right-8 bottom-8'} z-20`}>
+                  <div className={`absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2' : 'bottom-8 left-1/2 transform -translate-x-1/2'} z-20`}>
                     {isMobile ? (
-                      /* Mobile: Horizontal spread at bottom */
-                      <div className="flex justify-center items-end space-x-2 overflow-x-auto pb-2">
-                        {shuffledDeck.slice(0, Math.min(6, shuffledDeck.length)).map((card: Card, index: number) => (
-                          <div
-                            key={`deck-mobile-${index}`}
-                            className="flex-shrink-0 w-12 h-18 cursor-grab active:cursor-grabbing relative"
-                            style={{
-                              transform: `rotate(${(index - 2.5) * 8}deg) translateY(${index === 0 ? '0px' : `${Math.abs(index - 2.5) * 4}px`})`,
-                              zIndex: 10 - Math.abs(index - 2.5)
-                            }}
-                            draggable={index === 0}
-                            onDragStart={(e) => index === 0 && handleDragStart(card, 0, e)}
-                            onMouseDown={(e) => index === 0 && handleDragStart(card, 0, e)}
-                            onTouchStart={(e) => index === 0 && handleDragStart(card, 0, e)}
-                            onMouseMove={handleDragMove}
-                            onTouchMove={handleDragMove}
-                          >
-                            <div className="w-full h-full bg-primary rounded-md border border-primary-foreground flex items-center justify-center shadow-lg transition-shadow hover:shadow-xl">
-                              <span className="text-xs text-primary-foreground text-center px-1 rotate-0">
-                                {index === 0 ? 'Drag' : ''}
-                              </span>
-                            </div>
-                            {index === 0 && (
-                              <div className="absolute -top-1 -right-1 bg-accent text-accent-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center">
-                                {shuffledDeck.length}
+                      /* Mobile: Compact curved spread with hover effects */
+                      <div className="relative w-72 h-24">
+                        {shuffledDeck.slice(0, Math.min(6, shuffledDeck.length)).map((card: Card, index: number) => {
+                          const totalCards = Math.min(6, shuffledDeck.length);
+                          const angle = (index - (totalCards - 1) / 2) * 15; // 15 degrees between cards for mobile
+                          const radius = 85; // Radius of the arc
+                          const x = Math.sin((angle * Math.PI) / 180) * radius;
+                          const y = Math.cos((angle * Math.PI) / 180) * radius * 0.3; // Flatten the curve
+                          
+                          return (
+                            <motion.div
+                              key={`deck-mobile-${index}`}
+                              className="absolute w-12 h-18 cursor-grab active:cursor-grabbing"
+                              style={{
+                                left: '50%',
+                                bottom: '0',
+                                transformOrigin: 'bottom center'
+                              }}
+                              initial={{
+                                transform: `translateX(-50%) translateX(${x}px) translateY(${y}px) rotate(${angle}deg)`,
+                                zIndex: totalCards - index,
+                              }}
+                              whileHover={{
+                                transform: `translateX(-50%) translateX(${x}px) translateY(${y - 8}px) rotate(${angle}deg) scale(1.1)`,
+                                zIndex: 50,
+                                transition: { duration: 0.2 }
+                              }}
+                              whileTap={{
+                                scale: 0.95,
+                                transition: { duration: 0.1 }
+                              }}
+                              draggable={index === 0}
+                              onDragStart={(e) => index === 0 && handleDragStart(card, 0, e)}
+                              onMouseDown={(e) => index === 0 && handleDragStart(card, 0, e)}
+                              onTouchStart={(e) => index === 0 && handleDragStart(card, 0, e)}
+                              onMouseMove={handleDragMove}
+                              onTouchMove={handleDragMove}
+                            >
+                              <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 rounded-md border border-primary-foreground flex items-center justify-center shadow-lg">
+                                <div className="text-center">
+                                  <div className="w-4 h-4 mx-auto mb-0.5 opacity-60">
+                                    <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
+                                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                  </div>
+                                  {index === 0 && (
+                                    <span className="text-xs text-primary-foreground opacity-75">Drag</span>
+                                  )}
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        ))}
+                              {index === 0 && (
+                                <div className="absolute -top-2 -right-1 bg-accent text-accent-foreground rounded-full w-5 h-5 text-xs flex items-center justify-center shadow-md">
+                                  {shuffledDeck.length}
+                                </div>
+                              )}
+                            </motion.div>
+                          );
+                        })}
                       </div>
                     ) : (
-                      /* Desktop: Fan-like spread */
-                      <div className="relative w-32 h-40">
-                        {shuffledDeck.slice(0, Math.min(7, shuffledDeck.length)).map((card: Card, index: number) => (
-                          <div
-                            key={`deck-desktop-${index}`}
-                            className="absolute w-20 h-30 cursor-grab active:cursor-grabbing"
-                            style={{
-                              transform: `rotate(${(index - 3) * 12}deg) translate(${index * 3}px, ${index * 2}px)`,
-                              transformOrigin: 'bottom center',
-                              zIndex: 10 - index,
-                              left: '50%',
-                              bottom: '0',
-                              marginLeft: '-40px'
-                            }}
-                            draggable={index === 0}
-                            onDragStart={(e) => index === 0 && handleDragStart(card, 0, e)}
-                            onMouseDown={(e) => index === 0 && handleDragStart(card, 0, e)}
-                            onTouchStart={(e) => index === 0 && handleDragStart(card, 0, e)}
-                            onMouseMove={handleDragMove}
-                            onTouchMove={handleDragMove}
-                          >
-                            <div className="w-full h-full bg-primary rounded-md border border-primary-foreground flex items-center justify-center shadow-lg transition-all hover:shadow-xl hover:scale-105">
-                              <span className="text-xs text-primary-foreground text-center px-1">
-                                {index === 0 ? 'Drag to Place' : ''}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                        
-                        {/* Deck count for desktop */}
-                        <div className="absolute -top-3 -right-3 bg-accent text-accent-foreground rounded-full w-8 h-8 text-sm flex items-center justify-center z-30 shadow-lg">
-                          {shuffledDeck.length}
-                        </div>
+                      /* Desktop: Elegant curved arc spread with enhanced hover */
+                      <div className="relative w-96 h-32">
+                        {shuffledDeck.slice(0, Math.min(8, shuffledDeck.length)).map((card: Card, index: number) => {
+                          const totalCards = Math.min(8, shuffledDeck.length);
+                          const angle = (index - (totalCards - 1) / 2) * 10; // 10 degrees between cards
+                          const radius = 120; // Radius of the arc
+                          const x = Math.sin((angle * Math.PI) / 180) * radius;
+                          const y = Math.cos((angle * Math.PI) / 180) * radius * 0.4; // Flatten the curve
+                          
+                          return (
+                            <motion.div
+                              key={`deck-desktop-${index}`}
+                              className="absolute w-16 h-24 cursor-grab active:cursor-grabbing"
+                              style={{
+                                left: '50%',
+                                bottom: '0',
+                                transformOrigin: 'bottom center'
+                              }}
+                              initial={{
+                                transform: `translateX(-50%) translateX(${x}px) translateY(${y}px) rotate(${angle}deg)`,
+                                zIndex: totalCards - index,
+                              }}
+                              whileHover={{
+                                transform: `translateX(-50%) translateX(${x}px) translateY(${y - 12}px) rotate(${angle}deg) scale(1.1)`,
+                                zIndex: 50,
+                                transition: { duration: 0.3, ease: "easeOut" }
+                              }}
+                              whileTap={{
+                                scale: 0.95,
+                                transition: { duration: 0.1 }
+                              }}
+                              draggable={index === 0}
+                              onDragStart={(e) => index === 0 && handleDragStart(card, 0, e)}
+                              onMouseDown={(e) => index === 0 && handleDragStart(card, 0, e)}
+                              onTouchStart={(e) => index === 0 && handleDragStart(card, 0, e)}
+                              onMouseMove={handleDragMove}
+                              onTouchMove={handleDragMove}
+                            >
+                              <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 rounded-md border border-primary-foreground flex items-center justify-center shadow-lg">
+                                <div className="text-center">
+                                  <div className="w-6 h-6 mx-auto mb-1 opacity-60">
+                                    <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
+                                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                  </div>
+                                  {index === 0 && (
+                                    <span className="text-xs text-primary-foreground opacity-75">Drag</span>
+                                  )}
+                                </div>
+                              </div>
+                              {index === 0 && (
+                                <div className="absolute -top-3 -right-2 bg-accent text-accent-foreground rounded-full w-6 h-6 text-xs flex items-center justify-center shadow-lg">
+                                  {shuffledDeck.length}
+                                </div>
+                              )}
+                            </motion.div>
+                          );
+                        })}
                         
                         {/* Shuffle button for desktop */}
-                        <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
+                        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2">
                           <button 
                             onClick={shuffleDeck}
-                            className="btn btn-ghost p-2 text-xs flex items-center gap-1 bg-card/80 backdrop-blur-sm rounded-full"
+                            className="btn btn-ghost p-2 text-xs flex items-center gap-1 bg-card/80 backdrop-blur-sm rounded-full border border-border hover:bg-card/90 transition-colors"
                             title="Shuffle Deck"
                           >
                             <Shuffle className="h-3 w-3" />
@@ -1237,7 +1291,7 @@ const ReadingRoom = () => {
                         <motion.div
                           className="relative"
                           onClick={() => {
-                            if (selectedCard.revealed) {
+                            if ((selectedCard as any).revealed) {
                               setActiveCardIndexWrapped(index);
                             } else {
                               handleCardFlip(index);
@@ -1245,16 +1299,28 @@ const ReadingRoom = () => {
                           }}
                           whileHover={{ scale: 1.05 }}
                           animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
+                          style={{ 
+                            position: 'absolute',
+                            left: `${selectedCard.x}%`, 
+                            top: `${selectedCard.y}%`,
+                            transform: 'translate(-50%, -50%)',
+                            zIndex: activeCardIndex === index ? 20 : 10 + index
+                          }}
                         >
-                          <div 
-                            className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${
-                              activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
-                            }`}
+                          <motion.div 
+                            className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`}
                             style={{ 
                               transform: (selectedCard as any).isReversed ? 'rotate(180deg)' : 'none'
                             }}
+                            animate={{ 
+                              rotateY: (selectedCard as any).revealed ? 0 : 180 
+                            }}
+                            transition={{ 
+                              duration: 0.6, 
+                              ease: "easeInOut" 
+                            }}
                           >
-                            {selectedCard.revealed ? (
+                            {(selectedCard as any).revealed ? (
                               <img 
                                 src={selectedCard.image_url} 
                                 alt={selectedCard.name} 
@@ -1272,9 +1338,9 @@ const ReadingRoom = () => {
                                 </div>
                               </div>
                             )}
-                          </div>
+                          </motion.div>
                           <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
-                            {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {selectedCard.revealed && selectedCard.isReversed && '(R)'}
+                            {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
                           </div>
                         </motion.div>
                       </div>
