@@ -22,6 +22,7 @@ interface DeckLimitContextType {
     regenerationsUsed: number;
     lastResetDate: string | null;
     nextResetDate: string | null;
+  }
   limits: {
     majorArcanaLimit: number;
     completeDeckLimit: number;
@@ -76,6 +77,8 @@ export const DeckLimitProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!user) {
       setLimits(null);
       setUsage(null);
+    }
+  }
   const fetchLimits = async () => {
     if (!user) {
       setLimits(null);
