@@ -102,6 +102,9 @@ const ReadingRoom = () => {
   const [isLandscape, setIsLandscape] = useState(false);
   const [showMobileInterpretation, setShowMobileInterpretation] = useState(false);
   
+  // Mobile viewport height state for iOS Safari fix
+  const [viewportHeight, setViewportHeight] = useState(0);
+  
   // Pinch zoom hint state
   const [showPinchHint, setShowPinchHint] = useState(false);
   const [hasShownInitialHint, setHasShownInitialHint] = useState(false);
@@ -190,11 +193,26 @@ const ReadingRoom = () => {
       
       setIsMobile(isMobileDevice);
       setIsLandscape(isLandscapeOrientation);
+      
+      // Set proper viewport height for iOS Safari fix
+      if (isMobileDevice) {
+        // Use the actual viewport height instead of 100vh
+        const vh = window.innerHeight;
+        setViewportHeight(vh);
+        
+        // Also set CSS custom property for other components
+        document.documentElement.style.setProperty('--vh', `${vh * 0.01}px`);
+      } else {
+        setViewportHeight(0); // Reset for desktop
+      }
     };
     
     checkMobileAndOrientation();
     window.addEventListener('resize', checkMobileAndOrientation);
-    window.addEventListener('orientationchange', checkMobileAndOrientation);
+    window.addEventListener('orientationchange', () => {
+      // Small delay to ensure viewport is updated after orientation change
+      setTimeout(checkMobileAndOrientation, 100);
+    });
     
     return () => {
       window.removeEventListener('resize', checkMobileAndOrientation);
@@ -962,7 +980,10 @@ const ReadingRoom = () => {
   }
   
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div 
+      className={`flex flex-col overflow-hidden ${!isMobile ? 'h-screen' : ''}`}
+      style={isMobile ? { height: `${viewportHeight}px` } : undefined}
+    >
       {/* Main content - full screen with floating controls */}
       <main className="flex-1 overflow-hidden relative">
         {/* Floating controls - redesigned mobile layout */}
