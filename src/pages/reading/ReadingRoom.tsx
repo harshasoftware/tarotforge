@@ -127,6 +127,9 @@ const ReadingRoom = () => {
   const [lastTapTime, setLastTapTime] = useState(0);
   const [tapCount, setTapCount] = useState(0);
   
+  // Layout dropdown state
+  const [showLayoutDropdown, setShowLayoutDropdown] = useState(false);
+  
   // Video chat state
   const [showVideoChat, setShowVideoChat] = useState(false);
   const [isVideoConnecting, setIsVideoConnecting] = useState(false);
@@ -309,6 +312,21 @@ const ReadingRoom = () => {
       readingArea.removeEventListener('touchend', handleTouchEnd);
     };
   }, [handleTouchStart, handleTouchMove, handleTouchEnd, isMobile]);
+  
+  // Close layout dropdown when clicking outside
+  useEffect(() => {
+    if (!showLayoutDropdown) return;
+    
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.layout-dropdown-container')) {
+        setShowLayoutDropdown(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showLayoutDropdown]);
   
   // Fetch deck and cards data
   useEffect(() => {
@@ -751,8 +769,53 @@ const ReadingRoom = () => {
             
             {/* Mobile title display */}
             {isMobile && selectedLayout && (
-              <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-1">
-                <span className="text-sm font-medium truncate">{selectedLayout.name}</span>
+              <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-1 relative layout-dropdown-container">
+                <button
+                  onClick={() => setShowLayoutDropdown(!showLayoutDropdown)}
+                  className="flex items-center gap-2 text-sm font-medium"
+                >
+                  <span className="truncate">{selectedLayout.name}</span>
+                  {readingStep === 'drawing' && (
+                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                      {selectedCards.filter(card => card).length}/{selectedLayout.card_count === 999 ? '∞' : selectedLayout.card_count}
+                    </span>
+                  )}
+                  <ChevronRight className={`h-3 w-3 transition-transform ${showLayoutDropdown ? 'rotate-90' : ''}`} />
+                </button>
+                
+                {/* Layout dropdown */}
+                <AnimatePresence>
+                  {showLayoutDropdown && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto"
+                    >
+                      {readingLayouts.map((layout) => (
+                        <button
+                          key={layout.id}
+                          onClick={() => {
+                            handleLayoutSelect(layout);
+                            setShowLayoutDropdown(false);
+                          }}
+                          className={`w-full text-left p-2 hover:bg-muted transition-colors ${
+                            selectedLayout.id === layout.id ? 'bg-primary/10 text-primary' : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">{layout.name}</span>
+                            <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                              {layout.card_count === 999 ? 'Free' : `${layout.card_count}`}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{layout.description}</p>
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )}
             
@@ -873,34 +936,36 @@ const ReadingRoom = () => {
           {/* Step 2: Drawing Cards */}
           {readingStep === 'drawing' && selectedLayout && (
             <div className={`absolute inset-0 flex flex-col ${isMobile ? 'pt-12' : 'pt-20'}`}>
-              {/* Reading info bar - compact for mobile */}
-              <div className={`bg-card/80 backdrop-blur-sm border-b border-border ${isMobile ? 'p-1.5' : 'p-2 md:p-3'} flex justify-between items-center`}>
-                <div className="flex-1 min-w-0">
-                  <span className={`font-medium ${isMobile ? 'text-sm' : 'text-sm md:text-base'} truncate block`}>{selectedLayout.name}</span>
-                  {question && !isMobile && (
-                    <span className="text-xs text-muted-foreground italic">"{question}"</span>
-                  )}
+              {/* Reading info bar - only show on desktop */}
+              {!isMobile && (
+                <div className="bg-card/80 backdrop-blur-sm border-b border-border p-2 md:p-3 flex justify-between items-center">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm md:text-base font-medium truncate block">{selectedLayout.name}</span>
+                    {question && (
+                      <span className="text-xs text-muted-foreground italic">"{question}"</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 md:gap-3 ml-2">
+                    <span className="text-xs md:text-sm whitespace-nowrap">
+                      {selectedCards.filter(card => card).length}/{selectedLayout.card_count === 999 ? '∞' : selectedLayout.card_count}
+                    </span>
+                    
+                    <button 
+                      onClick={shuffleDeck}
+                      className="btn btn-ghost p-1 text-sm flex items-center"
+                    >
+                      <Shuffle className="h-4 w-4" />
+                    </button>
+                    
+                    <button 
+                      onClick={resetReading}
+                      className="btn btn-ghost p-1 text-sm flex items-center text-warning"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-                <div className={`flex items-center ${isMobile ? 'gap-1' : 'gap-2 md:gap-3'} ml-2`}>
-                  <span className="text-xs md:text-sm whitespace-nowrap">
-                    {selectedCards.filter(card => card).length}/{selectedLayout.card_count === 999 ? '∞' : selectedLayout.card_count}
-                  </span>
-                  
-                  <button 
-                    onClick={shuffleDeck}
-                    className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'} text-sm flex items-center`}
-                  >
-                    <Shuffle className="h-4 w-4" />
-                  </button>
-                  
-                  <button 
-                    onClick={resetReading}
-                    className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'} text-sm flex items-center text-warning`}
-                  >
-                    <XCircle className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
+              )}
               
               {/* Reading table with mobile-friendly zoom controls */}
               <div 
@@ -918,7 +983,7 @@ const ReadingRoom = () => {
                   }
                 }}
               >
-                {/* Zoom controls - repositioned for mobile */}
+                {/* Zoom controls with shuffle button - repositioned for mobile */}
                 <div className={`absolute ${isMobile ? 'top-16 left-1/2 transform -translate-x-1/2 flex-row' : 'top-20 left-4 flex-col'} flex gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
                   <button onClick={zoomOut} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom Out">
                     <ZoomOut className="h-4 w-4 md:h-5 md:w-5" />
@@ -928,6 +993,9 @@ const ReadingRoom = () => {
                   </button>
                   <button onClick={zoomIn} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom In">
                     <ZoomIn className="h-4 w-4 md:h-5 md:w-5" />
+                  </button>
+                  <button onClick={shuffleDeck} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Shuffle Deck">
+                    <Shuffle className="h-4 w-4 md:h-5 md:w-5" />
                   </button>
                   {isMobile && (
                     <button onClick={showHint} className="p-1.5 hover:bg-muted rounded-sm" title="Show Help">
