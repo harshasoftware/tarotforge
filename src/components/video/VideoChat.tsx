@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useVideoCall } from '../../context/VideoCallContext';
 import { useAuth } from '../../context/AuthContext';
-import { User, Video, X, Phone, Mic, MicOff, VideoOff, Copy, Check, AlertCircle, Share2 } from 'lucide-react';
-import { motion } from 'framer-motion'; 
+import { User, Video, X, Phone, Mic, MicOff, VideoOff, Copy, Check, AlertCircle, Share2, MessageSquare } from 'lucide-react';
+import { motion } from 'framer-motion';
 import VideoControls from './VideoControls';
 import DraggableVideo from './DraggableVideo';
+import { useChat } from '../../context/ChatContext';
+import ChatPanel from './ChatPanel';
 
 interface VideoChatProps {
   onClose: () => void;
@@ -36,6 +38,10 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [chatPosition, setChatPosition] = useState({ x: window.innerWidth - 320, y: 200 });
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
+  const [isChatDragging, setIsChatDragging] = useState(false);
   
   // Video position states
   const [localVideoPosition, setLocalVideoPosition] = useState({ x: 20, y: 20 });
@@ -50,11 +56,16 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   const updateRemoteVideoPosition = (position: { x: number; y: number }) => {
     setRemoteVideoPosition(position);
   };
+  
+  // Chat position update handler
+  const updateChatPosition = (position: { x: number; y: number }) => {
+    setChatPosition(position);
+  };
 
   // Initialize call
   useEffect(() => {
     if (!user) {
-      setError('You must be logged in to start or join a call'); 
+      setError('You must be logged in to start or join a call');
       return;
     }
 
@@ -245,7 +256,15 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   // Get shareable link for the session
   const getShareableLink = () => {
     if (!generatedSessionId) return '';
-    return generateShareableLink(generatedSessionId); 
+    return generateShareableLink(generatedSessionId);
+  };
+  
+  // Toggle chat panel
+  const toggleChat = () => {
+    setShowChat(!showChat);
+    if (!showChat) {
+      setIsChatMinimized(false);
+    }
   };
 
   return (
@@ -254,7 +273,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         {/* Permission error message - floating */}
         {(error || permissionDenied) && (
           <motion.div 
-            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[1001] bg-destructive/10 border border-destructive/30 rounded-lg p-4 max-w-md" 
+            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[1001] bg-destructive/10 border border-destructive/30 rounded-lg p-4 max-w-md"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
           >
@@ -293,7 +312,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         {/* Invitation link - floating */}
         {isCreatingRoom && generatedSessionId && (
           <motion.div 
-            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[1001] bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 max-w-md shadow-lg" 
+            className="fixed top-20 left-1/2 transform -translate-x-1/2  z-[1001] bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 max-w-md shadow-lg"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
           >
@@ -390,20 +409,46 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         
         {/* Floating controls - higher z-index */}
         <motion.div 
-          className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-[1002] bg-card/95 backdrop-blur-sm border border-border rounded-full shadow-lg p-2 flex items-center space-x-2"
-          initial={{ y: 100, opacity: 0 }} 
+          className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-[1002] bg-card/95 backdrop-blur-sm border border-border rounded-full shadow-lg p-2"
+          initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
         >
-          <VideoControls
-            isMuted={isMuted}
-            isVideoOff={isVideoOff}
-            onToggleMute={toggleMute}
-            onToggleVideo={toggleVideo}
-            onEndCall={handleEndCall}
-            disabled={!localStream} 
-          />
+          <div className="flex items-center space-x-2">
+            <VideoControls
+              isMuted={isMuted}
+              isVideoOff={isVideoOff}
+              onToggleMute={toggleMute}
+              onToggleVideo={toggleVideo}
+              onEndCall={handleEndCall}
+              disabled={!localStream}
+            />
+            
+            {/* Chat toggle button */}
+            <button
+              onClick={toggleChat}
+              className={`p-3 rounded-full ${showChat ? 'bg-primary text-primary-foreground' : 'bg-muted/30 text-foreground hover:bg-muted/50'} transition-colors`}
+              title={showChat ? "Hide Chat" : "Show Chat"}
+            >
+              <MessageSquare className="h-5 w-5" />
+            </button>
+          </div>
         </motion.div>
+        
+        {/* Chat Panel */}
+        {actualSessionId && (
+          <ChatPanel
+            roomId={actualSessionId}
+            isVisible={showChat}
+            isMinimized={isChatMinimized}
+            position={chatPosition}
+            onClose={() => setShowChat(false)}
+            onMinimize={() => setIsChatMinimized(!isChatMinimized)}
+            onPositionChange={updateChatPosition}
+            onDragStart={() => setIsChatDragging(true)}
+            onDragEnd={() => setIsChatDragging(false)}
+          />
+        )}
     </>
   );
 };
