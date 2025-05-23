@@ -54,11 +54,61 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const peerRef = useRef<Peer.Instance | null>(null);
   const channelRef = useRef<any>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const endCallRef = useRef<() => void>(() => {});
+  
+  // End call and clean up resources
+  const endCall = useCallback(() => {
+    try {
+      // Close peer connection
+      if (peerRef.current) {
+        peerRef.current.destroy();
+        peerRef.current = null;
+      }
+      
+      // Stop local media tracks
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => {
+          track.stop();
+        });
+      }
+      setLocalStream(null);
+      localStreamRef.current = null;
+      
+      // Stop remote media tracks
+      if (remoteStream) {
+        remoteStream.getTracks().forEach(track => {
+          track.stop();
+        });
+        setRemoteStream(null);
+      }
+      
+      // Unsubscribe from Supabase channel
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
+      
+      // Reset state
+      setSessionId(null);
+      setConnectionStatus('disconnected');
+      setError(null);
+      setPermissionDenied(false);
+      
+      console.log('Call ended and resources cleaned up');
+    } catch (err: any) {
+      console.error('Error ending call:', err);
+    }
+  }, [remoteStream]);
+
+  // Update endCallRef whenever endCall changes
+  useEffect(() => {
+    endCallRef.current = endCall;
+  }, [endCall]);
   
   // Handle cleanup when component unmounts
   useEffect(() => {
     return () => {
-      endCall();
+      endCallRef.current();
     };
   }, []);
   
@@ -395,7 +445,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
 
       // Clean up any existing call first
-      endCall();
+      endCallRef.current();
 
       setError(null);
       setPermissionDenied(false);
@@ -451,51 +501,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setConnectionStatus('disconnected');
       return null;
     }
-  }, [checkMediaDevices, createPeer, requestMediaPermissions, user, endCall]);
-  
-  // End call and clean up resources
-  const endCall = useCallback(() => {
-    try {
-      // Close peer connection
-      if (peerRef.current) {
-        peerRef.current.destroy();
-        peerRef.current = null;
-      }
-      
-      // Stop local media tracks
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => {
-          track.stop();
-        });
-      }
-      setLocalStream(null);
-      localStreamRef.current = null;
-      
-      // Stop remote media tracks
-      if (remoteStream) {
-        remoteStream.getTracks().forEach(track => {
-          track.stop();
-        });
-        setRemoteStream(null);
-      }
-      
-      // Unsubscribe from Supabase channel
-      if (channelRef.current) {
-        channelRef.current.unsubscribe();
-        channelRef.current = null;
-      }
-      
-      // Reset state
-      setSessionId(null);
-      setConnectionStatus('disconnected');
-      setError(null);
-      setPermissionDenied(false);
-      
-      console.log('Call ended and resources cleaned up');
-    } catch (err: any) {
-      console.error('Error ending call:', err);
-    }
-  }, [remoteStream]);
+  }, [checkMediaDevices, createPeer, requestMediaPermissions, user]);
   
   // Generate a shareable link for the session
   const generateShareableLink = useCallback((sessionId: string) => {
