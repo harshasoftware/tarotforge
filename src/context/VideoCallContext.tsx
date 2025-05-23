@@ -25,6 +25,13 @@ interface SignalData {
   data: any;
 }
 
+interface ChatMessage {
+  id: string;
+  sender: string;
+  content: string;
+  timestamp: Date;
+}
+
 const VideoCallContext = createContext<VideoCallContextType>({
   localStream: null,
   remoteStream: null,
@@ -48,6 +55,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [error, setError] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   
   const peerRef = useRef<Peer.Instance | null>(null);
   const channelRef = useRef<any>(null);
@@ -396,6 +404,16 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, []);
   
+  // Add a message to the chat
+  const addMessage = useCallback((sender: string, content: string) => {
+    setMessages(prev => [...prev, {
+      id: uuidv4(),
+      sender,
+      content,
+      timestamp: new Date()
+    }]);
+  }, []);
+  
   // Start video call
   const startCall = useCallback(async (mode: 'reader' | 'client', existingSessionId?: string): Promise<string | undefined> => {
     try {
@@ -448,7 +466,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setConnectionStatus('disconnected');
       return undefined;
     }
-  }, [checkMediaDevices, createPeer, requestMediaPermissions]);
+  }, [checkMediaDevices, createPeer, requestMediaPermissions, addMessage]);
   
   // End call and clean up resources
   const endCall = useCallback(() => {
