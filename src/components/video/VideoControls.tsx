@@ -22,10 +22,10 @@ const VideoControls: React.FC<VideoControlsProps> = ({
   disabled = false
 }) => {
   return (
-    <div className="flex justify-center space-x-3">
+    <div className="flex justify-center space-x-4">
       <button
         onClick={onToggleMute}
-        className={`p-3 rounded-full ${isMuted ? 'bg-muted text-destructive' : 'bg-muted/50 text-foreground'}`}
+        className={`p-3 rounded-full ${isMuted ? 'bg-destructive/20 text-destructive' : 'bg-muted/30 text-foreground hover:bg-muted/50'} transition-colors`}
         title={isMuted ? 'Unmute' : 'Mute'}
         disabled={disabled}
       >
@@ -34,7 +34,7 @@ const VideoControls: React.FC<VideoControlsProps> = ({
       
       <button
         onClick={onEndCall}
-        className="p-3 rounded-full bg-destructive text-white"
+        className="p-3 rounded-full bg-destructive text-white hover:bg-destructive/90 transition-colors"
         title="End Call"
       >
         <Phone className="h-5 w-5 transform rotate-135" />
@@ -42,7 +42,7 @@ const VideoControls: React.FC<VideoControlsProps> = ({
       
       <button
         onClick={onToggleVideo}
-        className={`p-3 rounded-full ${isVideoOff ? 'bg-muted text-destructive' : 'bg-muted/50 text-foreground'}`}
+        className={`p-3 rounded-full ${isVideoOff ? 'bg-destructive/20 text-destructive' : 'bg-muted/30 text-foreground hover:bg-muted/50'} transition-colors`}
         title={isVideoOff ? 'Turn on Camera' : 'Turn off Camera'}
         disabled={disabled}
       >

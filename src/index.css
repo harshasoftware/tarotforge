@@ -236,12 +236,13 @@
   .draggable-video {
     cursor: move;
     user-select: none;
-    touch-action: none;
+    touch-action: manipulation;
+    transition: box-shadow 0.3s ease;
   }
   
   .draggable-video.dragging {
     z-index: 100;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
   }
   
   .video-controls-overlay {
@@ -249,17 +250,19 @@
     transition: opacity 0.2s ease-in-out;
   }
   
-  .draggable-video:hover .video-controls-overlay {
+  .draggable-video:hover .video-controls-overlay,
+  .draggable-video.dragging .video-controls-overlay {
     opacity: 1;
   }
   
   /* Bubble chat style */
   .chat-bubble {
     position: relative;
-    padding: 0.75rem;
-    border-radius: 1rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.75rem;
     max-width: 80%;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+    word-break: break-word;
   }
   
   .chat-bubble.sent {
@@ -276,10 +279,13 @@
   
   .chat-bubble.system {
     background-color: hsl(var(--accent) / 0.1);
-    margin-left: auto;
-    margin-right: auto;
+    width: 90%;
+    margin: 0 auto 0.25rem auto;
     border-radius: 0.5rem;
     font-style: italic;
     text-align: center;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+    color: hsl(var(--muted-foreground));
   }
 }

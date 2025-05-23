@@ -25,8 +25,9 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({
   if (isSystem) {
     return (
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3 }}
         className="chat-bubble system"
       >
         <p className="text-xs">{content}</p>
@@ -36,8 +37,9 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({
   
   return (
     <motion.div
-      initial={{ opacity: 0, x: isCurrentUser ? 20 : -20 }}
-      animate={{ opacity: 1, x: 0 }}
+      initial={{ opacity: 0, scale: 0.8, x: isCurrentUser ? 20 : -20 }}
+      animate={{ opacity: 1, scale: 1, x: 0 }}
+      transition={{ duration: 0.3 }}
       className={`chat-bubble ${isCurrentUser ? 'sent' : 'received'}`}
     >
       <div className="flex justify-between items-start mb-1">
