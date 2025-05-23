@@ -8,22 +8,13 @@ type VideoCallContextType = {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   connectionStatus: 'disconnected' | 'connecting' | 'connected';
-  messages: Message[];
   startCall: (mode: 'reader' | 'client', existingSessionId?: string) => Promise<string | undefined>;
   endCall: () => void;
-  sendMessage: (content: string) => void;
   error: string | null;
   generateShareableLink: (sessionId: string) => string;
   joinWithLink: (url: string) => Promise<boolean>;
   requestPermissions: () => Promise<boolean>;
   permissionDenied: boolean;
-};
-
-type Message = {
-  id: string;
-  sender: string;
-  content: string;
-  timestamp: Date;
 };
 
 interface SignalData {
@@ -38,10 +29,8 @@ const VideoCallContext = createContext<VideoCallContextType>({
   localStream: null,
   remoteStream: null,
   connectionStatus: 'disconnected',
-  messages: [],
   startCall: async () => { return undefined; },
   endCall: () => {},
-  sendMessage: () => {},
   error: null,
   generateShareableLink: () => "",
   joinWithLink: async () => false,
@@ -57,7 +46,6 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
-  const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   
@@ -122,19 +110,6 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       peer.on('connect', () => {
         console.log('Peer connection established');
         setConnectionStatus('connected');
-        
-        // Add system message
-        addMessage('System', 'Connection established. You can now start your reading session.');
-      });
-      
-      // Handle data channel messages
-      peer.on('data', (data) => {
-        try {
-          const message = JSON.parse(data.toString());
-          addMessage(message.sender, message.content);
-        } catch (err) {
-          console.error('Error parsing message data:', err);
-        }
       });
       
       // Handle errors
@@ -519,40 +494,6 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [localStream, remoteStream]);
   
-  // Send a chat message
-  const sendMessage = useCallback((content: string) => {
-    if (!peerRef.current || !user) return;
-    
-    try {
-      const message = {
-        id: uuidv4(),
-        sender: user.username || user.email,
-        content,
-        timestamp: new Date()
-      };
-      
-      // Add message to local state
-      addMessage(message.sender, message.content);
-      
-      // Send message through data channel
-      peerRef.current.send(JSON.stringify(message));
-    } catch (err) {
-      console.error('Error sending message:', err);
-    }
-  }, [user]);
-  
-  // Add a message to the messages state
-  const addMessage = useCallback((sender: string, content: string) => {
-    const newMessage = {
-      id: uuidv4(),
-      sender,
-      content,
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, newMessage]);
-  }, []);
-  
   // Generate a shareable link for the session
   const generateShareableLink = useCallback((sessionId: string) => {
     const baseUrl = window.location.origin;
@@ -585,10 +526,8 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     localStream,
     remoteStream,
     connectionStatus,
-    messages,
     startCall,
     endCall,
-    sendMessage,
     error,
     generateShareableLink,
     joinWithLink,

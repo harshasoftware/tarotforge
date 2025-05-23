@@ -7,6 +7,7 @@ import { SubscriptionProvider } from './context/SubscriptionContext';
 import { DeckLimitProvider } from './context/DeckLimitContext';
 import { DeckQuotaProvider } from './context/DeckQuotaContext';
 import { VideoCallProvider } from './context/VideoCallContext';
+import { ChatProvider } from './context/ChatContext';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 import { 
@@ -86,7 +87,9 @@ createRoot(document.getElementById('root')!).render(
           <DeckQuotaProvider>
             <DeckLimitProvider>
               <VideoCallProvider>
-                <App />
+                <ChatProvider>
+                  <App />
+                </ChatProvider>
               </VideoCallProvider>
             </DeckLimitProvider>
           </DeckQuotaProvider>

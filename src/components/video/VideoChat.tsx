@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useVideoCall } from '../../context/VideoCallContext';
 import { useAuth } from '../../context/AuthContext';
-import { User, Video, X, Send, Copy, Check, AlertCircle, Share2, MessageSquare, Minimize2, Maximize2 } from 'lucide-react';
+import { User, Video, X, Copy, Check, AlertCircle, Share2, MessageSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
 import VideoControls from './VideoControls';
 import DraggableVideo from './DraggableVideo';
-import ChatBubble from './ChatBubble';
+import ChatPanel from './ChatPanel';
 
 interface VideoChatProps {
   onClose: () => void;
@@ -18,10 +18,8 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     localStream, 
     remoteStream, 
     connectionStatus, 
-    messages, 
     startCall, 
     endCall, 
-    sendMessage, 
     error,
     generateShareableLink,
     requestPermissions,
@@ -30,9 +28,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const [message, setMessage] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
@@ -48,6 +44,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   const [chatPosition, setChatPosition] = useState({ x: window.innerWidth / 2 - 150, y: window.innerHeight - 300 });
   const [isChatVisible, setIsChatVisible] = useState(true);
   const [isChatDragging, setIsChatDragging] = useState(false);
+  const [actualSessionId, setActualSessionId] = useState<string | null>(null);
   
   // Initialize call
   useEffect(() => {
@@ -58,7 +55,9 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         if (sessionId) {
           // Join existing call as client
           const result = await startCall('client', sessionId);
-          if (!result) {
+          if (result) {
+            setActualSessionId(result);
+          } else {
             console.log('Failed to join call - no session ID returned');
           }
         } else {
@@ -66,6 +65,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
           const newSessionId = await startCall('reader');
           if (newSessionId) {
             setGeneratedSessionId(newSessionId);
+            setActualSessionId(newSessionId);
           } else {
             console.log('Failed to start call - no session ID generated');
           }
@@ -110,13 +110,6 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
       remoteVideoRef.current.srcObject = remoteStream;
     }
   }, [remoteStream]);
-
-  // Auto-scroll messages
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
   
   // Toggle audio mute
   const toggleMute = () => {
@@ -138,14 +131,6 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         console.log(`Video track ${track.label} enabled: ${track.enabled}`);
       });
       setIsVideoOff(!isVideoOff);
-    }
-  };
-  
-  // Send chat message
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      sendMessage(message);
-      setMessage('');
     }
   };
   
@@ -473,7 +458,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         {/* Chat toggle button (only visible when chat is hidden) */}
         {!isChatVisible && (
           <motion.button
-            className="fixed bottom-20 right-4 z-50 bg-primary text-primary-foreground rounded-full p-3 shadow-lg"
+            className="fixed bottom-20 right-4 z-50 bg-primary text-primary-foreground rounded-full p-3 shadow-lg hover:bg-primary/90 transition-colors"
             onClick={() => setIsChatVisible(true)}
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
@@ -482,6 +467,21 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
           >
             <MessageSquare className="h-5 w-5" />
           </motion.button>
+        )}
+        
+        {/* Realtime Chat Panel */}
+        {actualSessionId && (
+          <ChatPanel
+            roomId={actualSessionId}
+            isVisible={isChatVisible}
+            isMinimized={chatMinimized}
+            position={chatPosition}
+            onClose={() => setIsChatVisible(false)}
+            onMinimize={() => setChatMinimized(!chatMinimized)}
+            onPositionChange={setChatPosition}
+            onDragStart={() => setIsChatDragging(true)}
+            onDragEnd={() => setIsChatDragging(false)}
+          />
         )}
     </>
   );
