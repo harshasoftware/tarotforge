@@ -1,17 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { fetchDeckById, fetchCardsByDeckId } from '../../lib/deck-utils';
 import { getReadingInterpretation } from '../../lib/gemini-ai';
 import VideoChat from '../../components/video/VideoChat';
 import TarotLogo from '../../components/ui/TarotLogo';
+import GuestAccountUpgrade from '../../components/ui/GuestAccountUpgrade';
 import { v4 as uuidv4 } from 'uuid';
+import { useReadingSession } from '../../hooks/useReadingSession';
 
 // Mock reading layouts
 const readingLayouts: ReadingLayout[] = [
+  {
+    id: 'free-layout',
+    name: 'Free Layout',
+    description: 'Create your own custom spread - drag cards anywhere on the table',
+    card_count: 999, // Unlimited
+    positions: [] // No predefined positions
+  },
   {
     id: 'three-card',
     name: 'Three Card Spread',
@@ -58,34 +67,71 @@ const ReadingRoom = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
+  // Get join session ID from URL params
+  const urlParams = new URLSearchParams(location.search);
+  const joinSessionId = urlParams.get('join');
+  
+  // Initialize reading session hook
+  const {
+    sessionState,
+    participants,
+    isHost,
+    isLoading: sessionLoading,
+    error: sessionError,
+    updateSession,
+    upgradeGuestAccount,
+    isGuest,
+    setGuestName
+  } = useReadingSession({
+    initialSessionId: joinSessionId || undefined,
+    deckId: deckId || 'rider-waite-classic'
+  });
+  
   const [deck, setDeck] = useState<Deck | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const [selectedLayout, setSelectedLayout] = useState<ReadingLayout | null>(null);
   const [shuffledDeck, setShuffledDeck] = useState<Card[]>([]);
-  const [selectedCards, setSelectedCards] = useState<(Card & { position: string; isReversed: boolean })[]>([]);
-  const [question, setQuestion] = useState('');
-  
-  const [readingStep, setReadingStep] = useState<'setup' | 'drawing' | 'interpretation'>('setup');
-  const [interpretation, setInterpretation] = useState('');
   const [isGeneratingInterpretation, setIsGeneratingInterpretation] = useState(false);
   
   // UI State
-  const [activeCardIndex, setActiveCardIndex] = useState<number | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileInterpretation, setShowMobileInterpretation] = useState(false);
+  
+  // Guest upgrade state
+  const [showGuestUpgrade, setShowGuestUpgrade] = useState(false);
+  const [hasShownInviteUpgrade, setHasShownInviteUpgrade] = useState(false);
+  
+  // Drag and Drop State
+  const [draggedCard, setDraggedCard] = useState<Card | null>(null);
+  const [draggedCardIndex, setDraggedCardIndex] = useState<number | null>(null);
+  const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [hoveredPosition, setHoveredPosition] = useState<number | null>(null);
+  const [freeDropPosition, setFreeDropPosition] = useState<{ x: number; y: number } | null>(null);
+  
+  // Pinch to Zoom State
+  const [isZooming, setIsZooming] = useState(false);
+  const [lastTouchDistance, setLastTouchDistance] = useState(0);
+  const readingAreaRef = useRef<HTMLDivElement>(null);
   
   // Video chat state
   const [showVideoChat, setShowVideoChat] = useState(false);
   const [isVideoConnecting, setIsVideoConnecting] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [roomId, setRoomId] = useState<string | null>(null);
   
+  // Use session state instead of local state
+  const selectedLayout = sessionState?.selectedLayout;
+  const selectedCards = sessionState?.selectedCards || [];
+  const question = sessionState?.question || '';
+  const readingStep = sessionState?.readingStep || 'setup';
+  const interpretation = sessionState?.interpretation || '';
+  const zoomLevel = sessionState?.zoomLevel || 1;
+  const activeCardIndex = sessionState?.activeCardIndex;
+  const sessionId = sessionState?.id;
+
   // Check for mobile screen size
   useEffect(() => {
     const checkMobile = () => {
@@ -96,52 +142,104 @@ const ReadingRoom = () => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  
-  // Function to show the share link modal
-  const showShareLinkModal = () => {
-    setShowShareModal(true);
-  };
-  
-  // Function to copy room link to clipboard
-  const copyRoomLink = () => {
-    if (roomId) {
-      const shareableLink = generateShareableLink(roomId);
-      navigator.clipboard.writeText(shareableLink);
-      setShowCopied(true);
-      setTimeout(() => setShowCopied(false), 3000);
-    }
-  };
-  
-  // Generate a shareable link for the room
-  const generateShareableLink = (id: string): string => {
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/reading-room?join=${id}`;
-  };
-  
-  // Check for join parameter in URL on load
+
+  // Auto-show guest upgrade modal for invite link joiners
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const joinSessionId = params.get('join');
-    
-    if (joinSessionId) {
-      setSessionId(joinSessionId);
-      setRoomId(joinSessionId);
-      setShowVideoChat(true);
+    // Show upgrade modal if:
+    // 1. User joined via invite link (joinSessionId exists)
+    // 2. User is a guest (not authenticated)
+    // 3. Session has loaded (not loading)
+    // 4. We haven't already shown the modal
+    if (joinSessionId && isGuest && !sessionLoading && !hasShownInviteUpgrade) {
+      setShowGuestUpgrade(true);
+      setHasShownInviteUpgrade(true);
+    }
+  }, [joinSessionId, isGuest, sessionLoading, hasShownInviteUpgrade]);
+  
+  // Pinch to Zoom functionality
+  const getTouchDistance = (touches: TouchList) => {
+    if (touches.length < 2) return 0;
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    return Math.sqrt(
+      Math.pow(touch2.clientX - touch1.clientX, 2) + 
+      Math.pow(touch2.clientY - touch1.clientY, 2)
+    );
+  };
+  
+  const handleTouchStart = useCallback((e: TouchEvent) => {
+    if (e.touches.length === 2) {
+      setIsZooming(true);
+      setLastTouchDistance(getTouchDistance(e.touches));
+      e.preventDefault();
+    }
+  }, []);
+  
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (isZooming && e.touches.length === 2) {
+      const currentDistance = getTouchDistance(e.touches);
+      const scale = currentDistance / lastTouchDistance;
       
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete('join');
-      window.history.replaceState({}, '', newUrl.toString());
+      if (Math.abs(scale - 1) > 0.02) { // Threshold to prevent jittery zooming
+        setZoomLevelWrapped(Math.max(0.5, Math.min(2, zoomLevel * scale)));
+        setLastTouchDistance(currentDistance);
+      }
+      e.preventDefault();
     }
-  }, [location.search]);
+  }, [isZooming, lastTouchDistance, zoomLevel, setZoomLevelWrapped]);
   
-  // Create a unique room ID when the component mounts
+  const handleTouchEnd = useCallback((e: TouchEvent) => {
+    if (e.touches.length < 2) {
+      setIsZooming(false);
+      setLastTouchDistance(0);
+    }
+  }, []);
+  
+  // Add touch event listeners for pinch-to-zoom
   useEffect(() => {
-    if (!roomId && !sessionId) {
-      const newRoomId = uuidv4();
-      setRoomId(newRoomId);
-    }
-  }, [roomId, sessionId]);
+    const readingArea = readingAreaRef.current;
+    if (!readingArea || !isMobile) return;
+    
+    readingArea.addEventListener('touchstart', handleTouchStart, { passive: false });
+    readingArea.addEventListener('touchmove', handleTouchMove, { passive: false });
+    readingArea.addEventListener('touchend', handleTouchEnd, { passive: false });
+    
+    return () => {
+      readingArea.removeEventListener('touchstart', handleTouchStart);
+      readingArea.removeEventListener('touchmove', handleTouchMove);
+      readingArea.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd, isMobile]);
   
+  // Update session wrappers for state changes
+  const handleLayoutSelect = useCallback((layout: ReadingLayout) => {
+    updateSession({
+      selectedLayout: layout,
+      selectedCards: [],
+      readingStep: 'drawing',
+      interpretation: '',
+      activeCardIndex: null,
+      zoomLevel: isMobile ? (layout.id === 'celtic-cross' ? 0.6 : 0.8) : (layout.id === 'celtic-cross' ? 0.8 : 1)
+    });
+    setShuffledDeck([...cards].sort(() => Math.random() - 0.5));
+  }, [updateSession, cards, isMobile]);
+
+  const handleQuestionChange = useCallback((newQuestion: string) => {
+    updateSession({ question: newQuestion });
+  }, [updateSession]);
+
+  const setZoomLevelWrapped = useCallback((newZoomLevel: number) => {
+    updateSession({ zoomLevel: newZoomLevel });
+  }, [updateSession]);
+
+  const setActiveCardIndexWrapped = useCallback((index: number | null) => {
+    updateSession({ activeCardIndex: index });
+  }, [updateSession]);
+
+  const setReadingStepWrapped = useCallback((step: 'setup' | 'drawing' | 'interpretation') => {
+    updateSession({ readingStep: step });
+  }, [updateSession]);
+
   // Fetch deck and cards data
   useEffect(() => {
     const fetchDeckData = async () => {
@@ -178,48 +276,112 @@ const ReadingRoom = () => {
     fetchDeckData();
   }, [deckId]);
   
-  const handleLayoutSelect = (layout: ReadingLayout) => {
-    setSelectedLayout(layout);
-    setSelectedCards([]);
-    setReadingStep('drawing');
-    setInterpretation('');
-    // Auto-zoom for mobile and complex layouts
-    if (isMobile) {
-      setZoomLevel(layout.id === 'celtic-cross' ? 0.6 : 0.8);
-    } else {
-      setZoomLevel(layout.id === 'celtic-cross' ? 0.8 : 1);
-    }
-  };
-  
   const shuffleDeck = () => {
     setShuffledDeck([...shuffledDeck].sort(() => Math.random() - 0.5));
   };
   
-  const handleCardSelection = () => {
-    if (!selectedLayout || !shuffledDeck.length) return;
+  // Drag and Drop Functions
+  const handleDragStart = (card: Card, index: number, e: any) => {
+    setDraggedCard(card);
+    setDraggedCardIndex(index);
+    setIsDragging(true);
     
-    const cardsNeeded = selectedLayout.card_count - selectedCards.length;
-    if (cardsNeeded <= 0) return;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     
-    const newSelectedCards = [...selectedCards];
+    setDragPosition({ x: clientX, y: clientY });
     
-    for (let i = 0; i < cardsNeeded; i++) {
-      const position = selectedLayout.positions[newSelectedCards.length];
+    if ('dataTransfer' in e) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', '');
+    }
+  };
+  
+  const handleDragMove = (e: any) => {
+    if (!isDragging) return;
+    
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    
+    setDragPosition({ x: clientX, y: clientY });
+  };
+  
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    setDraggedCard(null);
+    setDraggedCardIndex(null);
+    setHoveredPosition(null);
+  };
+  
+  const handleCardDrop = (positionIndex?: number, freePosition?: { x: number; y: number }) => {
+    if (!draggedCard || !selectedLayout) return;
+    
+    let newCard;
+    
+    if (selectedLayout.id === 'free-layout' && freePosition) {
+      // Free layout - place at custom position
+      const isReversed = Math.random() < 0.2;
+      newCard = {
+        ...draggedCard,
+        position: `Card ${selectedCards.length + 1}`,
+        customPosition: `Custom Position ${selectedCards.length + 1}`,
+        isReversed,
+        x: freePosition.x,
+        y: freePosition.y
+      };
+      
+      // Add to selected cards array
+      const newSelectedCards = [...selectedCards, newCard];
+      updateSession({ selectedCards: newSelectedCards });
+      
+    } else if (positionIndex !== undefined) {
+      // Predefined layout - place at specific position
+      const position = selectedLayout.positions[positionIndex];
       const isReversed = Math.random() < 0.2;
       
-      newSelectedCards.push({
-        ...shuffledDeck[i],
+      newCard = {
+        ...draggedCard,
         position: position.name,
         isReversed
-      });
+      };
+      
+      // Update selected cards
+      const newSelectedCards = [...selectedCards];
+      newSelectedCards[positionIndex] = newCard;
+      updateSession({ selectedCards: newSelectedCards });
     }
     
-    setSelectedCards(newSelectedCards);
-    setShuffledDeck(shuffledDeck.slice(cardsNeeded));
+    // Remove card from shuffled deck
+    if (draggedCardIndex !== null) {
+      const newShuffledDeck = shuffledDeck.filter((_: any, index: number) => index !== draggedCardIndex);
+      setShuffledDeck(newShuffledDeck);
+    }
     
-    if (newSelectedCards.length === selectedLayout.card_count) {
-      // Auto-generate interpretation when all cards are drawn
-      generateInterpretation(newSelectedCards);
+    handleDragEnd();
+    
+    // Check if reading is complete (only for predefined layouts)
+    if (selectedLayout.id !== 'free-layout' && selectedCards.filter(card => card).length === selectedLayout.card_count - 1) {
+      // Auto-generate interpretation when all cards are placed
+      setTimeout(() => generateInterpretation([...selectedCards.filter(card => card), newCard]), 500);
+    }
+  };
+
+  const handleFreeLayoutDrop = (e: any) => {
+    if (!draggedCard || !readingAreaRef.current || selectedLayout?.id !== 'free-layout') return;
+    
+    const rect = readingAreaRef.current.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0]?.clientX || e.changedTouches?.[0]?.clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0]?.clientY || e.changedTouches?.[0]?.clientY : e.clientY;
+    
+    // Calculate percentage position relative to the reading area
+    const x = ((clientX - rect.left) / rect.width) * 100;
+    const y = ((clientY - rect.top) / rect.height) * 100;
+    
+    // Ensure position is within bounds
+    if (x >= 0 && x <= 100 && y >= 0 && y <= 100) {
+      handleCardDrop(undefined, { x, y });
+    } else {
+      handleDragEnd();
     }
   };
   
@@ -229,7 +391,7 @@ const ReadingRoom = () => {
     try {
       setIsGeneratingInterpretation(true);
       
-      const formattedCards = cards.map(card => ({
+      const formattedCards = cards.map((card: any) => ({
         name: card.name,
         position: card.position,
         isReversed: card.isReversed
@@ -241,11 +403,16 @@ const ReadingRoom = () => {
         deck.theme
       );
       
-      setInterpretation(result);
-      setReadingStep('interpretation');
+      updateSession({
+        interpretation: result,
+        readingStep: 'interpretation'
+      });
     } catch (error) {
       console.error('Error generating interpretation:', error);
-      setInterpretation('Unable to generate an interpretation at this time. Please try again later.');
+      updateSession({
+        interpretation: 'Unable to generate an interpretation at this time. Please try again later.',
+        readingStep: 'interpretation'
+      });
     } finally {
       setIsGeneratingInterpretation(false);
     }
@@ -261,45 +428,121 @@ const ReadingRoom = () => {
   };
   
   const resetReading = () => {
-    setReadingStep('setup');
-    setSelectedLayout(null);
-    setSelectedCards([]);
-    setInterpretation('');
+    updateSession({
+      readingStep: 'setup',
+      selectedLayout: null,
+      selectedCards: [],
+      interpretation: '',
+      activeCardIndex: null,
+      zoomLevel: 1
+    });
     setShuffledDeck([...cards].sort(() => Math.random() - 0.5));
-    setActiveCardIndex(null);
-    setZoomLevel(1);
+    setShowMobileInterpretation(false);
   };
   
   const zoomIn = () => {
-    setZoomLevel(prev => Math.min(prev + 0.2, 2));
+    setZoomLevelWrapped(Math.min(zoomLevel + 0.2, 2));
   };
   
   const zoomOut = () => {
-    setZoomLevel(prev => Math.max(prev - 0.2, 0.5));
+    setZoomLevelWrapped(Math.max(zoomLevel - 0.2, 0.5));
   };
   
   const resetZoom = () => {
-    setZoomLevel(1);
+    setZoomLevelWrapped(1);
   };
   
-  if (loading) {
+  // Add mouse move handler to document for dragging
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        setDragPosition({ x: e.clientX, y: e.clientY });
+      }
+    };
+    
+    const handleMouseUp = () => {
+      if (isDragging) {
+        handleDragEnd();
+      }
+    };
+    
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+  
+  // Generate shareable link using session ID
+  const generateShareableLink = (id: string): string => {
+    const baseUrl = window.location.origin;
+    const currentPath = window.location.pathname;
+    return `${baseUrl}${currentPath}?join=${id}`;
+  };
+
+  // Function to copy room link to clipboard
+  const copyRoomLink = () => {
+    if (sessionId) {
+      const shareableLink = generateShareableLink(sessionId);
+      navigator.clipboard.writeText(shareableLink);
+      setShowCopied(true);
+      setTimeout(() => setShowCopied(false), 3000);
+    }
+  };
+  
+  // Handle guest account upgrade
+  const handleGuestUpgrade = async (userId: string) => {
+    if (upgradeGuestAccount) {
+      const success = await upgradeGuestAccount(userId);
+      if (success) {
+        setShowGuestUpgrade(false);
+        // The useAuth hook will automatically update the user state
+      }
+    }
+  };
+
+  // Handle closing guest upgrade modal (allow continuing as guest)
+  const handleCloseGuestUpgrade = () => {
+    setShowGuestUpgrade(false);
+    // User can continue as guest - no forced upgrade
+  };
+
+  // Handle guest name setting
+  const handleGuestNameSet = async (name: string) => {
+    if (setGuestName) {
+      const success = await setGuestName(name);
+      if (success) {
+        setShowGuestUpgrade(false);
+      }
+    }
+  };
+  
+  if (loading || sessionLoading) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Preparing reading room...</p>
+          <p className="text-muted-foreground">
+            {sessionLoading ? 'Connecting to reading room...' : 'Preparing reading room...'}
+          </p>
         </div>
       </div>
     );
   }
   
-  if (error) {
+  if (error || sessionError) {
     return (
       <div className="h-screen flex flex-col items-center justify-center p-4">
         <div className="text-center max-w-md mx-auto p-6 bg-card border border-border rounded-xl">
           <HelpCircle className="h-16 w-16 text-warning mx-auto mb-4" />
           <h2 className="text-xl md:text-2xl font-serif font-bold mb-4">Something Went Wrong</h2>
-          <p className="text-muted-foreground mb-6 text-sm md:text-base">{error}</p>
+          <p className="text-muted-foreground mb-6 text-sm md:text-base">
+            {sessionError || error}
+          </p>
           <div className="flex flex-col gap-4 justify-center">
             <Link to="/collection" className="btn btn-secondary px-6 py-2">
               My Collection
@@ -315,7 +558,7 @@ const ReadingRoom = () => {
   
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      {/* Header - compact for mobile */}
+      {/* Header - compact for mobile with participant count */}
       <header className="py-2 md:py-3 px-3 md:px-6 border-b border-border flex justify-between items-center bg-background z-10">
         <div className="flex items-center">
           <Link to="/collection" className="inline-flex items-center text-muted-foreground hover:text-foreground mr-2 md:mr-4">
@@ -323,25 +566,53 @@ const ReadingRoom = () => {
             <span className="hidden md:inline">Back</span>
           </Link>
           <div>
-            <h1 className="text-lg md:text-xl font-serif font-bold">Reading Room</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg md:text-xl font-serif font-bold">Reading Room</h1>
+              {participants.length > 0 && (
+                <div 
+                  className="flex items-center gap-1 bg-muted px-2 py-1 rounded-full cursor-pointer"
+                  title={participants.map(p => p.name || 'Anonymous').join(', ')}
+                >
+                  <Users className="h-3 w-3" />
+                  <span className="text-xs">{participants.length}</span>
+                </div>
+              )}
+              {!isHost && (
+                <span className="text-xs bg-accent px-2 py-1 rounded-full">Guest</span>
+              )}
+            </div>
             {!isMobile && (
               <p className="text-xs text-muted-foreground">
                 {deck?.title ? `Using ${deck.title} by ${deck.creator_name}` : 'Select a deck to begin'}
+                {sessionId && ` • Session: ${sessionId.slice(0, 8)}...`}
               </p>
             )}
           </div>
         </div>
         
         <div className="flex items-center gap-1 md:gap-2">
+          {/* Guest upgrade button */}
+          {isGuest && (
+            <button 
+              onClick={() => setShowGuestUpgrade(true)}
+              className="btn btn-accent border border-accent/50 p-1.5 md:p-2 text-sm flex items-center gap-1"
+              title="Create account to save your progress"
+            >
+              <UserPlus className="h-4 w-4" />
+              {!isMobile && <span className="text-xs">Upgrade</span>}
+            </button>
+          )}
+          
           <button 
-            onClick={showShareLinkModal}
+            onClick={() => setShowShareModal(true)}
             className="btn btn-ghost border border-input p-1.5 md:p-2 text-sm flex items-center"
+            disabled={!sessionId}
           >
             <Share2 className="h-4 w-4" />
           </button>
           
           <button 
-            onClick={() => !isVideoConnecting && !showVideoChat && initiateVideoChat()}
+            onClick={() => !isVideoConnecting && !showVideoChat && setShowVideoChat(true)}
             className={`btn ${showVideoChat ? 'btn-success' : 'btn-secondary'} p-1.5 md:p-2 text-sm flex items-center`}
             disabled={isVideoConnecting}
           >
@@ -393,7 +664,7 @@ const ReadingRoom = () => {
                   <input
                     id="question"
                     value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
+                    onChange={(e) => handleQuestionChange(e.target.value)}
                     placeholder="What would you like guidance on?"
                     className="w-full p-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                   />
@@ -415,7 +686,7 @@ const ReadingRoom = () => {
                 </div>
                 <div className="flex items-center gap-2 md:gap-3 ml-2">
                   <span className="text-xs md:text-sm whitespace-nowrap">
-                    {selectedCards.length}/{selectedLayout.card_count}
+                    {selectedCards.filter(card => card).length}/{selectedLayout.card_count}
                   </span>
                   
                   <button 
@@ -435,7 +706,21 @@ const ReadingRoom = () => {
               </div>
               
               {/* Reading table with mobile-friendly zoom controls */}
-              <div className="flex-1 relative">
+              <div 
+                className="flex-1 relative" 
+                ref={readingAreaRef}
+                onDrop={selectedLayout?.id === 'free-layout' ? handleFreeLayoutDrop : undefined}
+                onDragOver={(e) => {
+                  if (selectedLayout?.id === 'free-layout') {
+                    e.preventDefault();
+                  }
+                }}
+                onClick={(e) => {
+                  if (isDragging && draggedCard && selectedLayout?.id === 'free-layout') {
+                    handleFreeLayoutDrop(e);
+                  }
+                }}
+              >
                 {/* Zoom controls - repositioned for mobile */}
                 <div className={`absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2 flex-row' : 'top-4 left-4 flex-col'} flex gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-50`}>
                   <button onClick={zoomOut} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom Out">
@@ -448,6 +733,14 @@ const ReadingRoom = () => {
                     <ZoomIn className="h-4 w-4 md:h-5 md:w-5" />
                   </button>
                 </div>
+                
+                {isMobile && (
+                  <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-muted/80 px-3 py-1 rounded-full text-xs z-40">
+                    {selectedLayout?.id === 'free-layout' 
+                      ? 'Drag cards anywhere • Pinch to zoom' 
+                      : 'Drag cards from deck • Pinch to zoom'}
+                  </div>
+                )}
               
                 {/* Layout visualization with mobile-responsive card sizes */}
                 <div 
@@ -459,8 +752,45 @@ const ReadingRoom = () => {
                     width: '100%'
                   }}
                 >
-                  {selectedLayout.positions && selectedLayout.positions.map((position, index) => {
+                  {/* Free layout cards */}
+                  {selectedLayout?.id === 'free-layout' && selectedCards.map((selectedCard: any, index: number) => (
+                    <motion.div
+                      key={`free-${index}`}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.5 }}
+                      className="absolute transform -translate-x-1/2 -translate-y-1/2"
+                      style={{ 
+                        left: `${selectedCard.x}%`, 
+                        top: `${selectedCard.y}%`,
+                        zIndex: activeCardIndex === index ? 20 : 10 + index
+                      }}
+                      onClick={() => setActiveCardIndexWrapped(index)}
+                    >
+                      <div 
+                        className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${
+                          activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
+                        }`}
+                        style={{ 
+                          transform: selectedCard.isReversed ? 'rotate(180deg)' : 'none'
+                        }}
+                      >
+                        <img 
+                          src={selectedCard.image_url} 
+                          alt={selectedCard.name} 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
+                        {selectedCard.position} {selectedCard.isReversed && '(R)'}
+                      </div>
+                    </motion.div>
+                  ))}
+
+                  {/* Predefined layout cards */}
+                  {selectedLayout?.id !== 'free-layout' && selectedLayout?.positions && selectedLayout.positions.map((position: any, index: number) => {
                     const selectedCard = selectedCards[index];
+                    const isHovered = hoveredPosition === index && isDragging;
                     
                     return (
                       <div 
@@ -471,14 +801,37 @@ const ReadingRoom = () => {
                           top: `${position.y}%`,
                           zIndex: selectedCard ? 10 + index : 1
                         }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          setHoveredPosition(index);
+                        }}
+                        onDragLeave={() => setHoveredPosition(null)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (draggedCard && !selectedCard) {
+                            handleCardDrop(index);
+                          }
+                        }}
+                        onClick={() => {
+                          if (isDragging && draggedCard && !selectedCard) {
+                            handleCardDrop(index);
+                          }
+                        }}
                       >
                         {/* Card position indicator - responsive size */}
                         {!selectedCard && (
                           <div 
-                            className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} border-2 border-dashed border-muted-foreground/30 rounded-md flex flex-col items-center justify-center`}
+                            className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} border-2 border-dashed ${
+                              isHovered ? 'border-primary bg-primary/10' : 'border-muted-foreground/30'
+                            } rounded-md flex flex-col items-center justify-center transition-colors`}
                             style={{ transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none' }}
                           >
-                            <span className="text-xs text-muted-foreground text-center px-1">{position.name}</span>
+                            <span className={`text-xs text-center px-1 ${isHovered ? 'text-primary' : 'text-muted-foreground'}`}>
+                              {position.name}
+                            </span>
+                            {isHovered && (
+                              <span className="text-xs text-primary mt-1">Drop here</span>
+                            )}
                           </div>
                         )}
                         
@@ -489,7 +842,7 @@ const ReadingRoom = () => {
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ duration: 0.5 }}
                             className="relative"
-                            onClick={() => setActiveCardIndex(index)}
+                            onClick={() => setActiveCardIndexWrapped(index)}
                           >
                             <div 
                               className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`}
@@ -513,28 +866,74 @@ const ReadingRoom = () => {
                       </div>
                     );
                   })}
+
+                  {/* Free layout drop zone indicator */}
+                  {selectedLayout?.id === 'free-layout' && isDragging && (
+                    <div className="absolute inset-0 border-2 border-dashed border-primary/30 bg-primary/5 rounded-lg flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="text-primary mb-2">
+                          <svg className="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </div>
+                        <p className="text-sm text-primary font-medium">Drop anywhere to place card</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
-                {/* Deck - responsive positioning */}
-                {selectedCards.length < selectedLayout.card_count && (
-                  <div 
-                    className={`absolute ${isMobile ? 'right-4 bottom-16' : 'right-8 bottom-8'} cursor-pointer`}
-                    onClick={handleCardSelection}
-                  >
-                    <div className={`relative ${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'}`}>
-                      <div className="absolute inset-0 bg-card border border-border rounded-md transform translate-x-1 translate-y-1"></div>
-                      <div className="absolute inset-0 bg-card border border-border rounded-md transform translate-x-0.5 translate-y-0.5"></div>
-                      <div className="bg-card border border-border rounded-md w-full h-full flex items-center justify-center">
-                        <span className="text-xs text-center text-muted-foreground px-1">
-                          {isMobile ? 'Tap to Draw' : 'Click to Draw Card'}
-                        </span>
+                {/* Deck pile - show cards that can be dragged */}
+                {shuffledDeck.length > 0 && (
+                  <div className={`absolute ${isMobile ? 'right-4 bottom-16' : 'right-8 bottom-8'} z-20`}>
+                    <div className="relative">
+                      {/* Show top 3 cards in deck */}
+                      {shuffledDeck.slice(0, Math.min(3, shuffledDeck.length)).map((card: Card, index: number) => (
+                        <div
+                          key={`deck-${index}`}
+                          className={`absolute ${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} cursor-grab active:cursor-grabbing`}
+                          style={{
+                            transform: `translate(${index * 2}px, ${index * 2}px)`,
+                            zIndex: 10 - index
+                          }}
+                          draggable={index === 0}
+                          onDragStart={(e) => index === 0 && handleDragStart(card, 0, e)}
+                          onMouseDown={(e) => index === 0 && handleDragStart(card, 0, e)}
+                          onTouchStart={(e) => index === 0 && handleDragStart(card, 0, e)}
+                          onMouseMove={handleDragMove}
+                          onTouchMove={handleDragMove}
+                        >
+                          <div className="w-full h-full bg-primary rounded-md border-2 border-primary-foreground flex items-center justify-center shadow-lg">
+                            <span className="text-xs text-primary-foreground text-center px-1">
+                              {isMobile ? 'Drag' : 'Drag to Place'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {/* Deck count */}
+                      <div className="absolute -top-2 -right-2 bg-accent text-accent-foreground rounded-full w-6 h-6 text-xs flex items-center justify-center z-20">
+                        {shuffledDeck.length}
                       </div>
                     </div>
                   </div>
                 )}
                 
-                {/* All cards drawn - show interpretation button */}
-                {selectedCards.length === selectedLayout.card_count && !isGeneratingInterpretation && readingStep === 'drawing' && (
+                {/* Generate interpretation button for free layout */}
+                {selectedLayout?.id === 'free-layout' && selectedCards.length > 0 && !isGeneratingInterpretation && readingStep === 'drawing' && (
+                  <div className={`absolute ${isMobile ? 'bottom-4 right-4' : 'bottom-8 right-8'}`}>
+                    <button 
+                      onClick={() => generateInterpretation()}
+                      className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm"
+                    >
+                      <TarotLogo className="mr-1 md:mr-2 h-4 w-4" />
+                      <span className="hidden md:inline">Interpret ({selectedCards.length} cards)</span>
+                      <span className="md:hidden">Read ({selectedCards.length})</span>
+                    </button>
+                  </div>
+                )}
+                
+                {/* All cards placed - show interpretation button (predefined layouts) */}
+                {selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count && !isGeneratingInterpretation && readingStep === 'drawing' && (
                   <div className={`absolute ${isMobile ? 'bottom-4 right-4' : 'bottom-8 right-8'}`}>
                     <button 
                       onClick={() => generateInterpretation()}
@@ -588,7 +987,44 @@ const ReadingRoom = () => {
                     width: '100%'
                   }}
                 >
-                  {selectedLayout && selectedLayout.positions.map((position, index) => {
+                  {/* Free layout cards in interpretation */}
+                  {selectedLayout?.id === 'free-layout' && selectedCards.map((selectedCard: any, index: number) => (
+                    <motion.div
+                      key={`free-interp-${index}`}
+                      className="relative"
+                      onClick={() => setActiveCardIndexWrapped(index)}
+                      whileHover={{ scale: 1.05 }}
+                      animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
+                      style={{ 
+                        position: 'absolute',
+                        left: `${selectedCard.x}%`, 
+                        top: `${selectedCard.y}%`,
+                        transform: 'translate(-50%, -50%)',
+                        zIndex: activeCardIndex === index ? 20 : 10 + index
+                      }}
+                    >
+                      <div 
+                        className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${
+                          activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
+                        }`}
+                        style={{ 
+                          transform: selectedCard.isReversed ? 'rotate(180deg)' : 'none'
+                        }}
+                      >
+                        <img 
+                          src={selectedCard.image_url} 
+                          alt={selectedCard.name} 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
+                        {selectedCard.position} {selectedCard.isReversed && '(R)'}
+                      </div>
+                    </motion.div>
+                  ))}
+
+                  {/* Predefined layout cards in interpretation */}
+                  {selectedLayout?.id !== 'free-layout' && selectedLayout && selectedLayout.positions.map((position: any, index: number) => {
                     const selectedCard = selectedCards[index];
                     if (!selectedCard) return null;
                     
@@ -604,7 +1040,7 @@ const ReadingRoom = () => {
                       >
                         <motion.div
                           className="relative"
-                          onClick={() => setActiveCardIndex(index)}
+                          onClick={() => setActiveCardIndexWrapped(index)}
                           whileHover={{ scale: 1.05 }}
                           animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
                         >
@@ -645,7 +1081,7 @@ const ReadingRoom = () => {
                     </button>
                   )}
                   <button 
-                    onClick={() => setReadingStep('drawing')}
+                    onClick={() => setReadingStepWrapped('drawing')}
                     className="btn btn-secondary px-3 md:px-4 py-1.5 md:py-2 text-sm"
                   >
                     {isMobile ? 'Back' : 'Back to Table'}
@@ -700,7 +1136,7 @@ const ReadingRoom = () => {
                   
                   {/* Interpretation text */}
                   <div className="prose prose-sm prose-invert max-w-none">
-                    {interpretation.split('\n').map((paragraph, i) => (
+                    {interpretation.split('\n').map((paragraph: string, i: number) => (
                       <p key={i} className="mb-2 md:mb-3 text-sm md:text-base">{paragraph}</p>
                     ))}
                   </div>
@@ -710,7 +1146,7 @@ const ReadingRoom = () => {
                 {selectedCards.length > 1 && (
                   <div className="p-2 md:p-3 border-t border-border flex justify-between items-center">
                     <button 
-                      onClick={() => setActiveCardIndex(prev => prev !== null && prev > 0 ? prev - 1 : selectedCards.length - 1)}
+                      onClick={() => setActiveCardIndexWrapped((prev: number | null) => prev !== null && prev > 0 ? prev - 1 : selectedCards.length - 1)}
                       className="btn btn-ghost p-1"
                     >
                       <ChevronLeft className="h-5 w-5" />
@@ -721,7 +1157,7 @@ const ReadingRoom = () => {
                     </div>
                     
                     <button 
-                      onClick={() => setActiveCardIndex(prev => prev !== null && prev < selectedCards.length - 1 ? prev + 1 : 0)}
+                      onClick={() => setActiveCardIndexWrapped((prev: number | null) => prev !== null && prev < selectedCards.length - 1 ? prev + 1 : 0)}
                       className="btn btn-ghost p-1"
                     >
                       <ChevronRight className="h-5 w-5" />
@@ -734,34 +1170,35 @@ const ReadingRoom = () => {
         </div>
       </main>
       
-      {/* Video chat overlay - mobile responsive */}
-      <AnimatePresence>
-        {showVideoChat && (
-          <motion.div 
-            className={`absolute ${isMobile ? 'top-14 right-2 w-40 h-30' : 'top-16 right-4 w-1/4 h-1/3 min-w-[300px] min-h-[200px]'} bg-card shadow-xl border border-border rounded-xl overflow-hidden z-20`}
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-          >
-            <div className="absolute top-1 right-1 z-30">
-              <button 
-                onClick={() => setShowVideoChat(false)}
-                className="bg-background/80 p-0.5 md:p-1 rounded-full text-muted-foreground hover:text-foreground"
-              >
-                <XCircle className="h-4 w-4 md:h-5 md:w-5" />
-              </button>
+      {/* Dragged card following cursor/touch */}
+      {isDragging && draggedCard && (
+        <div 
+          className={`fixed ${isMobile ? 'w-16 h-24' : 'w-20 h-30'} pointer-events-none z-50 transition-transform`}
+          style={{
+            left: dragPosition.x - (isMobile ? 32 : 40),
+            top: dragPosition.y - (isMobile ? 48 : 60),
+            transform: 'rotate(5deg)'
+          }}
+        >
+          <div className="w-full h-full bg-primary rounded-md border-2 border-primary-foreground shadow-xl opacity-80">
+            <div className="w-full h-full flex items-center justify-center">
+              <span className="text-xs text-primary-foreground">Card</span>
             </div>
-            <VideoChat 
-              onClose={() => setShowVideoChat(false)}
-              sessionId={sessionId}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </div>
+      )}
+      
+      {/* Video Chat - Mobile Optimized Draggable Bubbles */}
+      {showVideoChat && (
+        <VideoChat 
+          onClose={() => setShowVideoChat(false)}
+          sessionId={sessionId}
+        />
+      )}
       
       {/* Share Room Modal - mobile responsive */}
       <AnimatePresence>
-        {showShareModal && roomId && (
+        {showShareModal && sessionId && (
           <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
             <motion.div 
               className="relative bg-card max-w-md w-full rounded-xl overflow-hidden"
@@ -782,7 +1219,8 @@ const ReadingRoom = () => {
               
               <div className="p-6">
                 <p className="mb-4 text-sm md:text-base">
-                  Share this link with others to invite them to your reading room.
+                  Share this link with others to invite them to your reading room. 
+                  {participants.length > 0 && ` Currently ${participants.length} participants are connected.`}
                 </p>
                 
                 <div className="mb-6">
@@ -793,7 +1231,7 @@ const ReadingRoom = () => {
                     <input
                       id="roomLink"
                       type="text"
-                      value={generateShareableLink(roomId)}
+                      value={generateShareableLink(sessionId)}
                       readOnly
                       className="flex-1 p-2 text-sm rounded-l-md border border-r-0 border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                     />
@@ -820,6 +1258,19 @@ const ReadingRoom = () => {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+      
+      {/* Guest Account Upgrade Modal */}
+      <AnimatePresence>
+        {showGuestUpgrade && isGuest && (
+          <GuestAccountUpgrade
+            onUpgradeSuccess={handleGuestUpgrade}
+            onClose={handleCloseGuestUpgrade}
+            participantCount={participants.length}
+            isInviteJoin={!!joinSessionId}
+            onGuestNameSet={handleGuestNameSet}
+          />
         )}
       </AnimatePresence>
     </div>
