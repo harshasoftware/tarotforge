@@ -893,7 +893,7 @@ const ReadingRoom = () => {
                             <div 
                               className="text-center"
                               style={{
-                                transform: (selectedCard as any).isReversed ? 'rotate(180deg)' : 'none'
+                                transform: (selectedCard as any).isReversed ? 'rotate(-180deg)' : 'none'
                               }}
                             >
                               <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
@@ -1001,7 +1001,7 @@ const ReadingRoom = () => {
                                   <div 
                                     className="text-center"
                                     style={{
-                                      transform: (selectedCard as any).isReversed ? 'rotate(180deg)' : 'none'
+                                      transform: (selectedCard as any).isReversed ? 'rotate(-180deg)' : 'none'
                                     }}
                                   >
                                     <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
@@ -1053,7 +1053,7 @@ const ReadingRoom = () => {
                             const angle = (index - (totalCards - 1) / 2) * 1.2; // 1.2 degrees between cards for mobile shallow arc
                             const radius = 200; // Radius for mobile arc
                             const x = Math.sin((angle * Math.PI) / 180) * radius + (shuffledDeck.length * 4); // Center the arc
-                            const y = Math.cos((angle * Math.PI) / 180) * radius * 0.12; // Very shallow curve for mobile
+                            const y = -Math.cos((angle * Math.PI) / 180) * radius * 0.12; // Very shallow curve for mobile
                             
                             return (
                               <motion.div
@@ -1129,7 +1129,7 @@ const ReadingRoom = () => {
                           const angle = (index - (totalCards - 1) / 2) * 1.4; // 1.4 degrees between cards for shallow arc
                           const radius = 400; // Large radius for very gentle curve
                           const x = Math.sin((angle * Math.PI) / 180) * radius;
-                          const y = Math.cos((angle * Math.PI) / 180) * radius * 0.15; // Very shallow curve
+                          const y = -Math.cos((angle * Math.PI) / 180) * radius * 0.15; // Very shallow curve
                           
                           return (
                             <motion.div
@@ -1314,7 +1314,7 @@ const ReadingRoom = () => {
                             <div 
                               className="text-center"
                               style={{
-                                transform: (selectedCard as any).isReversed ? 'rotate(180deg)' : 'none'
+                                transform: (selectedCard as any).isReversed ? 'rotate(-180deg)' : 'none'
                               }}
                             >
                               <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
@@ -1384,7 +1384,7 @@ const ReadingRoom = () => {
                                 <div 
                                   className="text-center"
                                   style={{
-                                    transform: (selectedCard as any).isReversed ? 'rotate(180deg)' : 'none'
+                                    transform: (selectedCard as any).isReversed ? 'rotate(-180deg)' : 'none'
                                   }}
                                 >
                                   <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
