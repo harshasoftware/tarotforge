@@ -8,14 +8,14 @@ import { ensureUserCredits } from '../lib/credit-fix';
 import { updateCreditData } from '../utils/analytics';
 
 interface CreditInfo {
-  majorArcanaQuota: number;
-  completeDeckQuota: number;
-  majorArcanaUsed: number;
-  completeDeckUsed: number;
+  basicCredits: number;
+  premiumCredits: number;
+  basicCreditsUsed: number;
+  premiumCreditsUsed: number;
   planTier: string;
   lastRefreshDate: string | null;
   nextRefreshDate: string | null;
-  maxRolloverQuota: number;
+  maxRolloverCredits: number;
 }
 
 interface CreditContextType {
@@ -33,14 +33,14 @@ interface CreditContextType {
 }
 
 const defaultCreditInfo: CreditInfo = {
-  majorArcanaQuota: 0,
-  completeDeckQuota: 0,
-  majorArcanaUsed: 0,
-  completeDeckUsed: 0,
+  basicCredits: 0,
+  premiumCredits: 0,
+  basicCreditsUsed: 0,
+  premiumCreditsUsed: 0,
   planTier: 'free',
   lastRefreshDate: null,
   nextRefreshDate: null,
-  maxRolloverQuota: 0
+  maxRolloverCredits: 0
 };
 
 const CreditContext = createContext<CreditContextType>({
@@ -75,7 +75,7 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setError(null);
 
       const { data, error: fetchError } = await supabase
-        .from('user_deck_quotas')
+        .from('user_credits')
         .select('*')
         .eq('user_id', user.id)
         .single();
@@ -87,32 +87,32 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           
           // Get subscription plan tier from subscription if available
           let planTier = 'free';
-          let majorArcanaQuota = 5; // Free users start with 5 major arcana decks
-          let completeDeckQuota = 0;
-          let maxRolloverQuota = 0;
+          let basicCredits = 5; // Free users start with 5 basic credits
+          let premiumCredits = 0;
+          let maxRolloverCredits = 0;
           
           if (isSubscribed && subscription?.price_id) {
             // Find the product that matches this price ID
             for (const [key, product] of Object.entries(STRIPE_PRODUCTS)) {
               if (product.priceId === subscription.price_id) {
                 planTier = key.split('-')[0]; // Extract the plan name (mystic, creator, visionary)
-                majorArcanaQuota = product.baseCredits || 0;
-                completeDeckQuota = product.premiumCredits || 0;
-                maxRolloverQuota = product.maxRolloverCredits || 0;
+                basicCredits = product.baseCredits || 0;
+                premiumCredits = product.premiumCredits || 0;
+                maxRolloverCredits = product.maxRolloverCredits || 0;
                 break;
               }
             }
           }
           
           const creditInfo = {
-            majorArcanaQuota,
-            completeDeckQuota,
-            majorArcanaUsed: 0,
-            completeDeckUsed: 0,
+            basicCredits,
+            premiumCredits,
+            basicCreditsUsed: 0,
+            premiumCreditsUsed: 0,
             planTier,
             lastRefreshDate: null,
             nextRefreshDate: null,
-            maxRolloverQuota
+            maxRolloverCredits
           };
           
           setCredits(creditInfo);
@@ -120,8 +120,8 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Update LogRocket with credit info
           if (user.id) {
             updateCreditData(user.id, {
-              basicCredits: majorArcanaQuota, // Keep backward compatibility with analytics
-              premiumCredits: completeDeckQuota, // Keep backward compatibility with analytics
+              basicCredits,
+              premiumCredits,
               plan: planTier
             });
           }
@@ -136,21 +136,21 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             
             // Automatically refresh to get the newly created credit record
             const { data: newData } = await supabase
-              .from('user_deck_quotas')
+              .from('user_credits')
               .select('*')
               .eq('user_id', user.id)
               .single();
               
             if (newData) {
               const newCreditInfo = {
-                majorArcanaQuota: newData.major_arcana_quota,
-                completeDeckQuota: newData.complete_deck_quota,
-                majorArcanaUsed: newData.major_arcana_used,
-                completeDeckUsed: newData.complete_deck_used,
+                basicCredits: newData.basic_credits,
+                premiumCredits: newData.premium_credits,
+                basicCreditsUsed: newData.basic_credits_used,
+                premiumCreditsUsed: newData.premium_credits_used,
                 planTier: newData.plan_tier,
                 lastRefreshDate: newData.last_refresh_date,
                 nextRefreshDate: newData.next_refresh_date,
-                maxRolloverQuota: newData.max_rollover_quota || 0,
+                maxRolloverCredits: newData.max_rollover_credits || 0,
               };
               
               setCredits(newCreditInfo);
@@ -158,8 +158,8 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               // Update LogRocket with credit info
               if (user.id) {
                 updateCreditData(user.id, {
-                  basicCredits: newData.major_arcana_quota, // Keep backward compatibility
-                  premiumCredits: newData.complete_deck_quota, // Keep backward compatibility
+                  basicCredits: newData.basic_credits,
+                  premiumCredits: newData.premium_credits,
                   plan: newData.plan_tier
                 });
               }
@@ -174,14 +174,14 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       } else if (data) {
         const creditInfo = {
-          majorArcanaQuota: data.major_arcana_quota || data.basic_credits, // Support both old and new column names
-          completeDeckQuota: data.complete_deck_quota || data.premium_credits,
-          majorArcanaUsed: data.major_arcana_used || data.basic_credits_used,
-          completeDeckUsed: data.complete_deck_used || data.premium_credits_used,
+          basicCredits: data.basic_credits,
+          premiumCredits: data.premium_credits,
+          basicCreditsUsed: data.basic_credits_used,
+          premiumCreditsUsed: data.premium_credits_used,
           planTier: data.plan_tier,
           lastRefreshDate: data.last_refresh_date,
           nextRefreshDate: data.next_refresh_date,
-          maxRolloverQuota: data.max_rollover_quota || data.max_rollover_credits || 0,
+          maxRolloverCredits: data.max_rollover_credits || 0,
         };
         
         setCredits(creditInfo);
@@ -189,8 +189,8 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // Update LogRocket with credit info
         if (user.id) {
           updateCreditData(user.id, {
-            basicCredits: data.major_arcana_quota || data.basic_credits, // Keep backward compatibility
-            premiumCredits: data.complete_deck_quota || data.premium_credits,
+            basicCredits: data.basic_credits,
+            premiumCredits: data.premium_credits,
             plan: data.plan_tier
           });
         }
@@ -215,18 +215,18 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       // Determine credit allocations based on subscription
       let planTier = 'free';
-      let majorArcanaQuota = 5; // Free users start with 5 major arcana decks
-      let completeDeckQuota = 0;
-      let maxRolloverQuota = 0;
+      let basicCredits = 5; // Free users start with 5 basic credits
+      let premiumCredits = 0;
+      let maxRolloverCredits = 0;
       
       if (isSubscribed && subscription?.price_id) {
         // Find the product that matches this price ID
         for (const [key, product] of Object.entries(STRIPE_PRODUCTS)) {
           if (product.priceId === subscription.price_id) {
             planTier = key.split('-')[0]; // Extract the plan name (mystic, creator, visionary)
-            majorArcanaQuota = product.baseCredits || 0;
-            completeDeckQuota = product.premiumCredits || 0;
-            maxRolloverQuota = product.maxRolloverCredits || 0;
+            basicCredits = product.baseCredits || 0;
+            premiumCredits = product.premiumCredits || 0;
+            maxRolloverCredits = product.maxRolloverCredits || 0;
             break;
           }
         }
@@ -246,20 +246,20 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       // Check if a record already exists
       const { data: existingData, error: fetchError } = await supabase
-        .from('user_deck_quotas')
-        .select('id, major_arcana_quota, complete_deck_quota')
+        .from('user_credits')
+        .select('id, basic_credits, premium_credits')
         .eq('user_id', user.id)
         .single();
         
       if (!fetchError && existingData) {
         // Update existing record
         const { error: updateError } = await supabase
-          .from('user_deck_quotas')
+          .from('user_credits')
           .update({
-            major_arcana_quota: majorArcanaQuota,
-            complete_deck_quota: completeDeckQuota,
+            basic_credits: basicCredits,
+            premium_credits: premiumCredits,
             plan_tier: planTier,
-            max_rollover_quota: maxRolloverQuota,
+            max_rollover_credits: maxRolloverCredits,
             next_refresh_date: nextRefreshDate.toISOString(),
             updated_at: new Date().toISOString()
           })
@@ -272,17 +272,17 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } else {
         // Insert new record
         const { error: insertError } = await supabase
-          .from('user_deck_quotas')
-          .insert({
+          .from('user_credits')
+          .insert([{
             user_id: user.id,
-            major_arcana_quota: majorArcanaQuota,
-            complete_deck_quota: completeDeckQuota,
-            major_arcana_used: 0,
-            complete_deck_used: 0,
+            basic_credits: basicCredits,
+            premium_credits: premiumCredits,
+            basic_credits_used: 0,
+            premium_credits_used: 0,
             plan_tier: planTier,
-            max_rollover_quota: maxRolloverQuota,
+            max_rollover_credits: maxRolloverCredits,
             next_refresh_date: nextRefreshDate.toISOString()
-          });
+          }]);
           
         if (insertError) {
           console.error('Error inserting credits:', insertError);
@@ -290,16 +290,27 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
       
+      // Record the credit change transaction
+      await supabase
+        .from('credit_transactions')
+        .insert([{
+          user_id: user.id,
+          transaction_type: 'allocation',
+          basic_credits_change: basicCredits,
+          premium_credits_change: premiumCredits,
+          description: `Credits allocated for ${planTier} plan subscription`
+        }]);
+        
       // Update local state
       setCredits({
-        majorArcanaQuota,
-        completeDeckQuota,
-        majorArcanaUsed: 0,
-        completeDeckUsed: 0,
+        basicCredits,
+        premiumCredits,
+        basicCreditsUsed: 0,
+        premiumCreditsUsed: 0,
         planTier,
         lastRefreshDate: new Date().toISOString(),
         nextRefreshDate: nextRefreshDate.toISOString(),
-        maxRolloverQuota
+        maxRolloverCredits
       });
       
       // Update LogRocket with new credit info
@@ -307,7 +318,7 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         basicCredits, 
         premiumCredits,
         plan: planTier
-      }); // Keep backward compatibility with analytics
+      });
       
     } catch (err) {
       console.error('Error initializing credits:', err);
@@ -327,8 +338,8 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!user || !credits) return false;
 
     // Check if user has enough credits
-    if (credits.majorArcanaQuota < basicCredits || credits.completeDeckQuota < premiumCredits) {
-      return false; // Not enough quota available
+    if (credits.basicCredits < basicCredits || credits.premiumCredits < premiumCredits) {
+      return false;
     }
 
     try {
@@ -352,8 +363,8 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         // Update LogRocket with updated credit info after consumption
         if (credits) {
-          const newBasicCredits = credits.majorArcanaQuota - basicCredits;
-          const newPremiumCredits = credits.completeDeckQuota - premiumCredits;
+          const newBasicCredits = credits.basicCredits - basicCredits;
+          const newPremiumCredits = credits.premiumCredits - premiumCredits;
           
           updateCreditData(user.id, {
             basicCredits: newBasicCredits,
@@ -385,7 +396,7 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     
     // Check if user has enough credits
-    const hasEnoughCredits = credits && credits.majorArcanaQuota !== undefined && credits.completeDeckQuota !== undefined
+    const hasEnoughCredits = credits
       ? (credits.basicCredits >= basicCredits && credits.premiumCredits >= premiumCredits)
       : false;
     
@@ -413,7 +424,7 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Initial credit fetch
   useEffect(() => {
     if (user) {
-      fetchCredits(); // Fetch credits when user changes
+      fetchCredits();
     }
   }, [user]);
 
