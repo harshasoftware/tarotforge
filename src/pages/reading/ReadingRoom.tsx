@@ -385,12 +385,6 @@ const ReadingRoom = () => {
     }
     
     handleDragEnd();
-    
-    // Check if reading is complete (only for predefined layouts)
-    if (selectedLayout.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout.card_count - 1) {
-      // Auto-generate interpretation when all cards are placed
-      setTimeout(() => generateInterpretation([...selectedCards.filter((card: any) => card), newCard]), 500);
-    }
   };
 
   const handleFreeLayoutDrop = (e: any) => {
