@@ -3,10 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
-import { SubscriptionProvider } from './context/SubscriptionContext'; 
-import { DeckLimitProvider } from './context/DeckLimitContext'; 
-import { VideoCallProvider } from './context/VideoCallContext';
+import { SubscriptionProvider } from './context/SubscriptionContext';
+import { DeckLimitProvider } from './context/DeckLimitContext';
 import { DeckQuotaProvider } from './context/DeckQuotaContext';
+import { VideoCallProvider } from './context/VideoCallContext';
 import { ChatProvider } from './context/ChatContext';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
@@ -87,7 +87,9 @@ createRoot(document.getElementById('root')!).render(
           <DeckQuotaProvider>
             <DeckLimitProvider>
               <VideoCallProvider>
-                <App />
+                <ChatProvider>
+                  <App />
+                </ChatProvider>
               </VideoCallProvider>
             </DeckLimitProvider>
           </DeckQuotaProvider>
