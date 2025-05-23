@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, MessageSquare, Video, PhoneCall, Zap, Link as LinkIcon, Users } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, MessageSquare, Video, PhoneCall, Zap, Link as LinkIcon } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { fetchDeckById, fetchCardsByDeckId } from '../../lib/deck-utils';
 import { getReadingInterpretation } from '../../lib/gemini-ai';
 import VideoChat from '../../components/video/VideoChat';
 import JoinByLinkModal from '../../components/video/JoinByLinkModal';
-import { supabase } from '../../lib/supabase';
+import ReadingShareButton from '../../components/reading/ReadingShareButton';
 import TarotLogo from '../../components/ui/TarotLogo';
 
 // Mock reading layouts
@@ -82,13 +82,6 @@ const ReadingRoom = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
   
-  // Realtime session state
-  const [readingSessionId, setReadingSessionId] = useState<string | null>(null);
-  const [isHost, setIsHost] = useState(true);
-  const [participants, setParticipants] = useState<string[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
-  const [realtimeChannel, setRealtimeChannel] = useState<any>(null);
-  
   // Function to show the join by link modal
   const showJoinByLinkModal = () => {
     setShowJoinModal(true);
@@ -109,19 +102,8 @@ const ReadingRoom = () => {
       setSessionId(joinSessionId);
       setShowVideoChat(true);
       
-      // Also check for reading session ID
-      const readingSessionParam = params.get('readingSession');
-      if (readingSessionParam) {
-        setReadingSessionId(readingSessionParam);
-        setIsHost(false);
-        joinReadingSession(readingSessionParam);
-      }
-      
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('join');
-      if (readingSessionParam) {
-        newUrl.searchParams.delete('readingSession');
-      }
       window.history.replaceState({}, '', newUrl.toString());
     }
   }, [location.search]);
@@ -162,184 +144,12 @@ const ReadingRoom = () => {
     fetchDeckData();
   }, [deckId]);
   
-  // Initialize or join a reading session
-  useEffect(() => {
-    if (readingSessionId) {
-      // If we already have a session ID, join it
-      joinReadingSession(readingSessionId);
-    }
-  }, [readingSessionId]);
-  
-  // Create a new reading session
-  const createReadingSession = () => {
-    // Generate a unique session ID
-    const newSessionId = `reading_${Math.random().toString(36).substring(2, 15)}`;
-    setReadingSessionId(newSessionId);
-    setIsHost(true);
-    
-    // Create a Supabase Realtime channel
-    const channel = supabase.channel(`reading:${newSessionId}`, {
-      config: {
-        broadcast: {
-          self: true
-        }
-      }
-    });
-    
-    // Subscribe to the channel
-    channel
-      .on('broadcast', { event: 'reading_state' }, (payload) => {
-        handleReadingStateUpdate(payload);
-      })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('User joined:', key, newPresences);
-        setParticipants(prev => [...new Set([...prev, ...newPresences.map((p: any) => p.user_id)])]);
-      })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('User left:', key, leftPresences);
-        setParticipants(prev => prev.filter(id => !leftPresences.some((p: any) => p.user_id === id)));
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          // Track presence
-          await channel.track({
-            user_id: user?.id || 'anonymous',
-            username: user?.username || 'Anonymous',
-            online_at: new Date().toISOString()
-          });
-          
-          setRealtimeChannel(channel);
-          setIsConnected(true);
-          
-          // Broadcast initial state
-          broadcastReadingState({
-            selectedLayout: selectedLayout,
-            selectedCards: selectedCards,
-            readingStarted: readingStarted,
-            readingComplete: readingComplete,
-            question: question
-          });
-        }
-      });
-      
-    return newSessionId;
-  };
-  
-  // Join an existing reading session
-  const joinReadingSession = (sessionId: string) => {
-    setReadingSessionId(sessionId);
-    setIsHost(false);
-    
-    // Create a Supabase Realtime channel
-    const channel = supabase.channel(`reading:${sessionId}`, {
-      config: {
-        broadcast: {
-          self: true
-        }
-      }
-    });
-    
-    // Subscribe to the channel
-    channel
-      .on('broadcast', { event: 'reading_state' }, (payload) => {
-        handleReadingStateUpdate(payload);
-      })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('User joined:', key, newPresences);
-        setParticipants(prev => [...new Set([...prev, ...newPresences.map((p: any) => p.user_id)])]);
-      })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('User left:', key, leftPresences);
-        setParticipants(prev => prev.filter(id => !leftPresences.some((p: any) => p.user_id === id)));
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          // Track presence
-          await channel.track({
-            user_id: user?.id || 'anonymous',
-            username: user?.username || 'Anonymous',
-            online_at: new Date().toISOString()
-          });
-          
-          setRealtimeChannel(channel);
-          setIsConnected(true);
-          
-          // Request current state
-          channel.send({
-            type: 'broadcast',
-            event: 'request_state',
-            payload: {
-              requesterId: user?.id || 'anonymous'
-            }
-          });
-        }
-      });
-  };
-  
-  // Handle reading state updates from other participants
-  const handleReadingStateUpdate = (payload: any) => {
-    const { event, payload: data } = payload;
-    
-    if (event === 'reading_state') {
-      // Update local state with received data
-      if (data.selectedLayout && !isHost) {
-        setSelectedLayout(data.selectedLayout);
-      }
-      
-      if (data.selectedCards) {
-        setSelectedCards(data.selectedCards);
-      }
-      
-      if (data.readingStarted !== undefined) {
-        setReadingStarted(data.readingStarted);
-      }
-      
-      if (data.readingComplete !== undefined) {
-        setReadingComplete(data.readingComplete);
-      }
-      
-      if (data.question !== undefined && !isHost) {
-        setQuestion(data.question);
-      }
-    } else if (event === 'request_state' && isHost) {
-      // If we're the host and someone is requesting the current state, send it
-      broadcastReadingState({
-        selectedLayout,
-        selectedCards,
-        readingStarted,
-        readingComplete,
-        question
-      });
-    }
-  };
-  
-  // Broadcast reading state to all participants
-  const broadcastReadingState = (state: any) => {
-    if (realtimeChannel) {
-      realtimeChannel.send({
-        type: 'broadcast',
-        event: 'reading_state',
-        payload: state
-      });
-    }
-  };
-  
   const handleLayoutSelect = (layout: ReadingLayout) => {
     setSelectedLayout(layout);
     setSelectedCards([]);
     setReadingStarted(false);
     setReadingComplete(false);
     setInterpretation('');
-    
-    // Broadcast the layout change
-    if (readingSessionId && isHost) {
-      broadcastReadingState({
-        selectedLayout: layout,
-        selectedCards: [],
-        readingStarted: false,
-        readingComplete: false
-      });
-    }
   };
   
   const shuffleDeck = () => {
@@ -353,15 +163,6 @@ const ReadingRoom = () => {
     setSelectedCards([]);
     setReadingComplete(false);
     setInterpretation('');
-    
-    // Broadcast the reading start
-    if (readingSessionId && isHost) {
-      broadcastReadingState({
-        readingStarted: true,
-        selectedCards: [],
-        readingComplete: false
-      });
-    }
   };
   
   const handleCardSelection = () => {
@@ -388,14 +189,6 @@ const ReadingRoom = () => {
     
     if (newSelectedCards.length === selectedLayout.card_count) {
       setReadingComplete(true);
-    }
-    
-    // Broadcast the card selection
-    if (readingSessionId) {
-      broadcastReadingState({
-        selectedCards: newSelectedCards,
-        readingComplete: newSelectedCards.length === selectedLayout.card_count
-      });
     }
   };
   
@@ -425,25 +218,6 @@ const ReadingRoom = () => {
     } finally {
       setIsGeneratingInterpretation(false);
     }
-  };
-  
-  // Create a shareable link for the reading session
-  const getReadingShareableLink = () => {
-    if (!readingSessionId) {
-      // Create a new session if one doesn't exist
-      const newSessionId = createReadingSession();
-      return `${window.location.origin}/reading-room/${deckId}?readingSession=${newSessionId}`;
-    }
-    
-    return `${window.location.origin}/reading-room/${deckId}?readingSession=${readingSessionId}`;
-  };
-  
-  // Copy the reading session link to clipboard
-  const copyReadingLink = () => {
-    const link = getReadingShareableLink();
-    navigator.clipboard.writeText(link);
-    // Show a toast or some feedback
-    alert('Reading session link copied to clipboard!');
   };
   
   const initiateVideoChat = () => {
@@ -519,24 +293,6 @@ const ReadingRoom = () => {
                 Join by Link
               </button>
               
-              {readingSessionId ? (
-                <button 
-                  onClick={copyReadingLink}
-                  className="btn btn-secondary px-4 py-2 flex items-center"
-                >
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Share Reading
-                </button>
-              ) : (
-                <button 
-                  onClick={() => createReadingSession()}
-                  className="btn btn-secondary px-4 py-2 flex items-center"
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  Create Shared Session
-                </button>
-              )}
-              
               <button 
                 onClick={() => !isVideoConnecting && !showVideoChat && initiateVideoChat()}
                 className={`btn ${showVideoChat ? 'btn-success' : 'btn-secondary'} px-4 py-2 flex items-center`}
@@ -572,20 +328,6 @@ const ReadingRoom = () => {
           </div>
         </div>
         
-        {/* Participants indicator */}
-        {readingSessionId && participants.length > 0 && (
-          <div className="mb-4 p-3 bg-primary/10 rounded-lg flex items-center">
-            <Users className="h-5 w-5 text-primary mr-2" />
-            <div>
-              <h3 className="font-medium text-sm">Shared Reading Session</h3>
-              <p className="text-xs text-muted-foreground">
-                {participants.length} {participants.length === 1 ? 'person' : 'people'} in this session
-                {isHost ? ' (You are the host)' : ''}
-              </p>
-            </div>
-          </div>
-        )}
-        
         {/* Reading Area */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Panel - Layout Selection */}
@@ -607,8 +349,7 @@ const ReadingRoom = () => {
                               ? 'border-primary bg-primary/5' 
                               : 'border-input hover:border-primary/50'
                           }`}
-                          onClick={() => isHost ? handleLayoutSelect(layout) : null}
-                          style={{ opacity: isHost ? 1 : 0.7 }}
+                          onClick={() => handleLayoutSelect(layout)}
                         >
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="font-medium">{layout.name}</h4>
@@ -637,30 +378,20 @@ const ReadingRoom = () => {
                     {showQuestion && (
                       <textarea
                         value={question}
-                        onChange={(e) => {
-                          setQuestion(e.target.value);
-                          // Broadcast question change if host
-                          if (isHost && readingSessionId) {
-                            broadcastReadingState({ question: e.target.value });
-                          }
-                        }}
+                        onChange={(e) => setQuestion(e.target.value)}
                         placeholder="What would you like guidance on?"
                         className="w-full p-2 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                         rows={3}
-                        disabled={!isHost}
                       ></textarea>
                     )}
                   </div>
                   
                   {/* Start reading button */}
                   <button 
-                    onClick={startReading}
-                    disabled={!selectedLayout || !isHost}
-                    className="w-full btn btn-primary py-2 flex items-center justify-center disabled:opacity-50"
-                  >
-                    Start Reading
-                  </button>
-                </>
+                <ReadingShareButton 
+                  getShareableLink={getReadingShareableLink}
+                  className="px-4 py-2"
+                />
               ) : (
                 <>
                   {/* Reading info */}
@@ -699,7 +430,6 @@ const ReadingRoom = () => {
                     <div className="mb-6">
                       <button 
                         onClick={handleCardSelection}
-                        disabled={!isHost}
                         className="w-full btn btn-primary py-2 flex items-center justify-center"
                       >
                         Draw Next Card
@@ -736,18 +466,7 @@ const ReadingRoom = () => {
                           setSelectedCards([]);
                           setInterpretation('');
                           setShuffledDeck([...cards].sort(() => Math.random() - 0.5));
-                          
-                          // Broadcast reset if host
-                          if (isHost && readingSessionId) {
-                            broadcastReadingState({
-                              readingStarted: false,
-                              readingComplete: false,
-                              selectedCards: [],
-                              selectedLayout: null
-                            });
-                          }
                         }}
-                        disabled={!isHost}
                         className="w-full btn btn-ghost border border-input py-2"
                       >
                         Reset Reading
@@ -777,4 +496,151 @@ const ReadingRoom = () => {
                   <HelpCircle className="h-16 w-16 text-muted-foreground mb-4" />
                   <h3 className="text-xl font-serif font-medium mb-2">Select a Layout to Begin</h3>
                   <p className="text-muted-foreground max-w-md">
-                    Choose a card layout
+                    Choose a card layout from the left panel, then start your reading.
+                    Each layout provides different insights into your question.
+                  </p>
+                </div>
+              )}
+              
+              {/* Reading in progress */}
+              {readingStarted && (
+                <div className="h-full p-6 relative">
+                  {/* Layout visualization */}
+                  {selectedLayout && selectedLayout.positions && selectedLayout.positions.map((position, index) => {
+                    const selectedCard = selectedCards[index];
+                    
+                    return (
+                      <div 
+                        key={position.id}
+                        className="absolute transform -translate-x-1/2 -translate-y-1/2"
+                        style={{ 
+                          left: `${position.x}%`, 
+                          top: `${position.y}%`,
+                          zIndex: selectedCard ? 10 + index : 1
+                        }}
+                      >
+                        {/* Card position indicator */}
+                        {!selectedCard && (
+                          <div 
+                            className="w-24 h-36 md:w-32 md:h-48 border-2 border-dashed border-muted-foreground/30 rounded-md flex flex-col items-center justify-center"
+                            style={{ transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none' }}
+                          >
+                            <span className="text-xs text-muted-foreground">{position.name}</span>
+                          </div>
+                        )}
+                        
+                        {/* Selected card */}
+                        {selectedCard && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.5 }}
+                            className="relative"
+                          >
+                            <div 
+                              className="w-24 h-36 md:w-32 md:h-48 rounded-md overflow-hidden shadow-lg cursor-pointer"
+                              style={{ 
+                                transform: selectedCard.isReversed 
+                                  ? `rotate(180deg)${position.rotation ? ` rotate(${position.rotation}deg)` : ''}` 
+                                  : position.rotation ? `rotate(${position.rotation}deg)` : 'none'
+                              }}
+                            >
+                              <img 
+                                src={selectedCard.image_url} 
+                                alt={selectedCard.name} 
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-xs px-2 py-0.5 rounded-full text-xs">
+                              {position.name} {selectedCard.isReversed && '(Reversed)'}
+                            </div>
+                          </motion.div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            
+            {/* AI Interpretation */}
+            {interpretation && showAIMode && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="bg-card rounded-xl border border-border overflow-hidden mb-6"
+              >
+                <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
+                  <div className="flex items-center">
+                    <TarotLogo className="h-5 w-5 text-primary mr-2" />
+                    <h3 className="font-medium">AI Interpretation</h3>
+                  </div>
+                  <button onClick={() => setShowAIMode(false)}>
+                    <XCircle className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+                  </button>
+                </div>
+                <div className="p-6 max-h-96 overflow-y-auto">
+                  <div className="prose prose-invert max-w-none">
+                    {interpretation.split('\n').map((paragraph, i) => (
+                      <p key={i}>{paragraph}</p>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            
+            {/* Card details */}
+            {selectedCards.length > 0 && (
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <div className="p-4 border-b border-border">
+                  <h3 className="font-medium">Card Details</h3>
+                </div>
+                <div className="p-6 max-h-96 overflow-y-auto">
+                  <div className="space-y-6">
+                    {selectedCards.map((card, index) => (
+                      <div key={index} className="flex gap-4">
+                        <div className="shrink-0 w-16 h-24 rounded-md overflow-hidden">
+                          <img 
+                            src={card.image_url} 
+                            alt={card.name} 
+                            className={`w-full h-full object-cover ${card.isReversed ? 'rotate-180' : ''}`}
+                          />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-lg">{card.name} {card.isReversed && '(Reversed)'}</h4>
+                          <p className="text-sm text-accent mb-2">{card.position}</p>
+                          <p className="text-sm text-muted-foreground">{card.description}</p>
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {card.keywords && card.keywords.map((keyword, i) => (
+                              <span 
+                                key={i} 
+                                className="text-xs px-2 py-0.5 bg-primary/10 rounded-full"
+                              >
+                                {keyword}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Join by link modal */}
+      {showJoinModal && (
+        <JoinByLinkModal 
+          onClose={() => setShowJoinModal(false)}
+          onJoinSuccess={handleJoinSuccess}
+        />
+      )}
+    </div>
+  );
+};
+
+export default ReadingRoom;
