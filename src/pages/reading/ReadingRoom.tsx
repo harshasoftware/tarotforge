@@ -1,23 +1,45 @@
-Here's the fixed version with all missing closing brackets and required whitespace added:
+import React, { useState } from 'react';
 
-```jsx
-                  <button 
-                    onClick={() => selectedLayout && startReading()}
-                    disabled={!selectedLayout}
-                    className="w-full btn btn-primary py-2 disabled:opacity-50"
-                  >
-                    Start Reading
-                  </button>
-                </>
-              )}
-              
-              {readingStarted && (
-```
+interface ReadingRoomProps {
+  selectedLayout?: string;
+}
 
-The main issue was in the middle section of the code where there were missing closing elements. I've added:
+export default function ReadingRoom({ selectedLayout }: ReadingRoomProps) {
+  const [readingStarted, setReadingStarted] = useState(false);
 
-1. The closing `</button>` tag
-2. The closing `</>` for the fragment
-3. The closing curly brace and parenthesis for the conditional rendering
+  const startReading = () => {
+    setReadingStarted(true);
+  };
 
-The rest of the file appears to be properly structured. All other brackets, tags, and parentheses are properly matched throughout the component.
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <div className="container mx-auto px-4 py-8">
+        {!readingStarted && (
+          <>
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-gray-900">Reading Room</h1>
+              <p className="mt-2 text-gray-600">
+                Select your layout and begin your reading session
+              </p>
+            </div>
+
+            <button 
+              onClick={() => selectedLayout && startReading()}
+              disabled={!selectedLayout}
+              className="w-full btn btn-primary py-2 disabled:opacity-50"
+            >
+              Start Reading
+            </button>
+          </>
+        )}
+        
+        {readingStarted && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-2xl font-semibold mb-4">Reading in Progress</h2>
+            {/* Reading content will go here */}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
