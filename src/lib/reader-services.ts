@@ -1,240 +1,242 @@
 import { supabase } from './supabase';
-import type { User, QuizAttempt, QuizQuestion, ReaderLevel, ReaderReview, QuizDifficultyLevel } from '../types';
-import { generateTarotQuiz } from './gemini-ai';
+import { User, ReaderLevel, ReaderReview } from '../types';
 
 /**
- * Check if a user can take the tarot reader certification quiz
- * @param userId The user ID to check
- * @returns Object containing eligibility status and next attempt date
+ * Fetch all reader profiles for the readers page
+ * @returns Array of User objects with reader information
  */
-export const checkQuizEligibility = async (userId: string): Promise<{ 
-  canAttempt: boolean; 
-  attemptsRemaining: number;
-  nextAttemptDate: Date | null;
-  activeQuizId: string | null;
-}> => {
+export const fetchAllReaders = async (): Promise<User[]> => {
   try {
-    const MAX_MONTHLY_ATTEMPTS = 3;
-    
-    // Get the current time
-    const now = new Date();
-    
-    // Calculate the start of the current month
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfMonthISOString = startOfMonth.toISOString();
-    
-    // Query for existing attempts this month
-    const { data: attempts, error } = await supabase
-      .from('quiz_attempts')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('started_at', startOfMonthISOString)
-      .order('started_at', { ascending: false });
-      
-    if (error) {
-      console.error('Error checking quiz eligibility:', error);
-      throw error;
-    }
-    
-    // Check if there's an active quiz in progress
-    const activeQuiz = attempts?.find(attempt => attempt.status === 'in_progress');
-    
-    if (activeQuiz) {
-      return {
-        canAttempt: true,
-        attemptsRemaining: MAX_MONTHLY_ATTEMPTS - (attempts?.length || 0),
-        nextAttemptDate: null,
-        activeQuizId: activeQuiz.id
-      };
-    }
-    
-    // Check if user has reached maximum attempts for the month
-    const attemptsCount = attempts?.length || 0;
-    if (attemptsCount >= MAX_MONTHLY_ATTEMPTS) {
-      // Calculate the date for the next month when they can attempt again
-      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      
-      return {
-        canAttempt: false,
-        attemptsRemaining: 0,
-        nextAttemptDate: nextMonth,
-        activeQuizId: null
-      };
-    }
-    
-    // Check if the user has already passed the quiz
-    const { data: userData, error: userError } = await supabase
+    // Fetch users who are readers
+    const { data: readersData, error: readersError } = await supabase
       .from('users')
-      .select('is_reader, reader_since')
-      .eq('id', userId)
-      .single();
+      .select(`
+        *,
+        readerLevel:level_id (
+          id, 
+          name, 
+          color_theme, 
+          icon, 
+          base_price_per_minute,
+          description
+        )
+      `)
+      .eq('is_reader', true)
+      .order('average_rating', { ascending: false });
       
-    if (userError) {
-      console.error('Error checking user reader status:', userError);
-      throw userError;
+    if (readersError) {
+      console.error('Error fetching readers:', readersError);
+      throw readersError;
     }
     
-    // If the user is already a certified reader, they don't need to take the quiz again
-    if (userData?.is_reader) {
-      return {
-        canAttempt: false,
-        attemptsRemaining: 0,
-        nextAttemptDate: null,
-        activeQuizId: null
-      };
-    }
-    
-    // User can take the quiz
-    return {
-      canAttempt: true,
-      attemptsRemaining: MAX_MONTHLY_ATTEMPTS - attemptsCount,
-      nextAttemptDate: null,
-      activeQuizId: null
-    };
+    return readersData || [];
   } catch (error) {
-    console.error('Error in checkQuizEligibility:', error);
-    // Default to allowing an attempt if there's an error
-    return { 
-      canAttempt: true, 
-      attemptsRemaining: 1,
-      nextAttemptDate: null,
-      activeQuizId: null
-    };
+    console.error('Error in fetchAllReaders:', error);
+    return [];
   }
 };
 
 /**
- * Start a new quiz attempt
- * @param userId The user ID starting the quiz
- * @returns The quiz ID, questions, and time limit
+ * Check if a user is eligible to take the reader certification quiz
+ * @param userId The user ID to check
  */
-export const startTarotQuiz = async (userId: string): Promise<{
-  quizId: string;
-  questions: QuizQuestion[];
-  timeLimit: number; // in seconds
-}> => {
+export const checkQuizEligibility = async (userId: string) => {
   try {
-    // Determine the quiz difficulty based on the user's current level
-    const difficulty = await getQuizDifficultyForUser(userId);
-    
-    // Generate dynamic quiz questions using Gemini 1.5 Pro
-    const questions = await generateTarotQuiz(15, difficulty);
-    
-    // Setting time limit as 20 minutes (1200 seconds)
-    const timeLimit = 1200;
-    
-    // Create a new quiz attempt in the database
-    const { data: quizData, error: quizError } = await supabase
+    // Check if the user already has active attempts
+    const { data: attemptsData, error: attemptsError } = await supabase
       .from('quiz_attempts')
-      .insert([{
-        user_id: userId,
-        questions: JSON.stringify(questions),
-        score: 0,
-        passed: false,
-        time_limit: timeLimit,
-        status: 'in_progress',
-        started_at: new Date().toISOString(),
-        difficulty_level: difficulty
-      }])
-      .select('id')
-      .single();
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'in_progress')
+      .order('started_at', { ascending: false })
+      .limit(1);
       
-    if (quizError || !quizData) {
-      console.error('Error creating quiz attempt:', quizError);
-      throw quizError || new Error('Failed to create quiz attempt');
+    if (attemptsError) {
+      console.error('Error checking quiz attempts:', attemptsError);
+      throw attemptsError;
+    }
+    
+    // If there's an in-progress attempt, return its ID
+    if (attemptsData && attemptsData.length > 0) {
+      return {
+        canAttempt: true,
+        attemptsRemaining: 3, // Default value
+        nextAttemptDate: null,
+        activeQuizId: attemptsData[0].id
+      };
+    }
+    
+    // Check how many attempts the user has made this month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    const { data: monthAttempts, error: monthError } = await supabase
+      .from('quiz_attempts')
+      .select('id', { count: 'exact' })
+      .eq('user_id', userId)
+      .gte('started_at', startOfMonth.toISOString())
+      .not('status', 'eq', 'in_progress');
+      
+    if (monthError) {
+      console.error('Error checking monthly quiz attempts:', monthError);
+      throw monthError;
+    }
+    
+    const attemptsThisMonth = monthAttempts?.length || 0;
+    const attemptsRemaining = Math.max(0, 3 - attemptsThisMonth); // Limit to 3 attempts per month
+    
+    // Check if the user has already passed the quiz
+    const { data: passedAttempt, error: passedError } = await supabase
+      .from('quiz_attempts')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('passed', true)
+      .order('completed_at', { ascending: false })
+      .limit(1);
+      
+    if (passedError) {
+      console.error('Error checking passed quiz attempts:', passedError);
+    }
+    
+    // Calculate next attempt date if needed
+    let nextAttemptDate: Date | null = null;
+    if (attemptsRemaining === 0) {
+      nextAttemptDate = new Date();
+      nextAttemptDate.setMonth(nextAttemptDate.getMonth() + 1);
+      nextAttemptDate.setDate(1);
     }
     
     return {
-      quizId: quizData.id,
-      questions,
-      timeLimit
+      canAttempt: attemptsRemaining > 0 && !passedAttempt?.length,
+      attemptsRemaining,
+      nextAttemptDate,
+      activeQuizId: null
     };
   } catch (error) {
-    console.error('Error in startTarotQuiz:', error);
+    console.error('Error checking quiz eligibility:', error);
     throw error;
   }
 };
 
 /**
- * Determine the appropriate quiz difficulty for a user based on their level
- * @param userId User ID
- * @returns Quiz difficulty level
+ * Get all quiz attempts for a user
+ * @param userId The user ID
  */
-async function getQuizDifficultyForUser(userId: string): Promise<QuizDifficultyLevel> {
+export const getUserQuizAttempts = async (userId: string) => {
   try {
-    // Get user data including level_id
-    const { data: userData, error } = await supabase
+    const { data, error } = await supabase
+      .from('quiz_attempts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('started_at', { ascending: false });
+      
+    if (error) {
+      console.error('Error fetching quiz attempts:', error);
+      throw error;
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error in getUserQuizAttempts:', error);
+    return [];
+  }
+};
+
+/**
+ * Start a new tarot certification quiz
+ * @param userId The user ID
+ * @returns Quiz data including questions, time limit, and quiz ID
+ */
+export const startTarotQuiz = async (userId: string) => {
+  try {
+    // Get the appropriate difficulty level for the user
+    const { data: userData, error: userError } = await supabase
       .from('users')
       .select(`
         *,
         readerLevel:level_id (
+          id, 
+          name,
           rank_order
         )
       `)
       .eq('id', userId)
       .single();
       
-    if (error) {
-      console.error('Error fetching user data for quiz difficulty:', error);
-      return 'novice'; // Default to novice on error
+    if (userError) {
+      console.error('Error fetching user data:', userError);
+      throw userError;
     }
     
-    // If user has no level or is not a reader yet, use novice
-    if (!userData?.readerLevel) {
-      return 'novice';
+    // Determine difficulty level based on current reader level
+    let difficultyLevel = 'novice';
+    if (userData?.is_reader && userData?.readerLevel) {
+      const rankOrder = userData.readerLevel.rank_order;
+      
+      if (rankOrder >= 4) difficultyLevel = 'archmage';
+      else if (rankOrder >= 3) difficultyLevel = 'oracle';
+      else if (rankOrder >= 2) difficultyLevel = 'mystic';
+      else if (rankOrder >= 1) difficultyLevel = 'adept';
     }
     
-    // Determine difficulty based on user's rank
-    const rankOrder = userData.readerLevel.rank_order || 1;
+    // Create the quiz attempt in the database
+    const { data: attempt, error: attemptError } = await supabase
+      .from('quiz_attempts')
+      .insert([{
+        user_id: userId,
+        questions: [],
+        time_limit: 20 * 60, // 20 minutes in seconds
+        status: 'in_progress',
+        difficulty_level: difficultyLevel
+      }])
+      .select()
+      .single();
+      
+    if (attemptError) {
+      console.error('Error creating quiz attempt:', attemptError);
+      throw attemptError;
+    }
     
-    if (rankOrder >= 5) return 'archmage';
-    if (rankOrder >= 4) return 'oracle';
-    if (rankOrder >= 3) return 'mystic';
-    if (rankOrder >= 2) return 'adept';
-    return 'novice';
+    return {
+      quizId: attempt.id,
+      questions: attempt.questions,
+      timeLimit: attempt.time_limit,
+      difficultyLevel: attempt.difficulty_level
+    };
   } catch (error) {
-    console.error('Error determining quiz difficulty:', error);
-    return 'novice'; // Default to novice on error
+    console.error('Error starting tarot quiz:', error);
+    throw error;
   }
-}
+};
 
 /**
- * Fetch an existing quiz by ID
- * @param quizId The quiz ID to fetch
- * @returns The quiz data including questions and time remaining
+ * Get quiz attempt by ID
+ * @param quizId The quiz ID
+ * @returns Quiz data
  */
-export const fetchQuizById = async (quizId: string): Promise<{
-  questions: QuizQuestion[];
-  timeRemaining: number; // in seconds
-  startedAt: string;
-  difficultyLevel: string; // Added to return the difficulty level
-}> => {
+export const fetchQuizById = async (quizId: string) => {
   try {
-    // Fetch the quiz from the database
-    const { data: quizData, error: quizError } = await supabase
+    const { data, error } = await supabase
       .from('quiz_attempts')
       .select('*')
       .eq('id', quizId)
       .single();
       
-    if (quizError || !quizData) {
-      console.error('Error fetching quiz:', quizError);
-      throw quizError || new Error('Failed to fetch quiz');
+    if (error) {
+      console.error('Error fetching quiz:', error);
+      throw error;
     }
     
-    const questions = JSON.parse(quizData.questions) as QuizQuestion[];
-    const startedAt = new Date(quizData.started_at);
-    const now = new Date();
-    
-    // Calculate time remaining
-    const elapsedSeconds = Math.floor((now.getTime() - startedAt.getTime()) / 1000);
-    const timeRemaining = Math.max(0, quizData.time_limit - elapsedSeconds);
+    // Calculate remaining time
+    const startTime = new Date(data.started_at).getTime();
+    const currentTime = Date.now();
+    const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
+    const timeRemaining = Math.max(0, data.time_limit - elapsedSeconds);
     
     return {
-      questions,
-      timeRemaining,
-      startedAt: quizData.started_at,
-      difficultyLevel: quizData.difficulty_level || 'novice'
+      ...data,
+      timeRemaining
     };
   } catch (error) {
     console.error('Error in fetchQuizById:', error);
@@ -243,111 +245,62 @@ export const fetchQuizById = async (quizId: string): Promise<{
 };
 
 /**
- * Submit quiz answers and grade them
+ * Submit quiz answers
  * @param quizId The quiz ID
  * @param userId The user ID
- * @param answers Array of user's answers (indices of selected options)
- * @returns The quiz results
+ * @param answers Array of answer indices
+ * @returns Quiz results
  */
-export const submitQuizAnswers = async (
-  quizId: string,
-  userId: string,
-  answers: number[]
-): Promise<{
-  score: number;
-  totalQuestions: number;
-  passed: boolean;
-  correctAnswers: number;
-  timeElapsed: number;
-}> => {
+export const submitQuizAnswers = async (quizId: string, userId: string, answers: number[]) => {
   try {
-    // Fetch the quiz data
-    const { data: quizData, error: quizError } = await supabase
+    // Get the quiz
+    const { data: quiz, error: quizError } = await supabase
       .from('quiz_attempts')
       .select('*')
       .eq('id', quizId)
       .single();
       
-    if (quizError || !quizData) {
-      console.error('Error fetching quiz for submission:', quizError);
-      throw quizError || new Error('Failed to fetch quiz');
+    if (quizError) {
+      console.error('Error fetching quiz:', quizError);
+      throw quizError;
     }
     
-    // Verify the quiz belongs to the user and is in progress
-    if (quizData.user_id !== userId) {
-      throw new Error('Unauthorized access to quiz');
-    }
+    // Calculate score
+    const correctAnswers = quiz.questions.reduce((count: number, q: any, index: number) => {
+      return count + (answers[index] === q.correctAnswer ? 1 : 0);
+    }, 0);
     
-    if (quizData.status !== 'in_progress') {
-      throw new Error('Quiz has already been completed');
-    }
-    
-    // Parse the questions
-    const questions = JSON.parse(quizData.questions) as QuizQuestion[];
-    
-    if (answers.length !== questions.length) {
-      throw new Error(`Answer count mismatch: expected ${questions.length}, got ${answers.length}`);
-    }
-    
-    // Grade the quiz
-    let correctAnswers = 0;
-    
-    for (let i = 0; i < questions.length; i++) {
-      if (questions[i].correctAnswer === answers[i]) {
-        correctAnswers++;
-      }
-    }
-    
-    const score = (correctAnswers / questions.length) * 100;
-    
-    // Get the difficulty level from the quiz
-    const difficultyLevel = quizData.difficulty_level || 'novice';
-    
-    // Get the reader levels to determine required score and next level
-    const { data: levels, error: levelsError } = await supabase
-      .from('reader_levels')
-      .select('*')
-      .order('rank_order', { ascending: true });
-      
-    if (levelsError) {
-      console.error('Error fetching reader levels:', levelsError);
-      throw levelsError;
-    }
-    
-    // Find the next level based on the current difficulty
-    const levelMapping = {
-      'novice': 1,
-      'adept': 2,
-      'mystic': 3,
-      'oracle': 4,
-      'archmage': 5
-    };
-    
-    const currentRankOrder = levelMapping[difficultyLevel as keyof typeof levelMapping] || 1;
-    
-    // Get level data for current difficulty
-    const currentLevel = levels?.find(level => 
-      level.rank_order === currentRankOrder
-    );
-    
-    // Determine required score from the correct level
-    const requiredScore = currentLevel?.required_quiz_score || 75;
-    const passed = score >= requiredScore;
+    const totalQuestions = quiz.questions.length;
+    const score = (correctAnswers / totalQuestions) * 100;
     
     // Calculate time elapsed
-    const startedAt = new Date(quizData.started_at);
-    const completedAt = new Date();
-    const timeElapsed = Math.floor((completedAt.getTime() - startedAt.getTime()) / 1000);
+    const startTime = new Date(quiz.started_at).getTime();
+    const endTime = Date.now();
+    const timeElapsed = Math.floor((endTime - startTime) / 1000);
     
-    // Update the quiz attempt in the database
+    // Check if passed based on level requirements
+    const { data: levelData, error: levelError } = await supabase
+      .from('reader_levels')
+      .select('*')
+      .eq('id', quiz.difficulty_level)
+      .single();
+      
+    if (levelError) {
+      console.error('Error fetching reader level:', levelError);
+    }
+    
+    const passingScore = levelData?.required_quiz_score || 75;
+    const passed = score >= passingScore;
+    
+    // Update the quiz attempt
     const { error: updateError } = await supabase
       .from('quiz_attempts')
       .update({
+        user_answers: answers,
         score,
         passed,
-        user_answers: JSON.stringify(answers),
         status: 'completed',
-        completed_at: completedAt.toISOString()
+        completed_at: new Date().toISOString()
       })
       .eq('id', quizId);
       
@@ -356,60 +309,27 @@ export const submitQuizAnswers = async (
       throw updateError;
     }
     
-    // If the user passed, update their reader status and level
+    // If passed, update user reader status
     if (passed) {
-      // Get user data to check current level
-      const { data: userData, error: userError } = await supabase
+      const { error: userError } = await supabase
         .from('users')
-        .select('is_reader, level_id')
-        .eq('id', userId)
-        .single();
+        .update({
+          is_reader: true,
+          reader_since: quiz.started_at,
+          level_id: levelData?.id
+        })
+        .eq('id', userId);
         
       if (userError) {
-        console.error('Error fetching user data:', userError);
-        throw userError;
-      }
-      
-      // Find the appropriate level to set based on the passed quiz difficulty
-      const nextLevel = levels?.find(level => level.rank_order === currentRankOrder);
-      
-      if (!nextLevel) {
-        console.error('Could not find appropriate level for rank order:', currentRankOrder);
-        throw new Error('Level data not found');
-      }
-      
-      // If user is not a reader yet, or is upgrading to a higher level
-      const isNewReader = !userData?.is_reader;
-      const isUpgrade = userData?.level_id !== nextLevel.id;
-      
-      if (isNewReader || isUpgrade) {
-        const updateData: any = {
-          is_reader: true,
-          level_id: nextLevel.id
-        };
-        
-        // Only set reader_since if this is their first time becoming a reader
-        if (isNewReader) {
-          updateData.reader_since = new Date().toISOString();
-        }
-        
-        const { error: userUpdateError } = await supabase
-          .from('users')
-          .update(updateData)
-          .eq('id', userId);
-          
-        if (userUpdateError) {
-          console.error('Error updating user reader status:', userUpdateError);
-          // Don't fail the whole operation if this part fails
-        }
+        console.error('Error updating user reader status:', userError);
       }
     }
     
     return {
       score,
-      totalQuestions: questions.length,
       passed,
       correctAnswers,
+      totalQuestions,
       timeElapsed
     };
   } catch (error) {
@@ -419,60 +339,8 @@ export const submitQuizAnswers = async (
 };
 
 /**
- * Fetch all certified readers
- * @returns Array of users who are certified readers
- */
-export const fetchAllReaders = async (): Promise<User[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('users')
-      .select(`
-        *,
-        readerLevel:level_id (*)
-      `)
-      .eq('is_reader', true)
-      .order('reader_since', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching readers:', error);
-      throw error;
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error in fetchAllReaders:', error);
-    throw error;
-  }
-};
-
-/**
- * Get all quiz attempts for a user
- * @param userId The user ID
- * @returns Array of quiz attempts
- */
-export const getUserQuizAttempts = async (userId: string): Promise<QuizAttempt[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('quiz_attempts')
-      .select('*')
-      .eq('user_id', userId)
-      .order('started_at', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching quiz attempts:', error);
-      throw error;
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error in getUserQuizAttempts:', error);
-    throw error;
-  }
-};
-
-/**
- * Fetch all reader levels
- * @returns Array of reader levels
+ * Get reader levels for display
+ * @returns Array of reader level objects
  */
 export const fetchReaderLevels = async (): Promise<ReaderLevel[]> => {
   try {
@@ -480,7 +348,7 @@ export const fetchReaderLevels = async (): Promise<ReaderLevel[]> => {
       .from('reader_levels')
       .select('*')
       .order('rank_order', { ascending: true });
-    
+      
     if (error) {
       console.error('Error fetching reader levels:', error);
       throw error;
@@ -489,14 +357,14 @@ export const fetchReaderLevels = async (): Promise<ReaderLevel[]> => {
     return data || [];
   } catch (error) {
     console.error('Error in fetchReaderLevels:', error);
-    throw error;
+    return [];
   }
 };
 
 /**
- * Get reader details by ID with level information
- * @param readerId The reader's user ID
- * @returns Reader information including level details
+ * Get detailed reader information including level data
+ * @param readerId The reader ID
+ * @returns Detailed user object with reader level data
  */
 export const getReaderDetails = async (readerId: string): Promise<User | null> => {
   try {
@@ -509,13 +377,13 @@ export const getReaderDetails = async (readerId: string): Promise<User | null> =
       .eq('id', readerId)
       .eq('is_reader', true)
       .single();
-    
+      
     if (error) {
       console.error('Error fetching reader details:', error);
       throw error;
     }
     
-    return data;
+    return data || null;
   } catch (error) {
     console.error('Error in getReaderDetails:', error);
     return null;
@@ -523,97 +391,18 @@ export const getReaderDetails = async (readerId: string): Promise<User | null> =
 };
 
 /**
- * Submit a review for a reader
- * @param readerId The ID of the reader being reviewed
- * @param clientId The ID of the client submitting the review
- * @param rating Rating (1-5)
- * @param review Text review (optional)
- * @param readingId Related reading ID (optional)
- * @returns Success status
- */
-export const submitReaderReview = async (
-  readerId: string,
-  clientId: string,
-  rating: number,
-  review?: string,
-  readingId?: string
-): Promise<boolean> => {
-  try {
-    // Validate inputs
-    if (rating < 1 || rating > 5) {
-      throw new Error('Rating must be between 1 and 5');
-    }
-    
-    // Check if review for this reader + client + reading already exists
-    const { data: existingReview, error: checkError } = await supabase
-      .from('reader_reviews')
-      .select('id')
-      .eq('reader_id', readerId)
-      .eq('client_id', clientId)
-      .eq('reading_id', readingId || null)
-      .maybeSingle();
-      
-    if (checkError) {
-      console.error('Error checking for existing review:', checkError);
-      throw checkError;
-    }
-    
-    // If review exists, update it
-    if (existingReview) {
-      const { error } = await supabase
-        .from('reader_reviews')
-        .update({
-          rating,
-          review,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existingReview.id);
-        
-      if (error) {
-        console.error('Error updating review:', error);
-        throw error;
-      }
-    } else {
-      // Create new review
-      const { error } = await supabase
-        .from('reader_reviews')
-        .insert({
-          reader_id: readerId,
-          client_id: clientId,
-          rating,
-          review,
-          reading_id: readingId
-        });
-        
-      if (error) {
-        console.error('Error creating review:', error);
-        throw error;
-      }
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error in submitReaderReview:', error);
-    return false;
-  }
-};
-
-/**
- * Get reviews for a reader
- * @param readerId The reader's user ID
- * @returns Array of reviews
+ * Get reviews for a specific reader
+ * @param readerId The reader ID
+ * @returns Array of reader reviews
  */
 export const getReaderReviews = async (readerId: string): Promise<ReaderReview[]> => {
   try {
     const { data, error } = await supabase
       .from('reader_reviews')
-      .select(`
-        *,
-        client:client_id (username, avatar_url)
-      `)
+      .select('*')
       .eq('reader_id', readerId)
       .order('created_at', { ascending: false });
-    
+      
     if (error) {
       console.error('Error fetching reader reviews:', error);
       throw error;
@@ -627,55 +416,14 @@ export const getReaderReviews = async (readerId: string): Promise<ReaderReview[]
 };
 
 /**
- * Update a user's completed readings count
- * @param readerId Reader ID
- * @param increment Amount to increment (default: 1)
- */
-export const incrementReaderCompletedReadings = async (readerId: string, increment: number = 1): Promise<boolean> => {
-  try {
-    // Get current completed_readings count
-    const { data: userData, error: fetchError } = await supabase
-      .from('users')
-      .select('completed_readings')
-      .eq('id', readerId)
-      .single();
-      
-    if (fetchError) {
-      console.error('Error fetching reader data:', fetchError);
-      throw fetchError;
-    }
-    
-    const currentCount = userData?.completed_readings || 0;
-    const newCount = currentCount + increment;
-    
-    // Update the count
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ completed_readings: newCount })
-      .eq('id', readerId);
-      
-    if (updateError) {
-      console.error('Error updating completed readings count:', updateError);
-      throw updateError;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error in incrementReaderCompletedReadings:', error);
-    return false;
-  }
-};
-
-/**
- * Upload certificate image to storage and create a shareable link
- * @param userId User ID
- * @param certificateImage Certificate image as blob
- * @param metadata Metadata for social sharing
- * @returns Shareable URL
+ * Upload a certificate to storage and save record in database
+ * @param userId User ID 
+ * @param imageBlob Certificate image as blob
+ * @param metadata Certificate metadata
  */
 export const uploadCertificate = async (
   userId: string,
-  certificateImage: Blob,
+  imageBlob: Blob,
   metadata: {
     username: string;
     level: string;
@@ -685,55 +433,57 @@ export const uploadCertificate = async (
   }
 ): Promise<string | null> => {
   try {
-    // Create a unique file name
-    const fileName = `certificates/${userId}/${Date.now()}.png`;
+    // Upload image to storage
+    const certificateId = `${userId}-${metadata.level.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+    const filePath = `certificates/${certificateId}.png`;
     
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from('tarot-certificates')
-      .upload(fileName, certificateImage, {
+    const { error: uploadError, data: uploadData } = await supabase.storage
+      .from('reader-certificates')
+      .upload(filePath, imageBlob, {
         contentType: 'image/png',
         cacheControl: '3600',
-        upsert: false // Create unique files
+        upsert: true
       });
       
-    if (error) {
-      console.error('Error uploading certificate:', error);
-      throw error;
+    if (uploadError) {
+      console.error('Error uploading certificate:', uploadError);
+      throw uploadError;
     }
     
     // Get public URL
-    const { data: publicUrlData } = supabase.storage
-      .from('tarot-certificates')
-      .getPublicUrl(data.path);
-    
-    // Create metadata record in certificates table
-    const { data: certData, error: certError } = await supabase
+    const { data: { publicUrl } } = supabase.storage
+      .from('reader-certificates')
+      .getPublicUrl(filePath);
+      
+    // Save certificate record in database
+    const { error: dbError } = await supabase
       .from('reader_certificates')
       .insert([{
         user_id: userId,
-        certificate_url: publicUrlData.publicUrl,
+        certificate_url: publicUrl,
         level_name: metadata.level,
         certification_id: metadata.certificationId,
         score: metadata.score,
         username: metadata.username,
-        certification_date: new Date().toISOString(),
-        metadata: metadata
-      }])
-      .select('id')
-      .single();
+        certification_date: new Date(metadata.date || new Date()).toISOString(),
+        metadata: {
+          generated_at: new Date().toISOString(),
+          device_info: navigator.userAgent
+        }
+      }]);
       
-    if (certError) {
-      console.error('Error creating certificate record:', certError);
-      // Continue anyway - the image is still uploaded
+    if (dbError) {
+      console.error('Error saving certificate record:', dbError);
+      throw dbError;
     }
     
-    // Create a shareable URL
-    const shareUrl = `${window.location.origin}/certificate/${certData?.id || userId}`;
+    // Get the public sharable link
+    // This is the URL that will be shared for viewing the certificate
+    const shareableUrl = `${window.location.origin}/certificate/${certificateId}`;
     
-    return shareUrl;
+    return shareableUrl;
   } catch (error) {
-    console.error('Error uploading certificate:', error);
+    console.error('Error in uploadCertificate:', error);
     return null;
   }
 };

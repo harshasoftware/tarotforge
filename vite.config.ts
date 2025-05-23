@@ -53,4 +53,9 @@ export default defineConfig({
   define: {
     global: 'window', // Polyfill for Node.js global object
   },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: true
+  }
 });

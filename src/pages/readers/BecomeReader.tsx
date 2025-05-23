@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Award, BookOpen, Check, ChevronRight, Clock, Crown, Shield, Sparkles, UserCheck, AlertTriangle, Info, ArrowRight } from 'lucide-react';
+import { Award, BookOpen, Check, ChevronRight, Clock, Crown, Shield, Sparkles, UserCheck, AlertTriangle, Info, ArrowRight, Sun, Heart, Flame } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { checkQuizEligibility, getUserQuizAttempts, fetchReaderLevels } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
@@ -116,19 +116,19 @@ const BecomeReader = () => {
             <div className="bg-card/60 backdrop-blur-xs p-6 rounded-lg mb-8 max-w-xl mx-auto">
               <div className="flex items-center justify-center mb-4">
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                  currentLevel?.color_theme === 'blue' ? 'bg-blue-500/20 text-blue-500' :
-                  currentLevel?.color_theme === 'purple' ? 'bg-purple-500/20 text-purple-500' :
-                  currentLevel?.color_theme === 'teal' ? 'bg-teal-500/20 text-teal-500' :
-                  currentLevel?.color_theme === 'gold' ? 'bg-amber-500/20 text-amber-500' :
-                  currentLevel?.color_theme === 'crimson' ? 'bg-rose-500/20 text-rose-500' :
+                  currentLevel?.color_theme === 'red' ? 'bg-red-500/20 text-red-500' :
+                  currentLevel?.color_theme === 'orange' ? 'bg-orange-500/20 text-orange-500' :
+                  currentLevel?.color_theme === 'yellow' ? 'bg-yellow-500/20 text-yellow-500' :
+                  currentLevel?.color_theme === 'green' ? 'bg-green-500/20 text-green-500' :
+                  currentLevel?.color_theme === 'violet' ? 'bg-violet-500/20 text-violet-500' :
                   'bg-primary/20 text-primary'
                 }`}>
-                  {currentLevel?.icon === 'star' ? <Star className="h-6 w-6" /> :
-                   currentLevel?.icon === 'moon' ? <Moon className="h-6 w-6" /> :
-                   currentLevel?.icon === 'sun' ? <Sun className="h-6 w-6" /> :
+                  {currentLevel?.icon === 'flame' ? <Flame className="h-6 w-6" /> :
                    currentLevel?.icon === 'sparkles' ? <Sparkles className="h-6 w-6" /> :
+                   currentLevel?.icon === 'sun' ? <Sun className="h-6 w-6" /> :
+                   currentLevel?.icon === 'heart' ? <Heart className="h-6 w-6" /> :
                    currentLevel?.icon === 'crown' ? <Crown className="h-6 w-6" /> :
-                   <Star className="h-6 w-6" />}
+                   <Flame className="h-6 w-6" />}
                 </div>
               </div>
               
@@ -206,7 +206,7 @@ const BecomeReader = () => {
             </p>
           </motion.div>
           
-          {/* Reader levels information */}
+          {/* Reader levels information - Using chakra system colors */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -235,19 +235,19 @@ const BecomeReader = () => {
                   {readerLevels.map((level) => (
                     <div key={level.id} className="flex items-start gap-4">
                       <div className={`w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center ${
-                        level.color_theme === 'blue' ? 'bg-blue-500/20 text-blue-500' :
-                        level.color_theme === 'purple' ? 'bg-purple-500/20 text-purple-500' :
-                        level.color_theme === 'teal' ? 'bg-teal-500/20 text-teal-500' :
-                        level.color_theme === 'gold' ? 'bg-amber-500/20 text-amber-500' :
-                        level.color_theme === 'crimson' ? 'bg-rose-500/20 text-rose-500' :
+                        level.color_theme === 'red' ? 'bg-red-500/20 text-red-500' :
+                        level.color_theme === 'orange' ? 'bg-orange-500/20 text-orange-500' :
+                        level.color_theme === 'yellow' ? 'bg-yellow-500/20 text-yellow-500' :
+                        level.color_theme === 'green' ? 'bg-green-500/20 text-green-500' :
+                        level.color_theme === 'violet' ? 'bg-violet-500/20 text-violet-500' :
                         'bg-primary/20 text-primary'
                       }`}>
-                        {level.icon === 'star' ? <Star className="h-6 w-6" /> :
-                         level.icon === 'moon' ? <Moon className="h-6 w-6" /> :
-                         level.icon === 'sun' ? <Sun className="h-6 w-6" /> :
+                        {level.icon === 'flame' ? <Flame className="h-6 w-6" /> :
                          level.icon === 'sparkles' ? <Sparkles className="h-6 w-6" /> :
+                         level.icon === 'sun' ? <Sun className="h-6 w-6" /> :
+                         level.icon === 'heart' ? <Heart className="h-6 w-6" /> :
                          level.icon === 'crown' ? <Crown className="h-6 w-6" /> :
-                         <Star className="h-6 w-6" />}
+                         <Flame className="h-6 w-6" />}
                       </div>
                       
                       <div className="flex-1">
@@ -288,19 +288,19 @@ const BecomeReader = () => {
                     className="flex flex-col items-center text-center p-3 rounded-lg hover:bg-muted/20 transition-colors"
                   >
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
-                      level.color_theme === 'blue' ? 'bg-blue-500/20 text-blue-500' :
-                      level.color_theme === 'purple' ? 'bg-purple-500/20 text-purple-500' :
-                      level.color_theme === 'teal' ? 'bg-teal-500/20 text-teal-500' :
-                      level.color_theme === 'gold' ? 'bg-amber-500/20 text-amber-500' :
-                      level.color_theme === 'crimson' ? 'bg-rose-500/20 text-rose-500' :
+                      level.color_theme === 'red' ? 'bg-red-500/20 text-red-500' :
+                      level.color_theme === 'orange' ? 'bg-orange-500/20 text-orange-500' :
+                      level.color_theme === 'yellow' ? 'bg-yellow-500/20 text-yellow-500' :
+                      level.color_theme === 'green' ? 'bg-green-500/20 text-green-500' :
+                      level.color_theme === 'violet' ? 'bg-violet-500/20 text-violet-500' :
                       'bg-primary/20 text-primary'
                     }`}>
-                      {level.icon === 'star' ? <Star className="h-5 w-5" /> :
-                       level.icon === 'moon' ? <Moon className="h-5 w-5" /> :
-                       level.icon === 'sun' ? <Sun className="h-5 w-5" /> :
+                      {level.icon === 'flame' ? <Flame className="h-5 w-5" /> :
                        level.icon === 'sparkles' ? <Sparkles className="h-5 w-5" /> :
+                       level.icon === 'sun' ? <Sun className="h-5 w-5" /> :
+                       level.icon === 'heart' ? <Heart className="h-5 w-5" /> :
                        level.icon === 'crown' ? <Crown className="h-5 w-5" /> :
-                       <Star className="h-5 w-5" />}
+                       <Flame className="h-5 w-5" />}
                     </div>
                     <h3 className="font-medium text-sm">{level.name}</h3>
                     <p className="text-xs text-accent font-medium">${level.base_price_per_minute.toFixed(2)}/min</p>
@@ -547,16 +547,5 @@ const BecomeReader = () => {
     </div>
   );
 };
-
-// Icons
-const Star = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
-
-const Moon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>;
-
-const Sun = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>;
-
-const Sparkles = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>;
-
-const Users = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
 
 export default BecomeReader;

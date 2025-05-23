@@ -115,7 +115,7 @@ const Login = () => {
           </div>
         ) : (
           <>
-            {/* Google Sign In */}
+            {/* Traditional Google Sign In */}
             <button
               onClick={handleGoogleSignIn}
               disabled={isGoogleLoading}

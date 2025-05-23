@@ -19,7 +19,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
   const { signIn, signUp, signInWithGoogle, magicLinkSent, setMagicLinkSent } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const { 
@@ -60,8 +60,11 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
 
   const handleGoogleSignIn = async () => {
     try {
-      setGoogleLoading(true);
+      setIsGoogleLoading(true);
       setError(null);
+      
+      // Add a small delay to ensure no concurrent credential requests
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       const { error } = await signInWithGoogle();
       
@@ -72,7 +75,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
       // The Google flow will redirect to Google's auth page
     } catch (err: any) {
       setError(err.message || 'An error occurred with Google sign-in');
-      setGoogleLoading(false);
+      setIsGoogleLoading(false);
     }
   };
   
@@ -119,10 +122,10 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
               {/* Google Sign In Button */}
               <button
                 onClick={handleGoogleSignIn}
-                disabled={googleLoading}
+                disabled={isGoogleLoading}
                 className="w-full btn btn-outline border-input hover:bg-secondary/50 py-2 mb-6 flex items-center justify-center relative"
               >
-                {googleLoading ? (
+                {isGoogleLoading ? (
                   <span className="flex items-center justify-center">
                     <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2"></span>
                     Connecting...

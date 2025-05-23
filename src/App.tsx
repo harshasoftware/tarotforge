@@ -4,6 +4,35 @@ import { useAuth } from './context/AuthContext';
 import Layout from './components/layout/Layout';
 import LoadingScreen from './components/ui/LoadingScreen';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import ProtectedSubscriptionRoute from './components/auth/ProtectedSubscriptionRoute';
+import ErrorBoundary from './components/error/ErrorBoundary';
+import * as Sentry from "@sentry/react";
+import setupLogRocketReact from 'logrocket-react';
+import LogRocket from 'logrocket';
+import { trackPageView } from './utils/analytics';
+
+// Initialize LogRocket React plugin
+setupLogRocketReact(LogRocket);
+
+// Initialize Sentry
+Sentry.init({
+  dsn: "https://9c3c4747996da8b597048265023ff2f0@o4509354423156736.ingest.us.sentry.io/4509354424860677",
+  sendDefaultPii: true,
+  environment: import.meta.env.MODE,
+  integrations: [
+    new Sentry.BrowserTracing({
+      // Set sampling rate for performance monitoring
+      tracingOrigins: ['localhost', 'tarotforge.xyz'],
+    }),
+  ],
+});
+
+// Connect LogRocket sessions to Sentry
+LogRocket.getSessionURL(sessionURL => {
+  Sentry.configureScope(scope => {
+    scope.setExtra("logRocketSessionURL", sessionURL);
+  });
+});
 
 // Lazy loaded components
 const Home = lazy(() => import('./pages/Home'));
@@ -24,6 +53,37 @@ const BecomeReader = lazy(() => import('./pages/readers/BecomeReader'));
 const TarotQuiz = lazy(() => import('./pages/readers/TarotQuiz'));
 const ReaderDashboard = lazy(() => import('./pages/readers/ReaderDashboard'));
 const CertificateShare = lazy(() => import('./components/readers/CertificateShare'));
+
+// Subscription pages
+const SubscriptionPage = lazy(() => import('./pages/subscription/SubscriptionPage'));
+const SubscriptionSuccess = lazy(() => import('./pages/subscription/SubscriptionSuccess'));
+
+// Pricing page (for logged-out users)
+const PricingPage = lazy(() => import('./pages/pricing/PricingPage'));
+
+// Wrap the app with Sentry's error boundary
+const SentryErrorBoundary = Sentry.withErrorBoundary(ErrorBoundary, {
+  fallback: ({ error, componentStack, resetError }: { 
+    error: unknown; 
+    componentStack: string; 
+    resetError: () => void; 
+  }) => (
+    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+      <h2 className="text-lg font-semibold text-red-800 mb-2">
+        Something went wrong
+      </h2>
+      <p className="text-red-600 mb-4">
+        {error instanceof Error ? error.message : 'An unexpected error occurred'}
+      </p>
+      <button
+        onClick={resetError}
+        className="px-4 py-2 bg-red-100 text-red-800 rounded hover:bg-red-200 transition-colors"
+      >
+        Try again
+      </button>
+    </div>
+  ),
+});
 
 function App() {
   const { checkAuth, loading, user } = useAuth();
@@ -60,43 +120,58 @@ function App() {
     }
   }, [location, loading, user, navigate]);
 
-  // Scroll to top on route change
+  // Scroll to top on route change and track page view
   useEffect(() => {
-    window.scrollTo(0, 0);
+    // Track page view in analytics
+    const pageName = location.pathname.split('/')[1] || 'home';
+    trackPageView(pageName, {
+      path: location.pathname,
+      search: location.search,
+      url: window.location.href
+    });
   }, [location.pathname]);
 
   return (
-    <Suspense fallback={<LoadingScreen />}>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="login" element={<Login />} />
-          <Route path="signup" element={<Signup />} />
-          <Route path="marketplace" element={<Marketplace />} />
-          <Route path="marketplace/:deckId" element={<DeckDetails />} />
-          <Route path="readers" element={<ReadersPage />} />
-          
-          {/* Certificate sharing route (public) */}
-          <Route path="certificate/:certificateId" element={<CertificateShare />} />
-          
-          {/* Authentication callback route */}
-          <Route path="auth/callback" element={<AuthCallback />} />
-          
-          {/* Make reading room directly accessible */}
-          <Route path="reading-room/:deckId?" element={<ReadingRoom />} />
-          
-          <Route element={<ProtectedRoute />}>
-            <Route path="collection" element={<Collection />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path="checkout/:deckId" element={<Checkout />} />
-            <Route path="create-deck" element={<DeckCreator />} />
-            <Route path="become-reader" element={<BecomeReader />} />
-            <Route path="tarot-quiz" element={<TarotQuiz />} />
-            <Route path="reader-dashboard" element={<ReaderDashboard />} />
+    <SentryErrorBoundary>
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="login" element={<Login />} />
+            <Route path="signup" element={<Signup />} />
+            <Route path="marketplace" element={<Marketplace />} />
+            <Route path="marketplace/:deckId" element={<DeckDetails />} />
+            <Route path="readers" element={<ReadersPage />} />
+            <Route path="pricing" element={<PricingPage />} />
+            <Route path="subscription" element={<SubscriptionPage />} />
+            <Route path="subscription/success" element={<SubscriptionSuccess />} />
+            
+            {/* Certificate sharing route (public) */}
+            <Route path="certificate/:certificateId" element={<CertificateShare />} />
+            
+            {/* Authentication callback route */}
+            <Route path="auth/callback" element={<AuthCallback />} />
+            
+            {/* Make reading room directly accessible */}
+            <Route path="reading-room/:deckId?" element={<ReadingRoom />} />
+            
+            <Route element={<ProtectedRoute />}>
+              <Route path="collection" element={<Collection />} />
+              <Route path="profile" element={<Profile />} />
+              <Route path="checkout/:deckId" element={<Checkout />} />
+              <Route path="become-reader" element={<BecomeReader />} />
+              <Route path="tarot-quiz" element={<TarotQuiz />} />
+              <Route path="reader-dashboard" element={<ReaderDashboard />} />
+            </Route>
+            
+            {/* Routes that require subscription */}
+            <Route element={<ProtectedSubscriptionRoute />}>
+              <Route path="create-deck" element={<DeckCreator />} />
+            </Route>
           </Route>
-        </Route>
-      </Routes>
-    </Suspense>
+        </Routes>
+      </Suspense>
+    </SentryErrorBoundary>
   );
 }
 

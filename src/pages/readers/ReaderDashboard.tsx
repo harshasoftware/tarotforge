@@ -1,12 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
-import { Award, Calendar, Clock, MessageSquare, UserCheck, Users, BarChart4, BookOpen, ChevronRight, Star, ArrowUp, Sparkles } from 'lucide-react';
+import { Award, Calendar, Clock, MessageSquare, UserCheck, Users, BarChart4, BookOpen, ChevronRight, Star, ArrowUp, Sparkles, Flame, Heart, Crown, Sun, DollarSign, Edit, Save, XCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getReaderDetails, getReaderReviews } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
 import { ReaderLevel, User, ReaderReview } from '../../types';
 import ReaderCertificate from '../../components/readers/ReaderCertificate';
+import { supabase } from '../../lib/supabase';
+
+// Custom rate setting form interface
+interface RateSettingFormData {
+  ratePerMinute: number;
+  offerFree: boolean;
+}
 
 const ReaderDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -28,6 +35,16 @@ const ReaderDashboard: React.FC = () => {
     readings: 0 // 0-100%
   });
   const [showCertificate, setShowCertificate] = useState(false);
+  const [allLevels, setAllLevels] = useState<ReaderLevel[]>([]);
+  
+  // Rate setting states
+  const [isEditingRate, setIsEditingRate] = useState(false);
+  const [currentRate, setCurrentRate] = useState<number>(0);
+  const [isFreeReading, setIsFreeReading] = useState<boolean>(false);
+  const [maxRate, setMaxRate] = useState<number>(0);
+  const [isSavingRate, setIsSavingRate] = useState(false);
+  const [rateError, setRateError] = useState<string | null>(null);
+  const [rateSuccess, setRateSuccess] = useState(false);
   
   // Format date to get reader since date in readable format
   const formattedReaderSince = () => {
@@ -41,27 +58,30 @@ const ReaderDashboard: React.FC = () => {
     });
   };
   
-  // Get level color
-  const getLevelColor = (theme: string = 'blue') => {
+  // Get level color based on chakra colors
+  const getLevelColor = (theme: string = 'red') => {
     switch (theme) {
+      case 'red': return 'text-red-500 bg-red-500/20';
+      case 'orange': return 'text-orange-500 bg-orange-500/20';
+      case 'yellow': return 'text-yellow-500 bg-yellow-500/20';
+      case 'green': return 'text-green-500 bg-green-500/20';
       case 'blue': return 'text-blue-500 bg-blue-500/20';
-      case 'purple': return 'text-purple-500 bg-purple-500/20';
-      case 'teal': return 'text-teal-500 bg-teal-500/20';
-      case 'gold': return 'text-amber-500 bg-amber-500/20';
-      case 'crimson': return 'text-rose-500 bg-rose-500/20';
+      case 'indigo': return 'text-indigo-500 bg-indigo-500/20';
+      case 'violet': return 'text-violet-500 bg-violet-500/20';
       default: return 'text-primary bg-primary/20';
     }
   };
   
-  // Get level icon
-  const getLevelIcon = (iconName: string = 'star') => {
+  // Get level icon based on chakra themes
+  const getLevelIcon = (iconName: string = 'flame') => {
     switch (iconName) {
-      case 'star': return <Star className="h-6 w-6" />;
-      case 'moon': return <Moon className="h-6 w-6" />;
-      case 'sun': return <Sun className="h-6 w-6" />;
+      case 'flame': return <Flame className="h-6 w-6" />;
       case 'sparkles': return <Sparkles className="h-6 w-6" />;
+      case 'sun': return <Sun className="h-6 w-6" />;
+      case 'heart': return <Heart className="h-6 w-6" />;
       case 'crown': return <Crown className="h-6 w-6" />;
-      default: return <Star className="h-6 w-6" />;
+      case 'star': return <Star className="h-6 w-6" />;
+      default: return <Flame className="h-6 w-6" />;
     }
   };
   
@@ -86,9 +106,34 @@ const ReaderDashboard: React.FC = () => {
         if (readerData?.readerLevel) {
           setReaderLevel(readerData.readerLevel);
           
+          // Set max rate and current rate
+          if (readerData.readerLevel && readerData.readerLevel.base_price_per_minute) {
+            setMaxRate(readerData.readerLevel.base_price_per_minute);
+          }
+          
+          // Set current rate - use custom_price_per_minute if available,
+          // otherwise use the level's base price
+          const userRate = readerData.custom_price_per_minute !== undefined && 
+                          readerData.custom_price_per_minute !== null
+            ? readerData.custom_price_per_minute
+            : readerData.readerLevel.base_price_per_minute;
+            
+          setCurrentRate(userRate);
+          setIsFreeReading(userRate === 0);
+          
           // Fetch reviews
           const reviewsData = await getReaderReviews(user.id);
           setReviews(reviewsData);
+          
+          // Fetch all levels for milestone progress bar
+          const { data: allLevelsData } = await supabase
+            .from('reader_levels')
+            .select('*')
+            .order('rank_order', { ascending: true });
+            
+          if (allLevelsData && allLevelsData.length > 0) {
+            setAllLevels(allLevelsData);
+          }
           
           // Calculate progress to next level
           if (readerData.readerLevel.rank_order < 5) {
@@ -142,6 +187,88 @@ const ReaderDashboard: React.FC = () => {
     loadReaderData();
   }, [user, navigate]);
   
+  // Handle saving the rate
+  const handleSaveRate = async () => {
+    if (!user) return;
+    
+    try {
+      setIsSavingRate(true);
+      setRateError(null);
+      
+      // Validate rate
+      // If offering free readings, set rate to 0
+      const rateToSave = isFreeReading ? 0 : currentRate;
+      
+      // If not free, validate against max and min
+      if (!isFreeReading) {
+        if (rateToSave > maxRate) {
+          setRateError(`Rate cannot exceed $${maxRate.toFixed(2)} per minute for your current level`);
+          setIsSavingRate(false);
+          return;
+        }
+        
+        if (rateToSave < 0) {
+          setRateError("Rate cannot be negative");
+          setIsSavingRate(false);
+          return;
+        }
+      }
+      
+      // Save to database
+      const { error } = await supabase
+        .from('users')
+        .update({
+          custom_price_per_minute: rateToSave
+        })
+        .eq('id', user.id);
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Update local state
+      if (readerDetails) {
+        setReaderDetails({
+          ...readerDetails,
+          custom_price_per_minute: rateToSave
+        });
+      }
+      
+      setRateSuccess(true);
+      setIsEditingRate(false);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setRateSuccess(false);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error saving rate:', error);
+      setRateError('Failed to save rate. Please try again.');
+    } finally {
+      setIsSavingRate(false);
+    }
+  };
+  
+  // Handle rate input change
+  const handleRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    if (!isNaN(value)) {
+      setCurrentRate(value);
+    }
+  };
+  
+  // Handle rate slider change
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    setCurrentRate(value);
+  };
+  
+  // Handle free reading toggle
+  const handleFreeReadingToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsFreeReading(e.target.checked);
+  };
+  
   if (loading) {
     return (
       <div className="min-h-screen pt-16 pb-20 flex items-center justify-center">
@@ -182,7 +309,7 @@ const ReaderDashboard: React.FC = () => {
               className="btn btn-secondary py-2 px-4 flex items-center"
             >
               <Award className="h-5 w-5 mr-2" />
-              Certificate
+              View Certificate
             </button>
           </div>
         </div>
@@ -243,6 +370,161 @@ const ReaderDashboard: React.FC = () => {
           </div>
         </motion.div>
         
+        {/* Rate Setting Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.05 }}
+          className="mb-8"
+        >
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="p-6 border-b border-border">
+              <h2 className="text-xl font-serif font-bold flex items-center">
+                <DollarSign className="h-5 w-5 mr-2 text-accent" />
+                Your Reading Rate
+              </h2>
+            </div>
+            <div className="p-6">
+              {rateSuccess && (
+                <div className="mb-4 p-3 bg-success/10 border border-success/30 rounded-lg">
+                  <p className="text-success flex items-center">
+                    <Check className="h-4 w-4 mr-2" />
+                    Your rate has been updated successfully!
+                  </p>
+                </div>
+              )}
+              
+              {rateError && (
+                <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+                  <p className="text-destructive flex items-center">
+                    <XCircle className="h-4 w-4 mr-2" />
+                    {rateError}
+                  </p>
+                </div>
+              )}
+              
+              {isEditingRate ? (
+                <div className="space-y-4">
+                  <div className="flex items-center mb-2">
+                    <input 
+                      type="checkbox" 
+                      id="offerFree"
+                      checked={isFreeReading}
+                      onChange={handleFreeReadingToggle}
+                      className="mr-2"
+                    />
+                    <label htmlFor="offerFree">Offer free readings</label>
+                  </div>
+                  
+                  {!isFreeReading && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <label htmlFor="rateSlider" className="block text-sm font-medium">
+                            Rate per minute <span className="text-xs text-muted-foreground">(Max: ${maxRate.toFixed(2)})</span>
+                          </label>
+                          <span className="text-sm font-medium">${currentRate.toFixed(2)}</span>
+                        </div>
+                        
+                        <input
+                          type="range"
+                          id="rateSlider"
+                          min="0.01"
+                          max={maxRate}
+                          step="0.01"
+                          value={currentRate}
+                          onChange={handleSliderChange}
+                          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+                        />
+                        
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>$0.01</span>
+                          <span>${maxRate.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center">
+                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted/50">$</span>
+                        <input
+                          type="number"
+                          id="rateInput"
+                          value={currentRate}
+                          onChange={handleRateChange}
+                          min="0.01"
+                          max={maxRate}
+                          step="0.01"
+                          className="flex-1 rounded-r-md border border-input p-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      
+                      <p className="text-xs text-muted-foreground">
+                        Your rate cannot exceed the maximum for your current level ({readerLevel?.name}: ${maxRate.toFixed(2)}/min).
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setIsEditingRate(false)}
+                      className="btn btn-ghost border border-input py-2 px-4"
+                      disabled={isSavingRate}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveRate}
+                      className="btn btn-primary py-2 px-4 flex items-center"
+                      disabled={isSavingRate}
+                    >
+                      {isSavingRate ? (
+                        <>
+                          <span className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Save Rate
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-2xl font-bold flex items-center">
+                      {isFreeReading ? (
+                        <span className="flex items-center text-success">
+                          <Sparkles className="h-5 w-5 mr-2" />
+                          Free Readings
+                        </span>
+                      ) : (
+                        <>
+                          <span className="text-accent">${currentRate.toFixed(2)}</span>
+                          <span className="text-sm text-muted-foreground ml-2">per minute</span>
+                        </>
+                      )}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {isFreeReading 
+                        ? "You're currently offering your readings for free" 
+                        : `Maximum allowed for your level (${readerLevel?.name}): $${maxRate.toFixed(2)}/min`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsEditingRate(true)}
+                    className="btn btn-secondary py-2 px-4 flex items-center"
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Change Rate
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
+        
         {/* Level Progress */}
         {nextLevel && (
           <motion.div
@@ -259,6 +541,106 @@ const ReaderDashboard: React.FC = () => {
                 </h2>
               </div>
               <div className="p-6">
+                {/* Chakra Color System Milestone Progress Bar */}
+                {allLevels.length > 0 && (
+                  <div className="mb-8">
+                    <h3 className="font-medium mb-3">Reader Level Progression</h3>
+                    <div className="relative">
+                      {/* Background Track */}
+                      <div className="h-6 bg-muted/30 rounded-full overflow-hidden relative">
+                        {/* Milestone Markers */}
+                        <div className="absolute inset-0 flex items-center">
+                          {allLevels.map((level, index) => (
+                            <React.Fragment key={level.id}>
+                              {/* Divider except for first item */}
+                              {index > 0 && (
+                                <div className="h-6 w-0.5 bg-background/80 relative z-10"></div>
+                              )}
+                              
+                              {/* Level Section */}
+                              <div 
+                                className={`flex-grow h-full relative ${
+                                  index < (readerLevel?.rank_order || 1) 
+                                    ? getProgressBarColor(level.color_theme) 
+                                    : ''
+                                }`}
+                              >
+                                {/* Level Icon */}
+                                <div 
+                                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20"
+                                  title={`${level.name}: ${level.description}`}
+                                >
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${
+                                    index < (readerLevel?.rank_order || 1) 
+                                      ? getBorderColor(level.color_theme) + ' shadow-md' 
+                                      : 'border-muted-foreground'
+                                  } ${
+                                    index === (readerLevel?.rank_order || 1) - 1 
+                                      ? 'ring-2 ring-accent/50' 
+                                      : ''
+                                  } bg-background`}
+                                  >
+                                    <div className={`w-5 h-5 ${
+                                      index < (readerLevel?.rank_order || 1) 
+                                        ? getIconColor(level.color_theme)
+                                        : 'text-muted-foreground'
+                                    }`}>
+                                      {getLevelIconSmall(level.icon)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Level Names */}
+                      <div className="mt-3 flex justify-between">
+                        {allLevels.map((level, index) => (
+                          <div 
+                            key={`label-${level.id}`} 
+                            className={`text-xs ${
+                              index === (readerLevel?.rank_order || 1) - 1
+                                ? getTextColor(level.color_theme) + ' font-medium'
+                                : 'text-muted-foreground'
+                            }`}
+                            style={{ 
+                              width: `${100 / allLevels.length}%`, 
+                              textAlign: index === 0 ? 'left' : index === allLevels.length - 1 ? 'right' : 'center' 
+                            }}
+                          >
+                            {level.name}
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Milestone Tooltips */}
+                      <div className="mt-1">
+                        {allLevels.map((level, index) => (
+                          <div 
+                            key={`requirement-${level.id}`} 
+                            className="text-xs text-muted-foreground"
+                            style={{ 
+                              width: `${100 / allLevels.length}%`, 
+                              display: 'inline-block',
+                              textAlign: index === 0 ? 'left' : index === allLevels.length - 1 ? 'right' : 'center',
+                              paddingLeft: index === 0 ? 0 : 8,
+                              paddingRight: index === allLevels.length - 1 ? 0 : 8
+                            }}
+                          >
+                            {index === (readerLevel?.rank_order || 1) - 1 
+                              ? 'Current Level' 
+                              : index === readerLevel?.rank_order
+                                ? 'Next Level'
+                                : ''}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Rating progress */}
                   <div>
@@ -416,6 +798,16 @@ const ReaderDashboard: React.FC = () => {
                     <span className="flex items-center">
                       <BarChart4 className="h-5 w-5 text-primary mr-3" />
                       View Analytics
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                  <button 
+                    onClick={() => setShowCertificate(true)}
+                    className="w-full text-left px-4 py-3 rounded-lg hover:bg-muted/30 transition-colors flex items-center justify-between"
+                  >
+                    <span className="flex items-center">
+                      <Award className="h-5 w-5 text-accent mr-3" />
+                      View Certificate
                     </span>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </button>
@@ -587,14 +979,68 @@ const ReaderDashboard: React.FC = () => {
   );
 };
 
-// Additional component imports for icons
-const Moon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>;
+// Helper functions for milestone progress bar
+const getProgressBarColor = (colorTheme: string) => {
+  switch (colorTheme) {
+    case 'red': return 'bg-red-500';
+    case 'orange': return 'bg-orange-500';
+    case 'yellow': return 'bg-yellow-500';
+    case 'green': return 'bg-green-500';
+    case 'blue': return 'bg-blue-500';
+    case 'indigo': return 'bg-indigo-500';
+    case 'violet': return 'bg-violet-500';
+    default: return 'bg-primary';
+  }
+};
 
-const Sun = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>;
+const getBorderColor = (colorTheme: string) => {
+  switch (colorTheme) {
+    case 'red': return 'border-red-500';
+    case 'orange': return 'border-orange-500';
+    case 'yellow': return 'border-yellow-500';
+    case 'green': return 'border-green-500';
+    case 'blue': return 'border-blue-500';
+    case 'indigo': return 'border-indigo-500';
+    case 'violet': return 'border-violet-500';
+    default: return 'border-primary';
+  }
+};
 
-const Crown = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></svg>;
+const getIconColor = (colorTheme: string) => {
+  switch (colorTheme) {
+    case 'red': return 'text-red-500';
+    case 'orange': return 'text-orange-500';
+    case 'yellow': return 'text-yellow-500';
+    case 'green': return 'text-green-500';
+    case 'blue': return 'text-blue-500';
+    case 'indigo': return 'text-indigo-500';
+    case 'violet': return 'text-violet-500';
+    default: return 'text-primary';
+  }
+};
 
-// Needed for imports
-const supabase = { from: () => ({}) };
+const getTextColor = (colorTheme: string) => {
+  switch (colorTheme) {
+    case 'red': return 'text-red-500';
+    case 'orange': return 'text-orange-500';
+    case 'yellow': return 'text-yellow-500';
+    case 'green': return 'text-green-500';
+    case 'blue': return 'text-blue-500';
+    case 'indigo': return 'text-indigo-500';
+    case 'violet': return 'text-violet-500';
+    default: return 'text-primary';
+  }
+};
+
+const getLevelIconSmall = (iconName: string = 'flame') => {
+  switch (iconName) {
+    case 'flame': return <Flame className="h-4 w-4" />;
+    case 'sparkles': return <Sparkles className="h-4 w-4" />;
+    case 'sun': return <Sun className="h-4 w-4" />;
+    case 'heart': return <Heart className="h-4 w-4" />;
+    case 'crown': return <Crown className="h-4 w-4" />;
+    default: return <Flame className="h-4 w-4" />;
+  }
+};
 
 export default ReaderDashboard;

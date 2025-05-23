@@ -3,6 +3,8 @@ import { User } from '../types';
 import { supabase } from '../lib/supabase';
 import { processGoogleProfileImage } from '../lib/user-profile';
 import { generateMysticalUsername } from '../lib/gemini-ai';
+import { setUserContext, clearUserContext } from '../utils/errorTracking';
+import { identifyUser } from '../utils/analytics';
 
 interface AuthContextType {
   user: User | null;
@@ -46,6 +48,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isCheckingRef = useRef(false);
   const lastCheckTimeRef = useRef(0);
   const authCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const nonceRef = useRef<string>('');
+  const authStateDeterminedRef = useRef(false);
 
   const checkAuth = useCallback(async () => {
     // Prevent concurrent auth checks
@@ -74,6 +78,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error getting session:', error);
         setUser(null);
         setLoading(false);
+        authStateDeterminedRef.current = true;
+        clearUserContext(); // Clear user context in Sentry and LogRocket
+        identifyUser(null); // Clear LogRocket identity
         return;
       }
       
@@ -120,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 email: session.user.email || '',
                 username: username,
                 full_name: fullName,
-                avatar_url: null, // We'll update this later if we have a Google image
+                avatar_url: undefined as string | undefined, // Will be set if we have a Google image
                 created_at: new Date().toISOString()
               };
               
@@ -146,48 +153,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .single();
                 
               if (newProfile) {
-                setUser({
+                const userObj = {
                   id: session.user.id,
                   email: session.user.email || '',
-                  username: newProfile.username,
-                  full_name: newProfile.full_name,
-                  avatar_url: newProfile.avatar_url,
-                  created_at: newProfile.created_at,
-                  is_creator: newProfile.is_creator || false,
-                  is_reader: newProfile.is_reader || false,
-                  bio: newProfile.bio || '',
-                });
+                  username: newProfile?.username || session.user.email?.split('@')[0] || 'User',
+                  full_name: newProfile?.full_name || undefined,
+                  avatar_url: newProfile?.avatar_url || undefined,
+                  created_at: newProfile?.created_at || new Date().toISOString(),
+                  is_creator: newProfile?.is_creator || false,
+                  is_reader: newProfile?.is_reader || false,
+                  bio: newProfile?.bio || '',
+                  custom_price_per_minute: newProfile?.custom_price_per_minute || undefined,
+                };
+                setUser(userObj);
+                setUserContext(userObj);
+                // Identify user in LogRocket
+                identifyUser(userObj);
               } else {
                 // Fallback if profile fetch fails after creation
-                setUser({
+                const userObj = {
                   id: session.user.id,
                   email: session.user.email || '',
-                  username: userMetadata.username || userMetadata.name || session.user.email?.split('@')[0] || 'User',
-                  full_name: fullName,
-                  avatar_url: userData.avatar_url,
+                  username: username || undefined,
+                  full_name: fullName || undefined,
+                  avatar_url: userData?.avatar_url || undefined,
                   created_at: new Date().toISOString(),
                   is_creator: false,
                   is_reader: false,
                   bio: '',
-                });
+                  custom_price_per_minute: undefined,
+                };
+                setUser(userObj);
+                setUserContext(userObj);
+                // Identify user in LogRocket
+                identifyUser(userObj);
               }
             } catch (insertError) {
               console.error('Error creating user profile:', insertError);
               // Fallback if profile creation fails
-              setUser({
+              const userObj = {
                 id: session.user.id,
                 email: session.user.email || '',
                 username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
                 full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+                avatar_url: session.user.user_metadata?.avatar_url || undefined,
                 created_at: new Date().toISOString(),
                 is_creator: false,
                 is_reader: false,
                 bio: '',
-              });
+                custom_price_per_minute: undefined,
+              };
+              setUser(userObj);
+              setUserContext(userObj);
+              // Identify user in LogRocket
+              identifyUser(userObj);
             }
           } else {
             // Other profile fetch error, use fallback user data
-            setUser({
+            const userObj = {
               id: session.user.id,
               email: session.user.email || '',
               username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
@@ -196,11 +219,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               is_creator: false,
               is_reader: false,
               bio: '',
-            });
+              custom_price_per_minute: undefined,
+            };
+            setUser(userObj);
+            setUserContext(userObj);
+            // Identify user in LogRocket
+            identifyUser(userObj);
           }
         } else if (profile) {
           // Profile found, set user data
-          setUser({
+          const userObj = {
             id: session.user.id,
             email: session.user.email || '',
             username: profile?.username,
@@ -210,18 +238,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             is_creator: profile?.is_creator || false,
             is_reader: profile?.is_reader || false,
             bio: profile?.bio || '',
-          });
+            custom_price_per_minute: profile?.custom_price_per_minute,
+          };
+          setUser(userObj);
+          setUserContext(userObj);
+          // Identify user in LogRocket
+          identifyUser(userObj);
         }
       } else {
         console.log('No session found, user is not authenticated');
         setUser(null);
+        clearUserContext();
+        // Clear LogRocket identity
+        identifyUser(null);
       }
     } catch (error) {
       console.error('Error checking auth:', error);
       setUser(null);
+      clearUserContext();
+      // Clear LogRocket identity
+      identifyUser(null);
     } finally {
       setLoading(false);
       isCheckingRef.current = false;
+      authStateDeterminedRef.current = true;
     }
   }, []);
 
@@ -307,7 +347,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logAuthProcess = (step: string, data?: any) => {
     console.log(`Auth process: ${step}`, data || '');
   };
-  
 
   const signInWithGoogle = async (returnToHome = false) => {
     try {
@@ -323,17 +362,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('auth_return_path', window.location.pathname + window.location.search);
       }
       
+      // Generate a secure nonce for this sign-in attempt
+      nonceRef.current = generateNonce();
+      
       // Use Supabase's built-in OAuth flow for Google
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: import.meta.env.VITE_GOOGLE_CLIENT_REDIRECT_URI,
-          scopes: 'email profile openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+          redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
-            response_type: 'code',
-            include_granted_scopes: 'true'
+            nonce: nonceRef.current
           }
         }
       });
@@ -353,9 +393,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       // This method works for all providers including Google
-      // Supabase automatically handles tokens and session creation
       if (window.location.hash || window.location.search) {
-        logAuthProcess('Authentication data found in URL');        
+        logAuthProcess('Authentication data found in URL');
+        
+        if (window.location.search) {
+          // Handle code exchange if we have a code parameter
+          const { data, error } = await supabase.auth.exchangeCodeForSession(window.location.search);
+          
+          if (error) {
+            throw error;
+          }
+          
+          if (data.session) {
+            logAuthProcess('Successfully authenticated via code exchange');
+          }
+        }
+        
         // Let Supabase handle the callback
         await checkAuth();
         return { error: null };
@@ -375,6 +428,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Sign out from Supabase
       await supabase.auth.signOut();
       setUser(null);
+      clearUserContext(); // Clear user context in Sentry
+      identifyUser(null); // Clear LogRocket identity
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -398,6 +453,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return password;
   };
 
+  // Generate a cryptographically secure random nonce
+  const generateNonce = () => {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  };
+
   // Set up auth state listener
   useEffect(() => {
     console.log('Setting up auth state listener');
@@ -409,6 +471,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error) {
         console.error('Error during initial auth check:', error);
         setLoading(false);
+        authStateDeterminedRef.current = true;
       }
       
       // Safety timeout to ensure loading state never gets stuck
@@ -417,9 +480,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       authCheckTimeoutRef.current = setTimeout(() => {
-        console.log('Safety timeout triggered - forcing loading state to false');
-        setLoading(false);
-      }, 8000);
+        if (!authStateDeterminedRef.current) {
+          console.log('Safety timeout triggered - forcing loading state to false');
+          setLoading(false);
+          authStateDeterminedRef.current = true;
+        }
+      }, 5000); // Reduced from 8000ms to 5000ms
     };
     
     initAuth();
@@ -438,6 +504,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('User signed out or deleted');
           setUser(null);
           setLoading(false);
+          authStateDeterminedRef.current = true;
+          clearUserContext(); // Clear user context in Sentry
+          identifyUser(null); // Clear LogRocket identity
         }
       }
     );
@@ -451,7 +520,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearTimeout(authCheckTimeoutRef.current);
       }
     };
-  }, [checkAuth]);
+  }, [checkAuth, user]);
 
   const value = {
     user,

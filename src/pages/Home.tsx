@@ -1,10 +1,13 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw, CreditCard, Check, Clock } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TarotLogo from '../components/ui/TarotLogo';
 import { useAuth } from '../context/AuthContext';
+import { useCredits } from '../context/CreditContext';
+import { generateThemeSuggestions } from '../lib/gemini-ai';
+import CreditBadge from '../components/ui/CreditBadge';
 
 // Featured decks data
 const featuredDecks = [
@@ -74,61 +77,7 @@ const tarotCardImages = [
   'https://images.pexels.com/photos/1727684/pexels-photo-1727684.jpeg?auto=compress&cs=tinysrgb&w=1600', // Wheel of Fortune
 ];
 
-// Large pool of theme suggestions for lazy loading
-const allThemeSuggestions = [
-  "Cosmic Voyage", 
-  "Ancient Mythology", 
-  "Cyberpunk Future", 
-  "Enchanted Forest", 
-  "Ocean Depths",
-  "Celestial Dreams",
-  "Steampunk Revolution",
-  "Haunted Victorian",
-  "Desert Mysticism",
-  "Crystal Realms",
-  "Forgotten Gods",
-  "Urban Shamanism",
-  "Divine Feminine",
-  "Shadow Work",
-  "Celtic Folklore",
-  "Elemental Spirits",
-  "Astral Projection",
-  "Sacred Geometry",
-  "Fractal Universe",
-  "Norse Legends",
-  "Egyptian Mysteries",
-  "Shamanic Journey",
-  "Angelic Realm",
-  "Gothic Horror",
-  "Mystical Animals",
-  "Psychedelic Visions",
-  "Fairy Tales",
-  "Underworld Myths",
-  "Quantum Reality",
-  "Parallel Dimensions",
-  "Dream Interpretation",
-  "Alchemical Transformation",
-  "Chakra Energies",
-  "Botanical Magic",
-  "Cosmic Horror",
-  "Spiritual Awakening",
-  "Hermetic Wisdom",
-  "Akashic Records",
-  "Urban Fantasy",
-  "Spirit Guides",
-  "Ancestral Wisdom",
-  "Astrology Signs",
-  "Mayan Calendar",
-  "Arthurian Legend",
-  "Magical Creatures",
-  "Divine Masculine",
-  "Sacred Landscapes",
-  "Atlantean Mysteries",
-  "Celestial Beings",
-  "Metamorphosis"
-];
-
-import { generateThemeSuggestions, generateElaborateTheme } from '../lib/gemini-ai';
+import { generateElaborateTheme } from '../lib/gemini-ai';
 
 // Generate theme suggestions using Gemini AI
 const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
@@ -170,16 +119,75 @@ const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
   }
 };
 
+// Random loading messages to display while generating elaborate theme
+const loadingMessages = [
+  "Consulting the cosmos...",
+  "Channeling mystical energies...",
+  "Drawing from the collective unconscious...",
+  "Weaving arcane patterns...",
+  "Peering into the void...",
+  "Aligning with celestial forces...",
+  "Communing with ancient wisdom..."
+];
+
 const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, setShowSignInModal } = useAuth();
+  const { credits } = useCredits();
   const [themePrompt, setThemePrompt] = useState("");
-  const [themeSuggestions, setThemeSuggestions] = useState<string[]>(allThemeSuggestions.slice(0, 12));
+  const [themeSuggestions, setThemeSuggestions] = useState<string[]>([]);
   const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
   const [isGeneratingElaboration, setIsGeneratingElaboration] = useState(false);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
-  const [lastLoadedIndex, setLastLoadedIndex] = useState(12);
+  const [lastLoadedIndex, setLastLoadedIndex] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [videoEnded, setVideoEnded] = useState(false);
+  
+  // Cookie for tracking if first-time user has used their credits
+  const [hasUsedCredits, setHasUsedCredits] = useState(() => {
+    const cookie = localStorage.getItem('hasUsedCredits');
+    return cookie === 'true';
+  });
+
+  // Update cookie when hasUsedCredits changes
+  useEffect(() => {
+    localStorage.setItem('hasUsedCredits', String(hasUsedCredits));
+  }, [hasUsedCredits]);
+  
+  // Random loading message interval
+  useEffect(() => {
+    let intervalId: number | null = null;
+    
+    if (isGeneratingElaboration) {
+      intervalId = window.setInterval(() => {
+        const randomIndex = Math.floor(Math.random() * loadingMessages.length);
+        setLoadingMessage(loadingMessages[randomIndex]);
+      }, 2000);
+    }
+    
+    return () => {
+      if (intervalId !== null) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [isGeneratingElaboration]);
+  
+  // Load initial theme suggestions on component mount
+  useEffect(() => {
+    const loadInitialThemes = async () => {
+      try {
+        const initialThemes = await generateThemeSuggestions(12);
+        setThemeSuggestions(initialThemes);
+        setLastLoadedIndex(12);
+      } catch (error) {
+        console.error('Error loading initial theme suggestions:', error);
+      }
+    };
+    
+    loadInitialThemes();
+  }, []);
   
   // Check for createDeck query parameter on load
   useEffect(() => {
@@ -244,22 +252,20 @@ const Home = () => {
     return () => container.removeEventListener('scroll', handleScroll);
   }, [themeSuggestions, lastLoadedIndex]);
   
-  // Lazy load more themes when approaching the end
-  const lazyLoadMoreThemes = () => {
-    // Only load more if we haven't reached the maximum (50)
-    if (themeSuggestions.length < 50 && lastLoadedIndex < allThemeSuggestions.length) {
-      const nextIndex = Math.min(lastLoadedIndex + 5, allThemeSuggestions.length);
-      const newThemes = allThemeSuggestions.slice(lastLoadedIndex, nextIndex);
-      
-      if (newThemes.length > 0) {
-        // Add new themes while maintaining a maximum of 50
-        const updatedThemes = [...themeSuggestions, ...newThemes];
-        if (updatedThemes.length > 50) {
-          setThemeSuggestions(updatedThemes.slice(updatedThemes.length - 50));
-        } else {
-          setThemeSuggestions(updatedThemes);
+  // Update lazyLoadMoreThemes to use AI generation
+  const lazyLoadMoreThemes = async () => {
+    if (themeSuggestions.length < 50) {
+      try {
+        const newThemes = await generateThemeSuggestions(5);
+        if (newThemes.length > 0) {
+          setThemeSuggestions(prev => {
+            const updated = [...prev, ...newThemes];
+            return updated.slice(0, 50);
+          });
+          setLastLoadedIndex(prev => prev + newThemes.length);
         }
-        setLastLoadedIndex(nextIndex);
+      } catch (error) {
+        console.error('Error loading more theme suggestions:', error);
       }
     }
   };
@@ -267,33 +273,34 @@ const Home = () => {
   const handleThemeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (themePrompt.trim()) {
-      // Check if user is authenticated
-      if (!user) {
+      if (user) {
+        // User is authenticated, proceed directly to deck creation
+        navigate('/create-deck', { 
+          state: {
+            initialTheme: themePrompt,
+            autoGenerate: true,
+            startGenerating: true // Add flag to start generation immediately
+          }
+        });
+      } else {
         // Store deck creation intent in localStorage
         localStorage.setItem('pending_deck_theme', themePrompt);
-        // Show the sign-in modal instead of redirecting
+        // Show the sign-in modal
         setShowSignInModal(true);
-        return;
       }
       
-      // User is already authenticated, proceed immediately to deck creation
-      // Skip the manual form input step and auto-generate deck details from the prompt
-      navigate('/create-deck', { 
-        state: { 
-          initialTheme: themePrompt, 
-          autoGenerate: true,  // Signal to auto-generate deck details
-          skipFormStep: true,   // Skip the manual form step
-          startGenerating: true // Start generating images immediately
-        } 
-      });
+      // Update the used credits flag after navigating
+      if (!hasUsedCredits) {
+        setHasUsedCredits(true);
+      }
     }
   };
 
-  const selectSuggestion = async (suggestion: string) => {
-    // First set the basic suggestion
-    setThemePrompt(suggestion);
-    
-    // Then generate and append an elaboration
+  const selectSuggestion = async (suggestion: string) => {    
+    // Generate and append an elaboration
+    // clear existing text
+    setThemePrompt('');
+
     try {
       setIsGeneratingElaboration(true);
       const elaboration = await generateElaborateTheme(suggestion);
@@ -311,13 +318,10 @@ const Home = () => {
     setIsGeneratingThemes(true);
     try {
       const newThemes = await generateAIThemeSuggestions(themePrompt);
-      
-      // Replace the first 10 themes with new ones
       setThemeSuggestions(prevThemes => {
         const remainingThemes = prevThemes.length > 10 ? prevThemes.slice(10) : [];
         return [...newThemes, ...remainingThemes].slice(0, 50);
       });
-      
     } catch (error) {
       console.error('Error generating themes:', error);
     } finally {
@@ -337,10 +341,27 @@ const Home = () => {
     }
   };
   
+  // Get the available credits for the user
+  const getAvailableCredits = () => {
+    // For logged in users, show their actual credits
+    if (user && credits) {
+      return credits.basicCredits + credits.premiumCredits;
+    }
+    
+    // For non-logged in users who haven't used credits yet, show 5
+    if (!hasUsedCredits) {
+      return 5;
+    }
+    
+    // For non-logged in users who have used credits, show 0
+    return 0;
+  };
+  
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
       <motion.section 
+        id="#"
         className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-0 pb-12 md:py-6 overflow-hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -425,13 +446,24 @@ const Home = () => {
               
               <form onSubmit={handleThemeSubmit}>
                 <div className="mb-5">
-                  <textarea
-                    id="deck-theme-input"
-                    value={themePrompt}
-                    onChange={(e) => setThemePrompt(e.target.value)}
-                    placeholder="Describe your deck's theme or concept (e.g., Cosmic journey through ancient mythology...)"
-                    className="w-full p-3 rounded-lg bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px] resize-none"
-                  />
+                  <div className="relative">
+                    <textarea
+                      id="deck-theme-input"
+                      value={themePrompt}
+                      onChange={(e) => setThemePrompt(e.target.value)}
+                      placeholder={isGeneratingElaboration ? loadingMessage : "Describe your deck's theme or concept (e.g., Cosmic journey through ancient mythology...)"}
+                      className="w-full p-3 rounded-lg bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary min-h-[80px] resize-none"
+                      disabled={isGeneratingElaboration}
+                    />
+                    
+                    {/* Deck badge */}
+                    { !user && (
+                      <div className="absolute -top-3 right-3 bg-card border border-yellow-500 px-2 py-1 rounded-full shadow-sm flex items-center">
+                        <CreditCard className="h-3 w-3 text-yellow-500 mr-1" />
+                        <span className="text-xs font-medium">1 free deck</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="relative mb-4">
@@ -494,7 +526,7 @@ const Home = () => {
                                     border border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/40
                                     ${isGeneratingElaboration ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
-                          {isGeneratingElaboration ? '...' : suggestion}
+                          {suggestion}
                         </button>
                       ))}
                     </div>
@@ -515,13 +547,20 @@ const Home = () => {
                 
                 <button
                   type="submit"
-                  disabled={!themePrompt.trim()}
+                  disabled={!themePrompt.trim() || isGeneratingElaboration}
                   className="w-full btn btn-primary py-3 disabled:opacity-70"
                 >
-                  <>
-                    Forge a Deck
-                    <Hammer className="ml-2 h-4 w-4" />
-                  </>
+                  {isGeneratingElaboration ? (
+                    <>
+                      <span className="mr-2 h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></span>
+                      Generating Description...
+                    </>
+                  ) : (
+                    <>
+                      Forge a Deck
+                      <Hammer className="ml-2 h-4 w-4" />
+                    </>
+                  )}
                 </button>
               </form>
             </div>
@@ -556,581 +595,488 @@ const Home = () => {
           </div>
         </motion.div>
       </motion.section>
-      
-      {/* Bento Grid Features Section */}
-      <section className="py-16 px-4">
-        <div className="container mx-auto max-w-6xl">
-          <motion.div
+      {/* Features Section */}
+      <section className="py-20 px-4">
+        <div className="container mx-auto">
+          <motion.div 
+            className="text-center mb-16"
             initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-center mb-10"
           >
-            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">Explore the Possibilities</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Discover what makes Mystic Forge the ultimate platform for tarot enthusiasts and creators
+            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">Unleash Your Tarot Creativity</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Create, collect, and experience tarot in ways never before possible
             </p>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 md:gap-6">
-            {/* Large Feature: AI Deck Creation */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Feature 1 */}
             <motion.div
+              className="bg-card border border-border rounded-xl p-6 hover:shadow-lg transition-shadow"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="col-span-1 md:col-span-3 row-span-2 bg-card/90 border border-border rounded-2xl overflow-hidden shadow-sm group hover:shadow-md hover:border-primary/30 transition-all p-6 md:p-8"
+              viewport={{ once: true }}
             >
-              <div className="flex md:flex-col h-full">
-                <div className="mb-6 md:mb-auto">
-                  <div className="p-3 bg-primary/10 rounded-xl w-fit mb-5">
-                    <Wand2 className="h-8 w-8 text-primary" />
-                  </div>
-                  
-                  <h3 className="text-2xl font-serif font-medium mb-2">AI Deck Creation</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Generate stunning tarot cards with Gemini AI. Customize themes, styles, and symbolism to match your vision.
-                  </p>
-                  
-                  <ul className="space-y-2 text-sm text-muted-foreground mb-6">
-                    <li className="flex items-center">
-                      <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
-                      <span>22 or 78-card decks</span>
-                    </li>
-                    <li className="flex items-center">
-                      <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
-                      <span>Custom themes and styles</span>
-                    </li>
-                    <li className="flex items-center">
-                      <span className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-primary mr-2">✓</span>
-                      <span>AI-generated descriptions</span>
-                    </li>
-                  </ul>
-                </div>
-                
-                <Link 
-                  to="/create" 
-                  className="mt-auto inline-flex items-center text-primary hover:underline group-hover:translate-x-1 transition-transform"
-                >
-                  Forge Your Deck <ArrowRight className="ml-1 h-4 w-4" />
-                </Link>
+              <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mb-4">
+                <Wand2 className="h-6 w-6 text-primary" />
               </div>
+              <h3 className="text-xl font-serif font-bold mb-2">AI-Powered Creation</h3>
+              <p className="text-muted-foreground mb-4">
+                Design unique tarot decks with our AI generation tools. Customize every aspect from artwork style to card symbolism.
+              </p>
+              <Link to="/" className="text-primary hover:underline flex items-center text-sm">
+                Create Your Deck
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </Link>
             </motion.div>
-
-            {/* Marketplace Feature */}
+            
+            {/* Feature 2 */}
             <motion.div
+              className="bg-card border border-border rounded-xl p-6 hover:shadow-lg transition-shadow"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="col-span-1 md:col-span-3 bg-accent/5 border border-accent/20 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-accent/40 transition-all p-6"
+              viewport={{ once: true }}
             >
-              <div className="p-3 bg-accent/10 rounded-xl w-fit mb-4">
+              <div className="w-12 h-12 bg-accent/20 rounded-full flex items-center justify-center mb-4">
                 <ShoppingBag className="h-6 w-6 text-accent" />
               </div>
-              
-              <h3 className="text-xl font-serif font-medium mb-2">Deck Marketplace</h3>
-              <p className="text-muted-foreground mb-3">
-                Browse, buy and sell unique decks from creators worldwide. Discover rare digital decks and NFT editions.
+              <h3 className="text-xl font-serif font-bold mb-2">Vibrant Marketplace</h3>
+              <p className="text-muted-foreground mb-4">
+                Discover and collect unique decks created by artists worldwide. From traditional to avant-garde, find your perfect match.
               </p>
-              
-              <Link 
-                to="/marketplace" 
-                className="inline-flex items-center text-accent hover:underline hover:translate-x-1 transition-transform"
-              >
-                Browse Marketplace <ArrowRight className="ml-1 h-4 w-4" />
+              <Link to="/marketplace" className="text-primary hover:underline flex items-center text-sm">
+                Explore Marketplace
+                <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </motion.div>
             
-            {/* AI Reading Assistant */}
+            {/* Feature 3 */}
             <motion.div
+              className="bg-card border border-border rounded-xl p-6 hover:shadow-lg transition-shadow"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="col-span-1 md:col-span-2 bg-card/90 border border-border rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary/30 transition-all p-6"
+              viewport={{ once: true }}
             >
-              <div className="p-3 bg-teal/10 rounded-xl w-fit mb-4">
+              <div className="w-12 h-12 bg-teal/20 rounded-full flex items-center justify-center mb-4">
                 <BookOpen className="h-6 w-6 text-teal" />
               </div>
-              
-              <h3 className="text-xl font-serif font-medium mb-2">AI Reading Assistant</h3>
-              <p className="text-muted-foreground mb-3">
-                Get AI-powered interpretations tailored to your deck's imagery and symbolism.
+              <h3 className="text-xl font-serif font-bold mb-2">Interactive Readings</h3>
+              <p className="text-muted-foreground mb-4">
+                Experience immersive tarot readings with AI interpretations or connect with professional readers for personalized guidance.
               </p>
-              
-              <Link 
-                to="/reading-room" 
-                className="inline-flex items-center text-teal hover:underline hover:translate-x-1 transition-transform"
-              >
-                Try a Reading <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
-            </motion.div>
-            
-            {/* Video Reading Sessions */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="col-span-1 md:col-span-4 bg-primary/5 border border-primary/20 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary/40 transition-all p-6"
-            >
-              <div className="p-3 bg-primary/10 rounded-xl w-fit mb-4">
-                <Video className="h-6 w-6 text-primary" />
-              </div>
-              
-              <h3 className="text-xl font-serif font-medium mb-2">Live Reading Sessions</h3>
-              <p className="text-muted-foreground mb-3">
-                Connect with professional readers or friends for real-time video tarot reading sessions with secure sharing.
-              </p>
-              
-              <Link 
-                to="/reading-room" 
-                className="inline-flex items-center text-primary hover:underline hover:translate-x-1 transition-transform"
-              >
-                Start a Session <ArrowRight className="ml-1 h-4 w-4" />
+              <Link to="/reading-room" className="text-primary hover:underline flex items-center text-sm">
+                Try a Reading
+                <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </motion.div>
           </div>
         </div>
       </section>
       
-      {/* Bento Grid How It Works */}
-      <section className="py-16 px-4">
-        <div className="container mx-auto max-w-6xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
+      {/* Featured Decks Section */}
+      <section className="py-20 px-4 bg-gradient-to-b from-background to-primary/5 mt-8">
+        <div className="container mx-auto">
+          <motion.div 
+            className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12"
+            initial={{ opacity:  0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="text-center mb-10"
+            viewport={{ once: true }}
           >
-            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">How It Works</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Create, collect, and experience tarot in three simple steps
-            </p>
+            <div>
+              <h2 className="text-3xl md:text-4xl font-serif font-bold mb-2">Featured Decks</h2>
+              <p className="text-xl text-muted-foreground">
+                Discover popular decks from our community
+              </p>
+            </div>
+            <Link to="/marketplace" className="mt-4 md:mt-0 btn btn-primary py-2 px-4 flex items-center">
+              View All Decks
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Step 1 */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-2xl p-6 relative group hover:border-primary/40 transition-all"
-            >
-              <div className="absolute -top-4 -right-4 w-12 h-12 rounded-full bg-background flex items-center justify-center font-serif text-2xl border-2 border-primary/30">
-                1
-              </div>
-              
-              <Wand2 className="h-10 w-10 text-primary mb-6" />
-              <h3 className="text-xl font-serif font-medium mb-3 group-hover:text-primary transition-colors">Create Your Vision</h3>
-              <p className="text-muted-foreground">
-                Describe your theme and style, then watch as AI generates custom tarot artwork based on your specifications.
-              </p>
-              
-              <div className="absolute bottom-0 right-0 w-20 h-20 bg-primary/5 rounded-tl-3xl -z-10"></div>
-            </motion.div>
-            
-            {/* Step 2 */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 rounded-2xl p-6 relative group hover:border-accent/40 transition-all"
-            >
-              <div className="absolute -top-4 -right-4 w-12 h-12 rounded-full bg-background flex items-center justify-center font-serif text-2xl border-2 border-accent/30">
-                2
-              </div>
-              
-              <ShoppingBag className="h-10 w-10 text-accent mb-6" />
-              <h3 className="text-xl font-serif font-medium mb-3 group-hover:text-accent transition-colors">Build Collection</h3>
-              <p className="text-muted-foreground">
-                Grow your personal collection by creating your own decks or purchasing unique designs from other creators.
-              </p>
-              
-              <div className="absolute bottom-0 right-0 w-20 h-20 bg-accent/5 rounded-tl-3xl -z-10"></div>
-            </motion.div>
-            
-            {/* Step 3 */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="bg-gradient-to-br from-teal/10 to-teal/5 border border-teal/20 rounded-2xl p-6 relative group hover:border-teal/40 transition-all"
-            >
-              <div className="absolute -top-4 -right-4 w-12 h-12 rounded-full bg-background flex items-center justify-center font-serif text-2xl border-2 border-teal/30">
-                3
-              </div>
-              
-              <BookOpen className="h-10 w-10 text-teal mb-6" />
-              <h3 className="text-xl font-serif font-medium mb-3 group-hover:text-teal transition-colors">Experience Readings</h3>
-              <p className="text-muted-foreground">
-                Use your decks for personal readings with AI interpretation or connect with others for live video readings.
-              </p>
-              
-              <div className="absolute bottom-0 right-0 w-20 h-20 bg-teal/5 rounded-tl-3xl -z-10"></div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-      
-      {/* Bento Featured Decks Section */}
-      <section className="py-16 px-4 bg-card/20">
-        <div className="container mx-auto max-w-6xl">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-10">
-            <motion.h2 
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="text-3xl md:text-4xl font-serif font-bold mb-4 md:mb-0"
-            >
-              Featured Decks
-            </motion.h2>
-            
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="flex items-center space-x-2"
-            >
-              <Link 
-                to="/marketplace" 
-                className="px-4 py-2 rounded-lg border border-accent text-accent hover:bg-accent/10 transition-colors flex items-center"
-              >
-                <ShoppingBag className="mr-2 h-4 w-4" />
-                Explore All Decks
-              </Link>
-            </motion.div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-            {/* Featured decks, styled as bento cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {featuredDecks.map((deck, index) => (
               <motion.div
                 key={deck.id}
+                className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-xl transition-all"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="group"
+                viewport={{ once: true }}
+                whileHover={{ y: -5 }}
               >
-                <Link to={`/marketplace/${deck.id}`} className="block">
-                  <div className="rounded-xl overflow-hidden bg-card border border-border hover:border-accent/30 hover:shadow-lg transition-all duration-300 h-full">
-                    <div className="relative aspect-[4/3] overflow-hidden">
-                      <img 
-                        src={deck.cover_image} 
-                        alt={deck.title} 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
-                      />
-                      
-                      {/* Overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-80" />
-                      
-                      {/* Price Tag */}
-                      {deck.is_free ? (
-                        <div className="absolute top-3 right-3 bg-success/90 text-success-foreground font-medium px-3 py-1 rounded-full text-sm flex items-center z-10">
-                          <Zap className="h-3 w-3 mr-1" />
-                          Free
-                        </div>
-                      ) : (
-                        <div className="absolute top-3 right-3 bg-accent/90 text-accent-foreground font-medium px-3 py-1 rounded-full text-sm z-10">
-                          ${deck.price.toFixed(2)}
-                        </div>
-                      )}
-                      
-                      {/* NFT Badge */}
-                      {deck.is_nft && (
-                        <div className="absolute top-3 left-3 bg-primary/90 text-primary-foreground font-medium px-3 py-1 rounded-full text-xs z-10">
-                          NFT
-                        </div>
-                      )}
-                      
-                      {/* Card count */}
-                      <div className="absolute bottom-3 left-3 text-sm text-white flex items-center z-10">
-                        <div className="flex items-center mr-3">
-                          <Star className="h-4 w-4 fill-accent stroke-0 mr-1" />
-                          <span>{deck.rating?.toFixed(1)}</span>
-                        </div>
-                        <span>{deck.card_count} cards</span>
-                      </div>
+                <div className="aspect-[3/4] relative overflow-hidden">
+                  <img 
+                    src={deck.cover_image} 
+                    alt={deck.title} 
+                    className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                  />
+                  {deck.is_free ? (
+                    <div className="absolute top-3 right-3 bg-success/90 text-success-foreground font-medium px-3 py-1 rounded-full text-sm flex items-center">
+                      <Zap className="h-3 w-3 mr-1" />
+                      Free
                     </div>
-                    
-                    {/* Content */}
-                    <div className="p-4">
-                      <h3 className="font-serif text-lg font-medium mb-2">{deck.title}</h3>
-                      <p className="text-muted-foreground text-sm line-clamp-2 mb-3">
-                        {deck.description}
-                      </p>
-                      
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
-                            <Users className="h-3 w-3" />
-                          </div>
-                          <span className="text-xs ml-2 text-muted-foreground">
-                            By {deck.creator_name}
-                          </span>
-                        </div>
-                        
-                        <span className="text-xs text-primary">{deck.purchase_count} downloads</span>
-                      </div>
+                  ) : (
+                    <div className="absolute top-3 right-3 bg-accent/90 text-accent-foreground font-medium px-3 py-1 rounded-full text-sm">
+                      ${deck.price.toFixed(2)}
                     </div>
+                  )}
+                  {deck.is_nft && (
+                    <div className="absolute top-3 left-3 bg-primary/90 text-primary-foreground font-medium px-3 py-1 rounded-full text-xs">
+                      NFT
+                    </div>
+                  )}
+                </div>
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-serif text-xl font-bold">{deck.title}</h3>
+                    {deck.rating && (
+                      <div className="flex items-center text-accent">
+                        <Star className="h-4 w-4 fill-current" />
+                        <span className="ml-1 font-medium">{deck.rating.toFixed(1)}</span>
+                      </div>
+                    )}
                   </div>
-                </Link>
+                  <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
+                    {deck.description}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">By {deck.creator_name}</span>
+                    <Link 
+                      to={`/marketplace/${deck.id}`} 
+                      className="btn btn-secondary py-1 px-3 text-xs"
+                    >
+                      View Deck
+                    </Link>
+                  </div>
+                </div>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
       
-      {/* Bento Grid Testimonials */}
-      <section className="py-16 px-4">
-        <div className="container mx-auto max-w-6xl">
-          <motion.div
+      {/* Reader Section */}
+      <section className="py-20 px-4 bg-gradient-to-b from-background to-primary/5">
+        <div className="container mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+              viewport={{ once: true }}
+            >
+              <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">Connect with Professional Readers</h2>
+              <p className="text-xl text-muted-foreground mb-6">
+                Get personalized tarot readings from certified professionals using your custom decks
+              </p>
+              
+              <div className="space-y-4 mb-8">
+                <div className="flex items-start">
+                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 mr-3">
+                    <Check className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Video Reading Sessions</h3>
+                    <p className="text-sm text-muted-foreground">Connect face-to-face for immersive reading experiences</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start">
+                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 mr-3">
+                    <Check className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Certified Tarot Experts</h3>
+                    <p className="text-sm text-muted-foreground">All readers pass rigorous certification requirements</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start">
+                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 mr-3">
+                    <Check className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Use Your Custom Decks</h3>
+                    <p className="text-sm text-muted-foreground">Readers can use your created decks for deeper personal connections</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link to="/readers" className="btn btn-primary py-2 px-6 flex items-center justify-center">
+                  <Users className="mr-2 h-5 w-5" />
+                  Find a Reader
+                </Link>
+                <Link to="/become-reader" className="btn btn-secondary py-2 px-6 flex items-center justify-center">
+                  <Star className="mr-2 h-5 w-5" />
+                  Become a Reader
+                </Link>
+              </div>
+            </motion.div>
+            
+            <motion.div
+              className="relative"
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              viewport={{ once: true }}
+            >
+              <div className="aspect-video bg-card border border-border rounded-xl overflow-hidden shadow-xl">
+                <div className="relative w-full h-full">
+                  <img 
+                    src="https://images.pexels.com/photos/7148384/pexels-photo-7148384.jpeg?auto=compress&cs=tinysrgb&w=1600" 
+                    alt="Tarot reading session" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex flex-col justify-end p-6">
+                    <div className="flex items-center mb-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center mr-3">
+                        <Video className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="text-white font-medium">Live Reading Session</h3>
+                        <p className="text-white/80 text-sm">Professional tarot guidance</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="bg-card/30 backdrop-blur-xs px-2 py-1 rounded text-xs text-white flex items-center">
+                        <Star className="h-3 w-3 fill-yellow-500 text-yellow-500 mr-1" />
+                        4.9 (128 reviews)
+                      </div>
+                      <div className="bg-card/30 backdrop-blur-xs px-2 py-1 rounded text-xs text-white flex items-center">
+                        <Clock className="h-3 w-3 mr-1" />
+                        30 min sessions
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Play button overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div 
+                      className={`w-16 h-16 rounded-full ${isPlaying ? 'bg-primary' : 'bg-primary/80'} flex items-center justify-center cursor-pointer hover:bg-primary transition-colors`}
+                      onClick={() => setIsPlaying(!isPlaying)}
+                    >
+                      {isPlaying ? (
+                        <div className="w-4 h-10 flex justify-center">
+                          <div className="w-1.5 h-10 bg-white rounded-sm mr-1"></div>
+                          <div className="w-1.5 h-10 bg-white rounded-sm"></div>
+                        </div>
+                      ) : (
+                        <div className="w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-l-[16px] border-l-white ml-1"></div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Floating card elements */}
+              {/* Left card */}
+              <motion.div
+                className="absolute -bottom-6 -left-6 w-32 h-48 rounded-lg overflow-hidden shadow-xl"
+                initial={{ x: 0, y: 0, opacity: 1 }}
+                animate={{ 
+                  y: [0, -5, 0],
+                  x: isPlaying ? -200 : 0,
+                  opacity: isPlaying ? window.innerWidth < 768 ? 0.3 : 0.3 : 1
+                }}
+                transition={{ 
+                  y: { repeat: Infinity, duration: 3, ease: "easeInOut" },
+                  x: { duration: 0.7, ease: isPlaying ? "easeOut" : "easeIn" },
+                  opacity: { duration: 0.5 }
+                }}
+              >
+                <img 
+                  src="https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/sign/card-images/a8c392fb-7759-44bb-9515-8785280622d2/the-world-1747580504415.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2NhNzI0OTYwLTIwYmMtNDkwNi05YmJjLTU1OGE4ZGUzNDAwZSJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9hOGMzOTJmYi03NzU5LTQ0YmItOTUxNS04Nzg1MjgwNjIyZDIvdGhlLXdvcmxkLTE3NDc1ODA1MDQ0MTUucG5nIiwiaWF0IjoxNzQ3OTQ0MzYxLCJleHAiOjE5MDU2MjQzNjF9.azpqLKtzVOzu5y-Brjr9tRsaAkwtuxng0px-sSdjKDI" 
+                  alt="Tarot card" 
+                  className="w-full h-full object-cover"
+                />
+              </motion.div>
+              
+              {/* Right card */}
+              <motion.div
+                className="absolute -top-6 -right-6 w-32 h-48 rounded-lg overflow-hidden shadow-xl"
+                initial={{ x: 0, y: 0, opacity: 1 }}
+                animate={{ 
+                  y: [0, 5, 0],
+                  x: isPlaying ? 200 : 0,
+                  opacity: isPlaying ? window.innerWidth < 768 ? 0.3 : 0.3 : 1
+                }}
+                transition={{ 
+                  y: { repeat: Infinity, duration: 4, ease: "easeInOut" },
+                  x: { duration: 0.7, ease: isPlaying ? "easeOut" : "easeIn" },
+                  opacity: { duration: 0.5 }
+                }}
+              >
+                <img 
+                  src="https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/sign/card-images/a8c392fb-7759-44bb-9515-8785280622d2/judgement-1747580310932.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2NhNzI0OTYwLTIwYmMtNDkwNi05YmJjLTU1OGE4ZGUzNDAwZSJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9hOGMzOTJmYi03NzU5LTQ0YmItOTUxNS04Nzg1MjgwNjIyZDIvanVkZ2VtZW50LTE3NDc1ODAzMTA5MzIucG5nIiwiaWF0IjoxNzQ3OTQ0NTE1LCJleHAiOjE5MDU2MjQ1MTV9.DKPpgchmlQNcAfD-B4LztQaF8G53F52El9PgZnguVQc" 
+                  alt="Tarot card" 
+                  className="w-full h-full object-cover"
+                />
+              </motion.div>
+              
+              {/* Video element (hidden) to simulate video playback */}
+              <video 
+                className="hidden"
+                onEnded={() => {
+                  setIsPlaying(false);
+                  setVideoEnded(true);
+                }}
+                onPause={() => {
+                  if (!videoEnded) setIsPlaying(false);
+                }}
+                ref={(el) => {
+                  if (el && isPlaying) {
+                    el.currentTime = 0;
+                    el.play().catch(e => console.log("Auto-play prevented:", e));
+                  } else if (el && !isPlaying) {
+                    el.pause();
+                  }
+                }}
+              >
+                <source src="about:blank" type="video/mp4" />
+              </video>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+      
+      {/* Testimonials Section */}
+      <section className="py-20 px-4">
+        <div className="container mx-auto">
+          <motion.div 
+            className="text-center mb-16"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="text-center mb-10"
+            viewport={{ once: true }}
           >
-            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">Community Voices</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Hear what our community of creators and readers has to say
+            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">What Our Users Say</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Join thousands of tarot enthusiasts already creating and connecting on our platform
             </p>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 md:gap-6">
-            {/* Large testimonial */}
-            <motion.div 
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Testimonial 1 */}
+            <motion.div
+              className="bg-card border border-border rounded-xl p-6"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="col-span-1 md:col-span-3 row-span-2 bg-primary/5 border border-primary/20 rounded-2xl p-6 relative"
+              viewport={{ once: true }}
             >
-              <div className="flex items-center mb-6">
-                <div className="w-14 h-14 rounded-full overflow-hidden mr-4 border-2 border-primary/20">
-                  <img 
-                    src="https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=1600" 
-                    alt="Eliza Thornwood" 
-                    className="w-full h-full object-cover" 
-                  />
+              <div className="flex items-center text-accent mb-4">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-4 w-4 fill-current" />
+                ))}
+              </div>
+              <p className="text-muted-foreground mb-6">
+                "I've created three custom decks that perfectly capture my spiritual aesthetic. The AI generation is incredible, and I love that I can sell my creations to others!"
+              </p>
+              <div className="flex items-center">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center mr-3">
+                  <span className="font-medium text-primary">MA</span>
                 </div>
                 <div>
-                  <h4 className="font-medium">Eliza Thornwood</h4>
-                  <p className="text-sm text-muted-foreground">Deck Creator</p>
+                  <p className="font-medium">MysticArtisan</p>
+                  <p className="text-xs text-muted-foreground">Deck Creator</p>
                 </div>
-              </div>
-              
-              <p className="text-muted-foreground italic text-lg mb-4">
-                "Creating my own tarot deck has been a dream come true. The Gemini AI perfectly captured my vision of cosmic mythology, and I've already sold over 100 copies in just two weeks!"
-              </p>
-              
-              <p className="text-muted-foreground">
-                The platform made it so easy to generate cards that match my exact specifications. The marketplace integration is seamless, and I love seeing how people use my deck in readings.
-              </p>
-              
-              <div className="flex items-center mt-6 text-primary">
-                <Star className="h-5 w-5 fill-primary" />
-                <Star className="h-5 w-5 fill-primary" />
-                <Star className="h-5 w-5 fill-primary" />
-                <Star className="h-5 w-5 fill-primary" />
-                <Star className="h-5 w-5 fill-primary" />
               </div>
             </motion.div>
             
-            {/* Medium testimonial 1 */}
-            <motion.div 
+            {/* Testimonial 2 */}
+            <motion.div
+              className="bg-card border border-border rounded-xl p-6"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="col-span-1 md:col-span-3 bg-accent/5 border border-accent/20 rounded-2xl p-6"
+              viewport={{ once: true }}
             >
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 rounded-full overflow-hidden mr-4 border-2 border-accent/20">
-                  <img 
-                    src="https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=1600" 
-                    alt="Marcus Chen" 
-                    className="w-full h-full object-cover" 
-                  />
+              <div className="flex items-center text-accent mb-4">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-4 w-4 fill-current" />
+                ))}
+              </div>
+              <p className="text-muted-foreground mb-6">
+                "The video reading feature has transformed my practice. I can now connect with clients worldwide using their own custom decks, creating a deeply personal experience."
+              </p>
+              <div className="flex items-center">
+                <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center mr-3">
+                  <span className="font-medium text-accent">CS</span>
                 </div>
                 <div>
-                  <h4 className="font-medium">Marcus Chen</h4>
-                  <p className="text-sm text-muted-foreground">Professional Reader</p>
+                  <p className="font-medium">CelestialSeer</p>
+                  <p className="text-xs text-muted-foreground">Professional Reader</p>
                 </div>
-              </div>
-              
-              <p className="text-muted-foreground italic mb-3">
-                "The video reading feature changed how I connect with clients. Being able to see reactions while sharing the same virtual space is magical."
-              </p>
-              
-              <div className="flex items-center text-accent">
-                <Star className="h-4 w-4 fill-accent" />
-                <Star className="h-4 w-4 fill-accent" />
-                <Star className="h-4 w-4 fill-accent" />
-                <Star className="h-4 w-4 fill-accent" />
-                <Star className="h-4 w-4 fill-accent" />
               </div>
             </motion.div>
             
-            {/* Medium testimonial 2 */}
-            <motion.div 
+            {/* Testimonial 3 */}
+            <motion.div
+              className="bg-card border border-border rounded-xl p-6"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="col-span-1 md:col-span-3 bg-teal/5 border border-teal/20 rounded-2xl p-6"
+              viewport={{ once: true }}
             >
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 rounded-full overflow-hidden mr-4 border-2 border-teal/20">
-                  <img 
-                    src="https://images.pexels.com/photos/1858175/pexels-photo-1858175.jpeg?auto=compress&cs=tinysrgb&w=1600" 
-                    alt="Sophia Martinez" 
-                    className="w-full h-full object-cover" 
-                  />
+              <div className="flex items-center text-accent mb-4">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-4 w-4 fill-current" />
+                ))}
+              </div>
+              <p className="text-muted-foreground mb-6">
+                "I started with the free plan and was so impressed that I upgraded to Creator. The quality of the AI-generated artwork is stunning, and the community is incredibly supportive."
+              </p>
+              <div className="flex items-center">
+                <div className="w-10 h-10 rounded-full bg-teal/20 flex items-center justify-center mr-3">
+                  <span className="font-medium text-teal">EW</span>
                 </div>
                 <div>
-                  <h4 className="font-medium">Sophia Martinez</h4>
-                  <p className="text-sm text-muted-foreground">Tarot Collector</p>
+                  <p className="font-medium">EtherealWanderer</p>
+                  <p className="text-xs text-muted-foreground">Collector & Creator</p>
                 </div>
-              </div>
-              
-              <p className="text-muted-foreground italic mb-3">
-                "As a tarot enthusiast, I love being able to collect unique decks and get AI interpretations that help me learn the nuances of each card's meaning."
-              </p>
-              
-              <div className="flex items-center text-teal">
-                <Star className="h-4 w-4 fill-teal" />
-                <Star className="h-4 w-4 fill-teal" />
-                <Star className="h-4 w-4 fill-teal" />
-                <Star className="h-4 w-4 fill-teal" />
-                <Star className="h-4 w-4 fill-none stroke-teal" />
               </div>
             </motion.div>
           </div>
         </div>
       </section>
       
-      {/* Bento Stats Section */}
-      <section className="py-16 px-4 bg-card/30">
-        <div className="container mx-auto max-w-6xl">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="bg-card border border-border rounded-2xl p-6 text-center group hover:border-primary/30 transition-all"
-            >
-              <Camera className="h-10 w-10 mx-auto text-primary mb-4 group-hover:scale-110 transition-transform" />
-              <h3 className="text-3xl font-bold mb-2">10K+</h3>
-              <p className="text-muted-foreground">Unique Decks</p>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-card border border-border rounded-2xl p-6 text-center group hover:border-accent/30 transition-all"
-            >
-              <Download className="h-10 w-10 mx-auto text-accent mb-4 group-hover:scale-110 transition-transform" />
-              <h3 className="text-3xl font-bold mb-2">250K+</h3>
-              <p className="text-muted-foreground">Downloads</p>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-card border border-border rounded-2xl p-6 text-center group hover:border-teal/30 transition-all"
-            >
-              <Users className="h-10 w-10 mx-auto text-teal mb-4 group-hover:scale-110 transition-transform" />
-              <h3 className="text-3xl font-bold mb-2">50K+</h3>
-              <p className="text-muted-foreground">Active Users</p>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-card border border-border rounded-2xl p-6 text-center group hover:border-success/30 transition-all"
-            >
-              <Shield className="h-10 w-10 mx-auto text-success mb-4 group-hover:scale-110 transition-transform" />
-              <h3 className="text-3xl font-bold mb-2">100%</h3>
-              <p className="text-muted-foreground">Secure Platform</p>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-      
-      {/* Bento-style CTA Section */}
-      <section className="py-24 px-4">
-        <div className="container mx-auto max-w-5xl">
-          <motion.div 
-            className="bg-gradient-to-br from-primary/90 via-teal/90 to-accent/90 rounded-2xl shadow-xl overflow-hidden"
-            initial={{ opacity: 0, y: 40 }}
+      {/* CTA Section */}
+      <section className="py-20 px-4 bg-gradient-to-b from-background to-primary/5">
+        <div className="container mx-auto">
+          <motion.div
+            className="bg-card border border-border rounded-xl p-8 md:p-12 text-center max-w-4xl mx-auto"
+            initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.7 }}
           >
-            <div className="grid grid-cols-1 md:grid-cols-5">
-              {/* CTA Text Area */}
-              <div className="p-8 md:p-12 md:col-span-3 flex flex-col justify-center">
-                <div className="p-3 bg-white/20 rounded-xl w-fit mb-6">
-                  <Sparkles className="h-8 w-8 text-white" />
-                </div>
-                
-                <h2 className="text-3xl md:text-4xl font-serif font-bold mb-6 text-white">
-                  Begin Your Mystical Journey
-                </h2>
-                <p className="text-xl mb-8 text-white/90">
-                  Join our growing community of creators, readers, and collectors exploring the infinite 
-                  possibilities of AI-generated tarot.
-                </p>
-                
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Link 
-                    to="/signup" 
-                    className="btn bg-white text-primary px-6 py-3 rounded-lg font-medium text-lg hover:bg-white/90 transition-colors flex items-center justify-center"
-                  >
-                    Create Free Account
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Link>
-                  <Link 
-                    to="/marketplace" 
-                    className="btn btn-outline text-white border-white/30 px-6 py-3 rounded-lg font-medium text-lg hover:bg-white/10 transition-colors flex items-center justify-center"
-                  >
-                    Explore Marketplace
-                  </Link>
-                </div>
-              </div>
-              
-              {/* CTA Image/Pattern Area */}
-              <div className="hidden md:block md:col-span-2 relative bg-gradient-to-br from-primary to-accent/80 overflow-hidden">
-                <div className="absolute inset-0 opacity-20">
-                  <div className="absolute top-10 left-10 w-20 h-20 rounded-full bg-white"></div>
-                  <div className="absolute bottom-20 right-10 w-32 h-32 rounded-full bg-white"></div>
-                  <div className="absolute top-1/2 left-1/3 w-16 h-16 rounded-full bg-white"></div>
-                </div>
-                
-                <div className="absolute inset-0 backdrop-blur-[2px]"></div>
-                
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Sparkles className="h-32 w-32 text-white/80" />
-                </div>
-              </div>
+            <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Wand2 className="h-8 w-8 text-primary" />
+            </div>
+            <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">Ready to Begin Your Journey?</h2>
+            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+              Join our community of creators, readers, and collectors to explore the mystical world of tarot like never before.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link to="/#"
+                onClick={e => {
+                  e.preventDefault();
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }} className="btn btn-primary py-3 px-8 text-lg flex items-                 center justify-center">
+                <Wand2 className="mr-2 h-5 w-5" />
+                Create Your First Deck
+              </Link>
+              <Link to="/marketplace" className="btn btn-secondary py-3 px-8 text-lg flex items-center justify-center">
+                <ShoppingBag className="mr-2 h-5 w-5" />
+                Explore Marketplace
+              </Link>
             </div>
           </motion.div>
         </div>

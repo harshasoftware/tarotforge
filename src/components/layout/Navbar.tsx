@@ -1,17 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Menu, X, Moon, Sun, User, UserCheck } from 'lucide-react';
+import { Menu, X, Moon, Sun, User, UserCheck, Crown, WalletCards } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useSubscription } from '../../context/SubscriptionContext';
 import SignInModal from '../auth/SignInModal';
 import TarotLogo from '../ui/TarotLogo';
+import DeckQuotaBadge from '../ui/CreditBadge';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const { user, signOut, showSignInModal, setShowSignInModal } = useAuth();
+  const { isSubscribed } = useSubscription();
   const location = useLocation();
+  const isMobile = useMediaQuery('(max-width: 767px)');
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Handle scroll effect
   useEffect(() => {
@@ -31,11 +38,35 @@ const Navbar = () => {
   useEffect(() => {
     setIsOpen(false);
   }, [location.pathname]);
+  
+  // Handle clicks outside the dropdown to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [dropdownOpen]);
 
   // Toggle dark/light mode
   const toggleTheme = () => {
     setDarkMode(!darkMode);
     document.body.classList.toggle('light-theme');
+  };
+  
+  // Toggle user dropdown
+  const toggleDropdown = () => {
+    setDropdownOpen(!dropdownOpen);
   };
 
   return (
@@ -69,12 +100,20 @@ const Navbar = () => {
                 >
                   Reading Room
                 </button>
+                <NavLink to="/pricing">Pricing</NavLink>
               </>
             )}
           </div>
 
           {/* Right side - Auth & Theme */}
           <div className="flex items-center space-x-2">
+            {/* Deck Badge (Only show for authenticated users) */}
+            {user && !isMobile && (
+              <div className="relative mr-1">
+                <DeckQuotaBadge showIcon={true} className="py-1" absolute={false} />
+              </div>
+            )}
+            
             {/* Theme toggle */}
             <button 
               onClick={toggleTheme} 
@@ -90,8 +129,11 @@ const Navbar = () => {
 
             {/* Auth links */}
             {user ? (
-              <div className="relative group">
-                <button className="flex items-center space-x-2 p-2 rounded-full hover:bg-secondary/50">
+              <div className="relative group" ref={dropdownRef}>
+                <button 
+                  onClick={toggleDropdown}
+                  className="flex items-center space-x-2 p-2 rounded-full hover:bg-secondary/50"
+                >
                   {user.avatar_url ? (
                     <img 
                       src={user.avatar_url} 
@@ -106,15 +148,35 @@ const Navbar = () => {
                   <span className="hidden md:block text-sm font-medium">
                     {user.username || user.email.split('@')[0]}
                   </span>
+                  {isSubscribed && (
+                    <Crown className="h-4 w-4 text-primary hidden md:block" />
+                  )}
                 </button>
                 
                 {/* Dropdown Menu */}
-                <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-card hidden group-hover:block">
+                <div 
+                  className={`absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-card ${
+                    dropdownOpen ? 'block' : 'hidden'
+                  }`}
+                >
                   <Link to="/profile" className="block px-4 py-2 text-sm hover:bg-secondary/50">
                     Profile
                   </Link>
                   <Link to="/collection" className="block px-4 py-2 text-sm hover:bg-secondary/50">
                     My Collection
+                  </Link>
+                  <Link to="/subscription" className="block px-4 py-2 text-sm hover:bg-secondary/50 flex items-center">
+                    {isSubscribed ? (
+                      <>
+                        <Crown className="h-4 w-4 mr-2 text-primary" />
+                        Premium Membership
+                      </>
+                    ) : (
+                      <>
+                        <Crown className="h-4 w-4 mr-2 text-muted-foreground" />
+                        Upgrade to Premium
+                      </>
+                    )}
                   </Link>
                   {user.is_reader ? (
                     <Link to="/reader-dashboard" className="block px-4 py-2 text-sm hover:bg-secondary/50 flex items-center">
@@ -213,6 +275,9 @@ const Navbar = () => {
                   >
                     Reading Room
                   </button>
+                  <Link to="/pricing" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
+                    Pricing
+                  </Link>
                   <button
                     onClick={() => {
                       setIsOpen(false);

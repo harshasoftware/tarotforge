@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
+import { SubscriptionProvider } from './context/SubscriptionContext';
+import { DeckLimitProvider } from './context/DeckLimitContext';
+import { DeckQuotaProvider } from './context/DeckQuotaContext';
 import { VideoCallProvider } from './context/VideoCallContext';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
@@ -14,6 +17,11 @@ import {
   isPeriodicSyncSupported,
   isPushNotificationSupported
 } from './utils/pwa-features';
+import * as Sentry from "@sentry/react";
+import { initializeLogRocket } from './utils/analytics';
+
+// Initialize analytics (LogRocket and Mixpanel)
+initializeLogRocket();
 
 // Register service worker for PWA functionality
 const updateSW = registerSW({
@@ -74,9 +82,15 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <VideoCallProvider>
-          <App />
-        </VideoCallProvider>
+        <SubscriptionProvider>
+          <DeckQuotaProvider>
+            <DeckLimitProvider>
+              <VideoCallProvider>
+                <App />
+              </VideoCallProvider>
+            </DeckLimitProvider>
+          </DeckQuotaProvider>
+        </SubscriptionProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>

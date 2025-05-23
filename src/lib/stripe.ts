@@ -1,11 +1,117 @@
-import { loadStripe } from '@stripe/stripe-js';
+import { supabase } from './supabase';
 
-// Stripe configuration
-const stripePublicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY || '';
-
-if (!stripePublicKey) {
-  console.error('Missing Stripe public key. Please set environment variables.');
+interface CheckoutSessionParams {
+  priceId: string;
+  mode: 'payment' | 'subscription';
+  successUrl: string;
+  cancelUrl: string;
+  metadata?: Record<string, string>;
 }
 
-// Initialize Stripe
-export const stripePromise = loadStripe(stripePublicKey);
+/**
+ * Creates a Stripe checkout session
+ * @param params Checkout session parameters
+ * @returns The checkout session URL
+ */
+export const createCheckoutSession = async (params: CheckoutSessionParams): Promise<{ sessionId: string; url: string }> => {
+  try {
+    const { priceId, mode, successUrl, cancelUrl, metadata } = params;
+    
+    // Get the user's JWT token for authentication
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      throw new Error('User not authenticated');
+    }
+    
+    // Call the Supabase Edge Function to create a checkout session
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        price_id: priceId,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        mode,
+        metadata,
+      }),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to create checkout session');
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error creating checkout session:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetches the user's current subscription status
+ * @returns The subscription data
+ */
+export const getUserSubscription = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('stripe_user_subscriptions')
+      .select('*')
+      .maybeSingle();
+    
+    if (error) {
+      console.error('Error fetching user subscription:', error);
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error fetching user subscription:', error);
+    return null;
+  }
+};
+
+/**
+ * Initializes or refreshes user credits based on their subscription
+ * @param userId The user ID
+ * @param priceId The Stripe price ID
+ * @returns Boolean indicating success
+ */
+export const initializeCreditsForSubscription = async (userId: string, priceId: string): Promise<boolean> => {
+  try {
+    // Call RPC function to initialize credits
+    const { error } = await supabase.rpc('initialize_subscription_credits', {
+      p_user_id: userId,
+      p_price_id: priceId
+    });
+    
+    if (error) {
+      console.error('Error initializing credits:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in initializeCreditsForSubscription:', error);
+    return false;
+  }
+};
+
+/**
+ * Checks if the user has an active subscription
+ * @returns Boolean indicating if the user has an active subscription
+ */
+export const hasActiveSubscription = async (): Promise<boolean> => {
+  try {
+    const subscription = await getUserSubscription();
+    return subscription?.subscription_status === 'active' || subscription?.subscription_status === 'trialing';
+  } catch (error) {
+    console.error('Error checking subscription status:', error);
+    return false;
+  }
+};

@@ -7,6 +7,8 @@ import { Deck } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { deleteDeckImages } from '../../lib/storage-utils';
+import { fetchFreeDecks, fetchUserCreatedDecks } from '../../lib/deck-utils';
+import { riderWaiteDeck } from '../data/riderWaiteDeck';
 
 const Collection = () => {
   const { user } = useAuth();
@@ -23,97 +25,33 @@ const Collection = () => {
   const [updatingDeckId, setUpdatingDeckId] = useState<string | null>(null);
   
   useEffect(() => {
-    const fetchUserDecks = async () => {
+    const loadData = async () => {
       try {
         setLoading(true);
         
         // Only proceed if user is logged in
         if (user) {
           // Fetch user-created decks
-          const { data: createdDecksData, error: createdError } = await supabase
-            .from('decks')
-            .select(`
-              *,
-              creator:creator_id (username, email)
-            `)
-            .eq('creator_id', user.id)
-            .order('created_at', { ascending: false });
-          
-          if (createdError) {
-            console.error('Error fetching created decks:', createdError);
-          } else if (createdDecksData) {
-            // Format creator name
-            const formattedCreatedDecks = createdDecksData.map(deck => ({
-              ...deck,
-              creator_name: deck.creator?.username || deck.creator?.email?.split('@')[0] || 'You'
-            }));
-            
-            setCreatedDecks(formattedCreatedDecks);
-          }
+          const userDecks = await fetchUserCreatedDecks(user.id);
+          setCreatedDecks(userDecks);
           
           // For owned decks, we would typically query a purchases table
-          // For this example, we'll just use mock data or fetch from a user-decks relationship
-          
-          // For free decks, fetch decks where is_free = true
-          const { data: freeDecksData, error: freeError } = await supabase
-            .from('decks')
-            .select(`
-              *,
-              creator:creator_id (username, email)
-            `)
-            .eq('is_free', true)
-            .eq('is_public', true)
-            .eq('is_listed', true)
-            .order('created_at', { ascending: false });
-          
-          if (freeError) {
-            console.error('Error fetching free decks:', freeError);
-          } else if (freeDecksData) {
-            // Format creator name
-            const formattedFreeDecks = freeDecksData.map(deck => ({
-              ...deck,
-              creator_name: deck.creator?.username || deck.creator?.email?.split('@')[0] || 'Tarot Forge'
-            }));
-            
-            setFreeDecks(formattedFreeDecks);
-          }
-        } else {
-          // If no user, reset collections
-          setCreatedDecks([]);
-          setOwnedDecks([]);
-          
-          // For free decks, still fetch them as they're publicly available
-          const { data: freeDecksData, error: freeError } = await supabase
-            .from('decks')
-            .select(`
-              *,
-              creator:creator_id (username, email)
-            `)
-            .eq('is_free', true)
-            .eq('is_public', true)
-            .eq('is_listed', true)
-            .order('created_at', { ascending: false });
-          
-          if (freeError) {
-            console.error('Error fetching free decks:', freeError);
-          } else if (freeDecksData) {
-            // Format creator name
-            const formattedFreeDecks = freeDecksData.map(deck => ({
-              ...deck,
-              creator_name: deck.creator?.username || deck.creator?.email?.split('@')[0] || 'Tarot Forge'
-            }));
-            
-            setFreeDecks(formattedFreeDecks);
-          }
+          // For this example, we'll just use our created decks for now
+          setOwnedDecks(userDecks);
         }
+        
+        // For free decks, fetch decks where is_free = true
+        const freeDecksList = await fetchFreeDecks();
+        setFreeDecks(freeDecksList);
+        
+        setLoading(false);
       } catch (error) {
         console.error('Error fetching user decks:', error);
-      } finally {
         setLoading(false);
       }
     };
     
-    fetchUserDecks();
+    loadData();
   }, [user]);
   
   // Filter decks based on search query
@@ -256,7 +194,7 @@ const Collection = () => {
               <ShoppingBag className="mr-2 h-5 w-5" />
               Shop Decks
             </Link>
-            <Link to="/create" className="btn btn-primary px-4 py-2 flex items-center">
+            <Link to="/" className="btn btn-primary px-4 py-2 flex items-center">
               <Plus className="mr-2 h-5 w-5" />
               Create Deck
             </Link>
@@ -462,7 +400,7 @@ const Collection = () => {
                     <p className="text-muted-foreground">
                       You haven't created any decks yet. Start creating your own mystical tarot deck.
                     </p>
-                    <Link to="/create" className="btn btn-primary px-6 py-2 inline-flex items-center">
+                    <Link to="/" className="btn btn-primary px-6 py-2 inline-flex items-center">
                       Create New Deck
                       <Plus className="ml-2 h-4 w-4" />
                     </Link>

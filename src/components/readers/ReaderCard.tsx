@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { User, Star, Calendar, Clock, Video, MessageSquare, BookOpen, Crown } from 'lucide-react';
+import { User, Star, Calendar, Clock, Video, MessageSquare, BookOpen, Crown, Heart, Sun, Flame, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { User as UserType } from '../../types';
 import TarotLogo from '../ui/TarotLogo';
@@ -57,49 +57,112 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
     if (!reader.readerLevel) {
       return {
         name: 'Novice Seer',
-        colorTheme: 'blue',
-        icon: 'star',
+        colorTheme: 'red',
+        icon: 'flame',
         pricePerMinute: 0.25
       };
     }
     
     return {
       name: reader.readerLevel.name,
-      colorTheme: reader.readerLevel.color_theme || 'blue',
-      icon: reader.readerLevel.icon || 'star',
-      pricePerMinute: reader.readerLevel.base_price_per_minute
+      colorTheme: reader.readerLevel.color_theme || 'red',
+      icon: reader.readerLevel.icon || 'flame',
+      pricePerMinute: reader.custom_price_per_minute !== undefined && reader.custom_price_per_minute !== null
+        ? reader.custom_price_per_minute 
+        : reader.readerLevel.base_price_per_minute
     };
   };
   
   const levelInfo = getReaderLevelInfo();
   
-  // Get appropriate color based on reader level
+  // Get appropriate color based on reader level (Chakra system colors)
   const getLevelColor = () => {
     switch (levelInfo.colorTheme) {
+      case 'red': return 'text-red-500 border-red-500';
+      case 'orange': return 'text-orange-500 border-orange-500';
+      case 'yellow': return 'text-yellow-500 border-yellow-500';
+      case 'green': return 'text-green-500 border-green-500';
       case 'blue': return 'text-blue-500 border-blue-500';
-      case 'purple': return 'text-purple-500 border-purple-500';
-      case 'teal': return 'text-teal-500 border-teal-500';
-      case 'gold': return 'text-amber-500 border-amber-500';
-      case 'crimson': return 'text-rose-500 border-rose-500';
+      case 'indigo': return 'text-indigo-500 border-indigo-500';
+      case 'violet': return 'text-violet-500 border-violet-500';
       default: return 'text-accent border-accent';
     }
   };
   
-  // Get appropriate icon based on reader level
-  const getLevelIcon = () => {
-    switch (levelInfo.icon) {
-      case 'star': return <Star className="h-4 w-4" />;
-      case 'moon': return <Moon className="h-4 w-4" />;
-      case 'sun': return <Sun className="h-4 w-4" />;
-      case 'sparkles': return <Sparkles className="h-4 w-4" />;
-      case 'crown': return <Crown className="h-4 w-4" />;
-      default: return <Star className="h-4 w-4" />;
+  // Get background gradient based on reader level
+  const getLevelGradient = () => {
+    switch (levelInfo.colorTheme) {
+      case 'red': return 'from-red-500/5 to-transparent';
+      case 'orange': return 'from-orange-500/5 to-transparent';
+      case 'yellow': return 'from-yellow-500/5 to-transparent';
+      case 'green': return 'from-green-500/5 to-transparent';
+      case 'blue': return 'from-blue-500/5 to-transparent';
+      case 'indigo': return 'from-indigo-500/5 to-transparent';
+      case 'violet': return 'from-violet-500/5 to-transparent';
+      default: return 'from-accent/5 to-transparent';
+    }
+  };
+
+  // Get border color based on reader level
+  const getLevelBorder = () => {
+    switch (levelInfo.colorTheme) {
+      case 'red': return 'hover:border-red-500/50';
+      case 'orange': return 'hover:border-orange-500/50';
+      case 'yellow': return 'hover:border-yellow-500/50';
+      case 'green': return 'hover:border-green-500/50';
+      case 'blue': return 'hover:border-blue-500/50';
+      case 'indigo': return 'hover:border-indigo-500/50';
+      case 'violet': return 'hover:border-violet-500/50';
+      default: return 'hover:border-accent/50';
     }
   };
   
+  // Get appropriate icon based on chakra themes
+  const getLevelIcon = () => {
+    switch (levelInfo.icon) {
+      case 'flame': return <Flame className="h-4 w-4" />;
+      case 'sparkles': return <Sparkles className="h-4 w-4" />;
+      case 'sun': return <Sun className="h-4 w-4" />;
+      case 'heart': return <Heart className="h-4 w-4" />;
+      case 'crown': return <Crown className="h-4 w-4" />;
+      default: return <Flame className="h-4 w-4" />;
+    }
+  };
+  
+  // Get avatar border color based on reader level
+  const getAvatarBorder = () => {
+    switch (levelInfo.colorTheme) {
+      case 'red': return 'border-red-500';
+      case 'orange': return 'border-orange-500';
+      case 'yellow': return 'border-yellow-500';
+      case 'green': return 'border-green-500';
+      case 'blue': return 'border-blue-500';
+      case 'indigo': return 'border-indigo-500';
+      case 'violet': return 'border-violet-500';
+      default: return 'border-accent';
+    }
+  };
+
+  // Get button background color based on reader level
+  const getButtonBg = () => {
+    switch (levelInfo.colorTheme) {
+      case 'red': return 'bg-red-500 hover:bg-red-600 text-white';
+      case 'orange': return 'bg-orange-500 hover:bg-orange-600 text-white';
+      case 'yellow': return 'bg-yellow-500 hover:bg-yellow-600 text-black';
+      case 'green': return 'bg-green-500 hover:bg-green-600 text-white';
+      case 'blue': return 'bg-blue-500 hover:bg-blue-600 text-white';
+      case 'indigo': return 'bg-indigo-500 hover:bg-indigo-600 text-white';
+      case 'violet': return 'bg-violet-500 hover:bg-violet-600 text-white';
+      default: return 'bg-primary hover:bg-primary/90 text-primary-foreground';
+    }
+  };
+  
+  // Check if reader offers free readings
+  const isFreeReader = levelInfo.pricePerMinute === 0;
+  
   return (
     <motion.div
-      className="bg-card border border-border rounded-xl overflow-hidden hover:border-accent/50 transition-all group"
+      className={`bg-card border border-border rounded-xl overflow-hidden ${getLevelBorder()} transition-all group bg-gradient-to-b ${getLevelGradient()}`}
       whileHover={{ y: -5, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' }}
     >
       <div className="p-6">
@@ -110,14 +173,14 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
               <img 
                 src={reader.avatar_url} 
                 alt={reader.username || 'Reader'} 
-                className="w-16 h-16 rounded-full object-cover border-2 border-accent"
+                className={`w-16 h-16 rounded-full object-cover border-2 ${getAvatarBorder()}`}
               />
             ) : (
-              <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-xl font-bold">
+              <div className={`w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-xl font-bold border-2 ${getAvatarBorder()}`}>
                 {reader.username?.charAt(0) || reader.email.charAt(0)}
               </div>
             )}
-            <div className="absolute -bottom-1 -right-1 bg-accent text-accent-foreground p-1 rounded-full">
+            <div className={`absolute -bottom-1 -right-1 ${getButtonBg()} p-1 rounded-full`}>
               <TarotLogo className="h-4 w-4" />
             </div>
           </div>
@@ -155,7 +218,7 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
         <div className="mb-4">
           <div className="flex flex-wrap gap-1">
             {specialties.map((specialty, index) => (
-              <span key={index} className="text-xs px-2 py-1 bg-accent/10 text-accent-foreground rounded-full">
+              <span key={index} className={`text-xs px-2 py-1 bg-${levelInfo.colorTheme}-500/10 ${getLevelColor().split(' ')[0]} rounded-full`}>
                 {specialty}
               </span>
             ))}
@@ -165,8 +228,17 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
         {/* Price */}
         <div className="mb-4 flex items-center">
           <span className="text-sm font-medium mr-1">Rate:</span>
-          <span className="text-accent font-bold">${levelInfo.pricePerMinute.toFixed(2)}</span>
-          <span className="text-xs text-muted-foreground ml-1">/ min</span>
+          {isFreeReader ? (
+            <span className="text-success font-bold flex items-center">
+              <Sparkles className="h-4 w-4 mr-1" />
+              Free
+            </span>
+          ) : (
+            <>
+              <span className={getLevelColor().split(' ')[0] + ' font-bold'}>${levelInfo.pricePerMinute.toFixed(2)}</span>
+              <span className="text-xs text-muted-foreground ml-1">/ min</span>
+            </>
+          )}
         </div>
         
         {/* Reading Options */}
@@ -179,7 +251,7 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
             <Video className="h-3 w-3 mr-1" />
             Video
           </Link>
-          <Link to="#" className="flex-1 btn btn-primary p-2 text-xs flex items-center justify-center">
+          <Link to="#" className={`flex-1 p-2 text-xs flex items-center justify-center rounded-md ${getButtonBg()}`}>
             <BookOpen className="h-3 w-3 mr-1" />
             Book
           </Link>
@@ -188,12 +260,5 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
     </motion.div>
   );
 };
-
-// Needed for import to work
-const Moon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>;
-
-const Sun = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>;
-
-const Sparkles = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>;
 
 export default ReaderCard;

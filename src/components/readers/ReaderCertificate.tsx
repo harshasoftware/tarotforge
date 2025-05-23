@@ -39,14 +39,16 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
   // Get the certification ID (using date for now)
   const certificationId = `TF-${Date.now().toString().substring(0, 10)}`;
   
-  // Get the appropriate color for the reader level
+  // Get the appropriate color for the reader level based on chakra system
   const getLevelColor = () => {
     switch (readerLevel?.color_theme) {
-      case 'blue': return 'from-blue-500 to-purple-700';
-      case 'purple': return 'from-purple-500 to-indigo-700';
-      case 'teal': return 'from-teal-500 to-emerald-700';
-      case 'gold': return 'from-amber-500 to-orange-700';
-      case 'crimson': return 'from-rose-500 to-red-700';
+      case 'red': return 'from-red-500 to-orange-500';
+      case 'orange': return 'from-orange-500 to-yellow-500';
+      case 'yellow': return 'from-yellow-500 to-green-500';
+      case 'green': return 'from-green-500 to-teal-500';
+      case 'blue': return 'from-blue-500 to-indigo-500';
+      case 'indigo': return 'from-indigo-500 to-purple-500';
+      case 'violet': return 'from-violet-500 to-purple-700';
       default: return 'from-primary to-indigo-700';
     }
   };
@@ -63,7 +65,9 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
         logging: false,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: null
+        backgroundColor: null,
+        // Use standard font family for text to ensure it renders properly when exported
+        fontFamily: 'Arial, sans-serif'
       });
       
       const imgData = canvas.toDataURL('image/png');
@@ -106,7 +110,9 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
         logging: false,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: null
+        backgroundColor: null,
+        // Use standard font family for text to ensure it renders properly when exported
+        fontFamily: 'Arial, sans-serif'
       });
       
       const imgData = canvas.toDataURL('image/png');
@@ -137,7 +143,9 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
         logging: false,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: null
+        backgroundColor: null,
+        // Use standard font family for text to ensure it renders properly when exported
+        fontFamily: 'Arial, sans-serif'
       });
       
       // Convert to blob
@@ -149,7 +157,7 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
       
       // Upload to storage and get URL
       const shareableUrl = await uploadCertificate(user.id, blob, {
-        username: user.username || '',
+        username: user.username || user.full_name || '',
         level: readerLevel.name,
         certificationId,
         score: quizScore,
@@ -161,11 +169,19 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
         
         // Check if native share is available
         if (navigator.share) {
-          await navigator.share({
-            title: `${user.username || 'Tarot Reader'}'s Certification`,
-            text: `I've achieved ${readerLevel.name} certification on Tarot Forge!`,
-            url: shareableUrl
-          });
+          try {
+            await navigator.share({
+              title: `${user.username || 'Tarot Reader'}'s Certification`,
+              text: `I've achieved ${readerLevel.name} certification on Tarot Forge!`,
+              url: shareableUrl
+            });
+          } catch (shareError) {
+            console.error('Error sharing:', shareError);
+            // Fallback - copy to clipboard
+            await navigator.clipboard.writeText(shareableUrl);
+            setShowShareSuccess(true);
+            setTimeout(() => setShowShareSuccess(false), 3000);
+          }
         } else {
           // Fallback - copy to clipboard
           await navigator.clipboard.writeText(shareableUrl);
@@ -187,10 +203,9 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
         transition={{ duration: 0.3 }}
-        className="bg-card rounded-xl overflow-hidden w-full max-w-5xl relative"
+        className="bg-card rounded-xl overflow-hidden max-w-5xl w-full max-h-[90vh] relative"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between bg-gradient-to-r from-primary/20 to-accent/20 p-4">
+        <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
           <h2 className="font-serif text-lg font-bold">Reader Certification</h2>
           {onClose && (
             <button
@@ -202,11 +217,11 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
           )}
         </div>
         
-        {/* Certificate */}
-        <div className="p-8 flex flex-col items-center justify-center">
+        <div className="p-8 flex flex-col items-center justify-center overflow-auto max-h-[calc(90vh-80px)]">
           <div
             ref={certificateRef}
             className="w-full max-w-4xl aspect-[1.414/1] bg-gradient-to-b from-black to-primary/20 rounded-xl p-8 relative overflow-hidden"
+            style={{ fontFamily: 'Arial, sans-serif' }} 
           >
             {/* Certificate Border */}
             <div className="absolute inset-0 border-[12px] border-accent/20 rounded-xl pointer-events-none"></div>
@@ -226,57 +241,57 @@ const ReaderCertificate: React.FC<ReaderCertificateProps> = ({
                 <div className="flex justify-center mb-1">
                   <TarotLogo className="h-12 w-12 text-accent" />
                 </div>
-                <h1 className="text-4xl font-serif font-bold text-accent mb-1">CERTIFICATE OF ACHIEVEMENT</h1>
+                <h1 className="text-4xl font-bold text-accent mb-1" style={{ fontFamily: 'Arial, serif' }}>CERTIFICATE OF ACHIEVEMENT</h1>
                 <div className="w-32 h-1 bg-gradient-to-r from-transparent via-accent to-transparent mx-auto mb-4"></div>
-                <p className="text-sm uppercase tracking-widest">Tarot Forge Certified Reader</p>
+                <p className="text-sm uppercase tracking-widest" style={{ fontFamily: 'Arial, sans-serif' }}>Tarot Forge Certified Reader</p>
               </div>
               
               {/* Body */}
               <div className="text-center my-4 flex-grow flex flex-col items-center justify-center">
-                <p className="text-lg mb-3">This is to certify that</p>
-                <h2 className="text-4xl font-serif bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent font-bold mb-3">
+                <p className="text-lg mb-3" style={{ fontFamily: 'Arial, sans-serif' }}>This is to certify that</p>
+                <h2 className="text-4xl text-white font-bold mb-3" style={{ fontFamily: 'Arial, sans-serif' }}>
                   {user.full_name || user.username || user.email.split('@')[0]}
                 </h2>
-                <p className="text-lg mb-6">has demonstrated exceptional proficiency in tarot reading and has been awarded</p>
+                <p className="text-lg mb-6" style={{ fontFamily: 'Arial, sans-serif' }}>has demonstrated exceptional proficiency in tarot reading and has been awarded</p>
                 
-                <div className={`bg-gradient-to-r ${getLevelColor()} text-white px-6 py-3 rounded-full font-serif text-xl font-bold mb-6`}>
+                <div className={`bg-gradient-to-r ${getLevelColor()} text-white px-6 py-3 rounded-full font-bold text-xl mb-6`} style={{ fontFamily: 'Arial, sans-serif' }}>
                   {readerLevel.name}
                 </div>
                 
-                <p className="text-sm mb-6">
+                <p className="text-sm mb-6" style={{ fontFamily: 'Arial, sans-serif' }}>
                   Achieving a score of <span className="font-bold">{quizScore.toFixed(1)}%</span> on the certification examination
                 </p>
                 
                 <div className="flex items-center gap-4">
                   <div className="text-center">
-                    <div className="text-sm text-accent/80 mb-1">DATE</div>
-                    <div className="font-medium">{formattedDate}</div>
+                    <div className="text-sm text-accent/80 mb-1" style={{ fontFamily: 'Arial, sans-serif' }}>DATE</div>
+                    <div className="font-medium" style={{ fontFamily: 'Arial, sans-serif' }}>{formattedDate}</div>
                   </div>
                   <div className="h-12 w-px bg-accent/20"></div>
                   <div className="text-center">
-                    <div className="text-sm text-accent/80 mb-1">CERTIFICATION ID</div>
-                    <div className="font-medium">{certificationId}</div>
+                    <div className="text-sm text-accent/80 mb-1" style={{ fontFamily: 'Arial, sans-serif' }}>CERTIFICATION ID</div>
+                    <div className="font-medium" style={{ fontFamily: 'Arial, sans-serif' }}>{certificationId}</div>
                   </div>
                 </div>
               </div>
               
               {/* Footer */}
-              <div className="w-full flex items-center justify-between">
+              <div className="w-full flex items-center justify-between mt-4">
                 <div className="text-center">
-                  <div className="font-serif text-xl font-bold italic text-accent mb-1">Tarot Forge</div>
-                  <p className="text-xs">Official Certification Authority</p>
+                  <div className="font-serif text-xl font-bold italic text-accent mb-1" style={{ fontFamily: 'Arial, serif' }}>Tarot Forge</div>
+                  <p className="text-xs" style={{ fontFamily: 'Arial, sans-serif' }}>Official Certification Authority</p>
                 </div>
                 
                 <div className="flex flex-col items-center">
                   <QRCodeSVG 
                     value={`https://tarotforge.xyz/verify/${certificationId}`} 
-                    size={60}
+                    size={80}
                     bgColor="transparent"
                     fgColor="white"
                     level="H"
                     className="mb-1"
                   />
-                  <p className="text-xs">Scan to verify</p>
+                  <p className="text-xs" style={{ fontFamily: 'Arial, sans-serif' }}>Scan to verify</p>
                 </div>
               </div>
             </div>
