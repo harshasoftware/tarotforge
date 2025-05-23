@@ -76,7 +76,8 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
             if (result) {
               setActualSessionId(result);
             } else {
-              console.log('Failed to join call - no session ID returned');
+              console.error('Failed to join call - no session ID returned');
+              setError('Failed to join the call. Please try again.');
             }
           } catch (err) {
             console.error('Error joining call:', err);
@@ -91,7 +92,8 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
               setGeneratedSessionId(newSessionId);
               setActualSessionId(newSessionId);
             } else {
-              console.log('Failed to start call - no session ID generated');
+              console.error('Failed to start call - no session ID generated');
+              setError('Failed to start the call. Please try again.');
             }
           } catch (err) {
             console.error('Error starting call:', err);
@@ -120,9 +122,6 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         try {
           // Clean up existing call if any
           endCall();
-          if (actualSessionId) {
-            leaveRoom();
-          }
           
           setIsInitializing(true);
           setIsCreatingRoom(false);
@@ -132,7 +131,8 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
           if (result) {
             setActualSessionId(result);
           } else {
-            console.log('Failed to join call - no session ID returned');
+            console.error('Failed to join call - no session ID returned');
+            setError('Failed to join the call. Please try again.');
           }
         } catch (err) {
           console.error('Error updating session:', err);
@@ -232,7 +232,6 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
               if (newSessionId) {
                 setGeneratedSessionId(newSessionId);
                 setActualSessionId(newSessionId);
-                joinRoom(newSessionId);
               }
             };
             initCall();

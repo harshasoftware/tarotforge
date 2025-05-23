@@ -8,7 +8,7 @@ type VideoCallContextType = {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   connectionStatus: 'disconnected' | 'connecting' | 'connected';
-  startCall: (mode: 'reader' | 'client', existingSessionId?: string) => Promise<string | undefined>;
+  startCall: (mode: 'reader' | 'client', existingSessionId?: string) => Promise<string | null>;
   endCall: () => void;
   error: string | null;
   setError: (error: string | null) => void;
@@ -30,7 +30,7 @@ const VideoCallContext = createContext<VideoCallContextType>({
   localStream: null,
   remoteStream: null,
   connectionStatus: 'disconnected',
-  startCall: async () => { return undefined; },
+  startCall: async () => null,
   endCall: () => {},
   error: null,
   setError: () => {},
@@ -373,7 +373,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
   
   // Start video call
-  const startCall = useCallback(async (mode: 'reader' | 'client', existingSessionId?: string): Promise<string | undefined> => {
+  const startCall = useCallback(async (mode: 'reader' | 'client', existingSessionId?: string): Promise<string | null> => {
     try {
       setError(null);
       setPermissionDenied(false);
@@ -392,7 +392,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const { success, audioOnly } = await checkMediaDevices();
       if (!success) {
         setConnectionStatus('disconnected');
-        return undefined;
+        return null;
       }
       
       // Request media permissions explicitly
@@ -400,7 +400,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       
       if (!stream) {
         setConnectionStatus('disconnected');
-        return undefined;
+        return null;
       }
       
       setLocalStream(stream);
@@ -417,7 +417,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       console.error('Error starting call:', err);
       setError(`Failed to start call: ${err.message}`);
       setConnectionStatus('disconnected');
-      return undefined;
+      return null;
     }
   }, [checkMediaDevices, createPeer, requestMediaPermissions]);
   
@@ -486,7 +486,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       
       // Start call as client
       const result = await startCall('client', sessionId);
-      return !!result;
+      return result !== null;
     } catch (err: any) {
       console.error('Error joining with link:', err);
       setError(`Failed to join: ${err.message}`);
