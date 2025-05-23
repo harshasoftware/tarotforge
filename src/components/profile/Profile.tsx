@@ -11,6 +11,7 @@
  
  interface ProfileFormData {
    username: string;
+ }
 @@ .. @@
                <motion.div
                  className="mt-8"
