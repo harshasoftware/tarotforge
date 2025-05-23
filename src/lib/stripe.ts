@@ -5,6 +5,7 @@ interface CheckoutSessionParams {
   mode: 'payment' | 'subscription';
   successUrl: string;
   cancelUrl: string;
+  metadata?: Record<string, string>;
 }
 
 /**
@@ -14,7 +15,7 @@ interface CheckoutSessionParams {
  */
 export const createCheckoutSession = async (params: CheckoutSessionParams): Promise<{ sessionId: string; url: string }> => {
   try {
-    const { priceId, mode, successUrl, cancelUrl } = params;
+    const { priceId, mode, successUrl, cancelUrl, metadata } = params;
     
     // Get the user's JWT token for authentication
     const { data: { session } } = await supabase.auth.getSession();
@@ -35,6 +36,7 @@ export const createCheckoutSession = async (params: CheckoutSessionParams): Prom
         success_url: successUrl,
         cancel_url: cancelUrl,
         mode,
+        metadata,
       }),
     });
     

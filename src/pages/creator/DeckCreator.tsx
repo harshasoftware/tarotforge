@@ -5,6 +5,7 @@ import { Wand2, Sparkles, Save, ArrowRight, AlertCircle, Check, Crown, TrendingU
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useDeckQuotas } from '../../context/DeckQuotaContext';
+import { useDeckLimits } from '../../context/DeckLimitContext';
 import CardGallery from '../../components/creator/CardGallery';
 import { checkDeckGenerationLimit, recordDeckGeneration } from '../../lib/deck-usage';
 import { generateCardDescription, generateCardImage, generateThemeSuggestions, generateElaborateTheme } from '../../lib/gemini-ai';
@@ -33,7 +34,8 @@ const DeckCreator: React.FC = () => {
   const { user } = useAuth();
   const { isSubscribed } = useSubscription();
   const location = useLocation();
-  const { quotas, refreshQuotas } = useDeckQuotas();
+  const { quotas, refreshQuotas } = useDeckQuotas(); 
+  const { limits, usage, refreshLimits } = useDeckLimits();
   const navigate = useNavigate();
   
   // Deck creation state
@@ -62,12 +64,19 @@ const DeckCreator: React.FC = () => {
   // Upgrade modal state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   
+  // Regeneration modal state
+  const [showRegenerationModal, setShowRegenerationModal] = useState(false);
+  
   // Initialize deck creation on mount
   const [limitCheckResult, setLimitCheckResult] = useState<any>(null);
   
   // Determine if user can generate decks based on quotas
   const canGenerateMajorArcana = quotas && quotas.majorArcanaQuota > quotas.majorArcanaUsed;
   const canGenerateCompleteDeck = quotas && quotas.completeDeckQuota > quotas.completeDeckUsed;
+  
+  // Determine if user can regenerate cards
+  const canRegenerate = limits && usage && usage.regenerationsUsed < limits.regenerationLimit;
+  const remainingRegenerations = limits && usage ? Math.max(0, limits.regenerationLimit - usage.regenerationsUsed) : 0;
   
   useEffect(() => {
     // Generate a new deck ID
@@ -393,6 +402,12 @@ const DeckCreator: React.FC = () => {
     const cardToRegenerate = generatedCards.find(card => card.id === cardId);
     if (!cardToRegenerate) return;
     
+    // Check if user has regenerations left
+    if (!canRegenerate) {
+      setShowRegenerationModal(true);
+      return;
+    }
+    
     setRegeneratingCardId(cardId);
     setGenerationStage('description');
     setGenerationProgress(0);
@@ -450,6 +465,9 @@ const DeckCreator: React.FC = () => {
       setError('Failed to regenerate card. Please try again.');
     } finally {
       setRegeneratingCardId(null);
+      
+      // Refresh limits to update regeneration count
+      refreshLimits();
     }
   };
   
@@ -659,6 +677,47 @@ const DeckCreator: React.FC = () => {
                     </p>
                   </>
                 )}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+      
+      {/* Regeneration Pack Modal */}
+      {showRegenerationModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <motion.div 
+            className="bg-card rounded-xl overflow-hidden max-w-md w-full"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-warning/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <RefreshCw className="h-8 w-8 text-warning" />
+              </div>
+              <h2 className="text-2xl font-serif font-bold mb-2">
+                Out of Regenerations
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                You've used all your regenerations for this billing period. Purchase a regeneration pack to continue improving your cards.
+              </p>
+              
+              <div className="space-y-3">
+                <a
+                  href="/profile#regeneration-packs"
+                  className="btn btn-primary w-full py-2 flex items-center justify-center"
+                >
+                  <Zap className="mr-2 h-5 w-5" />
+                  View Regeneration Packs
+                </a>
+                
+                <button
+                  onClick={() => setShowRegenerationModal(false)}
+                  className="btn btn-ghost border border-input w-full py-2"
+                >
+                  Continue Without Regenerating
+                </button>
               </div>
             </div>
           </motion.div>

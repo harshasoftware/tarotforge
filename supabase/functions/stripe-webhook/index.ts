@@ -139,6 +139,31 @@ async function handleEvent(event: Stripe.Event) {
           return;
         }
         
+        // Check if this is a regeneration pack purchase
+        if (stripeData.metadata && stripeData.metadata.type === 'regeneration_pack') {
+          const packId = stripeData.metadata.pack_id;
+          
+          // Get the user ID from the customer
+          const { data: customerData } = await supabase
+            .from('stripe_customers')
+            .select('user_id')
+            .eq('customer_id', customerId)
+            .single();
+            
+          if (customerData && customerData.user_id) {
+            // Process the regeneration pack purchase
+            const { error: packError } = await supabase
+              .rpc('purchase_regeneration_pack', {
+                p_user_id: customerData.user_id,
+                p_pack_id: packId
+              });
+              
+            if (packError) {
+              console.error('Error processing regeneration pack purchase:', packError);
+            }
+          }
+        }
+        
         // Handle one-time payment for Explorer Plus
         // This is for upgrading a specific deck from Major Arcana to Complete
         if (stripeData.metadata && stripeData.metadata.deckId) {

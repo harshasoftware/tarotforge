@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { User } from '../../types';
 import DeckQuotaOverview from '../../components/profile/DeckQuotaOverview';
 import DeckGenerationActivity from '../../components/profile/DeckGenerationActivity';
+import RegenerationPacks from '../../components/regeneration/RegenerationPacks';
 import CreditTransactionHistory from '../../components/profile/CreditTransactionHistory';
 
 interface ProfileFormData {
@@ -382,6 +383,16 @@ const Profile = () => {
                 transition={{ duration: 0.5, delay: 0.2 }}
               >
                 <DeckGenerationActivity />
+              </motion.div>
+              
+              {/* Regeneration Packs */}
+              <motion.div
+                className="mt-8"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+              >
+                <RegenerationPacks />
               </motion.div>
             </motion.div>
           </div>
