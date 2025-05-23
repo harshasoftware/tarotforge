@@ -66,6 +66,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .on('broadcast', { event: 'message' }, (payload) => {
         const newMessage = payload.payload as ChatMessage;
         setMessages((prev) => [...prev, newMessage]);
+        console.log('Received message:', newMessage);
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
@@ -82,8 +83,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             content: 'You have joined the chat room',
             created_at: new Date().toISOString(),
           };
-          
+
           setMessages([systemMessage]);
+          console.log('Added system message:', systemMessage);
         } else if (status === 'CHANNEL_ERROR') {
           setError('Failed to join chat room');
           setLoading(false);
@@ -158,10 +160,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Broadcast to channel
       if (channel) {
         channel.send({
-          type: 'broadcast',
-          event: 'message',
-          payload: data,
+          type: "broadcast",
+          event: "message",
+          payload: data
         });
+        console.log('Sent message to channel:', data);
       }
 
       // Add to local state (for the sender)

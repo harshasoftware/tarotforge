@@ -57,7 +57,6 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [error, setError] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   
   const peerRef = useRef<Peer.Instance | null>(null);
   const channelRef = useRef<any>(null);
@@ -498,7 +497,8 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Generate a shareable link for the session
   const generateShareableLink = useCallback((sessionId: string) => {
     const baseUrl = window.location.origin;
-    return `${baseUrl}/reading-room?join=${sessionId}`;
+    const link = `${baseUrl}/reading-room?join=${sessionId}`;
+    return link;
   }, []);
   
   // Join a call using a shareable link
@@ -530,6 +530,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     startCall,
     endCall,
     error,
+    setError,
     setError,
     generateShareableLink,
     joinWithLink,
