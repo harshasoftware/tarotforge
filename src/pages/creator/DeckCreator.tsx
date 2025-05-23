@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useDeckLimits } from '../../context/DeckLimitContext';
 import CardGallery from '../../components/creator/CardGallery';
-import { checkDeckGenerationEligibility, recordDeckGeneration } from '../../lib/deck-usage';
+import { checkDeckGenerationLimit, recordDeckGeneration } from '../../lib/deck-usage';
 import { generateCardDescription, generateCardImage, generateThemeSuggestions, generateElaborateTheme } from '../../lib/gemini-ai';
 import { supabase } from '../../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
@@ -63,6 +63,8 @@ const DeckCreator: React.FC = () => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   
   // Initialize deck creation on mount
+  const [limitCheckResult, setLimitCheckResult] = useState<any>(null);
+  
   useEffect(() => {
     // Generate a new deck ID
     const newDeckId = uuidv4();
@@ -150,10 +152,11 @@ const DeckCreator: React.FC = () => {
     // Determine deck type based on eligibility
     const deckType = isSubscribed || canGenerateCompleteDeck ? 'complete' : 'major_arcana';
     
-    // Check if user can generate this type of deck
-    const canGenerate = await checkDeckGenerationEligibility(user?.id || '', deckType);
+    // Check if user has reached their generation limit
+    const limitCheck = await checkDeckGenerationLimit(user?.id, deckType);
+    setLimitCheckResult(limitCheck);
     
-    if (!canGenerate) {
+    if (!limitCheck.canGenerate) {
       setShowUpgradeModal(true);
       return;
     }
@@ -592,11 +595,15 @@ const DeckCreator: React.FC = () => {
               <div className="w-16 h-16 bg-warning/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Crown className="h-8 w-8 text-warning" />
               </div>
-              <h2 className="text-2xl font-serif font-bold mb-2">Upgrade to Continue</h2>
+              <h2 className="text-2xl font-serif font-bold mb-2">
+                {limitCheckResult?.reason === 'limit_reached' ? 'Deck Limit Reached' : 'Upgrade to Continue'}
+              </h2>
               <p className="text-muted-foreground mb-6">
-                {generatedCards.length === 0 
-                  ? "You've reached your deck generation limit. To create more decks, you'll need to upgrade."
-                  : "You've generated all 22 Major Arcana cards. To generate the remaining 56 Minor Arcana cards, you'll need to upgrade."}
+                {limitCheckResult?.reason === 'limit_reached' && limitCheckResult?.planType === 'free' && generatedCards.length === 0
+                  ? `You've used all ${limitCheckResult.limit} of your free deck generations this month. Your limit will reset on ${new Date(limitCheckResult.nextResetDate).toLocaleDateString()}.`
+                  : generatedCards.length === 0
+                    ? "You've reached your deck generation limit. To create more decks, you'll need to upgrade."
+                    : "You've generated all 22 Major Arcana cards. To generate the remaining 56 Minor Arcana cards, you'll need to upgrade."}
               </p>
               
               <div className="space-y-3">

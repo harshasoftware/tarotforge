@@ -1,6 +1,71 @@
 import { supabase } from './supabase';
 
 /**
+ * Checks if a user has reached their deck generation limit
+ * @param userId The user's ID
+ * @param deckType 'major_arcana' | 'complete'
+ * @returns Detailed information about the user's limit status
+ */
+export const checkDeckGenerationLimit = async (
+  userId: string | undefined,
+  deckType: 'major_arcana' | 'complete'
+): Promise<{
+  canGenerate: boolean;
+  reason: string;
+  limitReached: boolean;
+  planType: string;
+  currentUsage?: number;
+  limit?: number;
+  remaining?: number;
+}> => {
+  try {
+    // If no user ID, they can't generate
+    if (!userId) {
+      return {
+        canGenerate: false,
+        reason: 'anonymous_user',
+        limitReached: true,
+        planType: 'anonymous'
+      };
+    }
+    
+    // Call the RPC function to check the limit
+    const { data, error } = await supabase.rpc('check_deck_generation_limit', {
+      user_id_param: userId,
+      deck_type: deckType
+    });
+    
+    if (error) {
+      console.error('Error checking deck generation limit:', error);
+      return {
+        canGenerate: false,
+        reason: 'error',
+        limitReached: true,
+        planType: 'unknown'
+      };
+    }
+    
+    return {
+      canGenerate: data.can_generate,
+      reason: data.reason,
+      limitReached: data.limit_reached,
+      planType: data.plan_type,
+      currentUsage: data.current_usage,
+      limit: data.limit,
+      remaining: data.remaining
+    };
+  } catch (error) {
+    console.error('Error in checkDeckGenerationLimit:', error);
+    return {
+      canGenerate: false,
+      reason: 'error',
+      limitReached: true,
+      planType: 'unknown'
+    };
+  }
+};
+
+/**
  * Checks if a user can generate a new deck based on their plan and usage
  * @param userId The user's ID
  * @param deckType 'major_arcana' | 'complete'
@@ -10,7 +75,10 @@ export const checkDeckGenerationEligibility = async (
   userId: string,
   deckType: 'major_arcana' | 'complete'
 ): Promise<boolean> => {
-  if (!userId) return false;
+  // If no user ID provided, they can't generate
+  if (!userId) {
+    return false;
+  }
   
   try {
     // Fetch the user's current usage and plan limits
@@ -65,7 +133,10 @@ export const recordDeckGeneration = async (
   userId: string,
   deckType: 'major_arcana' | 'complete'
 ): Promise<boolean> => {
-  if (!userId) return false;
+  // If no user ID provided, they can't record generation
+  if (!userId) {
+    return false;
+  }
   
   try {
     // Determine which counter to increment
@@ -99,7 +170,10 @@ export const recordRegenerations = async (
   userId: string,
   count: number = 1
 ): Promise<boolean> => {
-  if (!userId) return false;
+  // If no user ID provided, they can't record regenerations
+  if (!userId) {
+    return false;
+  }
   
   try {
     // Get current regeneration count
@@ -147,7 +221,10 @@ export const recordRegenerations = async (
  * @returns Usage and limit information
  */
 export const getDeckGenerationStatus = async (userId: string) => {
-  if (!userId) return null;
+  // If no user ID provided, return null
+  if (!userId) {
+    return null;
+  }
   
   try {
     // Get the user's current usage
