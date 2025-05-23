@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useVideoCall } from '../../context/VideoCallContext';
 import { useAuth } from '../../context/AuthContext';
-import { User, Video, X, Phone, Mic, MicOff, VideoOff, Send, Copy, Check, AlertCircle, Share2 } from 'lucide-react';
+import { User, Video, X, Send, Copy, Check, AlertCircle, Share2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import VideoControls from './VideoControls';
 
 interface VideoChatProps {
   onClose: () => void;
@@ -372,32 +373,15 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         </div>
         
         {/* Controls */}
-        <div className="flex justify-center mb-4 space-x-3">
-          <button
-            onClick={toggleMute}
-            className={`p-3 rounded-full ${isMuted ? 'bg-muted text-destructive' : 'bg-muted/50 text-foreground'}`}
-            title={isMuted ? 'Unmute' : 'Mute'}
+        <div className="mb-4">
+          <VideoControls
+            isMuted={isMuted}
+            isVideoOff={isVideoOff}
+            onToggleMute={toggleMute}
+            onToggleVideo={toggleVideo}
+            onEndCall={handleEndCall}
             disabled={!localStream}
-          >
-            {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-          </button>
-          
-          <button
-            onClick={handleEndCall}
-            className="p-3 rounded-full bg-destructive text-white"
-            title="End Call"
-          >
-            <Phone className="h-5 w-5 transform rotate-135" />
-          </button>
-          
-          <button
-            onClick={toggleVideo}
-            className={`p-3 rounded-full ${isVideoOff ? 'bg-muted text-destructive' : 'bg-muted/50 text-foreground'}`}
-            title={isVideoOff ? 'Turn on Camera' : 'Turn off Camera'}
-            disabled={!localStream}
-          >
-            {isVideoOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
-          </button>
+          />
         </div>
         
         {/* Chat */}

@@ -94,13 +94,28 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       
       // Handle ICE candidates
       peer.on('signal', (data) => {
-        sendSignal({
-          type: data.type === 'offer' ? 'offer' : data.type === 'answer' ? 'answer' : 'ice-candidate',
-          sender: user?.id || 'anonymous',
-          recipient: null, // In a real app, you'd specify the recipient
-          sessionId: sessionId || '',
-          data
-        });
+        // Determine the signal type based on the data
+        let signalType: 'offer' | 'answer' | 'ice-candidate';
+        if (data.type === 'offer') {
+          signalType = 'offer';
+        } else if (data.type === 'answer') {
+          signalType = 'answer';
+        } else {
+          signalType = 'ice-candidate';
+        }
+        
+        // Only send signal if we have a session ID
+        if (sessionId) {
+          sendSignal({
+            type: signalType,
+            sender: user?.id || 'anonymous',
+            recipient: null, // In a real app, you'd specify the recipient
+            sessionId: sessionId,
+            data
+          });
+        } else {
+          console.error('Cannot send signal: No session ID');
+        }
       });
       
       // Handle connection established
@@ -440,6 +455,8 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setLocalStream(stream);
       
       // Create peer connection
+      // The initiator should be the one who starts the call (reader)
+      // This ensures the signaling flow works correctly
       const peer = createPeer(mode === 'reader');
       peerRef.current = peer;
       

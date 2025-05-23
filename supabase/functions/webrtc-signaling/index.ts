@@ -32,7 +32,6 @@ serve(async (req) => {
     const reqBody = await req.json()
 
     // Get the Supabase client from the request
-    const supabaseClient = Deno.env.get('SUPABASE_CLIENT') || ''
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
 
@@ -97,7 +96,13 @@ serve(async (req) => {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = { error: `Failed to parse error response: ${e.message}` };
+        }
+        
         return new Response(
           JSON.stringify({ error: 'Failed to broadcast signal', details: errorData }),
           { 
@@ -126,7 +131,7 @@ serve(async (req) => {
     )
   } catch (error) {
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 
