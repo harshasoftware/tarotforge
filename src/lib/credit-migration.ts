@@ -35,9 +35,9 @@ export const migrateUserCredits = async (userId: string): Promise<boolean> => {
     
     // Determine credit allocations based on subscription
     let planTier = 'free';
-    let majorArcanaQuota = 5; // Default for free users
-    let completeDeckQuota = 0;
-    let maxRolloverQuota = 0;
+    let majorArcanaQuota = 1; // Default for free users - 1 Major Arcana deck per month
+    let completeDeckQuota = 0; // Free users can't create complete decks
+    let maxRolloverQuota = 0; // No rollover for free users
     
     if (subscription?.subscription_status === 'active' || 
         subscription?.subscription_status === 'trialing') {
@@ -70,12 +70,12 @@ export const migrateUserCredits = async (userId: string): Promise<boolean> => {
     });
     
     // Insert the deck quota record directly using RPC to ensure it's handled server-side
-    const { error: insertError } = await supabase.rpc('initialize_user_deck_quota_record', {
+    const { error: insertError } = await supabase.rpc('initialize_user_deck_quota', {
       p_user_id: userId,
       p_plan_tier: planTier,
-      p_basic_credits: basicCredits,
-      p_premium_credits: premiumCredits,
-      p_max_rollover: maxRolloverCredits,
+      p_major_arcana_quota: majorArcanaQuota,
+      p_complete_deck_quota: completeDeckQuota,
+      p_max_rollover: maxRolloverQuota,
       p_next_refresh_date: nextRefreshDate.toISOString()
     });
     

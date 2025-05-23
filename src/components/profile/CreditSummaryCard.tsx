@@ -50,8 +50,8 @@ const CreditSummaryCard: React.FC = () => {
   };
   
   // Calculate remaining decks
-  const remainingMajorArcana = Math.max(0, limits.majorArcanaLimit - usage.majorArcanaGenerated);
-  const remainingCompleteDecks = Math.max(0, limits.completeDeckLimit - usage.completeDecksGenerated);
+  const remainingMajorArcana = Math.max(0, limits?.majorArcanaLimit - usage?.majorArcanaGenerated);
+  const remainingCompleteDecks = Math.max(0, limits?.completeDeckLimit - usage?.completeDecksGenerated);
   const totalRemaining = remainingMajorArcana + remainingCompleteDecks;
   
   return (
@@ -67,12 +67,12 @@ const CreditSummaryCard: React.FC = () => {
             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center mr-3">
               <WalletCards className="h-4 w-4 text-primary" />
             </div>
-            <h3 className="font-medium">Deck Summary</h3>
+            <h3 className="font-medium">Deck Quotas</h3>
           </div>
           
           <div className="flex items-center bg-muted/30 px-3 py-1 rounded-full">
             <Crown className="h-3 w-3 mr-1" />
-            <span className="text-xs capitalize">{usage.planType} Plan</span>
+            <span className="text-xs capitalize">{usage?.planType || 'Free'} Plan</span>
           </div>
         </div>
       </div>

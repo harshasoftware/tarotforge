@@ -9,12 +9,12 @@ export const fixUserCreditRecord = async (userId: string): Promise<boolean> => {
   try {
     // Call the RPC function to fix the credit record
     const { data, error } = await supabase
-      .rpc('fix_missing_credit_record', {
+      .rpc('fix_missing_deck_quota_record', {
         user_id: userId
       });
     
     if (error) {
-      console.error('Error fixing credit record:', error);
+      console.error('Error fixing deck quota record:', error);
       return false;
     }
     
