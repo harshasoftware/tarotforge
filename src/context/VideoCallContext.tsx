@@ -3,12 +3,17 @@ import { v4 as uuidv4 } from 'uuid';
 import Peer from 'simple-peer';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { VideoQuality } from '../components/video/VideoQualitySettings';
 
 type VideoCallContextType = {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   connectionStatus: 'disconnected' | 'connecting' | 'connected';
   messages: Message[];
+  participants: string[];
+  videoQuality: VideoQuality;
+  setVideoQuality: (quality: VideoQuality) => void;
+  maxParticipants: number;
   startCall: (mode: 'reader' | 'client', existingSessionId?: string) => Promise<string | undefined>;
   endCall: () => void;
   sendMessage: (content: string) => void;
@@ -39,6 +44,10 @@ const VideoCallContext = createContext<VideoCallContextType>({
   remoteStream: null,
   connectionStatus: 'disconnected',
   messages: [],
+  participants: [],
+  videoQuality: 'medium',
+  setVideoQuality: () => {},
+  maxParticipants: 5,
   startCall: async () => { return undefined; },
   endCall: () => {},
   sendMessage: () => {},
@@ -60,6 +69,9 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [videoQuality, setVideoQuality] = useState<VideoQuality>('medium');
+  const [participants, setParticipants] = useState<string[]>([]);
+  const maxParticipants = 5; // Maximum number of participants allowed
   
   const peerRef = useRef<Peer.Instance | null>(null);
   const channelRef = useRef<any>(null);
@@ -125,6 +137,11 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         
         // Add system message
         addMessage('System', 'Connection established. You can now start your reading session.');
+        
+        // Add participant
+        if (user) {
+          setParticipants(prev => [...prev, user.id]);
+        }
       });
       
       // Handle data channel messages
@@ -147,6 +164,11 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       peer.on('close', () => {
         console.log('Peer connection closed');
         setConnectionStatus('disconnected');
+        
+        // Remove participant
+        if (user) {
+          setParticipants(prev => prev.filter(id => id !== user.id));
+        }
       });
       
       return peer;
@@ -169,6 +191,9 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         broadcast: {
           self: false,
         },
+        presence: {
+          key: user?.id || 'anonymous'
+        }
       }
     });
     
@@ -177,10 +202,49 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         console.log('Received signal:', payload);
         handleSignal(payload.payload as SignalData);
       })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log('User joined:', key, newPresences);
+        
+        // Check if we've reached the maximum number of participants
+        if (newPresences.length + participants.length > maxParticipants) {
+          // If we're the host, send a message to the new participant
+          if (peerRef.current && peerRef.current.initiator) {
+            channel.send({
+              type: 'broadcast',
+              event: 'room_full',
+              payload: {
+                message: `The room is full (maximum ${maxParticipants} participants).`
+              }
+            });
+          }
+          return;
+        }
+        
+        // Add new participants
+        setParticipants(prev => {
+          const newParticipantIds = newPresences.map((p: any) => p.user_id);
+          return [...new Set([...prev, ...newParticipantIds])];
+        });
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log('User left:', key, leftPresences);
+        
+        // Remove participants who left
+        setParticipants(prev => {
+          const leftParticipantIds = leftPresences.map((p: any) => p.user_id);
+          return prev.filter(id => !leftParticipantIds.includes(id));
+        });
+      })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           console.log(`Subscribed to webrtc:${sessionId}`);
           channelRef.current = channel;
+          
+          // Track presence
+          channel.track({
+            user_id: user?.id || 'anonymous',
+            online_at: new Date().toISOString()
+          });
         }
       });
     
@@ -337,14 +401,29 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       // First try to get both video and audio with explicit constraints
       console.log('Requesting camera and microphone permissions with explicit constraints...');
+      // Set constraints based on selected video quality
+      let constraints: MediaStreamConstraints = {
+        audio: true,
+        video: false
+      };
       
-      const constraints = {
-        video: {
+      if (videoQuality === 'low') {
+        constraints.video = {
+          width: { ideal: 640 },
+          height: { ideal: 360 }
+        };
+      } else if (videoQuality === 'medium') {
+        constraints.video = {
           width: { ideal: 1280 },
           height: { ideal: 720 }
-        },
-        audio: true
-      };
+        };
+      } else if (videoQuality === 'high') {
+        constraints.video = {
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        };
+      }
+      
       
       console.log("Using constraints:", JSON.stringify(constraints));
       
@@ -419,7 +498,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return { stream: null, audioOnly: false };
       }
     }
-  }, []);
+  }, [videoQuality]);
   
   // Start video call
   const startCall = useCallback(async (mode: 'reader' | 'client', existingSessionId?: string): Promise<string | undefined> => {
@@ -427,6 +506,48 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setError(null);
       setPermissionDenied(false);
       setConnectionStatus('connecting');
+      
+      // Check if we're joining an existing session
+      if (mode === 'client' && existingSessionId) {
+        // Check if the room is full before joining
+        const channel = supabase.channel(`webrtc:${existingSessionId}`, {
+          config: { broadcast: { self: false }, presence: { key: 'presence' } }
+        });
+        
+        // Subscribe to the channel to check presence
+        const presencePromise = new Promise<boolean>((resolve) => {
+          channel.on('presence', { event: 'sync' }, () => {
+            const presenceState = channel.presenceState();
+            const currentParticipants = Object.values(presenceState).flat().length;
+            
+            console.log(`Room has ${currentParticipants} participants`);
+            
+            // Check if the room is full
+            if (currentParticipants >= maxParticipants) {
+              setError(`This reading room is full (maximum ${maxParticipants} participants).`);
+              resolve(false);
+            } else {
+              resolve(true);
+            }
+          });
+          
+          // Set a timeout in case presence sync never happens
+          setTimeout(() => resolve(true), 3000);
+        });
+        
+        channel.subscribe();
+        
+        // Wait for presence check
+        const canJoin = await presencePromise;
+        
+        // Clean up the temporary channel
+        channel.unsubscribe();
+        
+        if (!canJoin) {
+          setConnectionStatus('disconnected');
+          return undefined;
+        }
+      }
       
       // Generate a session ID if initiating the call
       const callSessionId = mode === 'reader' ? uuidv4() : existingSessionId;
@@ -512,6 +633,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setMessages([]);
       setError(null);
       setPermissionDenied(false);
+      setParticipants([]);
       
       console.log('Call ended and resources cleaned up');
     } catch (err: any) {
@@ -586,6 +708,10 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     remoteStream,
     connectionStatus,
     messages,
+    participants,
+    videoQuality,
+    setVideoQuality,
+    maxParticipants,
     startCall,
     endCall,
     sendMessage,
