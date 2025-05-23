@@ -99,6 +99,7 @@ const ReadingRoom = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(false);
   const [showMobileInterpretation, setShowMobileInterpretation] = useState(false);
   
   // Pinch zoom hint state
@@ -165,15 +166,24 @@ const ReadingRoom = () => {
     });
   }, [sessionState, readingStep, selectedLayout, sessionLoading, loading, cards, error, sessionError, user, isGuest]);
 
-  // Check for mobile screen size
+  // Check for mobile screen size and landscape orientation
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+    const checkMobileAndOrientation = () => {
+      const isMobileDevice = window.innerWidth < 768;
+      const isLandscapeOrientation = window.innerWidth > window.innerHeight && isMobileDevice;
+      
+      setIsMobile(isMobileDevice);
+      setIsLandscape(isLandscapeOrientation);
     };
     
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    checkMobileAndOrientation();
+    window.addEventListener('resize', checkMobileAndOrientation);
+    window.addEventListener('orientationchange', checkMobileAndOrientation);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobileAndOrientation);
+      window.removeEventListener('orientationchange', checkMobileAndOrientation);
+    };
   }, []);
 
   // Auto-show guest upgrade modal for invite link joiners
@@ -241,7 +251,7 @@ const ReadingRoom = () => {
         readingStep: 'drawing',
         interpretation: '',
         activeCardIndex: null,
-        zoomLevel: isMobile ? (layout.id === 'celtic-cross' ? 0.6 : 0.8) : (layout.id === 'celtic-cross' ? 0.8 : 1)
+        zoomLevel: isMobile ? (isLandscape ? (layout.id === 'celtic-cross' ? 0.8 : 1) : (layout.id === 'celtic-cross' ? 0.6 : 0.8)) : (layout.id === 'celtic-cross' ? 0.8 : 1)
       });
       
       // Only shuffle if cards are loaded
@@ -252,7 +262,7 @@ const ReadingRoom = () => {
       console.error('Error selecting layout:', error);
       setError('Failed to select layout. Please try again.');
     }
-  }, [updateSession, cards, isMobile]);
+  }, [updateSession, cards, isMobile, isLandscape]);
 
   const handleQuestionChange = useCallback((newQuestion: string) => {
     updateSession({ question: newQuestion });
@@ -754,7 +764,9 @@ const ReadingRoom = () => {
         {/* Floating controls - redesigned mobile layout */}
         <div className={`absolute z-50 ${
           isMobile 
-            ? 'top-2 left-2 right-2 flex justify-between items-center' 
+            ? (isLandscape 
+                ? 'top-1 left-2 right-2 flex justify-between items-center' 
+                : 'top-2 left-2 right-2 flex justify-between items-center')
             : 'top-4 left-4 right-4 flex justify-between items-start'
         }`}>
           {/* Left side - Back button and title for mobile, back button and session info for desktop */}
@@ -895,8 +907,8 @@ const ReadingRoom = () => {
         <div className="h-full relative bg-gradient-to-b from-background to-background/80">
           {/* Step 1: Setup Screen */}
           {readingStep === 'setup' && (
-            <div className={`absolute inset-0 flex items-center justify-center ${isMobile ? 'px-4 pt-16 pb-4' : 'p-4 pt-24'}`}>
-              <div className={`w-full ${isMobile ? 'max-h-full overflow-y-auto' : 'max-w-md'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
+            <div className={`absolute inset-0 flex items-center justify-center ${isMobile ? (isLandscape ? 'px-6 pt-12 pb-4' : 'px-4 pt-16 pb-4') : 'p-4 pt-24'}`}>
+              <div className={`w-full ${isMobile ? (isLandscape ? 'max-w-2xl max-h-full overflow-y-auto' : 'max-h-full overflow-y-auto') : 'max-w-md'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
                 <h2 className={`${isMobile ? 'text-lg' : 'text-lg md:text-xl'} font-serif font-bold ${isMobile ? 'mb-3' : 'mb-4'}`}>Select a Layout</h2>
                 
                 <div className={`space-y-2 ${isMobile ? 'mb-3' : 'mb-4'}`}>
@@ -935,7 +947,7 @@ const ReadingRoom = () => {
           
           {/* Step 2: Drawing Cards */}
           {readingStep === 'drawing' && selectedLayout && (
-            <div className={`absolute inset-0 flex flex-col ${isMobile ? 'pt-12' : 'pt-20'}`}>
+            <div className={`absolute inset-0 flex flex-col ${isMobile ? (isLandscape ? 'pt-8' : 'pt-12') : 'pt-20'}`}>
               {/* Reading info bar - only show on desktop */}
               {!isMobile && (
                 <div className="bg-card/80 backdrop-blur-sm border-b border-border p-2 md:p-3 flex justify-between items-center">
@@ -984,7 +996,7 @@ const ReadingRoom = () => {
                 }}
               >
                 {/* Zoom controls with shuffle button - repositioned for mobile */}
-                <div className={`absolute ${isMobile ? 'top-16 left-1/2 transform -translate-x-1/2 flex-row' : 'top-20 left-4 flex-col'} flex gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
+                <div className={`absolute ${isMobile ? (isLandscape ? 'top-10 left-1/2 transform -translate-x-1/2 flex-row' : 'top-16 left-1/2 transform -translate-x-1/2 flex-row') : 'top-4 left-4 flex-col'} flex gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
                   <button onClick={zoomOut} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom Out">
                     <ZoomOut className="h-4 w-4 md:h-5 md:w-5" />
                   </button>
@@ -1008,7 +1020,7 @@ const ReadingRoom = () => {
                 <AnimatePresence>
                   {isMobile && showPinchHint && (
                     <motion.div 
-                      className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-primary/90 text-primary-foreground px-4 py-2 rounded-full text-xs z-50 shadow-lg"
+                      className={`absolute ${isLandscape ? 'top-16' : 'top-24'} left-1/2 transform -translate-x-1/2 bg-primary/90 text-primary-foreground px-4 py-2 rounded-full text-xs z-50 shadow-lg`}
                       initial={{ opacity: 0, y: -10, scale: 0.9 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -10, scale: 0.9 }}
@@ -1463,11 +1475,11 @@ const ReadingRoom = () => {
           
           {/* Step 3: Interpretation - mobile responsive layout */}
           {readingStep === 'interpretation' && (
-            <div className={`absolute inset-0 ${isMobile ? 'flex-col pt-12' : 'flex pt-20'}`}>
+            <div className={`absolute inset-0 ${isMobile ? (isLandscape && !showMobileInterpretation ? 'flex pt-8' : 'flex-col pt-12') : 'flex pt-20'}`}>
               {/* Reading display */}
-              <div className={`${isMobile ? (showMobileInterpretation ? 'hidden' : 'flex-1') : 'w-3/5'} relative`}>
+              <div className={`${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-3/5' : (showMobileInterpretation ? 'hidden' : 'flex-1')) : 'w-3/5'} relative`}>
                 {/* Zoom controls */}
-                <div className={`absolute ${isMobile ? 'top-16 left-1/2 transform -translate-x-1/2 flex-row' : 'top-4 left-4 flex-col'} flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
+                <div className={`absolute ${isMobile ? (isLandscape ? 'top-10 left-1/2 transform -translate-x-1/2 flex-row' : 'top-16 left-1/2 transform -translate-x-1/2 flex-row') : 'top-4 left-4 flex-col'} flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
                   <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm" title="Zoom Out">
                     <ZoomOut className="h-4 w-4" />
                   </button>
@@ -1639,13 +1651,12 @@ const ReadingRoom = () => {
                 
                 {/* Reading controls */}
                 <div className={`absolute ${isMobile ? 'top-2 right-2' : 'bottom-6 right-6'} flex gap-1 md:gap-3`}>
-                  {isMobile && (
+                  {isMobile && !isLandscape && (
                     <button 
-                      onClick={() => setShowMobileInterpretation(true)}
-                      className="btn btn-primary px-2 py-1 text-xs flex items-center"
+                      onClick={() => setShowMobileInterpretation(false)}
+                      className="text-muted-foreground hover:text-foreground"
                     >
-                      <Menu className="mr-1 h-3 w-3" />
-                      Read
+                      <XCircle className="h-4 w-4" />
                     </button>
                   )}
                   <button 
@@ -1665,7 +1676,7 @@ const ReadingRoom = () => {
               </div>
               
               {/* Interpretation panel - responsive layout */}
-              <div className={`${isMobile ? (showMobileInterpretation ? 'flex-1' : 'hidden') : 'w-2/5'} bg-card ${isMobile ? '' : 'border-l'} border-border flex flex-col h-full`}>
+              <div className={`${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-2/5' : (showMobileInterpretation ? 'flex-1' : 'hidden')) : 'w-2/5'} bg-card ${isMobile ? (isLandscape && !showMobileInterpretation ? 'border-l' : '') : 'border-l'} border-border flex flex-col h-full`}>
                 <div className={`${isMobile ? 'p-2' : 'p-3 md:p-4'} border-b border-border bg-primary/5 flex justify-between items-center`}>
                   <div className="flex items-center">
                     <TarotLogo className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4 md:h-5 md:w-5'} text-primary mr-2`} />
