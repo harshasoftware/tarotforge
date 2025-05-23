@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useVideoCall } from '../../context/VideoCallContext';
 import { useAuth } from '../../context/AuthContext';
-import { User, Video, X, Copy, Check, AlertCircle, Share2, MessageSquare, Minimize2, Maximize2 } from 'lucide-react';
+import { User, Video, X, Copy, Check, AlertCircle, Share2, MessageSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
 import VideoControls from './VideoControls';
 import DraggableVideo from './DraggableVideo';
 import ChatPanel from './ChatPanel';
+import { useChat } from '../../context/ChatContext';
 
 interface VideoChatProps {
   onClose: () => void;
@@ -26,6 +27,8 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     permissionDenied
   } = useVideoCall();
   
+  const { joinRoom, leaveRoom } = useChat();
+  
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   
@@ -36,6 +39,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(!sessionId);
+  const [message, setMessage] = useState('');
   
   // Video position states
   const [localVideoPosition, setLocalVideoPosition] = useState({ x: 20, y: 20 });
@@ -147,6 +151,9 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   // Handle call end
   const handleEndCall = () => {
     endCall();
+    if (actualSessionId) {
+      leaveRoom();
+    }
     onClose();
   };
   
@@ -188,39 +195,12 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     return generateShareableLink(generatedSessionId);
   };
   
-  // Update local video position
-  const updateLocalVideoPosition = (data: { x: number; y: number }) => {
-    setLocalVideoPosition({ x: data.x, y: data.y });
-  };
-  
-  // Update remote video position
-  const updateRemoteVideoPosition = (data: { x: number; y: number }) => {
-    setRemoteVideoPosition({ x: data.x, y: data.y });
-  };
-  
-  // Update chat position
-  const updateChatPosition = (data: { x: number; y: number }) => {
-    setChatPosition({ x: data.x, y: data.y });
-  };
-
-  // Toggle chat minimized state
-  const toggleChatMinimized = () => {
-    setChatMinimized(!chatMinimized);
-  };
-  
-  // Toggle chat visibility
-  const toggleChatVisibility = () => {
-    setIsChatVisible(!isChatVisible);
-  };
-  
-  // Handle chat drag start
-  const handleChatDragStart = () => {
-    setIsChatDragging(true);
-  };
-  
-  // Handle chat drag end
-  const handleChatDragEnd = () => {
-    setIsChatDragging(false);
+  // Handle sending a chat message
+  const handleSendMessage = () => {
+    if (message.trim() && actualSessionId) {
+      joinRoom(actualSessionId);
+      setMessage('');
+    }
   };
 
   return (
