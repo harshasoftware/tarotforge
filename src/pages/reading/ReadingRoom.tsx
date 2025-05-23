@@ -711,6 +711,38 @@ const ReadingRoom = () => {
     }
   };
   
+  // Handle sharing with native share API on mobile or modal on desktop
+  const handleShare = async () => {
+    if (!sessionId) return;
+    
+    const shareableLink = generateShareableLink(sessionId);
+    const shareData = {
+      title: 'TarotForge Reading Room',
+      text: `Join my tarot reading session! ${deck ? `Using ${deck.title} deck` : 'Interactive tarot reading'} - `,
+      url: shareableLink
+    };
+    
+    // Use native share API on mobile if available
+    if (isMobile && navigator.share) {
+      try {
+        // Check if data can be shared (fallback for browsers without canShare)
+        if (!navigator.canShare || navigator.canShare(shareData)) {
+          await navigator.share(shareData);
+          // Successfully shared via native sharing
+          return;
+        }
+      } catch (error) {
+        // User cancelled sharing or error occurred
+        if (error instanceof Error && error.name !== 'AbortError') {
+          console.warn('Native sharing failed:', error);
+        }
+      }
+    }
+    
+    // Fall back to modal for desktop or if native sharing not available
+    setShowShareModal(true);
+  };
+
   // Handle guest account upgrade
   const handleGuestUpgrade = async (userId: string) => {
     if (upgradeGuestAccount) {
@@ -903,7 +935,7 @@ const ReadingRoom = () => {
             )}
             
             <button 
-              onClick={() => setShowShareModal(true)}
+              onClick={() => handleShare()}
               className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
               disabled={!sessionId}
               title="Share reading room"
