@@ -101,6 +101,10 @@ const ReadingRoom = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileInterpretation, setShowMobileInterpretation] = useState(false);
   
+  // Pinch zoom hint state
+  const [showPinchHint, setShowPinchHint] = useState(false);
+  const [hasShownInitialHint, setHasShownInitialHint] = useState(false);
+  
   // Guest upgrade state
   const [showGuestUpgrade, setShowGuestUpgrade] = useState(false);
   const [hasShownInviteUpgrade, setHasShownInviteUpgrade] = useState(false);
@@ -117,6 +121,11 @@ const ReadingRoom = () => {
   const [isZooming, setIsZooming] = useState(false);
   const [lastTouchDistance, setLastTouchDistance] = useState(0);
   const readingAreaRef = useRef<HTMLDivElement>(null);
+  
+  // Double tap zoom state
+  const [zoomFocus, setZoomFocus] = useState<{ x: number; y: number } | null>(null);
+  const [lastTapTime, setLastTapTime] = useState(0);
+  const [tapCount, setTapCount] = useState(0);
   
   // Video chat state
   const [showVideoChat, setShowVideoChat] = useState(false);
@@ -176,6 +185,36 @@ const ReadingRoom = () => {
       setHasShownInviteUpgrade(true);
     }
   }, [joinSessionId, isGuest, sessionLoading, hasShownInviteUpgrade]);
+
+  // Show pinch zoom hint when entering drawing step on mobile
+  useEffect(() => {
+    if (isMobile && readingStep === 'drawing' && !hasShownInitialHint) {
+      setShowPinchHint(true);
+      setHasShownInitialHint(true);
+      
+      // Auto-hide after 4 seconds
+      const timer = setTimeout(() => {
+        setShowPinchHint(false);
+      }, 4000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isMobile, readingStep, hasShownInitialHint]);
+
+  // Function to show hint manually (via help button)
+  const showHint = () => {
+    setShowPinchHint(true);
+    
+    // Auto-hide after 4 seconds
+    setTimeout(() => {
+      setShowPinchHint(false);
+    }, 4000);
+  };
+
+  // Function to hide hint manually
+  const hideHint = () => {
+    setShowPinchHint(false);
+  };
   
   // Update session wrappers for state changes (moved before touch handlers)
   const setZoomLevelWrapped = useCallback((newZoomLevel: number) => {
@@ -499,6 +538,65 @@ const ReadingRoom = () => {
   
   const resetZoom = () => {
     setZoomLevelWrapped(1);
+    setZoomFocus(null);
+  };
+  
+  // Double tap zoom functionality for mobile
+  const handleCardDoubleTap = (cardIndex: number, event: React.TouchEvent) => {
+    if (!isMobile || !readingAreaRef.current) return;
+    
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const now = Date.now();
+    const timeDiff = now - lastTapTime;
+    
+    if (timeDiff < 300 && tapCount === 1) {
+      // Double tap detected - zoom to card
+      const selectedCard = selectedCards[cardIndex];
+      if (!selectedCard) return;
+      
+      let cardX: number, cardY: number;
+      
+      if (selectedLayout?.id === 'free-layout') {
+        // For free layout, use the card's stored position
+        cardX = selectedCard.x || 50;
+        cardY = selectedCard.y || 50;
+      } else {
+        // For predefined layouts, use the position from layout
+        const position = selectedLayout?.positions?.[cardIndex];
+        if (position) {
+          cardX = position.x;
+          cardY = position.y;
+        } else {
+          return;
+        }
+      }
+      
+      // Set zoom focus to the card position and zoom in significantly
+      setZoomFocus({ x: cardX, y: cardY });
+      setZoomLevelWrapped(2.5); // High zoom for detail viewing
+      
+      // Reset tap count
+      setTapCount(0);
+    } else {
+      // First tap or outside double-tap window
+      setTapCount(1);
+    }
+    
+    setLastTapTime(now);
+  };
+  
+  // Handle single tap (existing card flip functionality)
+  const handleCardSingleTap = (cardIndex: number) => {
+    if (!isMobile) return;
+    
+    const selectedCard = selectedCards[cardIndex];
+    if ((selectedCard as any)?.revealed) {
+      setActiveCardIndexWrapped(cardIndex);
+    } else {
+      handleCardFlip(cardIndex);
+    }
   };
   
   // Handle card flip when clicked
@@ -831,22 +929,44 @@ const ReadingRoom = () => {
                   <button onClick={zoomIn} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom In">
                     <ZoomIn className="h-4 w-4 md:h-5 md:w-5" />
                   </button>
+                  {isMobile && (
+                    <button onClick={showHint} className="p-1.5 hover:bg-muted rounded-sm" title="Show Help">
+                      <HelpCircle className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
                 
-                {isMobile && (
-                  <div className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-muted/80 px-3 py-1 rounded-full text-xs z-40">
-                    {selectedLayout?.id === 'free-layout' 
-                      ? 'Drag cards anywhere • Pinch to zoom' 
-                      : 'Drag cards from deck • Pinch to zoom'}
-                  </div>
-                )}
+                {/* Animated pinch zoom hint for mobile */}
+                <AnimatePresence>
+                  {isMobile && showPinchHint && (
+                    <motion.div 
+                      className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-primary/90 text-primary-foreground px-4 py-2 rounded-full text-xs z-50 shadow-lg"
+                      initial={{ opacity: 0, y: -10, scale: 0.9 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -10, scale: 0.9 }}
+                      transition={{ duration: 0.3 }}
+                      onClick={hideHint}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>
+                          {selectedLayout?.id === 'free-layout' 
+                            ? 'Drag cards anywhere • Pinch to zoom • Double-tap card to focus' 
+                            : 'Drag cards from deck • Pinch to zoom • Double-tap card to focus'}
+                        </span>
+                        <XCircle className="h-3 w-3 cursor-pointer hover:opacity-80" />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               
                 {/* Layout visualization with mobile-responsive card sizes */}
                 <div 
                   className="absolute inset-0 transition-transform duration-300 ease-in-out"
                   style={{
-                    transform: `scale(${zoomLevel})`,
-                    transformOrigin: 'center center',
+                    transform: zoomFocus 
+                      ? `scale(${zoomLevel}) translate(${50 - zoomFocus.x}%, ${50 - zoomFocus.y}%)`
+                      : `scale(${zoomLevel})`,
+                    transformOrigin: zoomFocus ? `${zoomFocus.x}% ${zoomFocus.y}%` : 'center center',
                     height: '100%',
                     width: '100%'
                   }}
@@ -875,6 +995,12 @@ const ReadingRoom = () => {
                           setActiveCardIndexWrapped(index);
                         } else {
                           handleCardFlip(index);
+                        }
+                      }}
+                      onTouchEnd={(e) => {
+                        if (isMobile) {
+                          e.preventDefault();
+                          handleCardDoubleTap(index, e);
                         }
                       }}
                     >
@@ -985,6 +1111,12 @@ const ReadingRoom = () => {
                                 handleCardFlip(index);
                               }
                             }}
+                            onTouchEnd={(e) => {
+                              if (isMobile) {
+                                e.preventDefault();
+                                handleCardDoubleTap(index, e);
+                              }
+                            }}
                             whileHover={{ scale: 1.05 }}
                           >
                             <motion.div 
@@ -1050,16 +1182,20 @@ const ReadingRoom = () => {
                   <div className={`absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2' : 'bottom-8 left-1/2 transform -translate-x-1/2'} z-20`}>
                     {isMobile ? (
                       /* Mobile: Full deck with horizontal panning - all 78 cards */
-                      <div className="relative w-screen h-24 overflow-hidden">
+                      <div className="relative w-screen h-24 overflow-x-auto">
                         <div 
-                          className="relative h-24"
-                          style={{ width: `${shuffledDeck.length * 8}px` }} // Dynamic width based on card count
+                          className="relative h-24 mx-auto"
+                          style={{ 
+                            width: `${shuffledDeck.length * 8}px`,
+                            left: '50%',
+                            transform: 'translateX(-50%)'
+                          }}
                         >
                           {shuffledDeck.map((card: Card, index: number) => {
                             const totalCards = shuffledDeck.length;
                             const angle = (index - (totalCards - 1) / 2) * 1.2; // 1.2 degrees between cards for mobile shallow arc
                             const radius = 200; // Radius for mobile arc
-                            const x = Math.sin((angle * Math.PI) / 180) * radius + (shuffledDeck.length * 4); // Center the arc
+                            const x = Math.sin((angle * Math.PI) / 180) * radius + (totalCards * 4); // Center the arc properly
                             const y = -Math.cos((angle * Math.PI) / 180) * radius * 0.12; // Very shallow curve for mobile
                             
                             return (
@@ -1267,8 +1403,10 @@ const ReadingRoom = () => {
                 <div 
                   className="absolute inset-0 transition-transform duration-300 ease-in-out"
                   style={{
-                    transform: `scale(${zoomLevel})`,
-                    transformOrigin: 'center center',
+                    transform: zoomFocus 
+                      ? `scale(${zoomLevel}) translate(${50 - zoomFocus.x}%, ${50 - zoomFocus.y}%)`
+                      : `scale(${zoomLevel})`,
+                    transformOrigin: zoomFocus ? `${zoomFocus.x}% ${zoomFocus.y}%` : 'center center',
                     height: '100%',
                     width: '100%'
                   }}
@@ -1283,6 +1421,12 @@ const ReadingRoom = () => {
                           setActiveCardIndexWrapped(index);
                         } else {
                           handleCardFlip(index);
+                        }
+                      }}
+                      onTouchEnd={(e) => {
+                        if (isMobile) {
+                          e.preventDefault();
+                          handleCardDoubleTap(index, e);
                         }
                       }}
                       whileHover={{ scale: 1.05 }}
@@ -1359,6 +1503,12 @@ const ReadingRoom = () => {
                               setActiveCardIndexWrapped(index);
                             } else {
                               handleCardFlip(index);
+                            }
+                          }}
+                          onTouchEnd={(e) => {
+                            if (isMobile) {
+                              e.preventDefault();
+                              handleCardDoubleTap(index, e);
                             }
                           }}
                           whileHover={{ scale: 1.05 }}
