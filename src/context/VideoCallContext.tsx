@@ -484,7 +484,6 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // Reset state
       setSessionId(null);
       setConnectionStatus('disconnected');
-      setMessages([]);
       setError(null);
       setPermissionDenied(false);
       
@@ -530,7 +529,6 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     startCall,
     endCall,
     error,
-    setError,
     setError,
     generateShareableLink,
     joinWithLink,

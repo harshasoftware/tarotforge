@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useVideoCall } from '../../context/VideoCallContext';
 import { useAuth } from '../../context/AuthContext';
+import { useChat } from '../../context/ChatContext';
 import { User, Video, X, Phone, Mic, MicOff, VideoOff, Send, Copy, Check, AlertCircle, Share2, MessageSquare, Minimize2, Maximize2, Move, Pin } from 'lucide-react';
 import { motion } from 'framer-motion';
 import VideoControls from './VideoControls';
 import DraggableVideo from './DraggableVideo';
 import ChatPanel from './ChatPanel';
-import { useChat } from '../../context/ChatContext';
 import ChatBubble from './ChatBubble';
 
 interface VideoChatProps {
@@ -139,16 +139,16 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   useEffect(() => {
     if (sessionId && sessionId !== actualSessionId) {
       const updateSession = async () => {
-        // Clean up existing call if any
-        endCall();
-        if (actualSessionId) {
-          leaveRoom();
-        }
-        
-        setIsInitializing(true);
-        setIsCreatingRoom(false);
-        
         try {
+          // Clean up existing call if any
+          endCall();
+          if (actualSessionId) {
+            leaveRoom();
+          }
+          
+          setIsInitializing(true);
+          setIsCreatingRoom(false);
+          
           // Join with the new session ID
           const result = await startCall('client', sessionId);
           if (result) {
@@ -157,18 +157,16 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
           } else {
             console.log('Failed to join call - no session ID returned');
           }
-        } else {
-          console.log('No session ID provided');
+        } catch (err) {
+          console.error('Error updating session:', err);
+          setError('Failed to join the call. Please try again.');
+        } finally {
+          setIsInitializing(false);
         }
-      } catch (err) {
-        console.error('Error updating session:', err);
-        setError('Failed to join the call. Please try again.');
-      } finally {
-        setIsInitializing(false);
-      }
-    };
-    
-    updateSession();
+      };
+      
+      updateSession();
+    }
   }, [sessionId]);
   
   // Handle local video stream
@@ -335,7 +333,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         {/* Invitation link - floating */}
         {isCreatingRoom && generatedSessionId && (
           <motion.div 
-            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[1001] bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 max-w-md shadow-lg"
+            className="fixed top-20 left-1/2 transform -translate-x-1/2  z-[1001] bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 max-w-md shadow-lg"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
           >
