@@ -40,6 +40,11 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   const [isMobile, setIsMobile] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   
+  // New states for improved mobile controls
+  const [showControls, setShowControls] = useState(true);
+  const [controlsMinimized, setControlsMinimized] = useState(false);
+  const [controlsPosition, setControlsPosition] = useState<'bubble' | 'bottom' | 'hidden'>('bottom');
+  
   // Video position states - optimized for mobile
   const [localVideoPosition, setLocalVideoPosition] = useState({ x: 20, y: 20 });
   const [remoteVideoPosition, setRemoteVideoPosition] = useState({ x: window.innerWidth - 320, y: 20 });
@@ -51,11 +56,15 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
       const isMobileDevice = window.innerWidth < 768;
       setIsMobile(isMobileDevice);
       
-      // Adjust initial positions for mobile
+      // Auto-adjust controls for mobile
       if (isMobileDevice) {
-        setLocalVideoPosition({ x: 16, y: 80 }); // Top-left for mobile
-        setRemoteVideoPosition({ x: window.innerWidth - 136, y: 80 }); // Top-right for mobile
+        setControlsPosition('bubble'); // Use bubble controls for mobile
+        setControlsMinimized(true); // Start minimized on mobile
+        setLocalVideoPosition({ x: 16, y: 120 }); // Lower position to avoid top bar
+        setRemoteVideoPosition({ x: window.innerWidth - 136, y: 120 });
       } else {
+        setControlsPosition('bottom'); // Use bottom controls for desktop
+        setControlsMinimized(false);
         setLocalVideoPosition({ x: 20, y: 20 });
         setRemoteVideoPosition({ x: window.innerWidth - 320, y: 20 });
       }
@@ -476,65 +485,191 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         }
       />
       
-      {/* Floating controls - Mobile Optimized */}
-      <motion.div 
-        className={`fixed ${isMobile ? 'bottom-4 left-4 right-4' : 'bottom-4 left-1/2 transform -translate-x-1/2'} z-[1002]`}
-        initial={{ y: 100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
-        <div className={`bg-card/95 backdrop-blur-sm border border-border rounded-full shadow-lg p-2 ${isMobile ? 'flex justify-center' : ''}`}>
-          <div className="flex items-center space-x-2">
-            {/* Mute Button */}
-            <button
-              onClick={toggleMute}
-              className={`p-3 rounded-full transition-colors ${
-                isMuted 
-                  ? 'bg-destructive text-destructive-foreground' 
-                  : 'bg-muted/30 text-foreground hover:bg-muted/50'
-              }`}
-              title={isMuted ? "Unmute" : "Mute"}
-              disabled={!localStream}
-            >
-              {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-            </button>
-            
-            {/* Video Button */}
-            <button
-              onClick={toggleVideo}
-              className={`p-3 rounded-full transition-colors ${
-                isVideoOff 
-                  ? 'bg-destructive text-destructive-foreground' 
-                  : 'bg-muted/30 text-foreground hover:bg-muted/50'
-              }`}
-              title={isVideoOff ? "Turn on camera" : "Turn off camera"}
-              disabled={!localStream}
-            >
-              {isVideoOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
-            </button>
-            
-            {/* End Call Button */}
-            <button
-              onClick={handleEndCall}
-              className="p-3 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
-              title="End call"
-            >
-              <PhoneOff className="h-5 w-5" />
-            </button>
-            
-            {/* Settings Button for Permission Access */}
-            {(permissionDenied || error) && (
+      {/* Improved Mobile Controls */}
+      {controlsPosition === 'bubble' && isMobile && (
+        <>
+          {/* Control buttons around the local video bubble */}
+          <motion.div 
+            className="fixed z-[1003]"
+            style={{
+              left: localVideoPosition.x - 24,
+              top: localVideoPosition.y + 72, // Below the video bubble
+            }}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <div className="flex items-center gap-1">
+              {/* Mute Button */}
               <button
-                onClick={() => setShowPermissionModal(true)}
-                className="p-3 rounded-full bg-warning text-warning-foreground hover:bg-warning/90 transition-colors"
-                title="Camera & Microphone Settings"
+                onClick={toggleMute}
+                className={`p-2 rounded-full backdrop-blur-sm border transition-colors ${
+                  isMuted 
+                    ? 'bg-destructive/90 text-destructive-foreground border-destructive' 
+                    : 'bg-card/90 text-foreground border-border hover:bg-muted/50'
+                }`}
+                title={isMuted ? "Unmute" : "Mute"}
+                disabled={!localStream}
               >
-                <Settings className="h-5 w-5" />
+                {isMuted ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
               </button>
+              
+              {/* Video Button */}
+              <button
+                onClick={toggleVideo}
+                className={`p-2 rounded-full backdrop-blur-sm border transition-colors ${
+                  isVideoOff 
+                    ? 'bg-destructive/90 text-destructive-foreground border-destructive' 
+                    : 'bg-card/90 text-foreground border-border hover:bg-muted/50'
+                }`}
+                title={isVideoOff ? "Turn on camera" : "Turn off camera"}
+                disabled={!localStream}
+              >
+                {isVideoOff ? <VideoOff className="h-3 w-3" /> : <Video className="h-3 w-3" />}
+              </button>
+              
+              {/* End Call Button */}
+              <button
+                onClick={handleEndCall}
+                className="p-2 rounded-full bg-destructive/90 text-destructive-foreground border border-destructive hover:bg-destructive transition-colors backdrop-blur-sm"
+                title="End call"
+              >
+                <PhoneOff className="h-3 w-3" />
+              </button>
+              
+              {/* Minimize/Expand Toggle */}
+              <button
+                onClick={() => setControlsPosition(controlsMinimized ? 'bottom' : 'hidden')}
+                className="p-2 rounded-full bg-card/90 text-foreground border border-border hover:bg-muted/50 backdrop-blur-sm"
+                title="Move controls"
+              >
+                <Settings className="h-3 w-3" />
+              </button>
+            </div>
+          </motion.div>
+        </>
+      )}
+
+      {/* Bottom Controls (Desktop + Mobile fallback) */}
+      {(controlsPosition === 'bottom' || (!isMobile && showControls)) && (
+        <motion.div 
+          className={`fixed ${isMobile ? 'top-4 right-4' : 'bottom-6 left-1/2 transform -translate-x-1/2'} z-[1002]`}
+          initial={{ y: isMobile ? -100 : 100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          <div className={`bg-card/95 backdrop-blur-sm border border-border rounded-full shadow-lg p-2 ${isMobile ? 'flex flex-col items-center' : 'flex justify-center'}`}>
+            {controlsMinimized && isMobile ? (
+              /* Minimized mobile controls - just essential buttons */
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => setControlsMinimized(false)}
+                  className="p-2 rounded-full bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+                  title="Expand controls"
+                >
+                  <Video className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={handleEndCall}
+                  className="p-2 rounded-full bg-destructive/20 text-destructive hover:bg-destructive/30 transition-colors"
+                  title="End call"
+                >
+                  <PhoneOff className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              /* Full controls */
+              <div className={`flex items-center ${isMobile ? 'flex-col gap-1' : 'space-x-2'}`}>
+                {isMobile && (
+                  <button
+                    onClick={() => setControlsMinimized(true)}
+                    className="p-1 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                    title="Minimize"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+                
+                {/* Mute Button */}
+                <button
+                  onClick={toggleMute}
+                  className={`p-3 rounded-full transition-colors ${
+                    isMuted 
+                      ? 'bg-destructive text-destructive-foreground' 
+                      : 'bg-muted/30 text-foreground hover:bg-muted/50'
+                  }`}
+                  title={isMuted ? "Unmute" : "Mute"}
+                  disabled={!localStream}
+                >
+                  {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                </button>
+                
+                {/* Video Button */}
+                <button
+                  onClick={toggleVideo}
+                  className={`p-3 rounded-full transition-colors ${
+                    isVideoOff 
+                      ? 'bg-destructive text-destructive-foreground' 
+                      : 'bg-muted/30 text-foreground hover:bg-muted/50'
+                  }`}
+                  title={isVideoOff ? "Turn on camera" : "Turn off camera"}
+                  disabled={!localStream}
+                >
+                  {isVideoOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
+                </button>
+                
+                {/* End Call Button */}
+                <button
+                  onClick={handleEndCall}
+                  className="p-3 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
+                  title="End call"
+                >
+                  <PhoneOff className="h-5 w-5" />
+                </button>
+                
+                {/* Settings Button for Permission Access */}
+                {(permissionDenied || error) && (
+                  <button
+                    onClick={() => setShowPermissionModal(true)}
+                    className="p-3 rounded-full bg-warning text-warning-foreground hover:bg-warning/90 transition-colors"
+                    title="Camera & Microphone Settings"
+                  >
+                    <Settings className="h-5 w-5" />
+                  </button>
+                )}
+
+                {isMobile && (
+                  <button
+                    onClick={() => setControlsPosition('bubble')}
+                    className="p-2 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                    title="Move to bubble controls"
+                  >
+                    <Share2 className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
             )}
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      )}
+
+      {/* Hidden state - just a small indicator */}
+      {controlsPosition === 'hidden' && (
+        <motion.div 
+          className="fixed top-4 right-4 z-[1002]"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          <button
+            onClick={() => setControlsPosition('bubble')}
+            className="p-3 rounded-full bg-primary/90 text-primary-foreground backdrop-blur-sm shadow-lg hover:bg-primary transition-colors"
+            title="Show video controls"
+          >
+            <Video className="h-5 w-5" />
+          </button>
+        </motion.div>
+      )}
     </>
   );
 };
