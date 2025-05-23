@@ -5,7 +5,7 @@ import { useDeckLimits } from '../../context/DeckLimitContext';
 import { Link } from 'react-router-dom';
 import TarotLogo from '../ui/TarotLogo';
 
-const DeckSummaryCard: React.FC = () => {
+const CreditSummaryCard: React.FC = () => {
   const { limits, usage, loading } = useDeckLimits();
   
   if (loading) {
@@ -116,4 +116,4 @@ const DeckSummaryCard: React.FC = () => {
   );
 };
 
-export default DeckSummaryCard;
+export default CreditSummaryCard;

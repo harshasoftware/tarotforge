@@ -1,9 +1,9 @@
 import { supabase } from './supabase';
 
 /**
- * Force a check and fix for the current user's credit record
+ * Force a check and fix for the current user's deck quota record
  * This is a utility function to be called when you detect a user with a paid plan
- * but no credit record
+ * but no deck quota record
  */
 export const fixUserCreditRecord = async (userId: string): Promise<boolean> => {
   try {
@@ -26,20 +26,20 @@ export const fixUserCreditRecord = async (userId: string): Promise<boolean> => {
 };
 
 /**
- * Check if a user has a credit record and fix it if not
+ * Check if a user has a deck quota record and fix it if not
  */
 export const ensureUserCredits = async (userId: string): Promise<boolean> => {
   try {
-    // First check if a credit record exists
+    // First check if a deck quota record exists
     const { data, error } = await supabase
-      .from('user_credits')
+      .from('user_deck_quotas')
       .select('id')
       .eq('user_id', userId)
       .single();
       
     if (error) {
-      // No credit record found, attempt to fix
-      console.log('No credit record found, attempting to create one');
+      // No deck quota record found, attempt to fix
+      console.log('No deck quota record found, attempting to create one');
       return fixUserCreditRecord(userId);
     }
     
