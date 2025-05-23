@@ -4,8 +4,24 @@ import { useSubscription } from './SubscriptionContext';
 import { supabase } from '../lib/supabase';
 import { getDeckGenerationStatus } from '../lib/deck-usage';
 import { STRIPE_PRODUCTS } from '../lib/stripe-config';
+import { supabase } from '../lib/supabase';
+import { getDeckGenerationStatus } from '../lib/deck-usage';
+import { STRIPE_PRODUCTS } from '../lib/stripe-config';
 
 interface DeckLimitContextType {
+  limits: {
+    majorArcanaLimit: number;
+    completeDeckLimit: number;
+    regenerationLimit: number;
+    qualityLevel: string;
+    maxStorage: number;
+  } | null;
+  usage: {
+    majorArcanaGenerated: number;
+    completeDecksGenerated: number;
+    regenerationsUsed: number;
+    lastResetDate: string | null;
+    nextResetDate: string | null;
   limits: {
     majorArcanaLimit: number;
     completeDeckLimit: number;
@@ -27,6 +43,7 @@ interface DeckLimitContextType {
   canGenerateCompleteDeck: boolean;
   canRegenerate: boolean;
   refreshLimits: () => Promise<void>;
+  refreshLimits: () => Promise<void>;
 }
 
 const DeckLimitContext = createContext<DeckLimitContextType>({
@@ -37,6 +54,7 @@ const DeckLimitContext = createContext<DeckLimitContextType>({
   canGenerateMajorArcana: false,
   canGenerateCompleteDeck: false,
   canRegenerate: false,
+  refreshLimits: async () => {},
   refreshLimits: async () => {},
 });
 
@@ -54,6 +72,10 @@ export const DeckLimitProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [canGenerateCompleteDeck, setCanGenerateCompleteDeck] = useState(false);
   const [canRegenerate, setCanRegenerate] = useState(false);
 
+  const fetchLimits = async () => {
+    if (!user) {
+      setLimits(null);
+      setUsage(null);
   const fetchLimits = async () => {
     if (!user) {
       setLimits(null);
@@ -139,6 +161,7 @@ export const DeckLimitProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         canGenerateMajorArcana,
         canGenerateCompleteDeck,
         canRegenerate,
+        refreshLimits: fetchLimits
         refreshLimits: fetchLimits
       }}
     >
