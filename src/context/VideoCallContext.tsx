@@ -65,6 +65,10 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Function to create a new WebRTC peer
   const createPeer = useCallback((initiator: boolean, stream: MediaStream): Peer.Instance => {
     try {
+      if (!stream) {
+        throw new Error('No media stream available');
+      }
+
       const peer = new Peer({
         initiator,
         trickle: true,
@@ -85,6 +89,16 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       
       // Handle ICE candidates
       peer.on('signal', (data) => {
+        if (!sessionId) {
+          console.error('Cannot send signal: No session ID');
+          return;
+        }
+
+        if (!user?.id) {
+          console.error('Cannot send signal: No user ID');
+          return;
+        }
+
         // Determine the signal type based on the data
         let signalType: 'offer' | 'answer' | 'ice-candidate';
         if (data.type === 'offer') {
@@ -95,18 +109,13 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           signalType = 'ice-candidate';
         }
         
-        // Only send signal if we have a session ID
-        if (sessionId) {
-          sendSignal({
-            type: signalType,
-            sender: user?.id || 'anonymous',
-            recipient: null,
-            sessionId: sessionId,
-            data
-          });
-        } else {
-          console.error('Cannot send signal: No session ID');
-        }
+        sendSignal({
+          type: signalType,
+          sender: user.id,
+          recipient: null,
+          sessionId: sessionId,
+          data
+        });
       });
       
       // Handle connection established
@@ -169,7 +178,10 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   
   // Handle incoming signals
   const handleSignal = useCallback((signalData: SignalData) => {
-    if (!peerRef.current) return;
+    if (!peerRef.current) {
+      console.error('No peer connection available');
+      return;
+    }
     
     try {
       console.log(`Processing ${signalData.type} signal`);
@@ -180,6 +192,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     } catch (err) {
       console.error('Error handling signal:', err);
+      setError('Failed to process connection signal');
     }
   }, []);
   
@@ -199,6 +212,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
     } catch (err) {
       console.error('Error sending signal:', err);
+      setError('Failed to send connection signal');
     }
   }, []);
   
@@ -375,15 +389,35 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Start video call
   const startCall = useCallback(async (mode: 'reader' | 'client', existingSessionId?: string): Promise<string | null> => {
     try {
+      // Ensure user is authenticated
+      if (!user?.id) {
+        throw new Error('User must be authenticated to start a call');
+      }
+
+      // Clean up any existing call first
+      endCall();
+
       setError(null);
       setPermissionDenied(false);
       setConnectionStatus('connecting');
       
-      // Generate a session ID if initiating the call
-      const callSessionId = mode === 'reader' ? uuidv4() : existingSessionId;
+      // Generate or validate session ID
+      let callSessionId: string | null = null;
       
-      if (!callSessionId) {
+      if (mode === 'reader') {
+        callSessionId = uuidv4();
+      } else if (existingSessionId) {
+        // Validate existing session ID format
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(existingSessionId)) {
+          throw new Error('Invalid session ID format');
+        }
+        callSessionId = existingSessionId;
+      } else {
         throw new Error('Session ID is required for clients to join');
+      }
+
+      if (!callSessionId) {
+        throw new Error('Failed to generate or validate session ID');
       }
       
       setSessionId(callSessionId);
@@ -404,13 +438,11 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       
       setLocalStream(stream);
+      localStreamRef.current = stream;
       
-      // Create peer connection only after we have the stream
+      // Create peer connection
       const peer = createPeer(mode === 'reader', stream);
       peerRef.current = peer;
-      
-      // Store the stream in a ref for cleanup
-      localStreamRef.current = stream;
       
       return callSessionId;
     } catch (err: any) {
@@ -419,7 +451,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setConnectionStatus('disconnected');
       return null;
     }
-  }, [checkMediaDevices, createPeer, requestMediaPermissions]);
+  }, [checkMediaDevices, createPeer, requestMediaPermissions, user, endCall]);
   
   // End call and clean up resources
   const endCall = useCallback(() => {
@@ -463,13 +495,13 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } catch (err: any) {
       console.error('Error ending call:', err);
     }
-  }, [localStream, remoteStream]);
+  }, [remoteStream]);
   
   // Generate a shareable link for the session
   const generateShareableLink = useCallback((sessionId: string) => {
+    if (!sessionId) return '';
     const baseUrl = window.location.origin;
-    const link = `${baseUrl}/reading-room?join=${sessionId}`;
-    return link;
+    return `${baseUrl}/reading-room?join=${sessionId}`;
   }, []);
   
   // Join a call using a shareable link

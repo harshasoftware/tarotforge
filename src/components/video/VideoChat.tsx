@@ -64,9 +64,17 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
 
   // Initialize call
   useEffect(() => {
+    if (!user) {
+      setError('You must be logged in to start or join a call');
+      return;
+    }
+
     const initializeCall = async () => {
       try {
         setIsInitializing(true);
+        
+        // End any existing call first
+        endCall();
         
         if (sessionId) {
           // Join existing call as client
@@ -113,7 +121,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     return () => {
       endCall();
     };
-  }, []);
+  }, [user]);
   
   // Effect to update the session ID if it changes
   useEffect(() => {
