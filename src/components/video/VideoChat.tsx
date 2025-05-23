@@ -2,9 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useVideoCall } from '../../context/VideoCallContext';
 import { useAuth } from '../../context/AuthContext';
 import { User, Video, X, Phone, Mic, MicOff, VideoOff, Copy, Check, AlertCircle, Share2 } from 'lucide-react';
-import { motion } from 'framer-motion';
-import VideoControls from './VideoControls';
-import DraggableVideo from './DraggableVideo';
+import { motion } from 'framer-motion'; 
 import VideoControls from './VideoControls';
 import DraggableVideo from './DraggableVideo';
 
@@ -40,8 +38,8 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   
   // Video position states
-  const [localVideoPosition, setLocalVideoPosition] = useState({ x: 20, y: 80 });
-  const [remoteVideoPosition, setRemoteVideoPosition] = useState({ x: window.innerWidth - 320, y: 80 });
+  const [localVideoPosition, setLocalVideoPosition] = useState({ x: 20, y: 20 });
+  const [remoteVideoPosition, setRemoteVideoPosition] = useState({ x: window.innerWidth - 320, y: 20 });
   const [actualSessionId, setActualSessionId] = useState<string | null>(null);
 
   // Position update handlers
@@ -56,7 +54,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   // Initialize call
   useEffect(() => {
     if (!user) {
-      setError('You must be logged in to start or join a call');
+      setError('You must be logged in to start or join a call'); 
       return;
     }
 
@@ -247,7 +245,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   // Get shareable link for the session
   const getShareableLink = () => {
     if (!generatedSessionId) return '';
-    return generateShareableLink(generatedSessionId);
+    return generateShareableLink(generatedSessionId); 
   };
 
   return (
@@ -256,7 +254,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         {/* Permission error message - floating */}
         {(error || permissionDenied) && (
           <motion.div 
-            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[1001] bg-destructive/10 border border-destructive/30 rounded-lg p-4 max-w-md"
+            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[1001] bg-destructive/10 border border-destructive/30 rounded-lg p-4 max-w-md" 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
           >
@@ -295,7 +293,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         {/* Invitation link - floating */}
         {isCreatingRoom && generatedSessionId && (
           <motion.div 
-            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[1001] bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 max-w-md shadow-lg"
+            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[1001] bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 max-w-md shadow-lg" 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
           >
@@ -342,7 +340,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         {/* Local video bubble - higher z-index */}
         <DraggableVideo
           videoRef={localVideoRef}
-          stream={localStream} 
+          stream={localStream}
           isVideoOff={isVideoOff}
           label={`You${isVideoOff ? " (Camera Off)" : ""}`}
           initialPosition={localVideoPosition}
@@ -370,7 +368,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         {/* Remote video bubble - higher z-index */}
         <DraggableVideo
           videoRef={remoteVideoRef}
-          stream={remoteStream} 
+          stream={remoteStream}
           isVideoOff={false}
           label={isCreatingRoom ? 'Client' : 'Reader'}
           className="z-[1000]"
@@ -393,7 +391,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         {/* Floating controls - higher z-index */}
         <motion.div 
           className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-[1002] bg-card/95 backdrop-blur-sm border border-border rounded-full shadow-lg p-2 flex items-center space-x-2"
-          initial={{ y: 100, opacity: 0 }}
+          initial={{ y: 100, opacity: 0 }} 
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
         >
@@ -403,7 +401,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
             onToggleMute={toggleMute}
             onToggleVideo={toggleVideo}
             onEndCall={handleEndCall}
-            disabled={!localStream}
+            disabled={!localStream} 
           />
         </motion.div>
     </>

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { v4 as uuidv4 } from 'uuid';
 import Peer from 'simple-peer';
 import { supabase } from '../lib/supabase';
-import { useAuth } from './AuthContext'; 
+import { useAuth } from './AuthContext';
 
 type VideoCallContextType = {
   localStream: MediaStream | null;
@@ -51,10 +51,10 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [error, setError] = useState<string | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   
-  const peerRef = useRef<Peer.Instance | null>(null); 
-  const channelRef = useRef<any>(null); 
-  const localStreamRef = useRef<MediaStream | null>(null); 
-  const endCallRef = useRef<() => void>(() => {}); 
+  const peerRef = useRef<Peer.Instance | null>(null);
+  const channelRef = useRef<any>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const endCallRef = useRef<() => void>(() => {});
   
   // End call and clean up resources
   const endCall = useCallback(() => {
@@ -102,8 +102,8 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Update endCallRef whenever endCall changes
   useEffect(() => {
-    endCallRef.current = endCall;
-  }, [endCall]); 
+    endCallRef.current = endCall; 
+  }, [endCall]);
   
   // Handle cleanup when component unmounts
   useEffect(() => {
@@ -115,7 +115,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Function to create a new WebRTC peer
   const createPeer = useCallback((initiator: boolean, stream: MediaStream): Peer.Instance => {
     try {
-      const peer = new Peer({
+      const peer = new Peer({ 
         initiator,
         trickle: true,
         stream,
@@ -129,7 +129,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       
       // Handle receiving remote stream
       peer.on('stream', (remoteStream) => {
-        console.log('Received remote stream', remoteStream);
+        console.log('Received remote stream', remoteStream); 
         setRemoteStream(remoteStream);
       });
       
@@ -310,7 +310,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Request media permissions directly (useful for retry button)
   const requestPermissions = useCallback(async (): Promise<boolean> => {
     setError(null);
-    setPermissionDenied(false);
+    setPermissionDenied(false); 
     
     try {
       console.log("Explicitly requesting camera and microphone permissions");
@@ -371,7 +371,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Request both audio and video permissions explicitly
   const requestMediaPermissions = useCallback(async (): Promise<{ stream: MediaStream | null, audioOnly: boolean }> => {
     try {
-      // Try to get both audio and video at once
+      // Try to get both audio and video at once 
       console.log('Requesting audio and video permissions...');
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -379,7 +379,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           video: true
         });
         
-        console.log('Successfully obtained both audio and video permissions');
+        console.log('Successfully obtained both audio and video permissions'); 
         return { stream, audioOnly: false };
       } catch (err) {
         console.warn('Failed to get both permissions, trying audio only:', err);
@@ -387,7 +387,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // Try audio only as fallback
         try {
           const audioStream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
+            audio: true, 
             video: false
           });
           
@@ -395,7 +395,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           return { stream: audioStream, audioOnly: true };
         } catch (audioErr) {
           console.error('Failed to get even audio permissions:', audioErr);
-          
+           
           if (audioErr instanceof Error && audioErr.name === 'NotAllowedError') {
             setPermissionDenied(true);
             setError('Microphone permission denied. Please check your browser settings.');
@@ -403,7 +403,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             setError('Unable to access microphone. Please check your device.');
           }
           
-          return { stream: null, audioOnly: false };
+          return { stream: null, audioOnly: false }; 
         }
       }
     } catch (err: any) {
@@ -411,7 +411,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       
       if (err.name === 'NotAllowedError') {
         setPermissionDenied(true);
-        setError('Camera and microphone permission denied. Please allow access in your browser settings.');
+        setError('Camera and microphone permission denied. Please allow access in your browser settings.'); 
         return { stream: null, audioOnly: false };
       }
       
@@ -419,7 +419,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       try {
         console.log('Falling back to audio-only...');
         const audioStream = await navigator.mediaDevices.getUserMedia({ 
-          video: false, 
+          video: false,  
           audio: true 
         });
         
@@ -427,7 +427,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return { stream: audioStream, audioOnly: true };
       } catch (audioErr: any) {
         console.error('Failed to get audio permissions:', audioErr);
-        
+         
         if (audioErr.name === 'NotAllowedError') {
           setPermissionDenied(true);
           setError('Microphone permission denied. Please check your browser settings.');
@@ -435,7 +435,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setError('Unable to access microphone. Please check your device.');
         }
         
-        return { stream: null, audioOnly: false };
+        return { stream: null, audioOnly: false }; 
       }
     }
   }, []);
@@ -443,7 +443,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Start video call
   const startCall = useCallback(async (mode: 'reader' | 'client', existingSessionId?: string): Promise<string | null> => {
     try {
-      // Ensure user is authenticated
+      // Ensure user is authenticated 
       if (!user?.id) {
         throw new Error('User must be authenticated to start a call');
       }
@@ -451,7 +451,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // Clean up any existing call first
       endCallRef.current();
 
-      setError(null);
+      setError(null); 
       setPermissionDenied(false);
       setConnectionStatus('connecting');
       
@@ -459,7 +459,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       let callSessionId: string | null = null;
       
       if (mode === 'reader') { 
-        callSessionId = uuidv4();
+        callSessionId = uuidv4(); 
       } else if (existingSessionId) {
         // Validate existing session ID format
         if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(existingSessionId)) {
@@ -467,7 +467,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
         callSessionId = existingSessionId;
       } else {
-        throw new Error('Session ID is required for clients to join');
+        throw new Error('Session ID is required for clients to join'); 
       }
 
       if (!callSessionId) {
@@ -475,7 +475,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       
       setSessionId(callSessionId);
-      
+       
       // Check if media devices are available
       const { success, audioOnly } = await checkMediaDevices();
       if (!success) {
@@ -483,7 +483,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return null;
       }
       
-      // Request media permissions explicitly
+      // Request media permissions explicitly 
       const { stream, audioOnly: isAudioOnly } = await requestMediaPermissions();
 
       if (!stream) {
@@ -491,7 +491,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return null;
       }
       
-      setLocalStream(stream);
+      setLocalStream(stream); 
       localStreamRef.current = stream;
       
       // Create peer connection
@@ -499,7 +499,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       peerRef.current = peer;
       
       return callSessionId;
-    } catch (err: any) {
+    } catch (err: any) { 
       console.error('Error starting call:', err);
       setError(`Failed to start call: ${err.message}`);
       setConnectionStatus('disconnected');
@@ -507,7 +507,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [checkMediaDevices, createPeer, requestMediaPermissions, user]);
   
-  // Generate a shareable link for the session
+  // Generate a shareable link for the session 
   const generateShareableLink = useCallback((sessionId: string) => {
     if (!sessionId) return '';
     const baseUrl = window.location.origin;
@@ -515,7 +515,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
   
   // Join a call using a shareable link
-  const joinWithLink = useCallback(async (url: string): Promise<boolean> => {
+  const joinWithLink = useCallback(async (url: string): Promise<boolean> => { 
     try {
       // Parse the URL to extract sessionId
       const parsedUrl = new URL(url);
@@ -525,7 +525,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setError('Invalid invitation link. Session ID is missing.');
         return false;
       }
-      
+       
       // Start call as client
       const result = await startCall('client', sessionId);
       return result !== null;
@@ -535,7 +535,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return false;
     }
   }, [startCall]);
-  
+   
   const value = {
     localStream,
     remoteStream, 
@@ -548,7 +548,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     joinWithLink,
     requestPermissions,
     permissionDenied
-  };
+  }; 
   
   return (
     <VideoCallContext.Provider value={value}>

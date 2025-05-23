@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, Maximize2 } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { fetchDeckById, fetchCardsByDeckId } from '../../lib/deck-utils';
@@ -289,7 +289,7 @@ const ReadingRoom = () => {
   }
   
   return (
-    <div className="min-h-screen pt-12 flex flex-col">
+    <div className="min-h-screen pt-12 flex flex-col h-screen">
       <div className="container mx-auto px-4 flex-grow flex flex-col">
         {/* Header - Fixed height */}
         <div className="py-4">
@@ -353,7 +353,7 @@ const ReadingRoom = () => {
         </div>
         
         {/* Main content area - Flex layout to fill available space */}
-        <div className="flex-grow flex flex-col md:flex-row gap-4 h-[calc(100vh-180px)]">
+        <div className="flex-grow flex flex-col md:flex-row gap-4 h-[calc(100vh-200px)]">
           {/* Video Chat - Only shown when active */}
           {showVideoChat && (
             <VideoChat 
@@ -510,9 +510,9 @@ const ReadingRoom = () => {
           </div>
           
           {/* Center Panel - Reading Display - Flex grow to fill space */}
-          <div className="flex-grow flex flex-col h-full">
+          <div className="flex-grow flex flex-col h-full overflow-hidden">
             {/* Reading board - Takes most of the space */}
-            <div className="flex-grow bg-card/50 rounded-xl border border-border overflow-hidden relative">
+            <div className="flex-grow bg-card/50 rounded-xl border border-border relative">
               {/* Guidance */}
               {!readingStarted && (
                 <div className="flex flex-col items-center justify-center h-full p-6 text-center">
@@ -527,7 +527,7 @@ const ReadingRoom = () => {
               
               {/* Reading in progress */}
               {readingStarted && (
-                <div className="h-full p-6 relative">
+                <div className="h-full p-4 relative">
                   {/* Layout visualization */}
                   {selectedLayout && selectedLayout.positions && selectedLayout.positions.map((position, index) => {
                     const selectedCard = selectedCards[index];
@@ -557,7 +557,7 @@ const ReadingRoom = () => {
                           <motion.div
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.5 }}
+                            transition={{ duration: 0.3 }}
                             className="relative"
                             onClick={() => viewCardDetails(selectedCard)}
                           >
@@ -570,8 +570,8 @@ const ReadingRoom = () => {
                               }}
                             >
                               <img 
-                                src={selectedCard.image_url} 
-                                alt={selectedCard.name} 
+                                src={selectedCard.image_url}
+                                alt={selectedCard.name}
                                 className="w-full h-full object-cover"
                               />
                             </div>
@@ -591,7 +591,7 @@ const ReadingRoom = () => {
             {interpretation && showAIMode && (
               <motion.div
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                animate={{ opacity: 1 }} 
                 transition={{ duration: 0.3 }}
                 className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
                 onClick={() => setShowAIMode(false)}
@@ -599,7 +599,7 @@ const ReadingRoom = () => {
                 <motion.div 
                   className="bg-card rounded-xl border border-border overflow-hidden max-w-2xl w-full max-h-[80vh]"
                   initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
+                  animate={{ scale: 1, opacity: 1 }} 
                   transition={{ duration: 0.3 }}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -629,8 +629,8 @@ const ReadingRoom = () => {
       {/* Card Details Modal */}
       {showCardDetails && selectedCardForDetails && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0 }} 
+          animate={{ opacity: 1 }} 
           transition={{ duration: 0.3 }}
           className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
           onClick={() => setShowCardDetails(false)}
@@ -638,7 +638,7 @@ const ReadingRoom = () => {
           <motion.div 
             className="bg-card rounded-xl border border-border overflow-hidden max-w-2xl w-full"
             initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
+            animate={{ scale: 1, opacity: 1 }} 
             transition={{ duration: 0.3 }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -689,66 +689,5 @@ const ReadingRoom = () => {
       {/* Share Room Modal */}
       {showShareModal && roomId && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <motion.div 
-            className="relative bg-card max-w-md w-full rounded-xl overflow-hidden"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
-              <h3 className="font-serif font-bold">Share Reading Room</h3>
-              <button 
-                onClick={() => setShowShareModal(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <XCircle className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="p-6">
-              <p className="mb-4">
-                Share this link with others to invite them to your reading room. They'll be able to join your video call and chat.
-              </p>
-              
-              <div className="mb-6">
-                <label htmlFor="roomLink" className="block text-sm font-medium mb-2">
-                  Room Invitation Link
-                </label>
-                <div className="flex">
-                  <input
-                    id="roomLink"
-                    type="text"
-                    value={generateShareableLink(roomId)}
-                    readOnly
-                    className="flex-1 p-2 rounded-l-md border border-r-0 border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <button
-                    onClick={copyRoomLink}
-                    className="p-2 bg-primary text-primary-foreground rounded-r-md hover:bg-primary/90 transition-colors flex items-center"
-                  >
-                    {showCopied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
-                  </button>
-                </div>
-                {showCopied && (
-                  <p className="text-xs text-success mt-2">Link copied to clipboard!</p>
-                )}
-              </div>
-              
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setShowShareModal(false)}
-                  className="btn btn-primary px-4 py-2"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default ReadingRoom;
+          <motion.div
+            className="relative bg-card max-w-md w-full rounded-xl overflow-

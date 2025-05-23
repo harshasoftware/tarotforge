@@ -3,9 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
-import { SubscriptionProvider } from './context/SubscriptionContext';
-import { DeckLimitProvider } from './context/DeckLimitContext';
+import { SubscriptionProvider } from './context/SubscriptionContext'; 
+import { DeckLimitProvider } from './context/DeckLimitContext'; 
 import { VideoCallProvider } from './context/VideoCallContext';
+import { DeckQuotaProvider } from './context/DeckQuotaContext';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 import { 
@@ -82,11 +83,13 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <AuthProvider>
         <SubscriptionProvider>
-          <DeckLimitProvider>
-            <VideoCallProvider>
-              <App />
-            </VideoCallProvider>
-          </DeckLimitProvider>
+          <DeckQuotaProvider>
+            <DeckLimitProvider>
+              <VideoCallProvider>
+                <App />
+              </VideoCallProvider>
+            </DeckLimitProvider>
+          </DeckQuotaProvider>
         </SubscriptionProvider>
       </AuthProvider>
     </BrowserRouter>
