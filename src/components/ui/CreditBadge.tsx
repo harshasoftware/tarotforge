@@ -1,22 +1,22 @@
 import React from 'react';
-import { useDeckLimits } from '../../context/DeckLimitContext';
+import { useDeckQuotas } from '../../context/DeckQuotaContext';
 import { WalletCards } from 'lucide-react';
 
-interface DeckBadgeProps {
+interface DeckQuotaBadgeProps {
   showIcon?: boolean;
   className?: string;
   absolute?: boolean;
 }
 
-const DeckBadge: React.FC<DeckBadgeProps> = ({ showIcon = true, className = '', absolute = false }) => {
-  const { usage, limits, loading } = useDeckLimits();
+const DeckQuotaBadge: React.FC<DeckQuotaBadgeProps> = ({ showIcon = true, className = '', absolute = false }) => {
+  const { quotas, loading } = useDeckQuotas();
   
-  if (loading || !usage || !limits) {
+  if (loading || !quotas) {
     return null;
   }
   
-  const totalMajorArcana = limits.majorArcanaLimit - usage.majorArcanaGenerated;
-  const totalCompleteDeck = limits.completeDeckLimit - usage.completeDecksGenerated;
+  const totalMajorArcana = Math.max(0, quotas.majorArcanaQuota - quotas.majorArcanaUsed);
+  const totalCompleteDeck = Math.max(0, quotas.completeDeckQuota - quotas.completeDeckUsed);
   const totalDecks = totalMajorArcana + totalCompleteDeck;
   const hasDecks = totalDecks > 0;
   
@@ -36,4 +36,4 @@ const DeckBadge: React.FC<DeckBadgeProps> = ({ showIcon = true, className = '', 
   );
 };
 
-export default DeckBadge;
+export default DeckQuotaBadge;

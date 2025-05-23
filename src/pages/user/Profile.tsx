@@ -7,7 +7,8 @@ import ProfileImageUpload from '../../components/profile/ProfileImageUpload';
 import { getUserProfile, updateUserProfile } from '../../lib/user-profile';
 import { supabase } from '../../lib/supabase';
 import { User } from '../../types';
-import CreditSummaryCard from '../../components/profile/CreditSummaryCard';
+import DeckQuotaOverview from '../../components/profile/DeckQuotaOverview';
+import DeckGenerationActivity from '../../components/profile/DeckGenerationActivity';
 import CreditTransactionHistory from '../../components/profile/CreditTransactionHistory';
 
 interface ProfileFormData {
@@ -205,7 +206,7 @@ const Profile = () => {
               
               {/* Credit Summary Card */}
               <div className="mt-6">
-                <CreditSummaryCard />
+                <DeckQuotaOverview />
               </div>
               
               {/* Account Security */}
@@ -380,7 +381,7 @@ const Profile = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
               >
-                <CreditTransactionHistory />
+                <DeckGenerationActivity />
               </motion.div>
             </motion.div>
           </div>

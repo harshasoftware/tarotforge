@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import SignInModal from '../auth/SignInModal';
 import TarotLogo from '../ui/TarotLogo';
-import DeckBadge from '../ui/CreditBadge';
+import DeckQuotaBadge from '../ui/CreditBadge';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 const Navbar = () => {
@@ -110,7 +110,7 @@ const Navbar = () => {
             {/* Deck Badge (Only show for authenticated users) */}
             {user && !isMobile && (
               <div className="relative mr-1">
-                <DeckBadge showIcon={true} className="py-1" absolute={false} />
+                <DeckQuotaBadge showIcon={true} className="py-1" absolute={false} />
               </div>
             )}
             

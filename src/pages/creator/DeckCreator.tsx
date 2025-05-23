@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Wand2, Sparkles, Save, ArrowRight, AlertCircle, Check, Crown, TrendingUp } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
-import { useDeckLimits } from '../../context/DeckLimitContext';
+import { useDeckQuotas } from '../../context/DeckQuotaContext';
 import CardGallery from '../../components/creator/CardGallery';
 import { checkDeckGenerationLimit, recordDeckGeneration } from '../../lib/deck-usage';
 import { generateCardDescription, generateCardImage, generateThemeSuggestions, generateElaborateTheme } from '../../lib/gemini-ai';
@@ -33,7 +33,7 @@ const DeckCreator: React.FC = () => {
   const { user } = useAuth();
   const { isSubscribed } = useSubscription();
   const location = useLocation();
-  const { canGenerateMajorArcana, canGenerateCompleteDeck, refreshLimits } = useDeckLimits();
+  const { quotas, refreshQuotas } = useDeckQuotas();
   const navigate = useNavigate();
   
   // Deck creation state
@@ -64,6 +64,10 @@ const DeckCreator: React.FC = () => {
   
   // Initialize deck creation on mount
   const [limitCheckResult, setLimitCheckResult] = useState<any>(null);
+  
+  // Determine if user can generate decks based on quotas
+  const canGenerateMajorArcana = quotas && quotas.majorArcanaQuota > quotas.majorArcanaUsed;
+  const canGenerateCompleteDeck = quotas && quotas.completeDeckQuota > quotas.completeDeckUsed;
   
   useEffect(() => {
     // Generate a new deck ID
@@ -205,7 +209,7 @@ const DeckCreator: React.FC = () => {
       await recordDeckGeneration(user?.id || '', deckType);
       
       // Refresh limits to update UI
-      refreshLimits();
+      refreshQuotas();
       
       // Start generating the first card
       generateNextCard(finalDeckId, 0);

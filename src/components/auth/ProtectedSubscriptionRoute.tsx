@@ -1,18 +1,21 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
-import { useDeckLimits } from '../../context/DeckLimitContext';
+import { useDeckQuotas } from '../../context/DeckQuotaContext';
 import LoadingScreen from '../ui/LoadingScreen';
 import SubscriptionRequired from './SubscriptionRequired';
 
 const ProtectedSubscriptionRoute = () => {
   const { user, loading } = useAuth();
   const { isSubscribed, loading: subscriptionLoading } = useSubscription();
-  const { canGenerateCompleteDeck, loading: decksLoading } = useDeckLimits();
+  const { quotas, loading: quotasLoading } = useDeckQuotas();
   const location = useLocation();
   
+  // Determine if user can generate complete decks based on quotas
+  const canGenerateCompleteDeck = quotas && quotas.completeDeckQuota > quotas.completeDeckUsed;
+  
   // Still loading authentication, subscription, or deck data
-  if (loading || subscriptionLoading || decksLoading) {
+  if (loading || subscriptionLoading || quotasLoading) {
     return <LoadingScreen />;
   }
   

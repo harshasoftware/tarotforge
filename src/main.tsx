@@ -5,6 +5,7 @@ import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
 import { DeckLimitProvider } from './context/DeckLimitContext';
+import { DeckQuotaProvider } from './context/DeckQuotaContext';
 import { VideoCallProvider } from './context/VideoCallContext';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
@@ -82,11 +83,13 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <AuthProvider>
         <SubscriptionProvider>
-          <DeckLimitProvider>
-            <VideoCallProvider>
-              <App />
-            </VideoCallProvider>
-          </DeckLimitProvider>
+          <DeckQuotaProvider>
+            <DeckLimitProvider>
+              <VideoCallProvider>
+                <App />
+              </VideoCallProvider>
+            </DeckLimitProvider>
+          </DeckQuotaProvider>
         </SubscriptionProvider>
       </AuthProvider>
     </BrowserRouter>

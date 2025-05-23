@@ -1,21 +1,27 @@
 import React from 'react';
 import { AlertCircle, ZoomIn, Sparkles, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useDeckQuotas } from '../../context/DeckQuotaContext';
 
-interface DeckUsageEstimateProps {
+interface DeckQuotaEstimateProps {
   imageQuality: 'medium' | 'high';
   cardCount: number;
 }
 
-const DeckUsageEstimate: React.FC<DeckUsageEstimateProps> = ({ 
+const DeckQuotaEstimate: React.FC<DeckQuotaEstimateProps> = ({ 
   imageQuality, 
   cardCount
 }) => {
+  const { quotas, getEstimatedQuotaConsumption } = useDeckQuotas();
+  
   // Determine what type of deck this is
   const isMajorArcana = cardCount <= 22;
   const isFullDeck = cardCount > 22;
-  const isFreeEligible = isMajorArcana;
-  const needsUpgrade = isFullDeck;
+  
+  // Calculate if user has enough quota
+  const estimatedUsage = getEstimatedQuotaConsumption(imageQuality, 1);
+  const isFreeEligible = isMajorArcana && estimatedUsage.hasEnoughQuota;
+  const needsUpgrade = isFullDeck && !estimatedUsage.hasEnoughQuota;
   
   return (
     <div className="rounded-lg bg-card/60 border border-border p-4 mb-6">
@@ -87,4 +93,4 @@ const DeckUsageEstimate: React.FC<DeckUsageEstimateProps> = ({
   );
 };
 
-export default DeckUsageEstimate;
+export default DeckQuotaEstimate;

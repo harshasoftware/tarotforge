@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertCircle, ZoomIn, Sparkles, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useDeckLimits } from '../../context/DeckLimitContext';
+import { useDeckQuotas } from '../../context/DeckQuotaContext';
 
 interface DeckUsageEstimateProps {
   imageQuality: 'medium' | 'high';
@@ -12,16 +12,19 @@ const DeckUsageEstimate: React.FC<DeckUsageEstimateProps> = ({
   imageQuality, 
   cardCount
 }) => {
-  const { limits, usage, canGenerateMajorArcana, canGenerateCompleteDeck } = useDeckLimits();
+  const { quotas, getEstimatedQuotaConsumption } = useDeckQuotas();
   
   // Determine what type of deck this is
   const isMajorArcana = cardCount <= 22;
   const isFullDeck = cardCount > 22;
-  const isFreeEligible = isMajorArcana && canGenerateMajorArcana;
-  const needsUpgrade = isFullDeck && !canGenerateCompleteDeck;
+  
+  // Calculate if user has enough quota
+  const estimatedUsage = getEstimatedQuotaConsumption(imageQuality, 1);
+  const isFreeEligible = isMajorArcana && estimatedUsage.hasEnoughQuota;
+  const needsUpgrade = isFullDeck && !estimatedUsage.hasEnoughQuota;
   
   // If limits or usage are not loaded yet, show minimal info
-  if (!limits || !usage) {
+  if (!quotas) {
     return (
       <div className="rounded-lg bg-card/60 border border-border p-4 mb-6">
         <h3 className="text-sm font-medium mb-3 flex items-center">
@@ -79,7 +82,7 @@ const DeckUsageEstimate: React.FC<DeckUsageEstimateProps> = ({
       <div className="bg-muted/30 p-3 rounded-md mb-4">
         <div className="flex justify-between mb-1">
           <span className="text-xs text-muted-foreground">Your Plan</span>
-          <span className="text-xs font-medium capitalize">{usage.planType}</span>
+          <span className="text-xs font-medium capitalize">{quotas.planType}</span>
         </div>
         
         <div className="flex justify-between mb-1">
@@ -88,12 +91,12 @@ const DeckUsageEstimate: React.FC<DeckUsageEstimateProps> = ({
           </span>
           <span className={`text-xs font-medium ${
             isMajorArcana 
-              ? usage.majorArcanaGenerated >= limits.majorArcanaLimit ? 'text-warning' : ''
-              : usage.completeDecksGenerated >= limits.completeDeckLimit ? 'text-warning' : ''
+              ? quotas.majorArcanaUsed >= quotas.majorArcanaQuota ? 'text-warning' : ''
+              : quotas.completeDeckUsed >= quotas.completeDeckQuota ? 'text-warning' : ''
           }`}>
             {isMajorArcana 
-              ? `${usage.majorArcanaGenerated} / ${limits.majorArcanaLimit} used` 
-              : `${usage.completeDecksGenerated} / ${limits.completeDeckLimit} used`}
+              ? `${quotas.majorArcanaUsed} / ${quotas.majorArcanaQuota} used` 
+              : `${quotas.completeDeckUsed} / ${quotas.completeDeckQuota} used`}
           </span>
         </div>
         
@@ -101,13 +104,13 @@ const DeckUsageEstimate: React.FC<DeckUsageEstimateProps> = ({
           <div 
             className={`h-full rounded-full ${
               isMajorArcana
-                ? usage.majorArcanaGenerated < limits.majorArcanaLimit ? 'bg-success' : 'bg-warning'
-                : usage.completeDecksGenerated < limits.completeDeckLimit ? 'bg-success' : 'bg-warning'
+                ? quotas.majorArcanaUsed < quotas.majorArcanaQuota ? 'bg-success' : 'bg-warning'
+                : quotas.completeDeckUsed < quotas.completeDeckQuota ? 'bg-success' : 'bg-warning'
             }`}
             style={{ 
               width: `${Math.min(100, isMajorArcana 
-                ? (limits.majorArcanaLimit > 0 ? (usage.majorArcanaGenerated / limits.majorArcanaLimit) * 100 : 0)
-                : (limits.completeDeckLimit > 0 ? (usage.completeDecksGenerated / limits.completeDeckLimit) * 100 : 0)
+                ? (quotas.majorArcanaQuota > 0 ? (quotas.majorArcanaUsed / quotas.majorArcanaQuota) * 100 : 0)
+                : (quotas.completeDeckQuota > 0 ? (quotas.completeDeckUsed / quotas.completeDeckQuota) * 100 : 0)
               )}%` 
             }}
           ></div>
@@ -116,8 +119,8 @@ const DeckUsageEstimate: React.FC<DeckUsageEstimateProps> = ({
         <div className="flex justify-between mb-1">
           <span className="text-xs text-muted-foreground">Next Reset</span>
           <span className="text-xs font-medium">
-            {usage.nextResetDate 
-              ? new Date(usage.nextResetDate).toLocaleDateString() 
+            {quotas.nextRefreshDate 
+              ? new Date(quotas.nextRefreshDate).toLocaleDateString() 
               : 'Not scheduled'}
           </span>
         </div>
