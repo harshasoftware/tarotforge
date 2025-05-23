@@ -24,7 +24,6 @@ interface CreditContextType {
   error: string | null;
   refreshCredits: () => Promise<void>;
   consumeCredits: (basicCredits: number, premiumCredits: number, referenceId?: string, description?: string) => Promise<boolean>;
-  getCreditTransactions: (limit?: number) => Promise<any[]>;
   getEstimatedCreditConsumption: (imageQuality: 'medium' | 'high', quantity: number) => {
     basicCredits: number;
     premiumCredits: number;
@@ -50,7 +49,6 @@ const CreditContext = createContext<CreditContextType>({
   error: null,
   refreshCredits: async () => {},
   consumeCredits: async () => false,
-  getCreditTransactions: async () => [],
   getEstimatedCreditConsumption: () => ({ basicCredits: 0, premiumCredits: 0, hasEnoughCredits: false }),
   initializeCredits: async () => {},
 });
@@ -385,30 +383,6 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Get credit transactions history
-  const getCreditTransactions = async (limit: number = 10): Promise<any[]> => {
-    if (!user) return [];
-
-    try {
-      const { data, error } = await supabase
-        .from('credit_transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      if (error) {
-        console.error('Error fetching credit transactions:', error);
-        return [];
-      }
-
-      return data || [];
-    } catch (err) {
-      console.error('Error in getCreditTransactions:', err);
-      return [];
-    }
-  };
-  
   // Calculate credit cost based on image quality and quantity
   const getEstimatedCreditConsumption = (imageQuality: 'medium' | 'high', quantity: number) => {
     let basicCredits = 0;
@@ -462,7 +436,6 @@ export const CreditProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         error,
         refreshCredits: fetchCredits,
         consumeCredits,
-        getCreditTransactions,
         getEstimatedCreditConsumption,
         initializeCredits
       }}
