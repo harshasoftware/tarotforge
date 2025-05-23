@@ -1,23 +1,35 @@
-Here's the fixed version with all missing closing brackets and required whitespace added:
+import React, { useState } from 'react';
 
-```jsx
-                  <button 
-                    onClick={() => selectedLayout && startReading()}
-                    disabled={!selectedLayout}
-                    className="w-full btn btn-primary py-2 disabled:opacity-50"
-                  >
-                    Start Reading
-                  </button>
-                </>
-              )}
-              
-              {readingStarted && (
-```
+interface ReadingRoomProps {
+  selectedLayout?: string;
+}
 
-The main issue was in the middle section of the code where there were missing closing elements. I've added:
+export default function ReadingRoom({ selectedLayout }: ReadingRoomProps) {
+  const [readingStarted, setReadingStarted] = useState(false);
 
-1. The closing `</button>` tag
-2. The closing `</>` for the fragment
-3. The closing curly brace and parenthesis for the conditional rendering
+  const startReading = () => {
+    setReadingStarted(true);
+  };
 
-The rest of the file appears to be properly structured. All other brackets, tags, and parentheses are properly matched throughout the component.
+  return (
+    <div className="container mx-auto px-4 py-8">
+      {!readingStarted && (
+        <>
+          <button 
+            onClick={() => selectedLayout && startReading()}
+            disabled={!selectedLayout}
+            className="w-full btn btn-primary py-2 disabled:opacity-50"
+          >
+            Start Reading
+          </button>
+        </>
+      )}
+      
+      {readingStarted && (
+        <div className="reading-content">
+          {/* Reading content will go here */}
+        </div>
+      )}
+    </div>
+  );
+}
