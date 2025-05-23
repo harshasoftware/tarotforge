@@ -122,6 +122,10 @@ const ReadingRoom = () => {
   const [showVideoChat, setShowVideoChat] = useState(false);
   const [isVideoConnecting, setIsVideoConnecting] = useState(false);
   
+  // Dragged placed card state (for moving cards in free layout)
+  const [draggedPlacedCard, setDraggedPlacedCard] = useState<any>(null);
+  const [draggedPlacedCardIndex, setDraggedPlacedCardIndex] = useState<number | null>(null);
+  
   // Use session state instead of local state
   const selectedLayout = sessionState?.selectedLayout;
   const selectedCards = sessionState?.selectedCards || [];
@@ -305,6 +309,28 @@ const ReadingRoom = () => {
   
   const shuffleDeck = () => {
     setShuffledDeck([...shuffledDeck].sort(() => Math.random() - 0.5));
+  };
+  
+  // Handle moving placed cards in free layout
+  const handlePlacedCardDrag = (cardIndex: number, event: any, info: any) => {
+    if (selectedLayout?.id !== 'free-layout' || !readingAreaRef.current) return;
+    
+    const rect = readingAreaRef.current.getBoundingClientRect();
+    const x = ((info.point.x - rect.left) / rect.width) * 100;
+    const y = ((info.point.y - rect.top) / rect.height) * 100;
+    
+    // Ensure position is within bounds
+    if (x >= 0 && x <= 100 && y >= 0 && y <= 100) {
+      const newSelectedCards = [...selectedCards];
+      if (newSelectedCards[cardIndex]) {
+        newSelectedCards[cardIndex] = {
+          ...newSelectedCards[cardIndex],
+          x: Math.max(5, Math.min(95, x)), // Keep cards within bounds with margin
+          y: Math.max(5, Math.min(95, y))
+        };
+        updateSession({ selectedCards: newSelectedCards });
+      }
+    }
   };
   
   // Drag and Drop Functions
@@ -784,7 +810,7 @@ const ReadingRoom = () => {
                 }}
               >
                 {/* Zoom controls - repositioned for mobile */}
-                <div className={`absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2 flex-row' : 'top-20 left-4 flex-col'} flex gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
+                <div className={`absolute ${isMobile ? 'top-16 left-1/2 transform -translate-x-1/2 flex-row' : 'top-20 left-4 flex-col'} flex gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
                   <button onClick={zoomOut} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom Out">
                     <ZoomOut className="h-4 w-4 md:h-5 md:w-5" />
                   </button>
@@ -797,7 +823,7 @@ const ReadingRoom = () => {
                 </div>
                 
                 {isMobile && (
-                  <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-muted/80 px-3 py-1 rounded-full text-xs z-40">
+                  <div className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-muted/80 px-3 py-1 rounded-full text-xs z-40">
                     {selectedLayout?.id === 'free-layout' 
                       ? 'Drag cards anywhere • Pinch to zoom' 
                       : 'Drag cards from deck • Pinch to zoom'}
@@ -821,12 +847,18 @@ const ReadingRoom = () => {
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ duration: 0.5 }}
-                      className="absolute transform -translate-x-1/2 -translate-y-1/2"
+                      className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-move"
                       style={{ 
                         left: `${selectedCard.x}%`, 
                         top: `${selectedCard.y}%`,
                         zIndex: activeCardIndex === index ? 20 : 10 + index
                       }}
+                      drag
+                      dragMomentum={false}
+                      dragElastic={0}
+                      onDrag={(event, info) => handlePlacedCardDrag(index, event, info)}
+                      whileHover={{ scale: 1.05 }}
+                      whileDrag={{ scale: 1.1, zIndex: 50 }}
                       onClick={() => {
                         if ((selectedCard as any).revealed) {
                           setActiveCardIndexWrapped(index);
@@ -1212,7 +1244,7 @@ const ReadingRoom = () => {
               {/* Reading display */}
               <div className={`${isMobile ? (showMobileInterpretation ? 'hidden' : 'flex-1') : 'w-3/5'} relative`}>
                 {/* Zoom controls */}
-                <div className={`absolute ${isMobile ? 'bottom-2 left-1/2 transform -translate-x-1/2 flex-row' : 'top-4 left-4 flex-col'} flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
+                <div className={`absolute ${isMobile ? 'top-16 left-1/2 transform -translate-x-1/2 flex-row' : 'top-4 left-4 flex-col'} flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
                   <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm" title="Zoom Out">
                     <ZoomOut className="h-4 w-4" />
                   </button>
@@ -1327,13 +1359,6 @@ const ReadingRoom = () => {
                           }}
                           whileHover={{ scale: 1.05 }}
                           animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
-                          style={{ 
-                            position: 'absolute',
-                            left: `${selectedCard.x}%`, 
-                            top: `${selectedCard.y}%`,
-                            transform: 'translate(-50%, -50%)',
-                            zIndex: activeCardIndex === index ? 20 : 10 + index
-                          }}
                         >
                           <motion.div 
                             className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`}
