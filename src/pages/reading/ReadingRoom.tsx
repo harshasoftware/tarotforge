@@ -113,6 +113,48 @@ const cardFlipConfig = {
   ease: "easeInOut"
 };
 
+// Function to clean markdown formatting and convert to plain text
+const cleanMarkdownText = (text: string): { content: string; isHeader: boolean; isBullet: boolean }[] => {
+  const lines = text.split('\n');
+  return lines.map(line => {
+    let cleanLine = line.trim();
+    let isHeader = false;
+    let isBullet = false;
+    
+    // Remove markdown headers
+    if (cleanLine.startsWith('**') && cleanLine.endsWith('**')) {
+      cleanLine = cleanLine.slice(2, -2);
+      isHeader = true;
+    } else if (cleanLine.startsWith('# ')) {
+      cleanLine = cleanLine.slice(2);
+      isHeader = true;
+    } else if (cleanLine.startsWith('## ')) {
+      cleanLine = cleanLine.slice(3);
+      isHeader = true;
+    } else if (cleanLine.startsWith('### ')) {
+      cleanLine = cleanLine.slice(4);
+      isHeader = true;
+    }
+    
+    // Handle bullet points
+    if (cleanLine.startsWith('* ') || cleanLine.startsWith('- ')) {
+      cleanLine = cleanLine.slice(2);
+      isBullet = true;
+    }
+    
+    // Remove inline markdown formatting
+    cleanLine = cleanLine.replace(/\*\*(.*?)\*\*/g, '$1'); // Remove bold
+    cleanLine = cleanLine.replace(/\*(.*?)\*/g, '$1'); // Remove italic
+    cleanLine = cleanLine.replace(/`(.*?)`/g, '$1'); // Remove code
+    
+    return {
+      content: cleanLine,
+      isHeader,
+      isBullet
+    };
+  }).filter(line => line.content.length > 0); // Remove empty lines
+};
+
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
   const { user } = useAuthStore();
@@ -2923,9 +2965,24 @@ const ReadingRoom = () => {
                   )}
                   
                   {/* Interpretation text */}
-                  <div className="prose prose-sm prose-invert max-w-none">
-                    {interpretation.split('\n').map((paragraph: string, i: number) => (
-                      <p key={i} className={`${isMobile ? 'mb-1 text-xs' : 'mb-2 md:mb-3 text-sm md:text-base'}`}>{paragraph}</p>
+                  <div className="space-y-2">
+                    {cleanMarkdownText(interpretation).map((line, i: number) => (
+                      <div key={i}>
+                        {line.isHeader ? (
+                          <h4 className={`font-semibold text-primary ${isMobile ? 'text-sm' : 'text-base'} mb-2`}>
+                            {line.content}
+                          </h4>
+                        ) : line.isBullet ? (
+                          <div className={`flex items-start gap-2 ${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground ml-2`}>
+                            <span className="text-primary mt-1">•</span>
+                            <span>{line.content}</span>
+                          </div>
+                        ) : (
+                          <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-foreground leading-relaxed`}>
+                            {line.content}
+                          </p>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
