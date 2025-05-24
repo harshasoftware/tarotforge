@@ -956,11 +956,11 @@ const ReadingRoom = () => {
       }
       
       animationFrameId = requestAnimationFrame(() => {
-        if (isDragging) {
-          setDragPosition({ x: e.clientX, y: e.clientY });
+      if (isDragging) {
+        setDragPosition({ x: e.clientX, y: e.clientY });
         } else if (isPanning && !isDragging) {
-          handlePanMove(e.clientX, e.clientY);
-        }
+        handlePanMove(e.clientX, e.clientY);
+      }
       });
     };
     
@@ -1278,29 +1278,84 @@ const ReadingRoom = () => {
               </div>
             )}
             
-            {/* Desktop session info */}
+            {/* Desktop session info with layout selector */}
             {!isMobile && (
-              <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2 max-w-xs">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-sm font-serif font-bold truncate">Reading Room</h1>
-                  {participants.length > 0 && (
-                    <div 
-                      className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full cursor-pointer"
-                      title={participantNames}
+              <div className="flex items-center gap-2">
+                {/* Layout selector for desktop */}
+                {selectedLayout && (
+                  <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2 relative layout-dropdown-container">
+                    <button
+                      onClick={() => setShowLayoutDropdown(!showLayoutDropdown)}
+                      className="flex items-center gap-2 text-sm font-medium"
                     >
-                      <Users className="h-3 w-3" />
-                      <span className="text-xs">{participants.length}</span>
-                    </div>
-                  )}
-                  {!isHost && (
-                    <span className="text-xs bg-accent px-2 py-0.5 rounded-full">Guest</span>
+                      <span className="truncate max-w-32">{selectedLayout.name}</span>
+                      {readingStep === 'drawing' && (
+                        <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                          {selectedCards.filter(card => card).length}/{selectedLayout.card_count === 999 ? '∞' : selectedLayout.card_count}
+                        </span>
+                      )}
+                      <ChevronRight className={`h-3 w-3 transition-transform ${showLayoutDropdown ? 'rotate-90' : ''}`} />
+                    </button>
+                    
+                    {/* Desktop Layout dropdown */}
+                    <AnimatePresence>
+                      {showLayoutDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto min-w-80"
+                        >
+                          {readingLayouts.map((layout) => (
+                            <button
+                              key={layout.id}
+                              onClick={() => {
+                                handleLayoutSelect(layout);
+                                setShowLayoutDropdown(false);
+                              }}
+                              className={`w-full text-left p-3 hover:bg-muted transition-colors ${
+                                selectedLayout.id === layout.id ? 'bg-primary/10 text-primary' : ''
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm font-medium">{layout.name}</span>
+                                <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
+                                  {layout.card_count === 999 ? 'Free' : `${layout.card_count} cards`}
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{layout.description}</p>
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+                
+                {/* Session info */}
+                <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-sm font-serif font-bold">Reading Room</h1>
+                    {participants.length > 0 && (
+                      <div 
+                        className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full cursor-pointer"
+                        title={participantNames}
+                      >
+                        <Users className="h-3 w-3" />
+                        <span className="text-xs">{participants.length}</span>
+                      </div>
+                    )}
+                    {!isHost && (
+                      <span className="text-xs bg-accent px-2 py-0.5 rounded-full">Guest</span>
+                    )}
+                  </div>
+                  {deck && (
+                    <p className="text-xs text-muted-foreground truncate max-w-48">
+                      {deck.title} by {deck.creator_name}
+                    </p>
                   )}
                 </div>
-                {deck && (
-                  <p className="text-xs text-muted-foreground truncate">
-                    {deck.title} by {deck.creator_name}
-                  </p>
-                )}
               </div>
             )}
           </div>
