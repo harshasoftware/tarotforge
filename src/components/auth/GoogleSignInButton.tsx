@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 
 type GoogleSignInButtonProps = {
   fallbackText?: string;
@@ -11,7 +11,7 @@ type GoogleSignInButtonProps = {
 const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({ 
   fallbackText = "Sign in with Google" 
 }) => {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   
   const handleSignIn = async () => {

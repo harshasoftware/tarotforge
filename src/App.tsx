@@ -1,6 +1,6 @@
 import { useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from './context/AuthContext';
+import { useAuthStore } from './stores/authStore';
 import Layout from './components/layout/Layout';
 import LoadingScreen from './components/ui/LoadingScreen';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -86,15 +86,14 @@ const SentryErrorBoundary = Sentry.withErrorBoundary(ErrorBoundary, {
 });
 
 function App() {
-  const { checkAuth, loading, user } = useAuth();
+  const { checkAuth, loading, user, initializeAuth } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Initial auth check - only run once on component mount
+  // Initialize auth store on component mount
   useEffect(() => {
-    // Run auth check once when the component mounts
-    checkAuth();
-  }, []); // Empty dependency array ensures it only runs once
+    initializeAuth();
+  }, [initializeAuth]);
 
   // Handle auth redirect from URL params for deep linking
   useEffect(() => {

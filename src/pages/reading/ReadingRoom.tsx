@@ -3,14 +3,14 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Download } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
+import { useReadingSessionStore, getIsGuest } from '../../stores/readingSessionStore';
 import { fetchDeckById, fetchCardsByDeckId, fetchUserOwnedDecks } from '../../lib/deck-utils';
 import { getReadingInterpretation } from '../../lib/gemini-ai';
 import VideoChat from '../../components/video/VideoChat';
 import TarotLogo from '../../components/ui/TarotLogo';
 import GuestAccountUpgrade from '../../components/ui/GuestAccountUpgrade';
 import { v4 as uuidv4 } from 'uuid';
-import { useReadingSession } from '../../hooks/useReadingSession';
 import html2canvas from 'html2canvas';
 
 // Mock reading layouts - moved outside component to prevent recreation
@@ -113,7 +113,7 @@ const cardFlipConfig = {
 
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -121,7 +121,7 @@ const ReadingRoom = () => {
   const urlParams = new URLSearchParams(location.search);
   const joinSessionId = urlParams.get('join');
   
-  // Initialize reading session hook
+  // Initialize reading session store
   const {
     sessionState,
     participants,
@@ -130,12 +130,25 @@ const ReadingRoom = () => {
     error: sessionError,
     updateSession,
     upgradeGuestAccount,
-    isGuest,
-    setGuestName
-  } = useReadingSession({
-    initialSessionId: joinSessionId || undefined,
-    deckId: deckId || 'rider-waite-classic'
-  });
+    setGuestName,
+    setInitialSessionId,
+    setDeckId,
+    initializeSession,
+    cleanup
+  } = useReadingSessionStore();
+  
+  // Get isGuest from computed selector
+  const isGuest = getIsGuest();
+  
+  // Initialize session on mount
+  useEffect(() => {
+    setInitialSessionId(joinSessionId);
+    setDeckId(deckId || 'rider-waite-classic');
+    initializeSession();
+    
+    // Cleanup on unmount
+    return cleanup;
+  }, [joinSessionId, deckId, setInitialSessionId, setDeckId, initializeSession, cleanup]);
   
   const [deck, setDeck] = useState<Deck | null>(null);
   const [cards, setCards] = useState<Card[]>([]);

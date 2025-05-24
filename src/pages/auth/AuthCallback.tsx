@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import LoadingScreen from '../../components/ui/LoadingScreen';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { AlertCircle } from 'lucide-react';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
-  const { checkAuth, handleGoogleRedirect } = useAuth();
+  const { checkAuth, handleGoogleRedirect } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
   const [processingStep, setProcessingStep] = useState<string>('Initializing authentication...');
   

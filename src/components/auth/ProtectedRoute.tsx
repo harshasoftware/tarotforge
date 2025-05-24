@@ -1,10 +1,10 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import LoadingScreen from '../ui/LoadingScreen';
 import { useEffect, useState } from 'react';
 
 const ProtectedRoute = () => {
-  const { user, loading } = useAuth();
+  const { user, loading } = useAuthStore();
   const location = useLocation();
   const [waitTimeExceeded, setWaitTimeExceeded] = useState(false);
   
