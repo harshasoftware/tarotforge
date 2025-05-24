@@ -1649,37 +1649,6 @@ const ReadingRoom = () => {
           {/* Step 2: Drawing Cards */}
           {readingStep === 'drawing' && selectedLayout && (
             <div className={`absolute inset-0 flex flex-col ${isMobile ? (isLandscape ? 'pt-8' : 'pt-12') : 'pt-20'}`}>
-              {/* Reading info bar - only show on desktop */}
-              {!isMobile && (
-                <div className="bg-card/80 backdrop-blur-sm border-b border-border p-2 md:p-3 flex justify-between items-center">
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm md:text-base font-medium truncate block">{selectedLayout.name}</span>
-                    {question && (
-                      <span className="text-xs text-muted-foreground italic">"{question}"</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 md:gap-3 ml-2">
-                    <span className="text-xs md:text-sm whitespace-nowrap">
-                      {selectedCards.filter(card => card).length}/{selectedLayout.card_count === 999 ? '∞' : selectedLayout.card_count}
-                    </span>
-                    
-                    <button 
-                      onClick={shuffleDeck}
-                      className="btn btn-ghost p-1 text-sm flex items-center"
-                    >
-                      <Shuffle className="h-4 w-4" />
-                    </button>
-                    
-                    <button 
-                      onClick={resetReading}
-                      className="btn btn-ghost p-1 text-sm flex items-center text-warning"
-                    >
-                      <XCircle className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-              
               {/* Reading table with mobile-friendly zoom controls */}
               <div 
                 className="flex-1 relative" 
