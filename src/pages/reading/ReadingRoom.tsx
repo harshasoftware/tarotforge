@@ -209,6 +209,9 @@ const ReadingRoom = () => {
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const [deckSelectionLoading, setDeckSelectionLoading] = useState(false);
   
+  // Add state to track if we're changing decks mid-session
+  const [isChangingDeckMidSession, setIsChangingDeckMidSession] = useState(false);
+  
   // Memoized computed values to prevent unnecessary recalculations
   const cardCounts = useMemo(() => {
     const placedCards = selectedCards.filter(card => card).length;
@@ -367,28 +370,35 @@ const ReadingRoom = () => {
     }
   }, []);
   
-  // Handle deck change during reading (resets the session)
+  // Handle deck change during reading (preserve session state)
   const handleDeckChange = useCallback(async (deck: Deck) => {
     try {
-      // Reset the entire session when changing decks
-      updateSession({
-        selectedLayout: null,
-        selectedCards: [],
-        readingStep: 'setup',
+      // When changing decks mid-session, preserve current state
+      const preservedState = {
+        selectedLayout,
+        question,
+        readingStep,
+        zoomLevel,
+        // Only reset cards if we're in drawing step
+        selectedCards: readingStep === 'drawing' ? [] : selectedCards,
+        // Reset interpretation if it exists since it's deck-specific
         interpretation: '',
-        activeCardIndex: null,
-        zoomLevel: 1,
-        question: ''
-      });
+        activeCardIndex: null
+      };
+      
+      updateSession(preservedState);
       
       await fetchAndSetDeck(deck.id);
       // Update URL to reflect new deck
       window.history.replaceState({}, '', `/reading-room/${deck.id}`);
+      
+      // Close deck selection and return to current state
+      setIsChangingDeckMidSession(false);
     } catch (error) {
       console.error('Error changing deck:', error);
       setError('Failed to change deck. Please try again.');
     }
-  }, [updateSession]);
+  }, [updateSession, selectedLayout, question, readingStep, zoomLevel, selectedCards]);
   
   // Pinch to Zoom functionality
   const getTouchDistance = (touches: TouchList) => {
@@ -550,8 +560,8 @@ const ReadingRoom = () => {
           throw new Error("No cards found for this deck");
         }
         
-        // Move to setup step if not already in a reading
-        if (!readingStep || readingStep === 'setup') {
+        // Move to setup step if not already in a reading or changing decks mid-session
+        if ((!readingStep || readingStep === 'setup') && !isChangingDeckMidSession) {
           setReadingStepWrapped('setup');
         }
       } else {
@@ -1165,21 +1175,13 @@ const ReadingRoom = () => {
             {deck && (
               <button 
                 onClick={() => {
-                  // Reset to deck selection
+                  // Enter deck change mode while preserving session state
+                  setIsChangingDeckMidSession(true);
                   setDeck(null);
                   setCards([]);
                   setShuffledDeck([]);
                   setSelectedDeckId(null);
-                  updateSession({
-                    selectedLayout: null,
-                    selectedCards: [],
-                    readingStep: 'setup',
-                    interpretation: '',
-                    activeCardIndex: null,
-                    zoomLevel: 1,
-                    question: ''
-                  });
-                  window.history.replaceState({}, '', '/reading-room');
+                  // Don't reset URL or session state
                 }}
                 className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''}`}
                 title="Change deck"
@@ -1239,10 +1241,36 @@ const ReadingRoom = () => {
             <div className={`absolute inset-0 flex items-center justify-center ${mobileLayoutClasses.mainPadding}`}>
               <div className={`w-full ${isMobile ? 'max-w-4xl max-h-full overflow-y-auto' : 'max-w-4xl'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
                 <div className="text-center mb-6">
-                  <h2 className={`${isMobile ? 'text-lg' : 'text-xl md:text-2xl'} font-serif font-bold mb-2`}>Choose Your Deck</h2>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className={`${isMobile ? 'text-lg' : 'text-xl md:text-2xl'} font-serif font-bold`}>
+                      {isChangingDeckMidSession ? 'Change Your Deck' : 'Choose Your Deck'}
+                    </h2>
+                    {isChangingDeckMidSession && (
+                      <button
+                        onClick={() => {
+                          // Cancel deck change and restore previous deck
+                          setIsChangingDeckMidSession(false);
+                          fetchAndSetDeck(deckId || 'rider-waite-classic');
+                        }}
+                        className="btn btn-ghost p-2 text-muted-foreground hover:text-foreground"
+                        title="Cancel deck change"
+                      >
+                        <XCircle className="h-5 w-5" />
+                      </button>
+                    )}
+                  </div>
                   <p className="text-muted-foreground text-sm md:text-base">
-                    Select a tarot deck from your collection to begin your reading
+                    {isChangingDeckMidSession 
+                      ? `Select a different deck to continue your ${selectedLayout?.name || 'reading'}`
+                      : 'Select a tarot deck from your collection to begin your reading'
+                    }
                   </p>
+                  {isChangingDeckMidSession && selectedLayout && (
+                    <div className="mt-2 p-2 bg-muted/30 rounded-lg text-sm">
+                      <span className="text-accent">Current layout:</span> {selectedLayout.name}
+                      {question && <div className="text-xs text-muted-foreground mt-1">"{question}"</div>}
+                    </div>
+                  )}
                 </div>
                 
                 {userOwnedDecks.length === 0 ? (
@@ -1277,7 +1305,7 @@ const ReadingRoom = () => {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.5 }}
                           className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                          onClick={() => handleDeckSelect(ownedDeck)}
+                          onClick={() => isChangingDeckMidSession ? handleDeckChange(ownedDeck) : handleDeckSelect(ownedDeck)}
                         >
                           <div className="aspect-[3/4] bg-primary/10 overflow-hidden">
                             {ownedDeck.cover_image ? (
