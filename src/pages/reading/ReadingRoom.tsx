@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Download } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { fetchDeckById, fetchCardsByDeckId, fetchUserOwnedDecks } from '../../lib/deck-utils';
@@ -11,6 +11,7 @@ import TarotLogo from '../../components/ui/TarotLogo';
 import GuestAccountUpgrade from '../../components/ui/GuestAccountUpgrade';
 import { v4 as uuidv4 } from 'uuid';
 import { useReadingSession } from '../../hooks/useReadingSession';
+import html2canvas from 'html2canvas';
 
 // Mock reading layouts - moved outside component to prevent recreation
 const readingLayouts: ReadingLayout[] = [
@@ -153,6 +154,10 @@ const ReadingRoom = () => {
   // Guest upgrade state
   const [showGuestUpgrade, setShowGuestUpgrade] = useState(false);
   const [hasShownInviteUpgrade, setHasShownInviteUpgrade] = useState(false);
+  
+  // Save functionality state
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   
   // Drag and Drop State
   const [draggedCard, setDraggedCard] = useState<Card | null>(null);
@@ -1022,6 +1027,97 @@ const ReadingRoom = () => {
     }
   };
   
+  // Save reading as image
+  const saveReadingAsImage = async () => {
+    if (!readingAreaRef.current || !selectedLayout || selectedCards.length === 0) {
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      
+      // Hide certain UI elements during capture
+      const controlsToHide = [
+        '.zoom-controls',
+        '.mobile-interpretation-button',
+        '.deck-pile',
+        '.interpretation-button'
+      ];
+      
+      const hiddenElements: HTMLElement[] = [];
+      controlsToHide.forEach(selector => {
+        const elements = readingAreaRef.current?.querySelectorAll(selector);
+        elements?.forEach(element => {
+          const htmlElement = element as HTMLElement;
+          if (htmlElement.style.display !== 'none') {
+            htmlElement.style.display = 'none';
+            hiddenElements.push(htmlElement);
+          }
+        });
+      });
+
+      // Reset zoom and pan for clean screenshot
+      const originalTransform = readingAreaRef.current.style.transform;
+      const readingContent = readingAreaRef.current.querySelector('.reading-content') as HTMLElement;
+      if (readingContent) {
+        readingContent.style.transform = 'scale(1) translate(0px, 0px)';
+        readingContent.style.transformOrigin = 'center center';
+      }
+
+      // Capture the reading area
+      const canvas = await html2canvas(readingAreaRef.current, {
+        backgroundColor: null,
+        scale: 2, // Higher resolution
+        useCORS: true,
+        allowTaint: true,
+        foreignObjectRendering: true,
+        width: readingAreaRef.current.offsetWidth,
+        height: readingAreaRef.current.offsetHeight,
+        onclone: (clonedDoc) => {
+          // Ensure all cards are visible in the clone
+          const clonedCards = clonedDoc.querySelectorAll('[data-card-element="true"]');
+          clonedCards.forEach(card => {
+            (card as HTMLElement).style.opacity = '1';
+            (card as HTMLElement).style.visibility = 'visible';
+          });
+        }
+      });
+
+      // Restore hidden elements
+      hiddenElements.forEach(element => {
+        element.style.display = '';
+      });
+
+      // Restore original transform
+      if (readingContent) {
+        readingContent.style.transform = originalTransform;
+      }
+
+      // Create download link
+      const link = document.createElement('a');
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+      const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
+      link.download = `tarot-reading-${selectedLayout.name.toLowerCase().replace(/\s+/g, '-')}-${dateStr}-${timeStr}.png`;
+      link.href = canvas.toDataURL('image/png', 1.0);
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Show success feedback
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+
+    } catch (error) {
+      console.error('Error saving reading as image:', error);
+      // Could add error toast here
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -1226,10 +1322,18 @@ const ReadingRoom = () => {
             </button>
 
             <button 
-              className={`btn btn-primary bg-primary/80 backdrop-blur-sm border border-primary ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
-              title="Save reading"
+              onClick={() => saveReadingAsImage()}
+              className={`btn ${saveSuccess ? 'btn-success' : 'btn-primary'} bg-primary/80 backdrop-blur-sm border border-primary ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
+              disabled={isSaving || !selectedLayout || selectedCards.length === 0}
+              title={selectedCards.length === 0 ? "Add cards to save reading" : "Save reading as image"}
             >
-              <Save className="h-4 w-4" />
+              {isSaving ? (
+                <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
+              ) : saveSuccess ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
             </button>
           </div>
         </div>
@@ -1494,24 +1598,16 @@ const ReadingRoom = () => {
                 }}
               >
                 {/* Zoom controls with shuffle button - repositioned for mobile */}
-                <div className={`absolute ${isMobile ? (isLandscape ? 'top-10 left-1/2 transform -translate-x-1/2 flex-row' : 'top-16 left-1/2 transform -translate-x-1/2 flex-row') : 'top-4 left-4 flex-col'} flex gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
-                  <button onClick={zoomOut} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom Out">
-                    <ZoomOut className="h-4 w-4 md:h-5 md:w-5" />
+                <div className={`zoom-controls absolute ${isMobile ? (isLandscape ? 'top-10 left-1/2 transform -translate-x-1/2 flex-row' : 'top-16 left-1/2 transform -translate-x-1/2 flex-row') : 'top-4 left-4 flex-col'} flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
+                  <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm" title="Zoom Out">
+                    <ZoomOut className="h-4 w-4" />
                   </button>
-                  <button onClick={resetZoom} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Reset Zoom">
-                    <RotateCcw className="h-4 w-4 md:h-5 md:w-5" />
+                  <button onClick={resetZoom} className="p-1 hover:bg-muted rounded-sm" title="Reset Zoom">
+                    <RotateCcw className="h-4 w-4" />
                   </button>
-                  <button onClick={zoomIn} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Zoom In">
-                    <ZoomIn className="h-4 w-4 md:h-5 md:w-5" />
+                  <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm" title="Zoom In">
+                    <ZoomIn className="h-4 w-4" />
                   </button>
-                  <button onClick={shuffleDeck} className="p-1.5 md:p-1 hover:bg-muted rounded-sm" title="Shuffle Deck">
-                    <Shuffle className="h-4 w-4 md:h-5 md:w-5" />
-                  </button>
-                  {isMobile && (
-                    <button onClick={showHint} className="p-1.5 hover:bg-muted rounded-sm" title="Show Help">
-                      <HelpCircle className="h-4 w-4" />
-                    </button>
-                  )}
                 </div>
                 
                 {/* Animated pinch zoom hint for mobile */}
@@ -1539,7 +1635,7 @@ const ReadingRoom = () => {
               
                 {/* Layout visualization with mobile-responsive card sizes */}
                 <div 
-                  className="absolute inset-0 transition-transform duration-300 ease-in-out"
+                  className="reading-content absolute inset-0 transition-transform duration-300 ease-in-out"
                   style={getTransform(zoomLevel, zoomFocus, panOffset)}
                 >
                   {/* Free layout cards */}
@@ -1550,6 +1646,7 @@ const ReadingRoom = () => {
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ duration: 0.5 }}
                       className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-move"
+                      data-card-element="true"
                       style={{ 
                         left: `${selectedCard.x}%`, 
                         top: `${selectedCard.y}%`,
@@ -1677,6 +1774,7 @@ const ReadingRoom = () => {
                             }}
                             transition={cardAnimationConfig}
                             className="relative"
+                            data-card-element="true"
                             onClick={() => {
                               if ((selectedCard as any).revealed) {
                                 setActiveCardIndexWrapped(index);
@@ -1745,7 +1843,7 @@ const ReadingRoom = () => {
                 
                 {/* Deck pile - show cards that can be dragged */}
                 {shuffledDeck.length > 0 && (
-                  <div className={`absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2' : 'bottom-8 left-1/2 transform -translate-x-1/2'} z-20`}>
+                  <div className={`deck-pile absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2' : 'bottom-8 left-1/2 transform -translate-x-1/2'} z-20`}>
                     {isMobile ? (
                       /* Mobile: Full deck with horizontal panning - all 78 cards */
                       <div className="relative w-screen h-24 overflow-x-auto">
@@ -1914,7 +2012,7 @@ const ReadingRoom = () => {
                 
                 {/* Generate interpretation button for free layout */}
                 {selectedLayout?.id === 'free-layout' && selectedCards.length > 0 && !isGeneratingInterpretation && readingStep === 'drawing' && (
-                  <div className={`absolute ${isMobile ? 'bottom-4 right-4' : 'bottom-8 right-8'}`}>
+                  <div className={`interpretation-button absolute ${isMobile ? 'bottom-4 right-4' : 'bottom-8 right-8'}`}>
                     <button 
                       onClick={() => generateInterpretation()}
                       className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm"
@@ -1928,7 +2026,7 @@ const ReadingRoom = () => {
                 
                 {/* All cards placed - show interpretation button (predefined layouts) */}
                 {selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count && !isGeneratingInterpretation && readingStep === 'drawing' && (
-                  <div className={`absolute ${isMobile ? 'bottom-4 right-4' : 'bottom-8 right-8'}`}>
+                  <div className={`interpretation-button absolute ${isMobile ? 'bottom-4 right-4' : 'bottom-8 right-8'}`}>
                     <button 
                       onClick={() => generateInterpretation()}
                       className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm"
@@ -1987,6 +2085,7 @@ const ReadingRoom = () => {
                       }}
                       transition={cardAnimationConfig}
                       className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-move"
+                      data-card-element="true"
                       style={{ 
                         left: `${selectedCard.x}%`, 
                         top: `${selectedCard.y}%`,
@@ -2067,6 +2166,7 @@ const ReadingRoom = () => {
                       >
                         <motion.div
                           className="relative"
+                          data-card-element="true"
                           onClick={() => {
                             if ((selectedCard as any).revealed) {
                               setActiveCardIndexWrapped(index);
