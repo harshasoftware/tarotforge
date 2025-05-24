@@ -1450,7 +1450,7 @@ const ReadingRoom = () => {
         <div className="h-full relative bg-gradient-to-b from-background to-background/80">
           {/* Step 0: Deck Selection Screen */}
           {!deck && !deckSelectionLoading && (
-            <div className={`absolute inset-0 z-50 bg-black/50 flex items-center justify-center ${mobileLayoutClasses.mainPadding}`}>
+            <div className={`absolute inset-0 z-60 bg-black/50 flex items-center justify-center ${mobileLayoutClasses.mainPadding}`}>
               <div className={`w-full ${isMobile ? 'max-w-4xl max-h-full overflow-y-auto' : 'max-w-4xl'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
                 <div className="text-center mb-6">
                   <div className="flex items-center justify-between mb-4">
@@ -1574,7 +1574,7 @@ const ReadingRoom = () => {
           
           {/* Deck selection loading */}
           {deckSelectionLoading && (
-            <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center">
+            <div className="absolute inset-0 z-60 bg-black/50 flex items-center justify-center">
               <div className="text-center bg-card p-6 rounded-xl shadow-lg">
                 <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                 <p className="text-muted-foreground">
