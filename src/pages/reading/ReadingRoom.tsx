@@ -61,6 +61,47 @@ const readingLayouts: ReadingLayout[] = [
   }
 ];
 
+// Optimized debounce utility for performance
+const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): T => {
+  let timeout: NodeJS.Timeout;
+  return ((...args: any[]) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  }) as T;
+};
+
+// Performance-optimized transform utility
+const getTransform = (zoomLevel: number, zoomFocus: { x: number; y: number } | null, panOffset: { x: number; y: number }) => {
+  const transform = zoomFocus 
+    ? `scale(${zoomLevel}) translate(${50 - zoomFocus.x}%, ${50 - zoomFocus.y}%) translate(${panOffset.x}px, ${panOffset.y}px)`
+    : `scale(${zoomLevel}) translate(${panOffset.x}px, ${panOffset.y}px)`;
+  
+  return {
+    transform,
+    transformOrigin: zoomFocus ? `${zoomFocus.x}% ${zoomFocus.y}%` : 'center center',
+    willChange: 'transform', // Optimize for transforms
+  };
+};
+
+// Performance-optimized animation configs
+const cardAnimationConfig = {
+  type: "tween",
+  duration: 0.3,
+  ease: "easeOut"
+};
+
+const zoomAnimationConfig = {
+  type: "tween", 
+  duration: 0.2,
+  ease: "easeInOut"
+};
+
+const cardFlipConfig = {
+  type: "tween",
+  duration: 0.6, 
+  ease: "easeInOut"
+};
+
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
   const { user } = useAuth();
@@ -360,6 +401,33 @@ const ReadingRoom = () => {
     );
   };
   
+  // Debounced pan and zoom handlers for better performance
+  const debouncedPanMove = useMemo(
+    () => debounce((clientX: number, clientY: number) => {
+      if (!isPanning || zoomLevel <= 1) return;
+      
+      const deltaX = clientX - panStartPos.x;
+      const deltaY = clientY - panStartPos.y;
+      
+      // Apply sensitivity and constraints
+      const sensitivity = 1;
+      const maxPan = 200; // Maximum pan distance in pixels
+      
+      const newPanX = Math.max(-maxPan, Math.min(maxPan, panStartOffset.x + deltaX * sensitivity));
+      const newPanY = Math.max(-maxPan, Math.min(maxPan, panStartOffset.y + deltaY * sensitivity));
+      
+      setPanOffset({ x: newPanX, y: newPanY });
+    }, 16), // ~60fps
+    [isPanning, zoomLevel, panStartPos.x, panStartPos.y, panStartOffset.x, panStartOffset.y]
+  );
+  
+  const debouncedZoomUpdate = useMemo(
+    () => debounce((scale: number) => {
+      setZoomLevelWrapped(Math.max(0.5, Math.min(2, scale)));
+    }, 16), // ~60fps
+    [setZoomLevelWrapped]
+  );
+  
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (e.touches.length === 2) {
       // Two fingers - pinch to zoom
@@ -380,17 +448,17 @@ const ReadingRoom = () => {
       const scale = currentDistance / lastTouchDistance;
       
       if (Math.abs(scale - 1) > 0.02) { // Threshold to prevent jittery zooming
-        setZoomLevelWrapped(Math.max(0.5, Math.min(2, zoomLevel * scale)));
+        debouncedZoomUpdate(zoomLevel * scale);
         setLastTouchDistance(currentDistance);
       }
       e.preventDefault();
     } else if (isPanning && e.touches.length === 1) {
-      // One finger - continue panning
+      // One finger - continue panning with debouncing
       const touch = e.touches[0];
-      handlePanMove(touch.clientX, touch.clientY);
+      debouncedPanMove(touch.clientX, touch.clientY);
       e.preventDefault();
     }
-  }, [isZooming, isPanning, lastTouchDistance, zoomLevel, setZoomLevelWrapped]);
+  }, [isZooming, isPanning, lastTouchDistance, zoomLevel, debouncedZoomUpdate, debouncedPanMove]);
   
   const handleTouchEnd = useCallback((e: TouchEvent) => {
     if (e.touches.length < 2) {
@@ -1444,14 +1512,7 @@ const ReadingRoom = () => {
                 {/* Layout visualization with mobile-responsive card sizes */}
                 <div 
                   className="absolute inset-0 transition-transform duration-300 ease-in-out"
-                  style={{
-                    transform: zoomFocus 
-                      ? `scale(${zoomLevel}) translate(${50 - zoomFocus.x}%, ${50 - zoomFocus.y}%) translate(${panOffset.x}px, ${panOffset.y}px)`
-                      : `scale(${zoomLevel}) translate(${panOffset.x}px, ${panOffset.y}px)`,
-                    transformOrigin: zoomFocus ? `${zoomFocus.x}% ${zoomFocus.y}%` : 'center center',
-                    height: '100%',
-                    width: '100%'
-                  }}
+                  style={getTransform(zoomLevel, zoomFocus, panOffset)}
                 >
                   {/* Free layout cards */}
                   {selectedLayout?.id === 'free-layout' && selectedCards.map((selectedCard: any, index: number) => (
@@ -1496,10 +1557,7 @@ const ReadingRoom = () => {
                         animate={{ 
                           rotateY: (selectedCard as any).revealed ? 0 : 180 
                         }}
-                        transition={{ 
-                          duration: 0.6, 
-                          ease: "easeInOut" 
-                        }}
+                        transition={cardAnimationConfig}
                       >
                         {(selectedCard as any).revealed ? (
                           <img 
@@ -1589,7 +1647,7 @@ const ReadingRoom = () => {
                               opacity: 1, 
                               scale: activeCardIndex === index ? 1.1 : 1 
                             }}
-                            transition={{ duration: 0.5 }}
+                            transition={cardAnimationConfig}
                             className="relative"
                             onClick={() => {
                               if ((selectedCard as any).revealed) {
@@ -1611,10 +1669,7 @@ const ReadingRoom = () => {
                               animate={{ 
                                 rotateY: (selectedCard as any).revealed ? 0 : 180 
                               }}
-                              transition={{ 
-                                duration: 0.6, 
-                                ease: "easeInOut" 
-                              }}
+                              transition={cardAnimationConfig}
                             >
                               {(selectedCard as any).revealed ? (
                                 <img 
@@ -1891,19 +1946,18 @@ const ReadingRoom = () => {
                 {/* Card layout with zoom applied */}
                 <div 
                   className="absolute inset-0 transition-transform duration-300 ease-in-out"
-                  style={{
-                    transform: zoomFocus 
-                      ? `scale(${zoomLevel}) translate(${50 - zoomFocus.x}%, ${50 - zoomFocus.y}%) translate(${panOffset.x}px, ${panOffset.y}px)`
-                      : `scale(${zoomLevel}) translate(${panOffset.x}px, ${panOffset.y}px)`,
-                    transformOrigin: zoomFocus ? `${zoomFocus.x}% ${zoomFocus.y}%` : 'center center',
-                    height: '100%',
-                    width: '100%'
-                  }}
+                  style={getTransform(zoomLevel, zoomFocus, panOffset)}
                 >
                   {/* Free layout cards in interpretation */}
                   {selectedLayout?.id === 'free-layout' && selectedCards.map((selectedCard: any, index: number) => (
                     <motion.div
                       key={`free-interp-${index}`}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ 
+                        opacity: 1, 
+                        scale: activeCardIndex === index ? 1.1 : 1 
+                      }}
+                      transition={cardAnimationConfig}
                       className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-move"
                       style={{ 
                         left: `${selectedCard.x}%`, 
@@ -1916,7 +1970,6 @@ const ReadingRoom = () => {
                       onDrag={(event, info) => handlePlacedCardDrag(index, event, info)}
                       whileHover={{ scale: 1.05 }}
                       whileDrag={{ scale: 1.1, zIndex: 50 }}
-                      animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
                       onClick={() => {
                         if (!(selectedCard as any).revealed) {
                           handleCardFlip(index);
@@ -1941,10 +1994,7 @@ const ReadingRoom = () => {
                         animate={{ 
                           rotateY: (selectedCard as any).revealed ? 0 : 180 
                         }}
-                        transition={{ 
-                          duration: 0.6, 
-                          ease: "easeInOut" 
-                        }}
+                        transition={cardAnimationConfig}
                       >
                         {(selectedCard as any).revealed ? (
                           <img 
@@ -2010,10 +2060,7 @@ const ReadingRoom = () => {
                             animate={{ 
                               rotateY: (selectedCard as any).revealed ? 0 : 180 
                             }}
-                            transition={{ 
-                              duration: 0.6, 
-                              ease: "easeInOut" 
-                            }}
+                            transition={cardAnimationConfig}
                           >
                             {(selectedCard as any).revealed ? (
                               <img 

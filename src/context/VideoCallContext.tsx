@@ -375,19 +375,30 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Request both audio and video permissions explicitly
   const requestMediaPermissions = useCallback(async (): Promise<{ stream: MediaStream | null, audioOnly: boolean }> => {
     try {
+      // Define optimized video constraints for performance
+      const videoConstraints = {
+        width: { ideal: 640, max: 1280 },
+        height: { ideal: 480, max: 720 },
+        frameRate: { ideal: 15, max: 30 }
+      };
+      
       // First try to get audio only - this is most important for a call
       console.log('Requesting audio permissions first...');
       const audioStream = await navigator.mediaDevices.getUserMedia({ 
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
         video: false
       });
       
       console.log('Audio permissions granted, now trying video...');
       
-      // Now try to get video
+      // Now try to get video with optimized quality
       try {
         const videoStream = await navigator.mediaDevices.getUserMedia({ 
-          video: true,
+          video: videoConstraints,
           audio: false
         });
         
@@ -396,7 +407,7 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           audioStream.addTrack(track);
         });
         
-        console.log('Successfully obtained both audio and video permissions');
+        console.log('Successfully obtained both audio and video permissions with optimized quality');
         return { stream: audioStream, audioOnly: false };
       } catch (videoErr) {
         console.warn('Could not get video permissions, continuing with audio only:', videoErr);
@@ -416,7 +427,11 @@ export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         console.log('Falling back to audio-only...');
         const audioStream = await navigator.mediaDevices.getUserMedia({ 
           video: false, 
-          audio: true 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
         });
         
         console.log('Successfully got audio-only permissions');
