@@ -1639,7 +1639,7 @@ const ReadingRoom = () => {
                     </div>
                   )}
                 </div>
-
+                
                 {/* Tab Navigation */}
                 <div className="flex flex-col sm:flex-row gap-1 mb-6 bg-muted/30 p-1 rounded-lg">
                   <button
@@ -1679,66 +1679,66 @@ const ReadingRoom = () => {
                   {/* My Collection Tab */}
                   {deckSelectionTab === 'collection' && (
                     <div>
-                      {userOwnedDecks.length === 0 ? (
+                {userOwnedDecks.length === 0 ? (
                         <div className="text-center py-12">
-                          <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                    <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                           <h3 className="text-lg font-medium mb-2">No Decks in Collection</h3>
                           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                             You don't have any decks in your collection yet. Browse the marketplace or create your own deck to get started.
-                          </p>
-                          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
                             <button
                               onClick={() => setDeckSelectionTab('marketplace')}
                               className="btn btn-primary px-6 py-2 flex items-center gap-2"
                             >
                               <ShoppingBag className="h-4 w-4" />
-                              Browse Marketplace
+                        Browse Marketplace
                             </button>
                             <Link to="/" className="btn btn-secondary px-6 py-2 flex items-center gap-2">
                               <Plus className="h-4 w-4" />
                               Create Your Own
-                            </Link>
-                          </div>
-                        </div>
-                      ) : (
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                          {userOwnedDecks.map((ownedDeck) => (
-                            <motion.div
-                              key={ownedDeck.id}
-                              initial={{ opacity: 0, y: 20 }}
-                              animate={{ opacity: 1, y: 0 }}
+                      {userOwnedDecks.map((ownedDeck) => (
+                        <motion.div
+                          key={ownedDeck.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
                               transition={{ duration: 0.3 }}
                               className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg hover:border-primary/50 transition-all duration-200 cursor-pointer group"
-                              onClick={() => isChangingDeckMidSession ? handleDeckChange(ownedDeck) : handleDeckSelect(ownedDeck)}
-                            >
+                          onClick={() => isChangingDeckMidSession ? handleDeckChange(ownedDeck) : handleDeckSelect(ownedDeck)}
+                        >
                               <div className="aspect-[3/4] bg-primary/10 overflow-hidden relative">
-                                {ownedDeck.cover_image ? (
-                                  <img 
-                                    src={ownedDeck.cover_image} 
-                                    alt={ownedDeck.title}
+                            {ownedDeck.cover_image ? (
+                              <img 
+                                src={ownedDeck.cover_image} 
+                                alt={ownedDeck.title}
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center">
-                                    <TarotLogo className="h-12 w-12 text-primary/50" />
-                                  </div>
-                                )}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <TarotLogo className="h-12 w-12 text-primary/50" />
+                              </div>
+                            )}
                                 {ownedDeck.is_free && (
                                   <div className="absolute top-2 right-2 bg-primary/90 text-primary-foreground px-2 py-1 rounded-full text-xs font-medium">
                                     Free
                                   </div>
                                 )}
-                              </div>
-                              <div className="p-3">
+                          </div>
+                          <div className="p-3">
                                 <h3 className="font-medium text-sm mb-1 truncate group-hover:text-primary transition-colors">
                                   {ownedDeck.title}
                                 </h3>
-                                <p className="text-xs text-muted-foreground mb-2">by {ownedDeck.creator_name}</p>
-                                <p className="text-xs text-muted-foreground line-clamp-2">{ownedDeck.description}</p>
-                              </div>
-                            </motion.div>
-                          ))}
-                        </div>
+                            <p className="text-xs text-muted-foreground mb-2">by {ownedDeck.creator_name}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{ownedDeck.description}</p>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
                       )}
                     </div>
                   )}
@@ -1758,7 +1758,7 @@ const ReadingRoom = () => {
                           <p className="text-muted-foreground mb-6">
                             No decks available in the marketplace at the moment.
                           </p>
-                        </div>
+                      </div>
                       ) : selectedMarketplaceDeck ? (
                         /* Deck Details View */
                         <div className="space-y-6">
@@ -1771,7 +1771,7 @@ const ReadingRoom = () => {
                               <ArrowLeft className="h-4 w-4" />
                             </button>
                             <h3 className="text-lg font-medium">Deck Details</h3>
-                          </div>
+                    </div>
 
                           {/* Deck detailed information */}
                           <div className="bg-muted/30 rounded-lg p-4 space-y-4">
