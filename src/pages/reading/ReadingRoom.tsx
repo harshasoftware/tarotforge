@@ -2820,7 +2820,16 @@ const ReadingRoom = () => {
                 
                 {/* Reading controls */}
                 <div className={`absolute ${isMobile ? 'top-2 right-2' : 'bottom-6 right-6'} flex gap-1 md:gap-3`}>
-                  {isMobile && !isLandscape && (
+                  {isMobile && !isLandscape && !showMobileInterpretation && (
+                    <button 
+                      onClick={() => setShowMobileInterpretation(true)}
+                      className="btn btn-primary px-2 py-1 text-xs mobile-interpretation-button"
+                      title="View interpretation"
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                  )}
+                  {isMobile && !isLandscape && showMobileInterpretation && (
                     <button 
                       onClick={() => setShowMobileInterpretation(false)}
                       className="text-muted-foreground hover:text-foreground"
