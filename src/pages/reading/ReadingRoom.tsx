@@ -300,8 +300,20 @@ const ReadingRoom = () => {
         
         // Also set CSS custom property for other components
         document.documentElement.style.setProperty('--vh', `${vh * 0.01}px`);
+        
+        // Prevent scrolling on mobile
+        document.body.style.overflow = 'hidden';
+        document.body.style.position = 'fixed';
+        document.body.style.width = '100%';
+        document.body.style.height = '100%';
       } else {
         setViewportHeight(0); // Reset for desktop
+        
+        // Re-enable scrolling on desktop
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+        document.body.style.height = '';
       }
     };
     
@@ -315,6 +327,12 @@ const ReadingRoom = () => {
     return () => {
       window.removeEventListener('resize', checkMobileAndOrientation);
       window.removeEventListener('orientationchange', checkMobileAndOrientation);
+      
+      // Cleanup: restore normal scrolling when component unmounts
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
     };
   }, []);
 
@@ -1384,7 +1402,7 @@ const ReadingRoom = () => {
   
   return (
     <div 
-      className={`flex flex-col overflow-hidden ${!isMobile ? 'h-screen' : ''}`}
+      className={`flex flex-col ${!isMobile ? 'h-screen overflow-hidden' : 'overflow-hidden'}`}
       style={isMobile ? { 
         height: viewportHeight > 0 ? `${viewportHeight}px` : '100vh',
         minHeight: '100vh' 
