@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ShoppingCart, Bookmark, Share2, Star, Download, Eye, Users, Calendar, Shield, Info, User, BookOpen, Zap, Video } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { Deck, Card } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { fetchDeckById, fetchCardsByDeckId } from '../../lib/deck-utils';
@@ -11,7 +11,7 @@ import TarotLogo from '../../components/ui/TarotLogo';
 
 const DeckDetails = () => {
   const { deckId } = useParams<{ deckId: string }>();
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
   

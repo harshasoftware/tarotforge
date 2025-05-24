@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { Award, Calendar, Clock, MessageSquare, UserCheck, Users, BarChart4, BookOpen, ChevronRight, Star, ArrowUp, Sparkles, Flame, Heart, Crown, Sun, DollarSign, Edit, Save, XCircle } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { getReaderDetails, getReaderReviews } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
 import { ReaderLevel, User, ReaderReview } from '../../types';
@@ -16,7 +16,7 @@ interface RateSettingFormData {
 }
 
 const ReaderDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(true);

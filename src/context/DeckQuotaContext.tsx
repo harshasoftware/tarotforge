@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth } from './AuthContext';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useAuthStore } from '../stores/authStore';
 import { useSubscription } from './SubscriptionContext';
 import { supabase } from '../lib/supabase';
 import { STRIPE_PRODUCTS } from '../lib/stripe-config';
@@ -56,7 +56,7 @@ const DeckQuotaContext = createContext<DeckQuotaContextType>({
 export const useDeckQuotas = () => useContext(DeckQuotaContext);
 
 export const DeckQuotaProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const { subscription, isSubscribed } = useSubscription();
   const [quotas, setQuotas] = useState<DeckQuotaInfo | null>(null);
   const [loading, setLoading] = useState(true);

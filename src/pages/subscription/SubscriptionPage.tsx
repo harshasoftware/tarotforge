@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Sparkles, Shield, Zap, ArrowLeft, Loader, CreditCard, Check, AlertCircle, Clock, ChevronsUpDown, TrendingUp } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { STRIPE_PRODUCTS, StripeProduct } from '../../lib/stripe-config';
 import { createCheckoutSession } from '../../lib/stripe';
 import TarotLogo from '../../components/ui/TarotLogo';
 
 const SubscriptionPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const { subscription, isSubscribed, loading: subscriptionLoading } = useSubscription();
   const location = useLocation();
   const navigate = useNavigate();

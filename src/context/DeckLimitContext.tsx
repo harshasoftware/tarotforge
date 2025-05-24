@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth } from './AuthContext';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useAuthStore } from '../stores/authStore';
 import { useSubscription } from './SubscriptionContext';
 import { supabase } from '../lib/supabase';
 import { getDeckGenerationStatus } from '../lib/deck-usage';
@@ -43,7 +43,7 @@ const DeckLimitContext = createContext<DeckLimitContextType>({
 export const useDeckLimits = () => useContext(DeckLimitContext);
 
 export const DeckLimitProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const { subscription, isSubscribed } = useSubscription();
   
   const [limits, setLimits] = useState<DeckLimitContextType['limits']>(null);

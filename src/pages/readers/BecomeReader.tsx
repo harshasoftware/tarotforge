@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Award, BookOpen, Check, ChevronRight, Clock, Crown, Shield, Sparkles, UserCheck, AlertTriangle, Info, ArrowRight, Sun, Heart, Flame } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { checkQuizEligibility, getUserQuizAttempts, fetchReaderLevels } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
 import { ReaderLevel } from '../../types';
 
 const BecomeReader = () => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(true);

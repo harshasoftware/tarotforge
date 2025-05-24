@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../context/AuthContext';
+import { useAuthStore } from '../stores/authStore';
 import { ReadingLayout, Card } from '../types';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
@@ -37,7 +37,7 @@ interface UseReadingSessionProps {
 }
 
 export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessionProps) => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const [sessionState, setSessionState] = useState<ReadingSessionState | null>(null);
   const [participants, setParticipants] = useState<SessionParticipant[]>([]);
   const [isHost, setIsHost] = useState(false);

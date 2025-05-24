@@ -1,16 +1,16 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
-import { Mail, AlertCircle, ArrowRight, Check } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { Mail, AlertCircle, ArrowRight, Check, Eye, EyeOff } from 'lucide-react';
+import { useAuthStore } from '../../stores/authStore';
 
 interface LoginFormData {
   email: string;
 }
 
 const Login = () => {
-  const { signIn, signInWithGoogle, magicLinkSent, setMagicLinkSent, user } = useAuth();
+  const { signIn, signInWithGoogle, magicLinkSent, setMagicLinkSent, user } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
   

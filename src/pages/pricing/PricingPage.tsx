@@ -1,13 +1,14 @@
+import React from 'react';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Sparkles, Shield, Zap, ArrowRight, Check, CreditCard, TrendingUp, Star, Crown, Flame } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { Sparkles, Shield, Zap, ArrowRight, Check, CreditCard, TrendingUp, Star, Crown, Flame, Users, Heart } from 'lucide-react';
+import { useAuthStore } from '../../stores/authStore';
 import { STRIPE_PRODUCTS } from '../../lib/stripe-config';
 import TarotLogo from '../../components/ui/TarotLogo';
 
 const PricingPage = () => {
-  const { user, setShowSignInModal } = useAuth();
+  const { user, setShowSignInModal } = useAuthStore();
   const navigate = useNavigate();
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
 

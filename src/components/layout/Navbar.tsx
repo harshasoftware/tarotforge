@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Menu, X, Moon, Sun, User, UserCheck, Crown, WalletCards } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../context/SubscriptionContext';
 import SignInModal from '../auth/SignInModal';
 import TarotLogo from '../ui/TarotLogo';
@@ -14,7 +14,7 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const { user, signOut, showSignInModal, setShowSignInModal } = useAuth();
+  const { user, signOut, showSignInModal, setShowSignInModal } = useAuthStore();
   const { isSubscribed } = useSubscription();
   const location = useLocation();
   const isMobile = useMediaQuery('(max-width: 767px)');

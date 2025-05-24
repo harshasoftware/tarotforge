@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth } from './AuthContext';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useAuthStore } from '../stores/authStore';
 import { getUserSubscription } from '../lib/stripe';
 import { updateSubscriptionData } from '../utils/analytics';
 import { getPlanNameFromPriceId } from '../utils/analytics';
@@ -23,7 +23,7 @@ const SubscriptionContext = createContext<SubscriptionContextType>({
 export const useSubscription = () => useContext(SubscriptionContext);
 
 export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const [subscription, setSubscription] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

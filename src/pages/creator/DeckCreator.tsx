@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Wand2, Sparkles, Save, ArrowRight, AlertCircle, Check, Crown, TrendingUp } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useDeckQuotas } from '../../context/DeckQuotaContext';
 import { useDeckLimits } from '../../context/DeckLimitContext';
@@ -31,7 +31,7 @@ const minorArcanaValues = [
 ];
 
 const DeckCreator: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const { isSubscribed } = useSubscription();
   const location = useLocation();
   const { quotas, refreshQuotas } = useDeckQuotas(); 

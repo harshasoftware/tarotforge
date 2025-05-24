@@ -1,17 +1,17 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Plus, ShoppingBag, Filter, Package, Zap, Edit, Trash2, Eye, EyeOff, DollarSign } from 'lucide-react';
+import { BookOpen, Plus, Search, Filter, Grid, List, Star, Share2, Trash2, Eye, Calendar, Package, ShoppingBag, AlertCircle, Zap, Edit, DollarSign } from 'lucide-react';
 import DeckPreview from '../../components/ui/DeckPreview';
 import { Deck } from '../../types';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { deleteDeckImages } from '../../lib/storage-utils';
 import { fetchFreeDecks, fetchUserCreatedDecks } from '../../lib/deck-utils';
 import { riderWaiteDeck } from '../data/riderWaiteDeck';
 
 const Collection = () => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
   
   const [activeTab, setActiveTab] = useState<'owned' | 'created' | 'free'>('owned');

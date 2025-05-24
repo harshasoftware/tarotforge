@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { UserPlus, Mail, X, Sparkles, AlertCircle, Check, User, ArrowRight } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { useForm } from 'react-hook-form';
 
 interface GuestAccountUpgradeProps {
@@ -33,7 +33,7 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
     hasOnGuestNameSet: !!onGuestNameSet
   });
 
-  const { signIn, signUp, signInWithGoogle, magicLinkSent, setMagicLinkSent } = useAuth();
+  const { signIn, signUp, signInWithGoogle, magicLinkSent, setMagicLinkSent } = useAuthStore();
   const [isSignUp, setIsSignUp] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);

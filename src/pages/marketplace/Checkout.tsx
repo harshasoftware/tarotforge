@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, CreditCard, Check, AlertCircle } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { Deck } from '../../types';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
@@ -13,7 +13,7 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
 
 const Checkout = () => {
   const { deckId } = useParams<{ deckId: string }>();
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
   
   const [deck, setDeck] = useState<Deck | null>(null);

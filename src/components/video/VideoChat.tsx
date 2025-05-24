@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useVideoCall } from '../../context/VideoCallContext';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { User, Video, X, Phone, Mic, MicOff, VideoOff, Copy, Check, AlertCircle, Share2, Settings, PhoneOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import VideoControls from './VideoControls';
@@ -12,7 +12,7 @@ interface VideoChatProps {
 }
 
 const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const { 
     localStream, 
     remoteStream, 

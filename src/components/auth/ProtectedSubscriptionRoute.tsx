@@ -1,12 +1,12 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useDeckQuotas } from '../../context/DeckQuotaContext';
 import LoadingScreen from '../ui/LoadingScreen';
 import SubscriptionRequired from './SubscriptionRequired';
 
 const ProtectedSubscriptionRoute = () => {
-  const { user, loading } = useAuth();
+  const { user, loading } = useAuthStore();
   const { isSubscribed, loading: subscriptionLoading } = useSubscription();
   const { quotas, loading: quotasLoading } = useDeckQuotas();
   const location = useLocation();

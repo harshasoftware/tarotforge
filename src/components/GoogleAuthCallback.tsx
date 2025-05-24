@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuthStore } from '../stores/authStore';
 import LoadingScreen from './ui/LoadingScreen';
 
 const GoogleAuthCallback: React.FC = () => {
-  const { handleGoogleRedirect } = useAuth();
+  const { handleGoogleRedirect } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 

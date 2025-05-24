@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Search, UserCheck, Users, Filter, Clock, CrownIcon, Star, Flame, Sparkles, Heart, Sun, SortAsc, SortDesc, DollarSign, Loader } from 'lucide-react';
 import ReaderCard from '../../components/readers/ReaderCard';
 import { User } from '../../types';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { fetchAllReaders } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
 
@@ -12,7 +12,7 @@ import TarotLogo from '../../components/ui/TarotLogo';
 type SortOption = 'level-asc' | 'level-desc' | 'price-asc' | 'price-desc' | 'none';
 
 const ReadersPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const [readers, setReaders] = useState<User[]>([]);
   const [filteredReaders, setFilteredReaders] = useState<User[]>([]);
   const [displayedReaders, setDisplayedReaders] = useState<User[]>([]);

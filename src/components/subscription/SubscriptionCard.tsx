@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Check, Zap, Star, Crown, Shield, Clock, TrendingUp, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { StripeProduct } from '../../lib/stripe-config';
 import { createCheckoutSession } from '../../lib/stripe';
 
@@ -14,7 +14,7 @@ interface SubscriptionCardProps {
 
 const SubscriptionCard: React.FC<SubscriptionCardProps> = ({ product, isActive = false, billingInterval = 'month' }) => {
   const navigate = useNavigate();
-  const { user, setShowSignInModal } = useAuth();
+  const { user, setShowSignInModal } = useAuthStore();
   const [isLoading, setIsLoading] = React.useState(false);
 
   // Calculate monthly equivalent price for yearly plans

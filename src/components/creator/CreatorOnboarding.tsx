@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { Wand2, Crown, Check, ArrowRight, TrendingUp } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../context/SubscriptionContext';
 import TarotLogo from '../ui/TarotLogo';
 
@@ -11,7 +11,7 @@ interface CreatorOnboardingProps {
 }
 
 const CreatorOnboarding: React.FC<CreatorOnboardingProps> = ({ onComplete }) => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const { isSubscribed } = useSubscription();
   const navigate = useNavigate();
   const [acceptedTerms, setAcceptedTerms] = useState(false);

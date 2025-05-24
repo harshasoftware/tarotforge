@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
-import { Mail, Save, Shield, AlertCircle, Check } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { Mail, Save, Shield, AlertCircle, Check, Camera } from 'lucide-react';
+import { useAuthStore } from '../../stores/authStore';
 import ProfileImageUpload from '../../components/profile/ProfileImageUpload';
 import { getUserProfile, updateUserProfile } from '../../lib/user-profile';
 import { supabase } from '../../lib/supabase';
@@ -21,7 +21,7 @@ interface ProfileFormData {
 }
 
 const Profile = () => {
-  const { user, checkAuth } = useAuth();
+  const { user, checkAuth } = useAuthStore();
   
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);

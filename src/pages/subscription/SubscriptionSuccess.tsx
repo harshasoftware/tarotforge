@@ -2,13 +2,13 @@ import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Check, ArrowRight, Home } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useCredits } from '../../context/CreditContext';
 import TarotLogo from '../../components/ui/TarotLogo';
 
 const SubscriptionSuccess: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const { refreshSubscription } = useSubscription();
   const { initializeCredits, refreshCredits } = useCredits();
   const navigate = useNavigate();

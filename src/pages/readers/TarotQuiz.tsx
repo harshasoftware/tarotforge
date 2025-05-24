@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AlertCircle, ArrowLeft, Award, CheckCircle, XCircle, Clock, Star, Moon, Sun, Sparkles, Crown, Flame, Heart } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import QuizQuestion from '../../components/quiz/QuizQuestion';
 import QuizTimer from '../../components/quiz/QuizTimer';
 import { QuizQuestion as QuizQuestionType } from '../../types';
@@ -14,7 +14,7 @@ import ReaderCertificate from '../../components/readers/ReaderCertificate';
 type QuizState = 'loading' | 'instructions' | 'active' | 'submitting' | 'results' | 'error' | 'timeout';
 
 const TarotQuiz: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   

@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from './AuthContext';
+import { useAuthStore } from '../stores/authStore';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ChatMessage {
@@ -35,7 +35,7 @@ const ChatContext = createContext<ChatContextType>({
 export const useChat = () => useContext(ChatContext);
 
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

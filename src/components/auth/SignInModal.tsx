@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Mail, ArrowRight, AlertCircle, Check, User } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 
 interface SignInModalProps {
   isOpen: boolean;
@@ -16,7 +16,7 @@ interface SignInFormData {
 }
 
 const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
-  const { signIn, signUp, signInWithGoogle, magicLinkSent, setMagicLinkSent } = useAuth();
+  const { signIn, signUp, signInWithGoogle, magicLinkSent, setMagicLinkSent } = useAuthStore();
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);

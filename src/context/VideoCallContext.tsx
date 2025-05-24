@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import Peer from 'simple-peer';
 import { supabase } from '../lib/supabase';
-import { useAuth } from './AuthContext';
+import { useAuthStore } from '../stores/authStore';
+import { io, Socket } from 'socket.io-client';
 
 type VideoCallContextType = {
   localStream: MediaStream | null;
@@ -43,7 +44,7 @@ const VideoCallContext = createContext<VideoCallContextType>({
 export const useVideoCall = () => useContext(VideoCallContext);
 
 export const VideoCallProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);

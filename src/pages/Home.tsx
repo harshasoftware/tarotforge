@@ -1,13 +1,12 @@
-import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { motion, useInView } from 'framer-motion';
 import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw, CreditCard, Check, Clock } from 'lucide-react';
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import TarotLogo from '../components/ui/TarotLogo';
-import { useAuth } from '../context/AuthContext';
+import { useAuthStore } from '../stores/authStore';
 import { useCredits } from '../context/CreditContext';
 import { generateThemeSuggestions } from '../lib/gemini-ai';
 import CreditBadge from '../components/ui/CreditBadge';
+import HeroSection from '../components/ui/HeroSection';
 
 // Featured decks data
 const featuredDecks = [
@@ -133,7 +132,7 @@ const loadingMessages = [
 const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, setShowSignInModal } = useAuth();
+  const { user, setShowSignInModal } = useAuthStore();
   const { credits } = useCredits();
   const [themePrompt, setThemePrompt] = useState("");
   const [themeSuggestions, setThemeSuggestions] = useState<string[]>([]);

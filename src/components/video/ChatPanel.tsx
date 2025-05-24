@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Send, X, Minimize2, Maximize2, MessageSquare } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, X, Minimize2, Maximize2, MessageSquare, MessageCircle, User } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
-import { useAuth } from '../../context/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import ChatBubble from './ChatBubble';
 
 interface ChatPanelProps {
@@ -29,7 +29,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onDragEnd
 }) => {
   const { messages, sendMessage, joinRoom, leaveRoom, loading, error } = useChat();
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const [message, setMessage] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
