@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
-import { Wand2, Crown, Check, ArrowRight, TrendingUp } from 'lucide-react';
+import { Wand2, Crown, Check, ArrowRight, TrendingUp, ChevronRight, ChevronLeft, Sparkles, Users, Palette } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { useSubscription } from '../../context/SubscriptionContext';
+import { useSubscription } from '../../stores/subscriptionStore';
 import TarotLogo from '../ui/TarotLogo';
 
 interface CreatorOnboardingProps {

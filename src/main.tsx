@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './components/providers/AuthProvider';
-import { SubscriptionProvider } from './context/SubscriptionContext';
 import { DeckLimitProvider } from './context/DeckLimitContext';
 import { DeckQuotaProvider } from './context/DeckQuotaContext';
 import { VideoCallProvider } from './context/VideoCallContext';
@@ -83,17 +82,15 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <SubscriptionProvider>
-          <DeckQuotaProvider>
-            <DeckLimitProvider>
-              <VideoCallProvider>
-                <ChatProvider>
-                  <App />
-                </ChatProvider>
-              </VideoCallProvider>
-            </DeckLimitProvider>
-          </DeckQuotaProvider>
-        </SubscriptionProvider>
+        <DeckQuotaProvider>
+          <DeckLimitProvider>
+            <VideoCallProvider>
+              <ChatProvider>
+                <App />
+              </ChatProvider>
+            </VideoCallProvider>
+          </DeckLimitProvider>
+        </DeckQuotaProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>

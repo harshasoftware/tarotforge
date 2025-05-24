@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Crown, Loader } from 'lucide-react';
-import { useSubscription } from '../../context/SubscriptionContext';
+import { Crown, Loader, Sparkles } from 'lucide-react';
+import { useSubscription } from '../../stores/subscriptionStore';
 
 interface SubscriptionBadgeProps {
   className?: string;

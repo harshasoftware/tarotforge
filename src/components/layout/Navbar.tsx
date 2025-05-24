@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Moon, Sun, User, UserCheck, Crown, WalletCards } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { useSubscription } from '../../context/SubscriptionContext';
+import { useSubscription } from '../../stores/subscriptionStore';
 import SignInModal from '../auth/SignInModal';
 import TarotLogo from '../ui/TarotLogo';
 import DeckQuotaBadge from '../ui/CreditBadge';

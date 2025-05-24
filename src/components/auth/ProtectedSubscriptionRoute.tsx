@@ -1,9 +1,10 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { useSubscription } from '../../context/SubscriptionContext';
+import { useSubscription } from '../../stores/subscriptionStore';
 import { useDeckQuotas } from '../../context/DeckQuotaContext';
 import LoadingScreen from '../ui/LoadingScreen';
 import SubscriptionRequired from './SubscriptionRequired';
+import LoadingSpinner from '../ui/LoadingSpinner';
 
 const ProtectedSubscriptionRoute = () => {
   const { user, loading } = useAuthStore();

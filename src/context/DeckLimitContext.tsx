@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuthStore } from '../stores/authStore';
-import { useSubscription } from './SubscriptionContext';
+import { useSubscription } from '../stores/subscriptionStore';
 import { supabase } from '../lib/supabase';
 import { getDeckGenerationStatus } from '../lib/deck-usage';
 import { STRIPE_PRODUCTS } from '../lib/stripe-config';

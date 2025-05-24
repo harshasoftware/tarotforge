@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Wand2, Sparkles, Save, ArrowRight, AlertCircle, Check, Crown, TrendingUp } from 'lucide-react';
+import { Wand2, Sparkles, Save, ArrowRight, AlertCircle, Check, Crown, TrendingUp, RefreshCw, Zap } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { useSubscription } from '../../context/SubscriptionContext';
+import { useSubscription } from '../../stores/subscriptionStore';
 import { useDeckQuotas } from '../../context/DeckQuotaContext';
 import { useDeckLimits } from '../../context/DeckLimitContext';
 import CardGallery from '../../components/creator/CardGallery';
