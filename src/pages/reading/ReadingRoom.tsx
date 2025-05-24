@@ -185,11 +185,6 @@ const ReadingRoom = () => {
     participants.map(p => p.name || 'Anonymous').join(', ')
   , [participants]);
   
-  // Memoized URLs and computed values
-  const shareableLink = useMemo(() => 
-    sessionId ? generateShareableLink(sessionId) : ''
-  , [sessionId]);
-  
   // Optimized mobile layout classes
   const mobileLayoutClasses = useMemo(() => ({
     topControls: isMobile 
@@ -883,11 +878,12 @@ const ReadingRoom = () => {
   // Function to copy room link to clipboard
   const copyRoomLink = useCallback(() => {
     if (sessionId) {
+      const shareableLink = generateShareableLink(sessionId);
       navigator.clipboard.writeText(shareableLink);
       setShowCopied(true);
       setTimeout(() => setShowCopied(false), 3000);
     }
-  }, [sessionId, shareableLink]);
+  }, [sessionId]);
   
   // Handle sharing with native share API on mobile or modal on desktop
   const handleShare = async () => {
@@ -2217,7 +2213,7 @@ const ReadingRoom = () => {
                     <input
                       id="roomLink"
                       type="text"
-                      value={shareableLink}
+                      value={sessionId ? generateShareableLink(sessionId) : ''}
                       readOnly
                       className="flex-1 p-2 text-sm rounded-l-md border border-r-0 border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                     />
