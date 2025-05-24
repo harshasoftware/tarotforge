@@ -9,10 +9,10 @@ interface LoadingSpinnerProps {
 
 const LoadingSpinner = memo(({ size = 'md', className = '' }: LoadingSpinnerProps) => {
   const sizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-8 h-8', 
-    lg: 'w-12 h-12',
-    xl: 'w-16 h-16'
+    sm: 'w-16 h-16',
+    md: 'w-32 h-32', 
+    lg: 'w-48 h-48',
+    xl: 'w-64 h-64'
   };
 
   return (
