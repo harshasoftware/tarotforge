@@ -821,12 +821,22 @@ const ReadingRoom = () => {
         interpretation: result,
         readingStep: 'interpretation'
       });
+      
+      // Auto-show mobile interpretation on mobile portrait mode
+      if (isMobile && !isLandscape) {
+        setShowMobileInterpretation(true);
+      }
     } catch (error) {
       console.error('Error generating interpretation:', error);
       updateSession({
         interpretation: 'Unable to generate an interpretation at this time. Please try again later.',
         readingStep: 'interpretation'
       });
+      
+      // Auto-show mobile interpretation even for errors on mobile portrait mode
+      if (isMobile && !isLandscape) {
+        setShowMobileInterpretation(true);
+      }
     } finally {
       setIsGeneratingInterpretation(false);
     }
@@ -1375,7 +1385,10 @@ const ReadingRoom = () => {
   return (
     <div 
       className={`flex flex-col overflow-hidden ${!isMobile ? 'h-screen' : ''}`}
-      style={isMobile ? { height: `${viewportHeight}px` } : undefined}
+      style={isMobile ? { 
+        height: viewportHeight > 0 ? `${viewportHeight}px` : '100vh',
+        minHeight: '100vh' 
+      } : undefined}
     >
       {/* Main content - full screen with floating controls */}
       <main className="flex-1 overflow-hidden relative">
@@ -1599,7 +1612,7 @@ const ReadingRoom = () => {
         </div>
 
         {/* Reading table */}
-        <div className="h-full relative bg-gradient-to-b from-background to-background/80">
+        <div className="h-full relative bg-gradient-to-b from-slate-900 to-slate-800 dark:from-background dark:to-background/80">
           {/* Step 0: Deck Selection Screen */}
           {!deck && !deckSelectionLoading && (
             <div className={`absolute inset-0 z-[100] bg-black/50 flex items-center justify-center ${mobileLayoutClasses.mainPadding}`}>
