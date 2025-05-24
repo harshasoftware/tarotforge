@@ -659,6 +659,16 @@ const ReadingRoom = () => {
     }
   }, [selectedLayout?.id, selectedCards, updateSession]);
   
+  // Handle placed card drag start
+  const handlePlacedCardDragStart = useCallback(() => {
+    setIsDraggingPlacedCard(true);
+  }, []);
+  
+  // Handle placed card drag end
+  const handlePlacedCardDragEnd = useCallback(() => {
+    setIsDraggingPlacedCard(false);
+  }, []);
+  
   const zoomIn = useCallback(() => {
     setZoomLevelWrapped(Math.min(zoomLevel + 0.2, 2));
   }, [setZoomLevelWrapped, zoomLevel]);
@@ -987,7 +997,7 @@ const ReadingRoom = () => {
       animationFrameId = requestAnimationFrame(() => {
       if (isDragging) {
         setDragPosition({ x: e.clientX, y: e.clientY });
-        } else if (isPanning && !isDragging) {
+        } else if (isPanning && !isDragging && !isDraggingPlacedCard) {
         handlePanMove(e.clientX, e.clientY);
       }
       });
@@ -1018,7 +1028,7 @@ const ReadingRoom = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, isPanning]);
+  }, [isDragging, isPanning, isDraggingPlacedCard]);
   
   // Generate shareable link using session ID
   const generateShareableLink = useCallback((id: string): string => {
@@ -2091,7 +2101,7 @@ const ReadingRoom = () => {
                 }}
                 onMouseDown={(e) => {
                   // Only start panning if not on mobile, zoomed in, clicking on empty space, and not dragging cards
-                  if (!isMobile && zoomLevel > 1 && !isDragging && e.target === e.currentTarget) {
+                  if (!isMobile && zoomLevel > 1 && !isDragging && !isDraggingPlacedCard && e.target === e.currentTarget) {
                     e.preventDefault();
                     e.stopPropagation();
                     handlePanStart(e.clientX, e.clientY);
@@ -2108,7 +2118,7 @@ const ReadingRoom = () => {
                   }
                 }}
                 style={{
-                  cursor: zoomLevel > 1 && !isDragging ? (isPanning ? 'grabbing' : 'grab') : 'default'
+                  cursor: zoomLevel > 1 && !isDragging && !isDraggingPlacedCard ? (isPanning ? 'grabbing' : 'grab') : 'default'
                 }}
               >
                 {/* Zoom controls with shuffle button - repositioned for mobile */}
@@ -2188,7 +2198,9 @@ const ReadingRoom = () => {
                       drag
                       dragMomentum={false}
                       dragElastic={0}
+                      onDragStart={handlePlacedCardDragStart}
                       onDrag={(event, info) => handlePlacedCardDrag(index, event, info)}
+                      onDragEnd={handlePlacedCardDragEnd}
                       whileHover={{ scale: 1.05 }}
                       whileDrag={{ scale: 1.1, zIndex: 50 }}
                       onClick={() => {
@@ -2580,7 +2592,7 @@ const ReadingRoom = () => {
                 className={`${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-3/5' : (showMobileInterpretation ? 'hidden' : 'flex-1')) : 'w-3/5'} relative`}
                 onMouseDown={(e) => {
                   // Only start panning if not on mobile, zoomed in, clicking on empty space, and not dragging cards
-                  if (!isMobile && zoomLevel > 1 && !isDragging && e.target === e.currentTarget) {
+                  if (!isMobile && zoomLevel > 1 && !isDragging && !isDraggingPlacedCard && e.target === e.currentTarget) {
                     e.preventDefault();
                     e.stopPropagation();
                     handlePanStart(e.clientX, e.clientY);
@@ -2600,7 +2612,7 @@ const ReadingRoom = () => {
                   ...getTransform(zoomLevel, zoomFocus, panOffset),
                   // Additional optimizations for smooth performance
                   contain: 'layout style paint',
-                  cursor: zoomLevel > 1 && !isDragging ? (isPanning ? 'grabbing' : 'grab') : 'default'
+                  cursor: zoomLevel > 1 && !isDragging && !isDraggingPlacedCard ? (isPanning ? 'grabbing' : 'grab') : 'default'
                 }}
               >
                 {/* Zoom controls */}
@@ -2636,7 +2648,7 @@ const ReadingRoom = () => {
                   className="absolute inset-0 transition-transform duration-300 ease-in-out"
                   onMouseDown={(e) => {
                     // Only start panning if not on mobile, zoomed in, clicking on empty space, and not dragging cards
-                    if (!isMobile && zoomLevel > 1 && !isDragging && e.target === e.currentTarget) {
+                    if (!isMobile && zoomLevel > 1 && !isDragging && !isDraggingPlacedCard && e.target === e.currentTarget) {
                       e.preventDefault();
                       e.stopPropagation();
                       handlePanStart(e.clientX, e.clientY);
@@ -2656,7 +2668,7 @@ const ReadingRoom = () => {
                     ...getTransform(zoomLevel, zoomFocus, panOffset),
                     // Additional optimizations for smooth performance
                     contain: 'layout style paint',
-                    cursor: zoomLevel > 1 && !isDragging ? (isPanning ? 'grabbing' : 'grab') : 'default'
+                    cursor: zoomLevel > 1 && !isDragging && !isDraggingPlacedCard ? (isPanning ? 'grabbing' : 'grab') : 'default'
                   }}
                 >
                   {/* Free layout cards in interpretation */}
@@ -2679,7 +2691,9 @@ const ReadingRoom = () => {
                       drag
                       dragMomentum={false}
                       dragElastic={0}
+                      onDragStart={handlePlacedCardDragStart}
                       onDrag={(event, info) => handlePlacedCardDrag(index, event, info)}
+                      onDragEnd={handlePlacedCardDragEnd}
                       whileHover={{ scale: 1.05 }}
                       whileDrag={{ scale: 1.1, zIndex: 50 }}
                       onClick={() => {
