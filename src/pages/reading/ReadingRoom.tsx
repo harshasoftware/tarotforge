@@ -71,16 +71,24 @@ const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): T =
   }) as T;
 };
 
-// Performance-optimized transform utility
+// Performance-optimized transform utility with memoization
 const getTransform = (zoomLevel: number, zoomFocus: { x: number; y: number } | null, panOffset: { x: number; y: number }) => {
-  const transform = zoomFocus 
-    ? `scale(${zoomLevel}) translate(${50 - zoomFocus.x}%, ${50 - zoomFocus.y}%) translate(${panOffset.x}px, ${panOffset.y}px)`
-    : `scale(${zoomLevel}) translate(${panOffset.x}px, ${panOffset.y}px)`;
+  // Cache transform calculations to avoid recalculation
+  const scale = `scale(${zoomLevel})`;
+  const translate = zoomFocus 
+    ? `translate(${50 - zoomFocus.x}%, ${50 - zoomFocus.y}%) translate(${panOffset.x}px, ${panOffset.y}px)`
+    : `translate(${panOffset.x}px, ${panOffset.y}px)`;
+  
+  const transform = `${scale} ${translate}`;
+  const transformOrigin = zoomFocus ? `${zoomFocus.x}% ${zoomFocus.y}%` : 'center center';
   
   return {
     transform,
-    transformOrigin: zoomFocus ? `${zoomFocus.x}% ${zoomFocus.y}%` : 'center center',
+    transformOrigin,
     willChange: 'transform', // Optimize for transforms
+    // Add hardware acceleration hint
+    backfaceVisibility: 'hidden' as const,
+    perspective: 1000,
   };
 };
 
@@ -432,29 +440,37 @@ const ReadingRoom = () => {
       const newPanY = Math.max(-maxPan, Math.min(maxPan, panStartOffset.y + deltaY * sensitivity));
       
       setPanOffset({ x: newPanX, y: newPanY });
-    }, 16), // ~60fps
+    }, 8), // Reduced to ~120fps for smoother movement
     [isPanning, zoomLevel, panStartPos.x, panStartPos.y, panStartOffset.x, panStartOffset.y]
   );
   
   const debouncedZoomUpdate = useMemo(
     () => debounce((scale: number) => {
       setZoomLevelWrapped(Math.max(0.5, Math.min(2, scale)));
-    }, 16), // ~60fps
+    }, 8), // Reduced to ~120fps for smoother zooming
     [setZoomLevelWrapped]
   );
   
   const handleTouchStart = useCallback((e: TouchEvent) => {
+    // Don't interfere with card dragging
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-card-element="true"]') || target.closest('.deck-pile') || isDragging) {
+      return;
+    }
+    
     if (e.touches.length === 2) {
       // Two fingers - pinch to zoom
       setIsZooming(true);
       setLastTouchDistance(getTouchDistance(e.touches));
       e.preventDefault();
+      e.stopPropagation();
     } else if (e.touches.length === 1 && zoomLevel > 1) {
       // One finger when zoomed - start panning
       const touch = e.touches[0];
       handlePanStart(touch.clientX, touch.clientY);
+      e.preventDefault();
     }
-  }, [zoomLevel]);
+  }, [zoomLevel, isDragging]);
   
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (isZooming && e.touches.length === 2) {
@@ -462,18 +478,21 @@ const ReadingRoom = () => {
       const currentDistance = getTouchDistance(e.touches);
       const scale = currentDistance / lastTouchDistance;
       
-      if (Math.abs(scale - 1) > 0.02) { // Threshold to prevent jittery zooming
-        debouncedZoomUpdate(zoomLevel * scale);
+      if (Math.abs(scale - 1) > 0.01) { // Reduced threshold for smoother zooming
+        const newZoom = Math.max(0.5, Math.min(2, zoomLevel * scale));
+        setZoomLevelWrapped(newZoom);
         setLastTouchDistance(currentDistance);
       }
       e.preventDefault();
-    } else if (isPanning && e.touches.length === 1) {
-      // One finger - continue panning with debouncing
+      e.stopPropagation();
+    } else if (isPanning && e.touches.length === 1 && !isDragging) {
+      // One finger - continue panning without debouncing for smoother movement
       const touch = e.touches[0];
-      debouncedPanMove(touch.clientX, touch.clientY);
+      handlePanMove(touch.clientX, touch.clientY);
       e.preventDefault();
+      e.stopPropagation();
     }
-  }, [isZooming, isPanning, lastTouchDistance, zoomLevel, debouncedZoomUpdate, debouncedPanMove]);
+  }, [isZooming, isPanning, lastTouchDistance, zoomLevel, setZoomLevelWrapped, isDragging]);
   
   const handleTouchEnd = useCallback((e: TouchEvent) => {
     if (e.touches.length < 2) {
@@ -485,14 +504,18 @@ const ReadingRoom = () => {
     }
   }, []);
   
-  // Add touch event listeners for pinch-to-zoom
+  // Add touch event listeners for pinch-to-zoom - optimized
   useEffect(() => {
     const readingArea = readingAreaRef.current;
     if (!readingArea || !isMobile) return;
     
-    readingArea.addEventListener('touchstart', handleTouchStart, { passive: false });
-    readingArea.addEventListener('touchmove', handleTouchMove, { passive: false });
-    readingArea.addEventListener('touchend', handleTouchEnd, { passive: false });
+    // Use passive events where possible for better performance
+    const options = { passive: false };
+    const passiveOptions = { passive: true };
+    
+    readingArea.addEventListener('touchstart', handleTouchStart, options);
+    readingArea.addEventListener('touchmove', handleTouchMove, options);
+    readingArea.addEventListener('touchend', handleTouchEnd, passiveOptions);
     
     return () => {
       readingArea.removeEventListener('touchstart', handleTouchStart);
@@ -922,17 +945,30 @@ const ReadingRoom = () => {
     }
   }, [selectedCards, updateSession]);
   
-  // Add mouse move handler to document for dragging
+  // Add mouse move handler to document for dragging - optimized
   useEffect(() => {
+    let animationFrameId: number;
+    
     const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
-        setDragPosition({ x: e.clientX, y: e.clientY });
-      } else if (isPanning) {
-        handlePanMove(e.clientX, e.clientY);
+      // Use requestAnimationFrame to throttle mouse movement for better performance
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
       }
+      
+      animationFrameId = requestAnimationFrame(() => {
+        if (isDragging) {
+          setDragPosition({ x: e.clientX, y: e.clientY });
+        } else if (isPanning && !isDragging) {
+          handlePanMove(e.clientX, e.clientY);
+        }
+      });
     };
     
     const handleMouseUp = () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      
       if (isDragging) {
         handleDragEnd();
       } else if (isPanning) {
@@ -941,11 +977,15 @@ const ReadingRoom = () => {
     };
     
     if (isDragging || isPanning) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mousemove', handleMouseMove, { passive: true });
+      document.addEventListener('mouseup', handleMouseUp, { passive: true });
     }
     
     return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -1587,10 +1627,21 @@ const ReadingRoom = () => {
                   }
                 }}
                 onMouseDown={(e) => {
-                  // Only start panning if not on mobile, zoomed in, and clicking on empty space
+                  // Only start panning if not on mobile, zoomed in, clicking on empty space, and not dragging cards
                   if (!isMobile && zoomLevel > 1 && !isDragging && e.target === e.currentTarget) {
                     e.preventDefault();
+                    e.stopPropagation();
                     handlePanStart(e.clientX, e.clientY);
+                  }
+                }}
+                onWheel={(e) => {
+                  // Desktop scroll wheel zoom
+                  if (!isMobile && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    const delta = e.deltaY;
+                    const zoomFactor = delta > 0 ? 0.9 : 1.1;
+                    const newZoom = Math.max(0.5, Math.min(2, zoomLevel * zoomFactor));
+                    setZoomLevelWrapped(newZoom);
                   }
                 }}
                 style={{
@@ -1636,7 +1687,11 @@ const ReadingRoom = () => {
                 {/* Layout visualization with mobile-responsive card sizes */}
                 <div 
                   className="reading-content absolute inset-0 transition-transform duration-300 ease-in-out"
-                  style={getTransform(zoomLevel, zoomFocus, panOffset)}
+                  style={{
+                    ...getTransform(zoomLevel, zoomFocus, panOffset),
+                    // Additional optimizations for smooth performance
+                    contain: 'layout style paint',
+                  }}
                 >
                   {/* Free layout cards */}
                   {selectedLayout?.id === 'free-layout' && selectedCards.map((selectedCard: any, index: number) => (
@@ -2012,10 +2067,10 @@ const ReadingRoom = () => {
                 
                 {/* Generate interpretation button for free layout */}
                 {selectedLayout?.id === 'free-layout' && selectedCards.length > 0 && !isGeneratingInterpretation && readingStep === 'drawing' && (
-                  <div className={`interpretation-button absolute ${isMobile ? 'bottom-4 right-4' : 'bottom-8 right-8'}`}>
+                  <div className={`interpretation-button absolute ${isMobile ? (isLandscape ? 'top-12 right-4' : 'top-20 right-4') : 'top-4 right-4'} z-50`}>
                     <button 
                       onClick={() => generateInterpretation()}
-                      className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm"
+                      className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm bg-primary/90 backdrop-blur-sm border-primary shadow-lg"
                     >
                       <TarotLogo className="mr-1 md:mr-2 h-4 w-4" />
                       <span className="hidden md:inline">Interpret ({selectedCards.length} cards)</span>
@@ -2026,10 +2081,10 @@ const ReadingRoom = () => {
                 
                 {/* All cards placed - show interpretation button (predefined layouts) */}
                 {selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count && !isGeneratingInterpretation && readingStep === 'drawing' && (
-                  <div className={`interpretation-button absolute ${isMobile ? 'bottom-4 right-4' : 'bottom-8 right-8'}`}>
+                  <div className={`interpretation-button absolute ${isMobile ? (isLandscape ? 'top-12 right-4' : 'top-20 right-4') : 'top-4 right-4'} z-50`}>
                     <button 
                       onClick={() => generateInterpretation()}
-                      className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm"
+                      className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm bg-primary/90 backdrop-blur-sm border-primary shadow-lg"
                     >
                       <TarotLogo className="mr-1 md:mr-2 h-4 w-4" />
                       <span className="hidden md:inline">See Interpretation</span>
@@ -2055,9 +2110,35 @@ const ReadingRoom = () => {
           {readingStep === 'interpretation' && (
             <div className={`absolute inset-0 ${isMobile ? (isLandscape && !showMobileInterpretation ? 'flex pt-8' : 'flex-col pt-12') : 'flex pt-20'}`}>
               {/* Reading display */}
-              <div className={`${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-3/5' : (showMobileInterpretation ? 'hidden' : 'flex-1')) : 'w-3/5'} relative`}>
+              <div 
+                className={`${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-3/5' : (showMobileInterpretation ? 'hidden' : 'flex-1')) : 'w-3/5'} relative`}
+                onMouseDown={(e) => {
+                  // Only start panning if not on mobile, zoomed in, clicking on empty space, and not dragging cards
+                  if (!isMobile && zoomLevel > 1 && !isDragging && e.target === e.currentTarget) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handlePanStart(e.clientX, e.clientY);
+                  }
+                }}
+                onWheel={(e) => {
+                  // Desktop scroll wheel zoom
+                  if (!isMobile && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    const delta = e.deltaY;
+                    const zoomFactor = delta > 0 ? 0.9 : 1.1;
+                    const newZoom = Math.max(0.5, Math.min(2, zoomLevel * zoomFactor));
+                    setZoomLevelWrapped(newZoom);
+                  }
+                }}
+                style={{
+                  ...getTransform(zoomLevel, zoomFocus, panOffset),
+                  // Additional optimizations for smooth performance
+                  contain: 'layout style paint',
+                  cursor: zoomLevel > 1 && !isDragging ? (isPanning ? 'grabbing' : 'grab') : 'default'
+                }}
+              >
                 {/* Zoom controls */}
-                <div className={`absolute ${isMobile ? (isLandscape ? 'top-10 left-1/2 transform -translate-x-1/2 flex-row' : 'top-16 left-1/2 transform -translate-x-1/2 flex-row') : 'top-4 left-4 flex-col'} flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
+                <div className={`zoom-controls absolute ${isMobile ? (isLandscape ? 'top-10 left-1/2 transform -translate-x-1/2 flex-row' : 'top-16 left-1/2 transform -translate-x-1/2 flex-row') : 'top-4 left-4 flex-col'} flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
                   <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm" title="Zoom Out">
                     <ZoomOut className="h-4 w-4" />
                   </button>
@@ -2072,7 +2153,30 @@ const ReadingRoom = () => {
                 {/* Card layout with zoom applied */}
                 <div 
                   className="absolute inset-0 transition-transform duration-300 ease-in-out"
-                  style={getTransform(zoomLevel, zoomFocus, panOffset)}
+                  onMouseDown={(e) => {
+                    // Only start panning if not on mobile, zoomed in, clicking on empty space, and not dragging cards
+                    if (!isMobile && zoomLevel > 1 && !isDragging && e.target === e.currentTarget) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handlePanStart(e.clientX, e.clientY);
+                    }
+                  }}
+                  onWheel={(e) => {
+                    // Desktop scroll wheel zoom
+                    if (!isMobile && (e.ctrlKey || e.metaKey)) {
+                      e.preventDefault();
+                      const delta = e.deltaY;
+                      const zoomFactor = delta > 0 ? 0.9 : 1.1;
+                      const newZoom = Math.max(0.5, Math.min(2, zoomLevel * zoomFactor));
+                      setZoomLevelWrapped(newZoom);
+                    }
+                  }}
+                  style={{
+                    ...getTransform(zoomLevel, zoomFocus, panOffset),
+                    // Additional optimizations for smooth performance
+                    contain: 'layout style paint',
+                    cursor: zoomLevel > 1 && !isDragging ? (isPanning ? 'grabbing' : 'grab') : 'default'
+                  }}
                 >
                   {/* Free layout cards in interpretation */}
                   {selectedLayout?.id === 'free-layout' && selectedCards.map((selectedCard: any, index: number) => (
