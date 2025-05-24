@@ -24,6 +24,7 @@
     "jspdf": "^3.0.1",
     "logrocket": "^7.0.0",
     "logrocket-react": "^5.0.1",
+    "lottie-react": "^2.4.1",
     "lucide-react": "^0.344.0",
     "mixpanel-browser": "^2.47.0",
     "qrcode.react": "^3.1.0",

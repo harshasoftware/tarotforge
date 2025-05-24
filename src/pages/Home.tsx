@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useCredits } from '../context/CreditContext';
 import { generateThemeSuggestions } from '../lib/gemini-ai';
 import TarotLogo from '../components/ui/TarotLogo';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { generateElaborateTheme } from '../lib/gemini-ai';
 
 // Featured decks data
@@ -474,7 +475,7 @@ const Home = () => {
                     >
                       {isGeneratingThemes ? (
                         <>
-                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                          <LoadingSpinner size="sm" className="mr-1" />
                           Generating...
                         </>
                       ) : (
@@ -549,7 +550,7 @@ const Home = () => {
                 >
                   {isGeneratingElaboration ? (
                     <>
-                      <span className="mr-2 h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></span>
+                      <LoadingSpinner size="sm" className="mr-2" />
                       Generating Description...
                     </>
                   ) : (

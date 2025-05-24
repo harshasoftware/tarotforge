@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { Search, Filter, Zap, TrendingUp, Clock, Star, XCircle, AlertCircle, Loader } from 'lucide-react';
 import DeckPreview from '../../components/ui/DeckPreview';
 import { Deck } from '../../types';
 import { fetchAllDecks } from '../../lib/deck-utils';
 import TarotLogo from '../../components/ui/TarotLogo';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
 
 // Mystical loading messages that rotate
 const loadingMessages = [
@@ -289,7 +291,7 @@ const Marketplace = () => {
                   {loadingMore && (
                     <div className="text-center py-8">
                       <div className="flex items-center justify-center">
-                        <Loader className="h-6 w-6 text-primary animate-spin mr-2" />
+                        <LoadingSpinner size="md" className="mr-2" />
                         <span>Loading more decks...</span>
                       </div>
                     </div>

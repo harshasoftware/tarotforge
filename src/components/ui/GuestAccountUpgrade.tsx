@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { UserPlus, Mail, X, Sparkles, AlertCircle, Check, User, ArrowRight } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { UserPlus, Mail, X, Sparkles, AlertCircle, Check, User, ArrowRight, Users, Star } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useForm } from 'react-hook-form';
+import LoadingSpinner from './LoadingSpinner';
 
 interface GuestAccountUpgradeProps {
   onUpgradeSuccess: (userId: string) => void;
@@ -167,7 +168,7 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
             >
               {isGoogleLoading ? (
                 <span className="flex items-center justify-center">
-                  <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2"></span>
+                  <LoadingSpinner size="sm" className="mr-2" />
                   Connecting...
                 </span>
               ) : (
@@ -283,7 +284,7 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
+                    <LoadingSpinner size="sm" />
                     {isSignUp ? 'Creating Account...' : 'Sending Link...'}
                   </div>
                 ) : (

@@ -10,6 +10,7 @@ import { getReadingInterpretation } from '../../lib/gemini-ai';
 import VideoChat from '../../components/video/VideoChat';
 import TarotLogo from '../../components/ui/TarotLogo';
 import GuestAccountUpgrade from '../../components/ui/GuestAccountUpgrade';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { v4 as uuidv4 } from 'uuid';
 import html2canvas from 'html2canvas';
 
@@ -1175,7 +1176,7 @@ const ReadingRoom = () => {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <LoadingSpinner size="lg" className="mx-auto mb-4" />
           <p className="text-muted-foreground">
             Preparing reading room...
           </p>
@@ -1189,7 +1190,7 @@ const ReadingRoom = () => {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <LoadingSpinner size="lg" className="mx-auto mb-4" />
           <p className="text-muted-foreground">
             Connecting to reading room...
           </p>
@@ -1423,7 +1424,7 @@ const ReadingRoom = () => {
               title="Video chat"
             >
               {isVideoConnecting ? (
-                <span className="h-4 w-4 border-2 border-secondary-foreground border-t-transparent rounded-full animate-spin"></span>
+                <LoadingSpinner size="sm" />
               ) : (
                 <PhoneCall className="h-4 w-4" />
               )}
@@ -1436,7 +1437,7 @@ const ReadingRoom = () => {
               title={selectedCards.length === 0 ? "Add cards to save reading" : "Save reading as image"}
             >
               {isSaving ? (
-                <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
+                <LoadingSpinner size="sm" />
               ) : saveSuccess ? (
                 <Check className="h-4 w-4" />
               ) : (
@@ -1576,7 +1577,7 @@ const ReadingRoom = () => {
           {deckSelectionLoading && (
             <div className="absolute inset-0 z-[100] bg-black/50 flex items-center justify-center">
               <div className="text-center bg-card p-6 rounded-xl shadow-lg">
-                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <LoadingSpinner size="lg" className="mx-auto mb-4" />
                 <p className="text-muted-foreground">
                   Loading deck...
                 </p>
@@ -2168,7 +2169,7 @@ const ReadingRoom = () => {
                 {isGeneratingInterpretation && (
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
                     <div className="bg-card p-4 md:p-6 rounded-xl shadow-lg text-center mx-4">
-                      <div className="w-8 h-8 md:w-12 md:h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                      <LoadingSpinner size="lg" className="mx-auto mb-4" />
                       <p className="text-muted-foreground text-sm md:text-base">Generating interpretation...</p>
                     </div>
                   </div>
