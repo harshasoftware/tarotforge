@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
-import { Award, Calendar, Clock, MessageSquare, UserCheck, Users, BarChart4, BookOpen, ChevronRight, Star, ArrowUp, Sparkles, Flame, Heart, Crown, Sun, DollarSign, Edit, Save, XCircle } from 'lucide-react';
+import { Award, Calendar, Clock, UserCheck, Users, BarChart4, BookOpen, ChevronRight, Star, ArrowUp, Sparkles, Flame, Heart, Crown, Sun, DollarSign, Edit, Save, XCircle } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { getReaderDetails, getReaderReviews } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
@@ -777,13 +777,6 @@ const ReaderDashboard: React.FC = () => {
                     <span className="flex items-center">
                       <Clock className="h-5 w-5 text-primary mr-3" />
                       Set Availability
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                  <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-muted/30 transition-colors flex items-center justify-between">
-                    <span className="flex items-center">
-                      <MessageSquare className="h-5 w-5 text-primary mr-3" />
-                      Manage Messages
                     </span>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </button>

@@ -3,10 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './components/providers/AuthProvider';
-import { DeckLimitProvider } from './context/DeckLimitContext';
-import { DeckQuotaProvider } from './context/DeckQuotaContext';
 import { VideoCallProvider } from './context/VideoCallContext';
-import { ChatProvider } from './context/ChatContext';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 import { 
@@ -82,15 +79,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <DeckQuotaProvider>
-          <DeckLimitProvider>
-            <VideoCallProvider>
-              <ChatProvider>
-                <App />
-              </ChatProvider>
-            </VideoCallProvider>
-          </DeckLimitProvider>
-        </DeckQuotaProvider>
+        <VideoCallProvider>
+          <App />
+        </VideoCallProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>

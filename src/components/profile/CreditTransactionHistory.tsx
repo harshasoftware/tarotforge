@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, AlertCircle, WalletCards, BarChart4 } from 'lucide-react';
-import { useDeckLimits } from '../../context/DeckLimitContext';
+import { useDeckLimits } from '../../stores/deckLimitStore';
 
 /**
  * This component shows deck usage statistics instead of credit transactions

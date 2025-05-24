@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart4, AlertCircle } from 'lucide-react';
-import { useDeckLimits } from '../../context/DeckLimitContext';
+import { useDeckLimits } from '../../stores/deckLimitStore';
 
 /**
  * This component shows deck usage statistics and generation activity

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { User, Star, Calendar, Clock, Video, MessageSquare, BookOpen, Crown, Heart, Sun, Flame, Sparkles } from 'lucide-react';
+import { User, Star, Calendar, Clock, Video, BookOpen, Crown, Heart, Sun, Flame, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { User as UserType } from '../../types';
 import TarotLogo from '../ui/TarotLogo';
@@ -243,10 +243,6 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
         
         {/* Reading Options */}
         <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-          <Link to="#" className="flex-1 btn btn-secondary p-2 text-xs flex items-center justify-center">
-            <MessageSquare className="h-3 w-3 mr-1" />
-            Message
-          </Link>
           <Link to="#" className="flex-1 btn btn-secondary p-2 text-xs flex items-center justify-center">
             <Video className="h-3 w-3 mr-1" />
             Video

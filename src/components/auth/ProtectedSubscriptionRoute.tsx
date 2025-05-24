@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
-import { useDeckQuotas } from '../../context/DeckQuotaContext';
+import { useDeckQuotas } from '../../stores/deckQuotaStore';
 import LoadingScreen from '../ui/LoadingScreen';
 import SubscriptionRequired from './SubscriptionRequired';
 import LoadingSpinner from '../ui/LoadingSpinner';

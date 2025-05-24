@@ -4,8 +4,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Wand2, Sparkles, Save, ArrowRight, AlertCircle, Check, Crown, TrendingUp, RefreshCw, Zap } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
-import { useDeckQuotas } from '../../context/DeckQuotaContext';
-import { useDeckLimits } from '../../context/DeckLimitContext';
+import { useDeckQuotas } from '../../stores/deckQuotaStore';
+import { useDeckLimits } from '../../stores/deckLimitStore';
 import CardGallery from '../../components/creator/CardGallery';
 import { checkDeckGenerationLimit, recordDeckGeneration } from '../../lib/deck-usage';
 import { generateCardDescription, generateCardImage, generateThemeSuggestions, generateElaborateTheme } from '../../lib/gemini-ai';
@@ -257,10 +257,10 @@ const DeckCreator: React.FC = () => {
     
     try {
       // Generate card description
-      const description = await generateCardDescription(cardName, index);
+      const description = await generateDescriptionForCard(cardName, index);
       
       // Generate card image
-      const imageUrl = await generateCardImage(cardName, description);
+      const imageUrl = await generateImageForCard(cardName, description);
       
       // Create a new card object
       const newCard: Card = {
@@ -331,14 +331,14 @@ const DeckCreator: React.FC = () => {
   };
   
   // Generate card description
-  const generateCardDescription = async (cardName: string, cardIndex: number): Promise<string> => {
+  const generateDescriptionForCard = async (cardName: string, cardIndex: number): Promise<string> => {
     try {
       // Update progress for description generation
       const updateDescriptionProgress = (progress: number) => {
         setGenerationProgress(progress / 2); // Description is first half of progress
       };
       
-      // Generate the description
+      // Generate the description using the imported function
       const description = await generateCardDescription({
         cardName,
         deckTheme: deckTheme,
@@ -356,7 +356,7 @@ const DeckCreator: React.FC = () => {
   };
   
   // Generate card image
-  const generateCardImage = async (cardName: string, description: string): Promise<string> => {
+  const generateImageForCard = async (cardName: string, description: string): Promise<string> => {
     try {
       // Update progress for image generation
       const updateImageProgress = (progress: number, stage: 'generating' | 'uploading') => {
@@ -414,10 +414,10 @@ const DeckCreator: React.FC = () => {
     
     try {
       // Generate new description
-      const description = await generateCardDescription(cardToRegenerate.name, cardToRegenerate.order);
+      const description = await generateDescriptionForCard(cardToRegenerate.name, cardToRegenerate.order);
       
       // Generate new image
-      const imageUrl = await generateCardImage(cardToRegenerate.name, description);
+      const imageUrl = await generateImageForCard(cardToRegenerate.name, description);
       
       // Update the card
       const updatedCard = {

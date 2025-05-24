@@ -1,7 +1,9 @@
 import React from 'react';
+import { motion } from 'framer-motion';
+import { useDeckQuotas } from '../../stores/deckQuotaStore';
+import { CheckCircle, AlertTriangle, Info } from 'lucide-react';
 import { AlertCircle, ZoomIn, Sparkles, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useDeckQuotas } from '../../context/DeckQuotaContext';
 
 interface DeckUsageEstimateProps {
   imageQuality: 'medium' | 'high';

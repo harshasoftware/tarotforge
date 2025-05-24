@@ -1,6 +1,7 @@
 import React from 'react';
-import { useDeckQuotas } from '../../context/DeckQuotaContext';
-import { WalletCards } from 'lucide-react';
+import { useDeckQuotas } from '../../stores/deckQuotaStore';
+import { WalletCards, Crown, Loader } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface DeckQuotaBadgeProps {
   showIcon?: boolean;

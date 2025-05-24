@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, AlertCircle, Check, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useDeckLimits } from '../../context/DeckLimitContext';
+import { useDeckLimits } from '../../stores/deckLimitStore';
 import RegenerationPackCard from './RegenerationPackCard';
 import { useLocation } from 'react-router-dom';
 

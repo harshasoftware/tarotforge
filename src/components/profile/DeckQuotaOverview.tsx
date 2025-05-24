@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { WalletCards, Calendar, Sparkles, Crown } from 'lucide-react';
-import { useDeckLimits } from '../../context/DeckLimitContext';
+import { useDeckLimits } from '../../stores/deckLimitStore';
 import { Link } from 'react-router-dom';
 import TarotLogo from '../ui/TarotLogo';
 
