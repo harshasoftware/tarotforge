@@ -1,12 +1,12 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { motion, useInView } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw, CreditCard, Check, Clock } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useCredits } from '../context/CreditContext';
 import { generateThemeSuggestions } from '../lib/gemini-ai';
-import CreditBadge from '../components/ui/CreditBadge';
-import HeroSection from '../components/ui/HeroSection';
+import TarotLogo from '../components/ui/TarotLogo';
+import { generateElaborateTheme } from '../lib/gemini-ai';
 
 // Featured decks data
 const featuredDecks = [
@@ -75,8 +75,6 @@ const tarotCardImages = [
   'https://images.pexels.com/photos/2670898/pexels-photo-2670898.jpeg?auto=compress&cs=tinysrgb&w=1600', // The Moon
   'https://images.pexels.com/photos/1727684/pexels-photo-1727684.jpeg?auto=compress&cs=tinysrgb&w=1600', // Wheel of Fortune
 ];
-
-import { generateElaborateTheme } from '../lib/gemini-ai';
 
 // Generate theme suggestions using Gemini AI
 const generateAIThemeSuggestions = async (input: string): Promise<string[]> => {
@@ -344,7 +342,7 @@ const Home = () => {
   const getAvailableCredits = () => {
     // For logged in users, show their actual credits
     if (user && credits) {
-      return credits.basicCredits + credits.premiumCredits;
+      return credits.majorArcanaQuota + credits.completeDeckQuota;
     }
     
     // For non-logged in users who haven't used credits yet, show 5
