@@ -1727,6 +1727,21 @@ const ReadingRoom = () => {
                   <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm" title="Zoom In">
                     <ZoomIn className="h-4 w-4" />
                   </button>
+                  {isMobile && (
+                    <>
+                      <button onClick={shuffleDeck} className="p-1 hover:bg-muted rounded-sm" title="Shuffle Deck">
+                        <Shuffle className="h-4 w-4" />
+                      </button>
+                      <button onClick={showHint} className="p-1 hover:bg-muted rounded-sm" title="Show Help">
+                        <HelpCircle className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+                  {!isMobile && (
+                    <button onClick={shuffleDeck} className="p-1 hover:bg-muted rounded-sm" title="Shuffle Deck">
+                      <Shuffle className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
                 
                 {/* Animated pinch zoom hint for mobile */}
@@ -2116,18 +2131,6 @@ const ReadingRoom = () => {
                         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-accent text-accent-foreground rounded-full w-8 h-8 text-sm flex items-center justify-center shadow-lg">
                           {shuffledDeck.length}
                         </div>
-                        
-                        {/* Shuffle button for desktop */}
-                        <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2">
-                          <button 
-                            onClick={shuffleDeck}
-                            className="btn btn-ghost p-3 text-sm flex items-center gap-2 bg-card/90 backdrop-blur-sm rounded-full border border-border hover:bg-card transition-colors shadow-lg"
-                            title="Shuffle Deck"
-                          >
-                            <Shuffle className="h-4 w-4" />
-                            <span>Shuffle All {shuffledDeck.length} Cards</span>
-                          </button>
-                        </div>
                       </div>
                     )}
                   </div>
@@ -2216,6 +2219,21 @@ const ReadingRoom = () => {
                   <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm" title="Zoom In">
                     <ZoomIn className="h-4 w-4" />
                   </button>
+                  {isMobile && (
+                    <>
+                      <button onClick={shuffleDeck} className="p-1 hover:bg-muted rounded-sm" title="Shuffle Deck">
+                        <Shuffle className="h-4 w-4" />
+                      </button>
+                      <button onClick={showHint} className="p-1 hover:bg-muted rounded-sm" title="Show Help">
+                        <HelpCircle className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+                  {!isMobile && (
+                    <button onClick={shuffleDeck} className="p-1 hover:bg-muted rounded-sm" title="Shuffle Deck">
+                      <Shuffle className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
                 
                 {/* Card layout with zoom applied */}
