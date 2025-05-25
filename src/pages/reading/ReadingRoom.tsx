@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX, LogIn } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
@@ -303,9 +303,9 @@ const ReadingRoom = () => {
   useEffect(() => {
     const wasOffline = localStorage.getItem('was_offline_mode');
     if (wasOffline === 'true' && !isOfflineMode && sessionState?.id && !sessionState.id.startsWith('local_')) {
-      setShowSyncSuccess(true);
+      setRecentlySynced(true);
       localStorage.removeItem('was_offline_mode');
-      setTimeout(() => setShowSyncSuccess(false), 3000);
+      setTimeout(() => setRecentlySynced(false), 5000); // Show synced state for 5 seconds
     }
     
     // Track offline mode state
@@ -464,13 +464,15 @@ const ReadingRoom = () => {
   // Deck refresh key to force visual re-render when deck is reset
   const [deckRefreshKey, setDeckRefreshKey] = useState(0);
   
-  // Sync success notification
-  const [showSyncSuccess, setShowSyncSuccess] = useState(false);
+  // Track recently synced state
+  const [recentlySynced, setRecentlySynced] = useState(false);
   
   // Card gallery state - now synchronized
   const showCardGallery = sharedModalState?.isOpen || false;
-  const galleryCardIndex = sharedModalState?.cardIndex || null;
+  const galleryCardIndex = sharedModalState?.cardIndex ?? null;
   const showCardDescription = sharedModalState?.showDescription || false;
+  
+
   const [gallerySwipeStart, setGallerySwipeStart] = useState<{ x: number; y: number } | null>(null);
   const [cardDescription, setCardDescription] = useState<string>('');
   const [loadingDescription, setLoadingDescription] = useState(false);
@@ -1536,13 +1538,13 @@ const ReadingRoom = () => {
   
   // Handle opening card gallery - now synchronized
   const openCardGallery = useCallback((cardIndex: number) => {
-    const selectedCard = selectedCards[cardIndex];
+  const selectedCard = selectedCards[cardIndex];
     if ((selectedCard as any)?.revealed) {
       updateSharedModalState({
         isOpen: true,
         cardIndex: cardIndex,
         showDescription: false,
-        triggeredBy: participantId
+        triggeredBy: participantId || 'unknown'
       });
     }
   }, [selectedCards, updateSharedModalState, participantId]);
@@ -2154,28 +2156,7 @@ const ReadingRoom = () => {
           )}
         </AnimatePresence>
         
-        {/* Sync Success Notification */}
-        <AnimatePresence>
-          {showSyncSuccess && (
-            <motion.div 
-              className={`absolute ${isMobile ? 'top-16 left-4 right-4' : 'top-16 left-1/2 transform -translate-x-1/2'} bg-success/95 text-success-foreground px-4 py-3 rounded-lg text-sm z-[60] shadow-xl border border-success/20`}
-              initial={{ opacity: 0, y: -20, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.9 }}
-              transition={{ duration: 0.3, exit: { duration: 0.2 } }}
-            >
-              <div className="flex items-center gap-3">
-                <Check className="h-5 w-5 text-success-foreground" />
-                <div className="flex-1">
-                  <div className="font-medium">Session Synced!</div>
-                  <div className="text-xs opacity-90">
-                    Your reading is now saved to the cloud
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
 
         {/* Follow Notification */}
         <AnimatePresence>
@@ -2416,20 +2397,47 @@ const ReadingRoom = () => {
             )}
 
             {/* Offline mode indicator and sync button */}
-            {isOfflineMode && (
-              <Tooltip content="Working offline - click to sync to cloud" position="bottom" disabled={isMobile}>
+            {(isOfflineMode || recentlySynced) && (
+              <Tooltip 
+                content={
+                  recentlySynced 
+                    ? "Session synced to cloud" 
+                    : "Working offline - click to sync to cloud"
+                } 
+                position="bottom" 
+                disabled={isMobile}
+              >
                 <button 
                   onClick={async () => {
-                    const synced = await syncLocalSessionToDatabase();
-                    if (!synced) {
-                      // Show error or retry logic
-                      console.log('Sync failed, will retry later');
+                    if (!recentlySynced) {
+                      const synced = await syncLocalSessionToDatabase();
+                      if (synced) {
+                        setRecentlySynced(true);
+                        setTimeout(() => setRecentlySynced(false), 5000);
+                      } else {
+                        console.log('Sync failed, will retry later');
+                      }
                     }
                   }}
-                  className={`btn btn-warning bg-warning/80 backdrop-blur-sm border border-warning/50 ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} animate-pulse`}
+                  className={`btn ${
+                    recentlySynced 
+                      ? 'btn-success bg-success/80 border-success/50' 
+                      : 'btn-warning bg-warning/80 border-warning/50'
+                  } backdrop-blur-sm ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} ${
+                    recentlySynced ? '' : 'animate-pulse'
+                  }`}
+                  disabled={recentlySynced}
                 >
-                  <Zap className="h-4 w-4" />
-                  {!isMobile && <span className="text-xs">Offline</span>}
+                  {recentlySynced ? (
+                    <RotateCcw className="h-4 w-4" />
+                  ) : (
+                    <Zap className="h-4 w-4" />
+                  )}
+                  {!isMobile && (
+                    <span className="text-xs">
+                      {recentlySynced ? 'Synced' : 'Offline'}
+                    </span>
+                  )}
                 </button>
               </Tooltip>
             )}
@@ -2463,13 +2471,13 @@ const ReadingRoom = () => {
               </button>
             </Tooltip>
             
-            <Tooltip content="Share reading room" position="bottom" disabled={isMobile}>
+            <Tooltip content="Add people to session" position="bottom" disabled={isMobile}>
               <button 
                 onClick={() => handleShare()}
                 className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
                 disabled={!sessionId}
               >
-                <Share2 className="h-4 w-4" />
+                <UserPlus className="h-4 w-4" />
               </button>
             </Tooltip>
             
@@ -2481,46 +2489,11 @@ const ReadingRoom = () => {
                 onClick={() => setShowGuestUpgrade(true)}
                 className={`btn btn-accent bg-accent/80 backdrop-blur-sm border border-accent/50 ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} ${!isGuest ? 'hidden' : ''}`}
               >
-                <UserPlus className="h-4 w-4" />
+                <Sparkles className="h-4 w-4" />
                 {!isMobile && <span className="text-xs">Upgrade</span>}
               </button>
             </Tooltip>
 
-            {/* Desktop: Reveal All / View Cards Button - show when cards are placed - moved to front */}
-            {!isMobile && selectedCards.some((card: any) => card) && (
-              <>
-                {/* Show Reveal All button if there are unrevealed cards */}
-                {selectedCards.some((card: any) => card && !card.revealed) && (
-                  <Tooltip content="Reveal all cards" position="bottom">
-                    <button 
-                      onClick={revealAllCards}
-                      className="btn btn-secondary bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center"
-                    >
-                      <EyeOff className="h-4 w-4" />
-                      <span className="ml-1 text-xs">Reveal All</span>
-                    </button>
-                  </Tooltip>
-                )}
-                
-                {/* Show View Cards button if all cards are revealed */}
-                {selectedCards.every((card: any) => !card || card.revealed) && selectedCards.some((card: any) => card?.revealed) && (
-                  <Tooltip content="View cards in detail" position="bottom">
-                    <button 
-                      onClick={() => {
-                        const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
-                        if (firstRevealedIndex !== -1) {
-                          openCardGallery(firstRevealedIndex);
-                        }
-                      }}
-                      className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center"
-                    >
-                      <Eye className="h-4 w-4" />
-                      <span className="ml-1 text-xs">View Detail</span>
-                    </button>
-                  </Tooltip>
-                )}
-              </>
-            )}
           </div>
         </div>
 
@@ -3820,7 +3793,7 @@ const ReadingRoom = () => {
                   {/* Desktop Directional Joypad */}
                   {!isMobile && (
                     <>
-                      <div className="w-full h-px bg-border my-1"></div>
+                      <div className="w-full h-px bg-border left-12 my-1"></div>
                       <div className="relative w-14 h-14">
                         {/* Up */}
                         <Tooltip content="Pan up (↑)" position="right">
@@ -4413,6 +4386,44 @@ const ReadingRoom = () => {
 
               {/* Gallery Content */}
               <div className={`${isMobile ? 'h-full pt-16 pb-20' : 'p-6'} flex flex-col items-center justify-center relative`}>
+                {/* Navigation Arrows - Positioned at Modal Edges */}
+                {(() => {
+                  const revealedCards = selectedCards.filter((card: any) => card?.revealed);
+                  const hasMultipleCards = revealedCards.length > 1;
+                  
+                  if (!hasMultipleCards) return null;
+                  
+                  return (
+                    <>
+                      {/* Left Arrow */}
+                      <button
+                        onClick={() => navigateGallery('prev')}
+                        className={`absolute left-4 top-1/2 transform -translate-y-1/2 z-20 p-3 rounded-full transition-all duration-200 ${
+                          isMobile 
+                            ? 'bg-black/50 text-white hover:bg-black/70' 
+                            : 'bg-black/40 text-white hover:bg-black/60 opacity-70 hover:opacity-100'
+                        } backdrop-blur-sm`}
+                        title="Previous card"
+                      >
+                        <ChevronLeft className="h-6 w-6" />
+                      </button>
+                      
+                      {/* Right Arrow */}
+                      <button
+                        onClick={() => navigateGallery('next')}
+                        className={`absolute right-4 top-1/2 transform -translate-y-1/2 z-20 p-3 rounded-full transition-all duration-200 ${
+                          isMobile 
+                            ? 'bg-black/50 text-white hover:bg-black/70' 
+                            : 'bg-black/40 text-white hover:bg-black/60 opacity-70 hover:opacity-100'
+                        } backdrop-blur-sm`}
+                        title="Next card"
+                      >
+                        <ChevronRight className="h-6 w-6" />
+                      </button>
+                    </>
+                  );
+                })()}
+
                 {/* Card Image */}
                 <div className={`relative ${isMobile ? 'w-full max-w-sm h-full max-h-96' : 'w-80 h-[480px]'} mb-4`}>
                   <motion.img 

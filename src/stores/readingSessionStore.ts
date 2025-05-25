@@ -593,7 +593,11 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
                 selectedCards: newSession.selected_cards || [],
                 interpretation: newSession.interpretation || '',
                 zoomLevel: newSession.zoom_level || 1.0,
+                panOffset: newSession.pan_offset || { x: 0, y: 0 },
+                zoomFocus: newSession.zoom_focus || null,
                 activeCardIndex: newSession.active_card_index,
+                sharedModalState: newSession.shared_modal_state || null,
+                videoCallState: newSession.video_call_state || null,
                 deckId: newSession.deck_id, // Ensure deck ID is synced
                 updatedAt: newSession.updated_at
               };
