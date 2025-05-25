@@ -15,7 +15,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   const { user } = useAuthStore();
   const { 
     localStream, 
-    remoteStream, 
+    remoteStreams,
     connectionStatus, 
     startCall, 
     endCall, 
@@ -23,11 +23,13 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     setError,
     generateShareableLink,
     requestPermissions,
-    permissionDenied
+    permissionDenied,
+    videoCallParticipants,
+    connectedPeers
   } = useVideoCall();
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRefs = useRef<Map<string, React.RefObject<HTMLVideoElement>>>(new Map());
   
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
@@ -45,70 +47,83 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
   const [controlsMinimized, setControlsMinimized] = useState(false);
   const [controlsPosition, setControlsPosition] = useState<'bubble' | 'bottom' | 'hidden'>('bottom');
   
-  // Video position states - optimized for mobile
+  // Video position states - optimized for mobile and multi-party
   const [localVideoPosition, setLocalVideoPosition] = useState({ x: 20, y: 20 });
-  const [remoteVideoPosition, setRemoteVideoPosition] = useState({ x: window.innerWidth - 320, y: 20 });
+  const [remoteVideoPositions, setRemoteVideoPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
   const [actualSessionId, setActualSessionId] = useState<string | null>(null);
 
-  // Check for mobile device
+  // Calculate positions for multiple participants
+  const calculateVideoPositions = useCallback(() => {
+    const participantCount = remoteStreams.size;
+    const videoSize = isMobile ? 64 : 128;
+    const spacing = isMobile ? 8 : 10;
+    const topOffset = isMobile ? 80 : 70;
+    
+    // Position local video at top-left
+    const localPos = { x: 20, y: topOffset };
+    setLocalVideoPosition(localPos);
+    
+    // Position remote videos in a grid layout
+    const newRemotePositions = new Map<string, { x: number; y: number }>();
+    const participantIds = Array.from(remoteStreams.keys());
+    
+    if (isMobile) {
+      // On mobile, only position the first participant (limit to 2 total bubbles)
+      const visibleParticipants = participantIds.slice(0, 1);
+      visibleParticipants.forEach((participantId, index) => {
+        // Position next to local video
+        const x = 20 + videoSize + spacing;
+        const y = topOffset;
+        newRemotePositions.set(participantId, { x, y });
+      });
+    } else {
+      // Desktop: full grid layout
+      if (participantCount <= 3) {
+        // Horizontal layout for 1-3 participants
+        const totalWidth = (participantCount * videoSize) + ((participantCount - 1) * spacing);
+        const startX = (window.innerWidth - totalWidth) / 2;
+        
+        participantIds.forEach((participantId, index) => {
+          const x = startX + (index * (videoSize + spacing));
+          const y = topOffset;
+          newRemotePositions.set(participantId, { x, y });
+        });
+      } else {
+        // Grid layout for 4+ participants
+        const cols = Math.ceil(Math.sqrt(participantCount));
+        const rows = Math.ceil(participantCount / cols);
+        
+        const totalWidth = (cols * videoSize) + ((cols - 1) * spacing);
+        const totalHeight = (rows * videoSize) + ((rows - 1) * spacing);
+        const startX = (window.innerWidth - totalWidth) / 2;
+        const startY = topOffset + 100; // Give more space for grid
+        
+        participantIds.forEach((participantId, index) => {
+          const row = Math.floor(index / cols);
+          const col = index % cols;
+          const x = startX + (col * (videoSize + spacing));
+          const y = startY + (row * (videoSize + spacing));
+          newRemotePositions.set(participantId, { x, y });
+        });
+      }
+    }
+    
+    setRemoteVideoPositions(newRemotePositions);
+  }, [remoteStreams.size, isMobile]);
+
+  // Check for mobile device and calculate positions
   useEffect(() => {
     const checkMobile = () => {
       const isMobileDevice = window.innerWidth < 768;
       setIsMobile(isMobileDevice);
       
-      // Helper function to ensure positions are within viewport bounds
-      const constrainToViewport = (x: number, y: number, videoSize: number) => {
-        const margin = 8;
-        return {
-          x: Math.max(margin, Math.min(x, window.innerWidth - videoSize - margin)),
-          y: Math.max(margin, Math.min(y, window.innerHeight - videoSize - margin))
-        };
-      };
-      
       // Auto-adjust controls for mobile
       if (isMobileDevice) {
-        setControlsPosition('bubble'); // Use bubble controls for mobile
-        setControlsMinimized(true); // Start minimized on mobile
-        // Position both bubbles next to each other at top center for mobile
-        // Below top bar (top-2 = 8px) and zoom controls (top-16 = 64px)
-        const mobileVideoSize = 64; // w-16 h-16 when minimized
-        const spacing = 8; // Smaller spacing for mobile
-        const topOffset = 80; // Below zoom controls (64px + 16px margin)
-        
-        const centerX = window.innerWidth / 2;
-        // Calculate positions so both bubbles are centered as a group
-        const totalWidth = (mobileVideoSize * 2) + spacing;
-        const startX = centerX - (totalWidth / 2);
-        const localX = startX;
-        const remoteX = startX + mobileVideoSize + spacing;
-        
-        const localPos = constrainToViewport(localX, topOffset, mobileVideoSize);
-        const remotePos = constrainToViewport(remoteX, topOffset, mobileVideoSize);
-        
-        setLocalVideoPosition(localPos);
-        setRemoteVideoPosition(remotePos);
+        setControlsPosition('bubble');
+        setControlsMinimized(true);
       } else {
-        setControlsPosition('bottom'); // Use bottom controls for desktop
+        setControlsPosition('bottom');
         setControlsMinimized(false);
-        // Position both bubbles next to each other at top center for desktop
-        // Below top bar (top-4 = 16px + controls height ~40px)
-        const desktopVideoSize = 128; // Updated for circular bubbles (w-32 h-32)
-        const spacing = 10; // Space between the two bubbles
-        const topOffset = 70; // Below top controls with margin
-        
-        // Position both videos at top center, side by side
-        const centerX = window.innerWidth / 2;
-        // Calculate positions so both bubbles are centered as a group
-        const totalWidth = (desktopVideoSize * 2) + spacing;
-        const startX = centerX - (totalWidth / 2);
-        const localX = startX;
-        const remoteX = startX + desktopVideoSize + spacing;
-        
-        const localPos = constrainToViewport(localX, topOffset, desktopVideoSize);
-        const remotePos = constrainToViewport(remoteX, topOffset, desktopVideoSize);
-        
-        setLocalVideoPosition(localPos);
-        setRemoteVideoPosition(remotePos);
       }
     };
     
@@ -117,13 +132,18 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Recalculate positions when participants change
+  useEffect(() => {
+    calculateVideoPositions();
+  }, [calculateVideoPositions]);
+
   // Position update handlers
   const updateLocalVideoPosition = (position: { x: number; y: number }) => {
     setLocalVideoPosition(position);
   };
 
-  const updateRemoteVideoPosition = (position: { x: number; y: number }) => {
-    setRemoteVideoPosition(position);
+  const updateRemoteVideoPosition = (participantId: string, position: { x: number; y: number }) => {
+    setRemoteVideoPositions(prev => new Map(prev).set(participantId, position));
   };
 
   // Initialize call with better error handling
@@ -250,13 +270,16 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     }
   }, [localStream]);
   
-  // Handle remote video stream
+  // Handle multiple remote video streams
   useEffect(() => {
-    if (remoteStream && remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = remoteStream;
-    }
-  }, [remoteStream]);
-  
+    remoteStreams.forEach((stream, participantId) => {
+      const videoRef = remoteVideoRefs.current.get(participantId);
+      if (videoRef?.current) {
+        videoRef.current.srcObject = stream;
+      }
+    });
+  }, [remoteStreams]);
+
   // Toggle audio mute
   const toggleMute = () => {
     if (localStream) {
@@ -348,21 +371,18 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     }
   }, [permissionDenied, error]);
 
-  // Debug logging for desktop video positioning
+  // Debug logging for video positioning
   useEffect(() => {
-    if (!isMobile) {
-      console.log('Desktop video chat - Video positions:', {
-        localVideoPosition,
-        remoteVideoPosition,
-        windowWidth: window.innerWidth,
-        windowHeight: window.innerHeight,
-        localStream: !!localStream,
-        remoteStream: !!remoteStream,
-        connectionStatus,
-        isInitializing
-      });
-    }
-  }, [isMobile, localVideoPosition, remoteVideoPosition, localStream, remoteStream, connectionStatus, isInitializing]);
+    console.log('Multi-party video chat - Participants:', {
+      localStream: !!localStream,
+      remoteStreamsCount: remoteStreams.size,
+      remoteParticipants: Array.from(remoteStreams.keys()),
+      videoCallParticipants,
+      connectedPeers: Array.from(connectedPeers.entries()),
+      connectionStatus,
+      isInitializing
+    });
+  }, [localStream, remoteStreams, videoCallParticipants, connectedPeers, connectionStatus, isInitializing]);
 
   return (
     <>
@@ -402,9 +422,9 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
                     <AlertCircle className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium mb-2">Video calling requires access to your camera and microphone</p>
+                    <p className="font-medium mb-2">Multi-party video calling requires access to your camera and microphone</p>
                     <p className="text-sm text-muted-foreground mb-4">
-                      This allows you to participate in the video call with other participants in the reading room.
+                      This allows you to participate in the video call with multiple participants in the reading room.
                     </p>
                     <div className="text-xs text-muted-foreground space-y-1">
                       <p>• Your video and audio stay within this session</p>
@@ -456,7 +476,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
             exit={{ opacity: 0, y: isMobile ? 20 : -20 }}
           >
             <div className="flex justify-between items-center mb-3">
-              <h3 className="font-medium text-sm">Share Video Call</h3>
+              <h3 className="font-medium text-sm">Share Multi-Party Video Call</h3>
               <button 
                 onClick={() => setGeneratedSessionId(null)}
                 className="text-muted-foreground hover:text-foreground p-1 -m-1"
@@ -484,13 +504,13 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
               </button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Share this link to invite others to the video call.
+              Share this link to invite others to the multi-party video call. Up to 8 participants supported.
             </p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Local video bubble - Mobile Optimized */}
+      {/* Local video bubble */}
       <DraggableVideo
         videoRef={localVideoRef}
         stream={localStream}
@@ -519,29 +539,47 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         }
       />
       
-      {/* Remote video bubble - Mobile Optimized */}
-      <DraggableVideo
-        videoRef={remoteVideoRef}
-        stream={remoteStream}
-        isVideoOff={false}
-        label={isCreatingRoom ? 'Client' : 'Reader'}
-        className="z-[1500]"
-        initialPosition={remoteVideoPosition}
-        onPositionChange={updateRemoteVideoPosition}
-        isMobile={isMobile}
-        fallbackContent={
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-8 h-8 md:w-12 md:h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                <User className="h-4 w-4 md:h-6 md:w-6 text-muted-foreground" />
-              </div>
-              <p className="text-white text-xs">
-                {connectionStatus === 'connecting' ? 'Connecting...' : 'Waiting...'}
-              </p>
-            </div>
-          </div>
+            {/* Multiple remote video bubbles */}
+      {Array.from(remoteStreams.entries()).map(([participantId, stream], index) => {
+        // On mobile, limit to max 1 remote participant (host + 1 other)
+        if (isMobile && index >= 1) {
+          return null;
         }
-      />
+        
+        const position = remoteVideoPositions.get(participantId) || { x: 100 + (index * 140), y: 100 };
+        
+        // Create or get ref for this participant
+        if (!remoteVideoRefs.current.has(participantId)) {
+          remoteVideoRefs.current.set(participantId, React.createRef<HTMLVideoElement>());
+        }
+        const videoRef = remoteVideoRefs.current.get(participantId)!;
+        
+        return (
+          <DraggableVideo
+            key={participantId}
+            videoRef={videoRef}
+            stream={stream}
+            isVideoOff={false}
+            label={`Participant ${index + 1}`}
+            className="z-[1500]"
+            initialPosition={position}
+            onPositionChange={(pos) => updateRemoteVideoPosition(participantId, pos)}
+            isMobile={isMobile}
+            fallbackContent={
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-8 h-8 md:w-12 md:h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <User className="h-4 w-4 md:h-6 md:w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-white text-xs">
+                    {connectionStatus === 'connecting' ? 'Connecting...' : 'Participant'}
+                  </p>
+                </div>
+              </div>
+            }
+          />
+        );
+      }).filter(Boolean)}
       
       {/* Improved Mobile Controls */}
       {controlsPosition === 'bubble' && isMobile && (
@@ -595,14 +633,10 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
                 <PhoneOff className="h-3 w-3" />
               </button>
               
-              {/* Minimize/Expand Toggle */}
-              <button
-                onClick={() => setControlsPosition(controlsMinimized ? 'bottom' : 'hidden')}
-                className="p-2 rounded-full bg-card/90 text-foreground border border-border hover:bg-muted/50 backdrop-blur-sm"
-                title="Move controls"
-              >
-                <Settings className="h-3 w-3" />
-              </button>
+              {/* Participants Count */}
+              <div className="p-2 rounded-full bg-primary/90 text-primary-foreground border border-primary backdrop-blur-sm text-xs font-medium">
+                {remoteStreams.size + 1}{isMobile && remoteStreams.size > 1 ? '+' : ''}
+              </div>
             </div>
           </motion.div>
         </>
@@ -634,6 +668,10 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
                 >
                   <PhoneOff className="h-4 w-4" />
                 </button>
+                {/* Participants count */}
+                <div className="p-2 rounded-full bg-muted/20 text-muted-foreground text-xs font-medium">
+                  {remoteStreams.size + 1}{isMobile && remoteStreams.size > 1 ? '+' : ''}
+                </div>
               </div>
             ) : (
               /* Full controls */
@@ -647,6 +685,11 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
                     <X className="h-3 w-3" />
                   </button>
                 )}
+                
+                {/* Participants count */}
+                <div className="px-3 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium">
+                  {remoteStreams.size + 1}{isMobile && remoteStreams.size > 1 ? '+' : ''} participants
+                </div>
                 
                 {/* Mute Button */}
                 <button

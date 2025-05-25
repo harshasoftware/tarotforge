@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Sparkles, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Sparkles, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
@@ -1749,11 +1749,22 @@ const ReadingRoom = () => {
         activeCardIndex
       });
     }
+
+    // Automatically start video call when sharing
+    if (!showVideoChat && !isVideoConnecting) {
+      console.log('Auto-starting video call for sharing...');
+      setIsVideoConnecting(true);
+      
+      setTimeout(() => {
+        setIsVideoConnecting(false);
+        setShowVideoChat(true);
+      }, 500);
+    }
     
     const shareableLink = generateShareableLink(sessionId);
     const shareData = {
       title: 'TarotForge Reading Room',
-      text: `Join my tarot reading session! ${deck ? `Using ${deck.title} deck` : 'Interactive tarot reading'} - `,
+      text: `Join my tarot reading session with video chat! ${deck ? `Using ${deck.title} deck` : 'Interactive tarot reading'} - `,
       url: shareableLink
     };
     
@@ -2390,19 +2401,7 @@ const ReadingRoom = () => {
               </button>
             </Tooltip>
             
-            <Tooltip content={showVideoChat ? "Video chat active" : "Start video chat"} position="bottom" disabled={isMobile}>
-              <button 
-                onClick={() => !isVideoConnecting && !showVideoChat && initiateVideoChat()}
-                className={`btn ${showVideoChat ? 'btn-success' : 'btn-secondary'} bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
-                disabled={isVideoConnecting}
-              >
-                {isVideoConnecting ? (
-                  <LoadingSpinner size="sm" />
-                ) : (
-                  <PhoneCall className="h-4 w-4" />
-                )}
-              </button>
-            </Tooltip>
+
             
             {/* Guest upgrade button - moved to end */}
             <Tooltip content="Create account to save your progress" position="bottom" disabled={isMobile}>
@@ -4229,8 +4228,9 @@ const ReadingRoom = () => {
               
               <div className="p-6">
                 <p className="mb-4 text-sm md:text-base">
-                  Share this link with others to invite them to your reading room. 
+                  Share this link with others to invite them to your reading room with video chat. 
                   {participants.length > 0 && ` Currently ${participants.length} participants are connected.`}
+                  {showVideoChat && <span className="block text-xs text-primary mt-1">Video chat is now active!</span>}
                 </p>
                 
                 <div className="mb-6">

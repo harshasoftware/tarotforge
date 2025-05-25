@@ -25,6 +25,12 @@ export interface ReadingSessionState {
     showDescription: boolean;
     triggeredBy: string | null; // participant ID who triggered the modal
   } | null;
+  videoCallState: {
+    isActive: boolean;
+    sessionId: string | null;
+    hostParticipantId: string | null;
+    participants: string[]; // participant IDs in the video call
+  } | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -79,6 +85,11 @@ interface ReadingSessionStore {
   setupRealtimeSubscriptions: () => void;
   syncCompleteSessionState: (sessionId: string) => Promise<boolean>;
   cleanup: () => void;
+  // Video call management
+  startVideoCall: () => Promise<string | null>;
+  joinVideoCall: (videoSessionId: string) => Promise<boolean>;
+  leaveVideoCall: () => Promise<void>;
+  updateVideoCallParticipants: (participants: string[]) => Promise<void>;
 }
 
 export const useReadingSessionStore = create<ReadingSessionStore>()(
@@ -161,6 +172,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         zoomFocus: null,
         activeCardIndex: null,
         sharedModalState: null,
+        videoCallState: null,
         isActive: true,
         createdAt: now,
         updatedAt: now
@@ -313,6 +325,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           zoomFocus: session.zoom_focus || null,
           activeCardIndex: session.active_card_index,
           sharedModalState: session.shared_modal_state || null,
+          videoCallState: session.video_call_state || null,
           isActive: session.is_active,
           createdAt: session.created_at,
           updatedAt: session.updated_at
@@ -404,6 +417,9 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         }
         if (updates.sharedModalState !== undefined) {
           updateData.shared_modal_state = updates.sharedModalState;
+        }
+        if (updates.videoCallState !== undefined) {
+          updateData.video_call_state = updates.videoCallState;
         }
 
         console.log('Updating session with data:', updateData);
@@ -651,6 +667,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           zoomFocus: session.zoom_focus || null,
           activeCardIndex: session.active_card_index,
           sharedModalState: session.shared_modal_state || null,
+          videoCallState: session.video_call_state || null,
           isActive: session.is_active,
           createdAt: session.created_at,
           updatedAt: session.updated_at
@@ -762,6 +779,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
                 zoomFocus: null,
                 activeCardIndex: null,
                 sharedModalState: null,
+                videoCallState: null,
                 isActive: true,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
@@ -785,6 +803,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
               zoomFocus: session.zoom_focus || null,
               activeCardIndex: session.active_card_index,
               sharedModalState: session.shared_modal_state || null,
+              videoCallState: session.video_call_state || null,
               isActive: session.is_active,
               createdAt: session.created_at,
               updatedAt: session.updated_at
@@ -846,6 +865,138 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         presenceInterval: null,
         participantId: null
       });
+    },
+
+    // Video call management functions
+    startVideoCall: async () => {
+      const { sessionState, participantId } = get();
+      
+      if (!sessionState?.id || !participantId) {
+        console.error('Cannot start video call: No session or participant ID');
+        return null;
+      }
+
+      try {
+        // Generate a video session ID (could be same as reading session or separate)
+        const videoSessionId = sessionState.id; // Use same ID for simplicity
+        
+        // Update session state to indicate video call is active
+        await get().updateSession({
+          videoCallState: {
+            isActive: true,
+            sessionId: videoSessionId,
+            hostParticipantId: participantId,
+            participants: [participantId]
+          }
+        });
+
+        return videoSessionId;
+      } catch (error) {
+        console.error('Error starting video call:', error);
+        return null;
+      }
+    },
+
+    joinVideoCall: async (videoSessionId: string) => {
+      const { sessionState, participantId } = get();
+      
+      if (!sessionState?.id || !participantId) {
+        console.error('Cannot join video call: No session or participant ID');
+        return false;
+      }
+
+      try {
+        const currentVideoState = sessionState.videoCallState;
+        
+        if (!currentVideoState?.isActive) {
+          console.error('No active video call to join');
+          return false;
+        }
+
+        // Add participant to video call
+        const updatedParticipants = currentVideoState.participants.includes(participantId)
+          ? currentVideoState.participants
+          : [...currentVideoState.participants, participantId];
+
+        await get().updateSession({
+          videoCallState: {
+            ...currentVideoState,
+            participants: updatedParticipants
+          }
+        });
+
+        return true;
+      } catch (error) {
+        console.error('Error joining video call:', error);
+        return false;
+      }
+    },
+
+    leaveVideoCall: async () => {
+      const { sessionState, participantId } = get();
+      
+      if (!sessionState?.id || !participantId) {
+        console.error('Cannot leave video call: No session or participant ID');
+        return;
+      }
+
+      try {
+        const currentVideoState = sessionState.videoCallState;
+        
+        if (!currentVideoState?.isActive) {
+          return; // No active video call
+        }
+
+        // Remove participant from video call
+        const updatedParticipants = currentVideoState.participants.filter(p => p !== participantId);
+        
+        // If no participants left or if host is leaving, end the call
+        if (updatedParticipants.length === 0 || currentVideoState.hostParticipantId === participantId) {
+          await get().updateSession({
+            videoCallState: {
+              ...currentVideoState,
+              isActive: false,
+              participants: []
+            }
+          });
+        } else {
+          await get().updateSession({
+            videoCallState: {
+              ...currentVideoState,
+              participants: updatedParticipants
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error leaving video call:', error);
+      }
+    },
+
+    updateVideoCallParticipants: async (participants: string[]) => {
+      const { sessionState } = get();
+      
+      if (!sessionState?.id) {
+        console.error('Cannot update video call participants: No session ID');
+        return;
+      }
+
+      try {
+        const currentVideoState = sessionState.videoCallState;
+        
+        if (!currentVideoState?.isActive) {
+          console.error('No active video call to update');
+          return;
+        }
+
+        await get().updateSession({
+          videoCallState: {
+            ...currentVideoState,
+            participants
+          }
+        });
+      } catch (error) {
+        console.error('Error updating video call participants:', error);
+      }
     }
   }))
 );
