@@ -216,7 +216,7 @@ Desktop users have access to a visual directional control pad (joypad) integrate
 - **Down Arrow**: Pan drawing area downward  
 - **Left Chevron**: Pan drawing area leftward
 - **Right Chevron**: Pan drawing area rightward
-- **Center Dot**: Visual reference point (non-interactive)
+- **Center Button**: Reset pan position to center (0, 0)
 
 ### Functionality
 - **Pan Step**: 50 pixels per button press
@@ -236,6 +236,7 @@ Desktop users have access to a visual directional control pad (joypad) integrate
 - **Accessibility**: Alternative to mouse-based panning
 - **Consistency**: Predictable movement increments
 - **Efficiency**: Quick repositioning with single clicks
+- **Reset to Center**: Instantly return to default view position
 
 ## Navigation States and Transitions
 

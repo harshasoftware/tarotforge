@@ -993,6 +993,11 @@ const ReadingRoom = () => {
     setPanOffset({ x: 0, y: 0 });
   }, [setZoomLevelWrapped]);
   
+  // Reset pan to center
+  const resetPan = useCallback(() => {
+    setPanOffset({ x: 0, y: 0 });
+  }, []);
+  
   // Directional panning functions
   const panDirection = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
     const panStep = 50; // pixels to move per step
@@ -2999,8 +3004,15 @@ const ReadingRoom = () => {
                           </button>
                         </Tooltip>
                         
-                        {/* Center dot */}
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-1 bg-muted-foreground rounded-full"></div>
+                        {/* Center button */}
+                        <Tooltip content="Reset pan to center" position="right">
+                          <button 
+                            onClick={resetPan}
+                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
+                          >
+                            <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full"></div>
+                          </button>
+                        </Tooltip>
                         
                         {/* Right */}
                         <Tooltip content="Pan right (→)" position="right">
@@ -3582,8 +3594,15 @@ const ReadingRoom = () => {
                           </button>
                         </Tooltip>
                         
-                        {/* Center dot */}
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-1 bg-muted-foreground rounded-full"></div>
+                        {/* Center button */}
+                        <Tooltip content="Reset pan to center" position="right">
+                          <button 
+                            onClick={resetPan}
+                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
+                          >
+                            <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full"></div>
+                          </button>
+                        </Tooltip>
                         
                         {/* Right */}
                         <Tooltip content="Pan right (→)" position="right">
