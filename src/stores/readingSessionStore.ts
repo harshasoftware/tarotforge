@@ -19,6 +19,12 @@ export interface ReadingSessionState {
   panOffset: { x: number; y: number };
   zoomFocus: { x: number; y: number } | null;
   activeCardIndex: number | null;
+  sharedModalState: {
+    isOpen: boolean;
+    cardIndex: number | null;
+    showDescription: boolean;
+    triggeredBy: string | null; // participant ID who triggered the modal
+  } | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -114,6 +120,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
             zoom_level: 1.0,
             pan_offset: { x: 0, y: 0 },
             zoom_focus: null,
+            shared_modal_state: null,
             is_active: true
           })
           .select()
@@ -153,6 +160,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         panOffset: { x: 0, y: 0 },
         zoomFocus: null,
         activeCardIndex: null,
+        sharedModalState: null,
         isActive: true,
         createdAt: now,
         updatedAt: now
@@ -304,6 +312,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           panOffset: session.pan_offset || { x: 0, y: 0 },
           zoomFocus: session.zoom_focus || null,
           activeCardIndex: session.active_card_index,
+          sharedModalState: session.shared_modal_state || null,
           isActive: session.is_active,
           createdAt: session.created_at,
           updatedAt: session.updated_at
@@ -392,6 +401,9 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         }
         if (updates.activeCardIndex !== undefined) {
           updateData.active_card_index = updates.activeCardIndex;
+        }
+        if (updates.sharedModalState !== undefined) {
+          updateData.shared_modal_state = updates.sharedModalState;
         }
 
         console.log('Updating session with data:', updateData);
@@ -638,6 +650,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           panOffset: session.pan_offset || { x: 0, y: 0 },
           zoomFocus: session.zoom_focus || null,
           activeCardIndex: session.active_card_index,
+          sharedModalState: session.shared_modal_state || null,
           isActive: session.is_active,
           createdAt: session.created_at,
           updatedAt: session.updated_at
@@ -748,6 +761,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
                 panOffset: { x: 0, y: 0 },
                 zoomFocus: null,
                 activeCardIndex: null,
+                sharedModalState: null,
                 isActive: true,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
@@ -770,6 +784,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
               panOffset: session.pan_offset || { x: 0, y: 0 },
               zoomFocus: session.zoom_focus || null,
               activeCardIndex: session.active_card_index,
+              sharedModalState: session.shared_modal_state || null,
               isActive: session.is_active,
               createdAt: session.created_at,
               updatedAt: session.updated_at

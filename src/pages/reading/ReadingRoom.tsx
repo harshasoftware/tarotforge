@@ -187,7 +187,8 @@ const ReadingRoom = () => {
     isOfflineMode,
     syncLocalSessionToDatabase,
     syncCompleteSessionState,
-    cleanup
+    cleanup,
+    participantId
   } = useReadingSessionStore();
   
   // Get isGuest from computed selector - also consider non-authenticated users as guests
@@ -413,6 +414,7 @@ const ReadingRoom = () => {
   const panOffset = sessionState?.panOffset || { x: 0, y: 0 };
   const zoomFocus = sessionState?.zoomFocus || null;
   const activeCardIndex = sessionState?.activeCardIndex;
+  const sharedModalState = sessionState?.sharedModalState;
   const sessionId = sessionState?.id;
 
   // Deck selection state
@@ -454,11 +456,11 @@ const ReadingRoom = () => {
   // Sync success notification
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
   
-  // Card gallery state
-  const [showCardGallery, setShowCardGallery] = useState(false);
-  const [galleryCardIndex, setGalleryCardIndex] = useState<number | null>(null);
+  // Card gallery state - now synchronized
+  const showCardGallery = sharedModalState?.isOpen || false;
+  const galleryCardIndex = sharedModalState?.cardIndex || null;
+  const showCardDescription = sharedModalState?.showDescription || false;
   const [gallerySwipeStart, setGallerySwipeStart] = useState<{ x: number; y: number } | null>(null);
-  const [showCardDescription, setShowCardDescription] = useState(false);
   const [cardDescription, setCardDescription] = useState<string>('');
   const [loadingDescription, setLoadingDescription] = useState(false);
   
@@ -607,6 +609,16 @@ const ReadingRoom = () => {
 
   const setReadingStepWrapped = useCallback((step: 'setup' | 'drawing' | 'interpretation') => {
     updateSession({ readingStep: step });
+  }, [updateSession]);
+
+  // Modal synchronization wrapper
+  const updateSharedModalState = useCallback((modalState: {
+    isOpen: boolean;
+    cardIndex: number | null;
+    showDescription: boolean;
+    triggeredBy: string | null;
+  } | null) => {
+    updateSession({ sharedModalState: modalState });
   }, [updateSession]);
 
   // Fisher-Yates shuffle algorithm (Durstenfeld modern implementation)
@@ -1450,18 +1462,22 @@ const ReadingRoom = () => {
     }
   }, [selectedCards, updateSession]);
   
-  // Handle opening card gallery
+  // Handle opening card gallery - now synchronized
   const openCardGallery = useCallback((cardIndex: number) => {
     const selectedCard = selectedCards[cardIndex];
     if ((selectedCard as any)?.revealed) {
-      setGalleryCardIndex(cardIndex);
-      setShowCardGallery(true);
+      updateSharedModalState({
+        isOpen: true,
+        cardIndex: cardIndex,
+        showDescription: false,
+        triggeredBy: participantId
+      });
     }
-  }, [selectedCards]);
+  }, [selectedCards, updateSharedModalState, participantId]);
   
-  // Handle gallery navigation
+  // Handle gallery navigation - now synchronized
   const navigateGallery = useCallback((direction: 'prev' | 'next') => {
-    if (galleryCardIndex === null) return;
+    if (galleryCardIndex === null || !sharedModalState) return;
     
     const revealedCards = selectedCards
       .map((card, index) => ({ card, index }))
@@ -1471,21 +1487,27 @@ const ReadingRoom = () => {
     
     if (direction === 'prev') {
       const newIndex = currentRevealedIndex > 0 ? currentRevealedIndex - 1 : revealedCards.length - 1;
-      setGalleryCardIndex(revealedCards[newIndex].index);
+      updateSharedModalState({
+        ...sharedModalState,
+        cardIndex: revealedCards[newIndex].index,
+        triggeredBy: participantId
+      });
     } else {
       const newIndex = currentRevealedIndex < revealedCards.length - 1 ? currentRevealedIndex + 1 : 0;
-      setGalleryCardIndex(revealedCards[newIndex].index);
+      updateSharedModalState({
+        ...sharedModalState,
+        cardIndex: revealedCards[newIndex].index,
+        triggeredBy: participantId
+      });
     }
-  }, [galleryCardIndex, selectedCards]);
+  }, [galleryCardIndex, selectedCards, sharedModalState, updateSharedModalState, participantId]);
   
-  // Close gallery
+  // Close gallery - now synchronized
   const closeCardGallery = useCallback(() => {
-    setShowCardGallery(false);
-    setGalleryCardIndex(null);
+    updateSharedModalState(null);
     setGallerySwipeStart(null);
-    setShowCardDescription(false);
     setCardDescription('');
-  }, []);
+  }, [updateSharedModalState]);
 
   // Reveal all cards at once
   const revealAllCards = useCallback(() => {
@@ -1508,7 +1530,13 @@ const ReadingRoom = () => {
       // For Rider-Waite deck, use the existing description
       if (deck.id === 'rider-waite-classic' || deck.id === 'rider-waite') {
         setCardDescription(card.description || 'No description available for this card.');
-        setShowCardDescription(true);
+        if (sharedModalState) {
+          updateSharedModalState({
+            ...sharedModalState,
+            showDescription: true,
+            triggeredBy: participantId
+          });
+        }
         return;
       }
       
@@ -1524,16 +1552,28 @@ const ReadingRoom = () => {
         setCardDescription(card.description || 'No description available for this card.');
       }
       
-      setShowCardDescription(true);
+      if (sharedModalState) {
+        updateSharedModalState({
+          ...sharedModalState,
+          showDescription: true,
+          triggeredBy: participantId
+        });
+      }
     } catch (error) {
       console.error('Error fetching card description:', error);
       // Fallback to existing description
       setCardDescription(card.description || 'No description available for this card.');
-      setShowCardDescription(true);
+      if (sharedModalState) {
+        updateSharedModalState({
+          ...sharedModalState,
+          showDescription: true,
+          triggeredBy: participantId
+        });
+      }
     } finally {
       setLoadingDescription(false);
     }
-  }, [deck]);
+  }, [deck, sharedModalState, updateSharedModalState, participantId]);
   
   // Keyboard navigation for gallery and panning
   useEffect(() => {
@@ -1542,8 +1582,12 @@ const ReadingRoom = () => {
       if (showCardGallery) {
         switch (event.key) {
           case 'Escape':
-            if (showCardDescription) {
-              setShowCardDescription(false);
+            if (showCardDescription && sharedModalState) {
+              updateSharedModalState({
+                ...sharedModalState,
+                showDescription: false,
+                triggeredBy: participantId
+              });
             } else {
               closeCardGallery();
             }
@@ -4338,7 +4382,15 @@ const ReadingRoom = () => {
                           Card Meaning
                         </h4>
                         <button
-                          onClick={() => setShowCardDescription(false)}
+                          onClick={() => {
+                            if (sharedModalState) {
+                              updateSharedModalState({
+                                ...sharedModalState,
+                                showDescription: false,
+                                triggeredBy: participantId
+                              });
+                            }
+                          }}
                           className={`p-1 rounded-full transition-colors ${
                             isMobile 
                               ? 'text-white/80 hover:text-white hover:bg-white/20' 
