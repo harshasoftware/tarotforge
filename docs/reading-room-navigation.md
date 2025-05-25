@@ -50,10 +50,10 @@ The Reading Room has multiple states and navigation patterns that differ between
 - **Visibility**: Always visible during drawing/interpretation
 
 #### Deck Pile (Mobile)
-- **Layout**: Horizontal scrollable fan spread
-- **Position**: Bottom center of screen
+- **Layout**: Horizontal scrollable fan spread, full-width container
+- **Position**: Bottom of screen, edge-to-edge with proper centering
 - **Interaction**: Swipe to browse all 78 cards
-- **Visual**: Shallow arc with card count indicator
+- **Visual**: Shallow arc with card count indicator, gradient overlays
 
 ### Mobile State-Specific Navigation
 

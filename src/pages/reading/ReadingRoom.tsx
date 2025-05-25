@@ -3348,20 +3348,19 @@ const ReadingRoom = () => {
                 {shuffledDeck.length > 0 && (
                   <motion.div 
                     key={`deck-pile-${deckRefreshKey}`} 
-                    className={`deck-pile absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2' : 'bottom-8 left-1/2 transform -translate-x-1/2'} z-20`}
+                    className={`deck-pile absolute ${isMobile ? 'bottom-4 left-0 right-0' : 'bottom-8 left-1/2 transform -translate-x-1/2'} z-20`}
                     initial={{ opacity: 0, scale: 0.9, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{ duration: 0.5, ease: "easeOut" }}
                   >
                     {isMobile ? (
                       /* Mobile: Full deck with horizontal panning - all 78 cards */
-                      <div className="relative w-screen h-24 overflow-x-auto">
+                      <div className="relative w-full h-24 overflow-x-auto" style={{ width: '100vw', marginLeft: '-50vw', left: '50%' }}>
                         <div 
-                          className="relative h-24 mx-auto"
+                          className="relative h-24"
                           style={{ 
                             width: `${shuffledDeck.length * 8}px`,
-                            left: '50%',
-                            transform: 'translateX(-50%)'
+                            margin: '0 auto'
                           }}
                         >
                           {shuffledDeck.map((card: Card, index: number) => {
