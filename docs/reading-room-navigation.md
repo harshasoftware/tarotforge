@@ -112,9 +112,16 @@ The Reading Room has multiple states and navigation patterns that differ between
 - **Drag**: Pan when zoomed, move cards
 - **Hover**: Tooltips and visual feedback
 
+#### Keyboard Interactions (Desktop)
+- **Arrow Keys**: Pan the drawing area (up/down/left/right)
+- **Ctrl/Cmd + Scroll**: Zoom in/out
+- **Escape**: Close gallery or modals
+- **Tab**: Navigate through interactive elements
+
 #### Zoom Controls (Desktop)
 - **Position**: Top left corner
 - **Layout**: Vertical stack with more spacing
+- **Joypad**: Directional controls for panning (up/down/left/right)
 - **Additional**: Shuffle button always visible
 
 #### Deck Pile (Desktop)
@@ -140,11 +147,13 @@ The Reading Room has multiple states and navigation patterns that differ between
 - **Interpretation Button**: Larger with text labels
 - **Tooltips**: Comprehensive help system
 - **Precise Positioning**: Mouse-accurate drop zones
+- **Joypad Controls**: Visual directional panning controls
 
 #### Interpretation (Desktop)
 - **Split View**: Always 3/5 cards, 2/5 interpretation
 - **Card Details**: Larger preview with full descriptions
 - **Card Gallery**: Modal overlay with keyboard navigation
+- **Joypad Controls**: Visual directional panning controls
 - **Navigation**: Enhanced with keyboard support
 
 ## Card Gallery Feature
@@ -189,6 +198,44 @@ The Card Gallery provides an immersive way to view and analyze individual cards 
 - **Context-Aware**: Button only appears when cards are revealed
 - **Responsive**: Adapts to device capabilities and screen size
 - **Accessible**: Keyboard navigation and proper focus management
+
+## Desktop Joypad Controls
+
+### Overview
+Desktop users have access to a visual directional control pad (joypad) integrated into the zoom controls panel for precise panning of the drawing area.
+
+### Visual Design
+- **Position**: Below zoom controls in left panel
+- **Layout**: Cross-shaped directional pad with center dot
+- **Size**: 48x48px compact design
+- **Styling**: Consistent with zoom control buttons
+- **Separators**: Visual dividers above and below joypad
+
+### Directional Controls
+- **Up Arrow**: Pan drawing area upward
+- **Down Arrow**: Pan drawing area downward  
+- **Left Chevron**: Pan drawing area leftward
+- **Right Chevron**: Pan drawing area rightward
+- **Center Dot**: Visual reference point (non-interactive)
+
+### Functionality
+- **Pan Step**: 50 pixels per button press
+- **Max Range**: 200 pixels in any direction
+- **Constraints**: Prevents over-panning beyond limits
+- **Tooltips**: Show direction and keyboard shortcut
+- **Hover States**: Visual feedback on button hover
+
+### Keyboard Integration
+- **Arrow Keys**: Mirror joypad functionality exactly
+- **Priority**: Gallery navigation takes precedence when open
+- **Context**: Only active during drawing and interpretation steps
+- **Prevention**: Prevents default browser scroll behavior
+
+### Use Cases
+- **Precise Positioning**: Fine-tune view without mouse dragging
+- **Accessibility**: Alternative to mouse-based panning
+- **Consistency**: Predictable movement increments
+- **Efficiency**: Quick repositioning with single clicks
 
 ## Navigation States and Transitions
 
@@ -263,11 +310,12 @@ Deck Selection → Setup → Ask Question → Drawing → Interpretation
 
 ### Desktop Test Cases
 1. **Mouse Interactions**: Click, hover, drag behaviors
-2. **Keyboard Navigation**: Tab order and shortcuts (including gallery)
-3. **Card Gallery Modal**: Modal behavior and keyboard controls
-4. **Window Resizing**: Responsive behavior
-5. **Zoom Levels**: Browser zoom compatibility
-6. **Multi-Monitor**: Behavior across different displays
+2. **Keyboard Navigation**: Tab order and shortcuts (including gallery and panning)
+3. **Joypad Controls**: Directional panning button functionality
+4. **Card Gallery Modal**: Modal behavior and keyboard controls
+5. **Window Resizing**: Responsive behavior
+6. **Zoom Levels**: Browser zoom compatibility
+7. **Multi-Monitor**: Behavior across different displays
 
 ### Cross-Platform Test Cases
 1. **State Synchronization**: Real-time updates between devices

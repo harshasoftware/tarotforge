@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Download, Sparkles, Eye, X } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Download, Sparkles, Eye, X, ArrowUp, ArrowDown } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
@@ -993,6 +993,34 @@ const ReadingRoom = () => {
     setPanOffset({ x: 0, y: 0 });
   }, [setZoomLevelWrapped]);
   
+  // Directional panning functions
+  const panDirection = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
+    const panStep = 50; // pixels to move per step
+    const maxPan = 200; // maximum pan distance
+    
+    setPanOffset(current => {
+      let newX = current.x;
+      let newY = current.y;
+      
+      switch (direction) {
+        case 'up':
+          newY = Math.max(-maxPan, current.y - panStep);
+          break;
+        case 'down':
+          newY = Math.min(maxPan, current.y + panStep);
+          break;
+        case 'left':
+          newX = Math.max(-maxPan, current.x - panStep);
+          break;
+        case 'right':
+          newX = Math.min(maxPan, current.x + panStep);
+          break;
+      }
+      
+      return { x: newX, y: newY };
+    });
+  }, []);
+  
   const resetReading = useCallback(() => {
     updateSession({
       readingStep: 'setup',
@@ -1400,29 +1428,53 @@ const ReadingRoom = () => {
     setGallerySwipeStart(null);
   }, []);
   
-  // Keyboard navigation for gallery
+  // Keyboard navigation for gallery and panning
   useEffect(() => {
-    if (!showCardGallery) return;
-    
     const handleKeyDown = (event: KeyboardEvent) => {
-      switch (event.key) {
-        case 'Escape':
-          closeCardGallery();
-          break;
-        case 'ArrowLeft':
-          event.preventDefault();
-          navigateGallery('prev');
-          break;
-        case 'ArrowRight':
-          event.preventDefault();
-          navigateGallery('next');
-          break;
+      // Gallery navigation (takes priority when gallery is open)
+      if (showCardGallery) {
+        switch (event.key) {
+          case 'Escape':
+            closeCardGallery();
+            break;
+          case 'ArrowLeft':
+            event.preventDefault();
+            navigateGallery('prev');
+            break;
+          case 'ArrowRight':
+            event.preventDefault();
+            navigateGallery('next');
+            break;
+        }
+        return;
+      }
+      
+      // Panning navigation (only on desktop and when not in gallery)
+      if (!isMobile && (readingStep === 'drawing' || readingStep === 'interpretation')) {
+        switch (event.key) {
+          case 'ArrowUp':
+            event.preventDefault();
+            panDirection('up');
+            break;
+          case 'ArrowDown':
+            event.preventDefault();
+            panDirection('down');
+            break;
+          case 'ArrowLeft':
+            event.preventDefault();
+            panDirection('left');
+            break;
+          case 'ArrowRight':
+            event.preventDefault();
+            panDirection('right');
+            break;
+        }
       }
     };
     
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showCardGallery, closeCardGallery, navigateGallery]);
+  }, [showCardGallery, closeCardGallery, navigateGallery, isMobile, readingStep, panDirection]);
   
   // Handle gallery swipe gestures
   const handleGalleryTouchStart = useCallback((e: React.TouchEvent) => {
@@ -2921,6 +2973,59 @@ const ReadingRoom = () => {
                       <ZoomOut className="h-4 w-4" />
                     </button>
                   </Tooltip>
+                  
+                  {/* Desktop Directional Joypad */}
+                  {!isMobile && (
+                    <>
+                      <div className="w-full h-px bg-border my-1"></div>
+                      <div className="relative w-12 h-12 mx-auto">
+                        {/* Up */}
+                        <Tooltip content="Pan up (↑)" position="right">
+                          <button 
+                            onClick={() => panDirection('up')}
+                            className="absolute top-0 left-1/2 transform -translate-x-1/2 p-1 hover:bg-muted rounded-sm"
+                          >
+                            <ArrowUp className="h-3 w-3" />
+                          </button>
+                        </Tooltip>
+                        
+                        {/* Left */}
+                        <Tooltip content="Pan left (←)" position="right">
+                          <button 
+                            onClick={() => panDirection('left')}
+                            className="absolute left-0 top-1/2 transform -translate-y-1/2 p-1 hover:bg-muted rounded-sm"
+                          >
+                            <ChevronLeft className="h-3 w-3" />
+                          </button>
+                        </Tooltip>
+                        
+                        {/* Center dot */}
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-1 bg-muted-foreground rounded-full"></div>
+                        
+                        {/* Right */}
+                        <Tooltip content="Pan right (→)" position="right">
+                          <button 
+                            onClick={() => panDirection('right')}
+                            className="absolute right-0 top-1/2 transform -translate-y-1/2 p-1 hover:bg-muted rounded-sm"
+                          >
+                            <ChevronRight className="h-3 w-3" />
+                          </button>
+                        </Tooltip>
+                        
+                        {/* Down */}
+                        <Tooltip content="Pan down (↓)" position="right">
+                          <button 
+                            onClick={() => panDirection('down')}
+                            className="absolute bottom-0 left-1/2 transform -translate-x-1/2 p-1 hover:bg-muted rounded-sm"
+                          >
+                            <ArrowDown className="h-3 w-3" />
+                          </button>
+                        </Tooltip>
+                      </div>
+                      <div className="w-full h-px bg-border my-1"></div>
+                    </>
+                  )}
+                  
                   <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
                     <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`}>
                       <Shuffle className="h-4 w-4" />
@@ -3451,6 +3556,59 @@ const ReadingRoom = () => {
                       <ZoomIn className="h-4 w-4" />
                     </button>
                   </Tooltip>
+                  
+                  {/* Desktop Directional Joypad */}
+                  {!isMobile && (
+                    <>
+                      <div className="w-full h-px bg-border my-1"></div>
+                      <div className="relative w-12 h-12 mx-auto">
+                        {/* Up */}
+                        <Tooltip content="Pan up (↑)" position="right">
+                          <button 
+                            onClick={() => panDirection('up')}
+                            className="absolute top-0 left-1/2 transform -translate-x-1/2 p-1 hover:bg-muted rounded-sm"
+                          >
+                            <ArrowUp className="h-3 w-3" />
+                          </button>
+                        </Tooltip>
+                        
+                        {/* Left */}
+                        <Tooltip content="Pan left (←)" position="right">
+                          <button 
+                            onClick={() => panDirection('left')}
+                            className="absolute left-0 top-1/2 transform -translate-y-1/2 p-1 hover:bg-muted rounded-sm"
+                          >
+                            <ChevronLeft className="h-3 w-3" />
+                          </button>
+                        </Tooltip>
+                        
+                        {/* Center dot */}
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-1 bg-muted-foreground rounded-full"></div>
+                        
+                        {/* Right */}
+                        <Tooltip content="Pan right (→)" position="right">
+                          <button 
+                            onClick={() => panDirection('right')}
+                            className="absolute right-0 top-1/2 transform -translate-y-1/2 p-1 hover:bg-muted rounded-sm"
+                          >
+                            <ChevronRight className="h-3 w-3" />
+                          </button>
+                        </Tooltip>
+                        
+                        {/* Down */}
+                        <Tooltip content="Pan down (↓)" position="right">
+                          <button 
+                            onClick={() => panDirection('down')}
+                            className="absolute bottom-0 left-1/2 transform -translate-x-1/2 p-1 hover:bg-muted rounded-sm"
+                          >
+                            <ArrowDown className="h-3 w-3" />
+                          </button>
+                        </Tooltip>
+                      </div>
+                      <div className="w-full h-px bg-border my-1"></div>
+                    </>
+                  )}
+                  
                   <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
                     <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`}>
                       <Shuffle className="h-4 w-4" />
