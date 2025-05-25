@@ -821,6 +821,26 @@ const ReadingRoom = () => {
     setShowMobileInterpretation(false);
   }, [updateSession, cards, fisherYatesShuffle]);
   
+  const resetCards = useCallback(() => {
+    // Return cards to deck and go back to drawing step, but keep layout and question
+    updateSession({
+      selectedCards: [],
+      interpretation: '',
+      activeCardIndex: null,
+      readingStep: 'drawing',
+      zoomLevel: 1
+    });
+    
+    // Restore all cards to the shuffled deck
+    if (cards.length > 0) {
+      setShuffledDeck(fisherYatesShuffle(cards));
+    }
+    
+    setShowMobileInterpretation(false);
+    setZoomFocus(null);
+    setPanOffset({ x: 0, y: 0 });
+  }, [updateSession, cards, fisherYatesShuffle]);
+  
   // Drag and Drop Functions
   const handleDragStart = (card: Card, index: number, e: any) => {
     setDraggedCard(card);
@@ -2486,6 +2506,11 @@ const ReadingRoom = () => {
                       <ZoomOut className="h-4 w-4" />
                     </button>
                   </Tooltip>
+                  <Tooltip content="Reset cards" position="right" disabled={isMobile}>
+                    <button onClick={resetCards} className="p-1 hover:bg-muted rounded-sm text-red-500 hover:text-red-600">
+                      <XCircle className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
                   <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
                     <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`}>
                       <Shuffle className="h-4 w-4" />
@@ -2979,6 +3004,11 @@ const ReadingRoom = () => {
                   <Tooltip content="Zoom in" position="right" disabled={isMobile}>
                     <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm">
                       <ZoomIn className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Reset cards" position="right" disabled={isMobile}>
+                    <button onClick={resetCards} className="p-1 hover:bg-muted rounded-sm text-red-500 hover:text-red-600">
+                      <XCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
                   <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
