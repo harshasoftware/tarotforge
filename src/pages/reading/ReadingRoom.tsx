@@ -9,6 +9,7 @@ import { useReadingSessionStore, getIsGuest } from '../../stores/readingSessionS
 import { fetchDeckById, fetchCardsByDeckId, fetchUserOwnedDecks } from '../../lib/deck-utils';
 import { getReadingInterpretation, generateInspiredQuestions } from '../../lib/gemini-ai';
 import VideoChat from '../../components/video/VideoChat';
+import { useVideoCall } from '../../context/VideoCallContext';
 import TarotLogo from '../../components/ui/TarotLogo';
 import GuestAccountUpgrade from '../../components/ui/GuestAccountUpgrade';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -194,6 +195,9 @@ const ReadingRoom = () => {
     startVideoCall,
     broadcastGuestAction
   } = useReadingSessionStore();
+  
+  // Initialize video call context
+  const { isInVideoCall, connectionStatus } = useVideoCall();
   
   // Get isGuest from computed selector - also consider non-authenticated users as guests
   const isGuest = !user;
@@ -873,6 +877,24 @@ const ReadingRoom = () => {
 
     return () => clearTimeout(timeoutId);
   }, [participants, previousParticipants, participantId, sessionState?.id, sessionLoading, user?.id]);
+
+  // Auto-show video chat when user is in a video call
+  useEffect(() => {
+    // Show video chat UI when:
+    // 1. User is in a video call (isInVideoCall is true)
+    // 2. Video chat UI is not already shown
+    // 3. Not currently connecting (to avoid double-showing)
+    if (isInVideoCall && !showVideoChat && !isVideoConnecting) {
+      console.log('Auto-showing video chat UI - user is in video call');
+      setShowVideoChat(true);
+    }
+    
+    // Hide video chat UI when user leaves video call
+    if (!isInVideoCall && showVideoChat && connectionStatus === 'disconnected') {
+      console.log('Auto-hiding video chat UI - user left video call');
+      setShowVideoChat(false);
+    }
+  }, [isInVideoCall, showVideoChat, isVideoConnecting, connectionStatus]);
 
   // Function to remove notifications
   const removeNotification = useCallback((notificationId: string) => {

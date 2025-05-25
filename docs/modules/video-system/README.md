@@ -24,6 +24,7 @@ The Video System module provides multi-party video calling capabilities integrat
 ### 🔄 [Video Call Auto-synchronization](./video-call-auto-synchronization.md)
 **Automatic video call initiation and session linking**
 - Auto-start video when sharing sessions
+- Auto-show video UI for participants
 - Session-video call synchronization
 - Participant management during calls
 
@@ -106,10 +107,18 @@ videoCallState: {
 
 ## Troubleshooting
 
+### 🔧 [Video Call UI Troubleshooting Guide](../../troubleshooting/video-call-ui-issues.md)
+**Comprehensive troubleshooting for video call UI issues**
+- Guest video UI visibility problems
+- Auto-join and auto-show debugging
+- Permission and stream issues
+- UI state synchronization problems
+
 ### Common Issues
 1. **Video not starting** → Check WebRTC permissions and setup
 2. **Poor video quality** → Verify bandwidth and connection
 3. **Participants can't join** → Check session synchronization
+4. **Guest can't see video UI** → See troubleshooting guide above
 
 ---
 
