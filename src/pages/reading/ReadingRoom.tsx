@@ -2804,7 +2804,7 @@ const ReadingRoom = () => {
                                   </div>
                                 </div>
                                 {index === Math.floor(totalCards / 2) && (
-                                  <div className="absolute -top-2 -right-1 bg-accent text-accent-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center shadow-md">
+                                  <div className="absolute -top-2 -right-1 bg-accent text-accent-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center shadow-md z-[300]">
                                     {shuffledDeck.length}
                                   </div>
                                 )}
@@ -2884,7 +2884,7 @@ const ReadingRoom = () => {
                         })}
 
                         {/* Card count indicator */}
-                        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-accent text-accent-foreground rounded-full w-8 h-8 text-sm flex items-center justify-center shadow-lg">
+                        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-accent text-accent-foreground rounded-full w-8 h-8 text-sm flex items-center justify-center shadow-lg z-[300]">
                           {shuffledDeck.length}
                         </div>
                       </div>
