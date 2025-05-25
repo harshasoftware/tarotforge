@@ -93,6 +93,8 @@ interface ReadingSessionStore {
   updateVideoCallParticipants: (participants: string[]) => Promise<void>;
   // Guest actions via broadcast
   broadcastGuestAction: (action: string, data: any) => Promise<void>;
+  // Subscribe to broadcast events
+  subscribeToBroadcast: (callback: (action: string, data: any, participantId: string) => void) => () => void;
 }
 
 export const useReadingSessionStore = create<ReadingSessionStore>()(
@@ -169,6 +171,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         question: '',
         readingStep: 'setup',
         selectedCards: [],
+        shuffledDeck: [],
         interpretation: '',
         zoomLevel: 1.0,
         panOffset: { x: 0, y: 0 },
@@ -329,6 +332,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           question: session.question || '',
           readingStep: session.reading_step,
           selectedCards: session.selected_cards || [],
+          shuffledDeck: session.shuffled_deck || [],
           interpretation: session.interpretation || '',
           zoomLevel: session.zoom_level || 1.0,
           panOffset: session.pan_offset || { x: 0, y: 0 },
@@ -449,6 +453,9 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         }
         if (updates.selectedCards !== undefined) {
           updateData.selected_cards = updates.selectedCards;
+        }
+        if (updates.shuffledDeck !== undefined) {
+          updateData.shuffled_deck = updates.shuffledDeck;
         }
         if (updates.interpretation !== undefined) {
           updateData.interpretation = updates.interpretation;
@@ -762,6 +769,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           question: session.question || '',
           readingStep: session.reading_step,
           selectedCards: session.selected_cards || [],
+          shuffledDeck: session.shuffled_deck || [],
           interpretation: session.interpretation || '',
           zoomLevel: session.zoom_level || 1.0,
           panOffset: session.pan_offset || { x: 0, y: 0 },
@@ -979,6 +987,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
                 question: '',
                 readingStep: 'setup',
                 selectedCards: [],
+                shuffledDeck: [],
                 interpretation: '',
                 zoomLevel: 1.0,
                 panOffset: { x: 0, y: 0 },
@@ -1026,6 +1035,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
               question: session.question || '',
               readingStep: session.reading_step,
               selectedCards: session.selected_cards || [],
+              shuffledDeck: session.shuffled_deck || [],
               interpretation: session.interpretation || '',
               zoomLevel: session.zoom_level || 1.0,
               panOffset: session.pan_offset || { x: 0, y: 0 },

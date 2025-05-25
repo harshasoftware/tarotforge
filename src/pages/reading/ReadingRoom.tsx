@@ -191,7 +191,8 @@ const ReadingRoom = () => {
     syncCompleteSessionState,
     cleanup,
     participantId,
-    startVideoCall
+    startVideoCall,
+    broadcastGuestAction
   } = useReadingSessionStore();
   
   // Get isGuest from computed selector - also consider non-authenticated users as guests
@@ -383,6 +384,72 @@ const ReadingRoom = () => {
     }
   }, [isFollowing]);
   
+  // Listen for shuffled deck updates from other participants
+  useEffect(() => {
+    if (!sessionState?.id) return;
+    
+    const handleBroadcast = (payload: any) => {
+      const { action, data, participantId: senderParticipantId } = payload.payload;
+      
+      // Only process if this isn't from ourselves
+      if (senderParticipantId !== participantId) {
+        console.log('Received broadcast action:', { action, data, from: senderParticipantId });
+        
+        switch (action) {
+          case 'updateShuffledDeck':
+            if (data.shuffledDeck) {
+              console.log('Updating shuffled deck from broadcast:', data.shuffledDeck.length, 'cards remaining');
+              setShuffledDeck(data.shuffledDeck);
+            }
+            break;
+          case 'shuffleDeck':
+            if (data.shuffledDeck) {
+              console.log('Shuffling deck from broadcast:', data.shuffledDeck.length, 'cards');
+              setShuffledDeck(data.shuffledDeck);
+              setDeckRefreshKey(prev => prev + 1); // Force deck visual refresh
+            }
+            break;
+          case 'resetReading':
+            if (data.shuffledDeck) {
+              console.log('Resetting reading from broadcast');
+              setShuffledDeck(data.shuffledDeck);
+              setShowMobileInterpretation(false);
+              setInterpretationCards([]);
+              setDeckRefreshKey(prev => prev + 1);
+            }
+            break;
+          case 'resetCards':
+            if (data.shuffledDeck) {
+              console.log('Resetting cards from broadcast');
+              setShuffledDeck(data.shuffledDeck);
+              setShowMobileInterpretation(false);
+              setInterpretationCards([]);
+              setDeckRefreshKey(prev => prev + 1);
+            }
+            break;
+          case 'resetPan':
+            if (data.panOffset) {
+              console.log('Resetting pan from broadcast');
+              setPanOffsetWrapped(data.panOffset);
+            }
+            break;
+        }
+      }
+    };
+    
+    // Subscribe to the existing channel if it exists
+    const channel = useReadingSessionStore.getState().channel;
+    if (channel) {
+      const subscription = channel.on('broadcast', { event: 'guest_action' }, handleBroadcast);
+      
+      return () => {
+        // Supabase channels don't have individual event removal, 
+        // but the cleanup happens when the component unmounts
+        // and the main store cleanup handles channel unsubscription
+      };
+    }
+  }, [sessionState?.id, participantId]);
+
   // Auto-follow host's view when following is enabled
   useEffect(() => {
     if (isFollowing && !isHost && sessionState) {
@@ -1195,11 +1262,17 @@ const ReadingRoom = () => {
     
     // Add a delay to show the shuffling animation
     setTimeout(() => {
-      setShuffledDeck(prev => fisherYatesShuffle(prev));
+      const newShuffledDeck = fisherYatesShuffle(shuffledDeck);
+      setShuffledDeck(newShuffledDeck);
       setIsShuffling(false);
       setDeckRefreshKey(prev => prev + 1); // Force deck visual refresh
+      
+      // Broadcast shuffle action to other participants
+      broadcastGuestAction('shuffleDeck', { 
+        shuffledDeck: newShuffledDeck 
+      });
     }, 1000); // 1 second delay for shuffling animation
-  }, [fisherYatesShuffle]);
+  }, [fisherYatesShuffle, shuffledDeck, broadcastGuestAction]);
   
   // Handle moving placed cards in free layout
   const handlePlacedCardDrag = useCallback((cardIndex: number, event: any, info: any) => {
@@ -1250,7 +1323,12 @@ const ReadingRoom = () => {
   // Reset pan to center
   const resetPan = useCallback(() => {
     setPanOffsetWrapped({ x: 0, y: 0 });
-  }, [setPanOffsetWrapped]);
+    
+    // Broadcast reset pan action to other participants
+    broadcastGuestAction('resetPan', { 
+      panOffset: { x: 0, y: 0 }
+    });
+  }, [setPanOffsetWrapped, broadcastGuestAction]);
   
   // Directional panning functions
   const panDirection = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
@@ -1287,12 +1365,22 @@ const ReadingRoom = () => {
       activeCardIndex: null,
       zoomLevel: 1
     });
+    
+    let newShuffledDeck: Card[] = [];
     if (cards.length > 0) {
-      setShuffledDeck(fisherYatesShuffle(cards));
+      newShuffledDeck = fisherYatesShuffle(cards);
+      setShuffledDeck(newShuffledDeck);
     }
+    
     setShowMobileInterpretation(false);
     setInterpretationCards([]); // Clear interpretation cards tracking
-  }, [updateSession, cards, fisherYatesShuffle]);
+    
+    // Broadcast reset reading action to other participants
+    broadcastGuestAction('resetReading', { 
+      shuffledDeck: newShuffledDeck,
+      resetType: 'full'
+    });
+  }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction]);
   
   const resetCards = useCallback(() => {
     // Return cards to deck and go back to drawing step, but keep layout and question
@@ -1305,9 +1393,10 @@ const ReadingRoom = () => {
     });
     
     // Shuffle and restore all cards to create a fresh deck
+    let freshlyShuffled: Card[] = [];
     if (cards.length > 0) {
       // Force a fresh shuffle by creating a new shuffled array
-      const freshlyShuffled = fisherYatesShuffle([...cards]);
+      freshlyShuffled = fisherYatesShuffle([...cards]);
       setShuffledDeck(freshlyShuffled);
     }
     
@@ -1316,7 +1405,13 @@ const ReadingRoom = () => {
     setPanOffsetWrapped({ x: 0, y: 0 });
     setInterpretationCards([]); // Clear interpretation cards tracking
     setDeckRefreshKey(prev => prev + 1); // Force deck visual refresh
-  }, [updateSession, cards, fisherYatesShuffle]);
+    
+    // Broadcast reset cards action to other participants
+    broadcastGuestAction('resetCards', { 
+      shuffledDeck: freshlyShuffled,
+      resetType: 'cards'
+    });
+  }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction]);
   
   // Drag and Drop Functions
   const handleDragStart = (card: Card, index: number, e: any) => {
@@ -1395,6 +1490,12 @@ const ReadingRoom = () => {
     if (draggedCardIndex !== null) {
       const newShuffledDeck = shuffledDeck.filter((_: any, index: number) => index !== draggedCardIndex);
       setShuffledDeck(newShuffledDeck);
+      
+      // Broadcast shuffled deck update to other participants
+      broadcastGuestAction('updateShuffledDeck', { 
+        shuffledDeck: newShuffledDeck,
+        removedCardIndex: draggedCardIndex 
+      });
     }
     
     handleDragEnd();
