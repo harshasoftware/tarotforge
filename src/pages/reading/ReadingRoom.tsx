@@ -1897,14 +1897,27 @@ const ReadingRoom = () => {
         <div className={`absolute z-50 ${mobileLayoutClasses.topControls}`}>
           {/* Left side - Back button and title for mobile, back button and session info for desktop */}
           <div className={`flex ${isMobile ? 'items-center gap-2' : 'items-center gap-1 md:gap-2'}`}>
-            <Tooltip content={user ? "Back to Collection" : "Back to Home"} position="bottom" disabled={isMobile}>
-              <Link 
-                to={user ? "/collection" : "/"} 
-                className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} flex items-center text-muted-foreground hover:text-foreground`}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                {!isMobile && <span className="ml-1 text-sm">Exit</span>}
-              </Link>
+            <Tooltip content={
+              isMobile && showMobileInterpretation 
+                ? "Close interpretation" 
+                : (user ? "Back to Collection" : "Back to Home")
+            } position="bottom" disabled={isMobile}>
+              {isMobile && showMobileInterpretation ? (
+                <button 
+                  onClick={() => setShowMobileInterpretation(false)}
+                  className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+              ) : (
+                <Link 
+                  to={user ? "/collection" : "/"} 
+                  className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} flex items-center text-muted-foreground hover:text-foreground`}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  {!isMobile && <span className="ml-1 text-sm">Exit</span>}
+                </Link>
+              )}
             </Tooltip>
             
             {/* Mobile title display */}
