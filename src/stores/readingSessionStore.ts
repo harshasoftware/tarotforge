@@ -91,6 +91,8 @@ interface ReadingSessionStore {
   joinVideoCall: (videoSessionId: string) => Promise<boolean>;
   leaveVideoCall: () => Promise<void>;
   updateVideoCallParticipants: (participants: string[]) => Promise<void>;
+  // Guest actions via broadcast
+  broadcastGuestAction: (action: string, data: any) => Promise<void>;
 }
 
 export const useReadingSessionStore = create<ReadingSessionStore>()(
@@ -402,7 +404,8 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
     },
 
     updateSession: async (updates: Partial<ReadingSessionState>) => {
-      const { sessionState, isOfflineMode } = get();
+      const { sessionState, isOfflineMode, isHost } = get();
+      const { user } = useAuthStore.getState();
       
       if (!sessionState?.id) {
         console.warn('No session ID available for update');
@@ -412,6 +415,22 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
       // If in offline mode or local session, use local update
       if (isOfflineMode || sessionState.id.startsWith('local_')) {
         get().updateLocalSession(updates);
+        return;
+      }
+
+      // If user is a guest (not authenticated and not host), use broadcast instead of direct DB update
+      if (!user && !isHost) {
+        console.log('Guest user broadcasting action instead of direct DB update');
+        await get().broadcastGuestAction('updateSession', updates);
+        
+        // Update local state immediately for better UX
+        set({
+          sessionState: sessionState ? {
+            ...sessionState,
+            ...updates,
+            updatedAt: new Date().toISOString()
+          } : null
+        });
         return;
       }
 
@@ -454,6 +473,13 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         }
 
         console.log('Updating session with data:', updateData);
+        console.log('Session ID:', sessionState.id);
+        console.log('User info:', { 
+          userId: useAuthStore.getState().user?.id, 
+          participantId: get().participantId,
+          anonymousId: get().anonymousId,
+          isHost: get().isHost 
+        });
 
         const { error } = await supabase
           .from('reading_sessions')
@@ -462,6 +488,12 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
 
         if (error) {
           console.error('Database update error:', error);
+          console.error('Error details:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
           throw error;
         }
 
@@ -478,8 +510,13 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         console.error('Error updating session:', err);
         
         // For development/guest users, update local state even if DB update fails
-        if (err.message?.includes('permission') || err.message?.includes('policy')) {
+        if (err.message?.includes('permission') || 
+            err.message?.includes('policy') || 
+            err.message?.includes('insufficient_privilege') ||
+            err.code === '42501' || // insufficient_privilege
+            err.code === 'PGRST301') { // permission denied
           console.warn('Database update failed due to permissions, updating local state only');
+          console.warn('This is expected for guests - they can see updates but cannot modify the database');
           set({
             sessionState: sessionState ? {
               ...sessionState,
@@ -488,6 +525,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
             } : null
           });
         } else {
+          console.error('Unexpected database error, setting error state');
           set({ error: err.message });
         }
       }
@@ -653,6 +691,32 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
             }
           }
         )
+        .on('broadcast', { event: 'guest_action' }, (payload: any) => {
+          console.log('Received guest action:', payload);
+          const { action, data, participantId: senderParticipantId } = payload.payload;
+          const currentState = get();
+          
+          // Only process if we're the host and this isn't from ourselves
+          if (currentState.isHost && senderParticipantId !== currentState.participantId) {
+            console.log('Processing guest action as host:', { action, data });
+            
+            // Handle different guest actions
+            switch (action) {
+              case 'updateSession':
+                // Apply the guest's session updates
+                get().updateSession(data);
+                break;
+              case 'cardSelection':
+                // Handle card selection from guest
+                if (data.selectedCards) {
+                  get().updateSession({ selectedCards: data.selectedCards });
+                }
+                break;
+              default:
+                console.log('Unknown guest action:', action);
+            }
+          }
+        })
         .subscribe();
 
       set({ channel: newChannel });
@@ -819,6 +883,40 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
             return;
           }
           set({ isHost: true });
+
+          // Create participant record for the host
+          try {
+            const currentState = get(); // Get updated state after potential anonymousId setting
+            const { data: participant, error: participantError } = await supabase
+              .from('session_participants')
+              .insert({
+                session_id: sessionId,
+                user_id: user?.id || null,
+                anonymous_id: user ? null : currentState.anonymousId,
+                is_active: true
+              })
+              .select()
+              .single();
+              
+            console.log('Creating host participant with:', {
+              session_id: sessionId,
+              user_id: user?.id || null,
+              anonymous_id: user ? null : currentState.anonymousId,
+              is_active: true
+            });
+
+            if (participantError) {
+              console.error('Error creating host participant:', participantError);
+              // Don't fail session creation if participant creation fails
+            } else {
+              set({ participantId: participant.id });
+              console.log('Host participant created successfully:', participant.id);
+              console.log('participantId set in store:', get().participantId);
+            }
+          } catch (participantErr) {
+            console.error('Error creating host participant:', participantErr);
+            // Don't fail session creation if participant creation fails
+          }
         } else {
           // Check if it's a local session first
           if (sessionId.startsWith('local_')) {
@@ -893,6 +991,29 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
                 updatedAt: new Date().toISOString()
               }
             });
+            
+            // Try to create a participant record even if session fetch failed
+            try {
+              const currentState = get();
+              const { data: participant, error: participantError } = await supabase
+                .from('session_participants')
+                .insert({
+                  session_id: sessionId,
+                  user_id: user?.id || null,
+                  anonymous_id: user ? null : currentState.anonymousId,
+                  is_active: true
+                })
+                .select()
+                .single();
+                
+              if (!participantError && participant) {
+                set({ participantId: participant.id });
+                console.log('Created participant record for fallback session:', participant.id);
+                console.log('participantId set in store:', get().participantId);
+              }
+            } catch (participantErr) {
+              console.error('Error creating participant for fallback session:', participantErr);
+            }
           }
         } else {
           // Convert database format to component format
@@ -924,7 +1045,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           }
         }
 
-        // Fetch participants (optional, don't fail if this doesn't work)
+        // Fetch participants and ensure current user has a participant record
         try {
           const { data: participantsData } = await supabase
             .from('session_participants')
@@ -934,6 +1055,55 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
 
           if (participantsData) {
             set({ participants: participantsData });
+            
+            // Check if current user has a participant record
+            const currentState = get();
+            const currentUserParticipant = participantsData.find(p => 
+              (user && p.user_id === user.id) || 
+              (!user && p.anonymous_id === currentState.anonymousId)
+            );
+            
+            if (currentUserParticipant) {
+              set({ participantId: currentUserParticipant.id });
+              console.log('Found existing participant record:', currentUserParticipant.id);
+              console.log('participantId set in store:', get().participantId);
+            } else {
+              // Create participant record if it doesn't exist
+              console.log('No participant record found, creating one...');
+              try {
+                const { data: newParticipant, error: participantError } = await supabase
+                  .from('session_participants')
+                  .insert({
+                    session_id: sessionId,
+                    user_id: user?.id || null,
+                    anonymous_id: user ? null : currentState.anonymousId,
+                    is_active: true
+                  })
+                  .select()
+                  .single();
+                  
+                if (participantError) {
+                  console.error('Error creating participant record:', participantError);
+                } else {
+                  set({ participantId: newParticipant.id });
+                  console.log('Created new participant record:', newParticipant.id);
+                  console.log('participantId set in store:', get().participantId);
+                  
+                  // Refresh participants list
+                  const { data: updatedParticipants } = await supabase
+                    .from('session_participants')
+                    .select('*')
+                    .eq('session_id', sessionId)
+                    .eq('is_active', true);
+                  
+                  if (updatedParticipants) {
+                    set({ participants: updatedParticipants });
+                  }
+                }
+              } catch (createParticipantErr) {
+                console.error('Error creating participant record:', createParticipantErr);
+              }
+            }
           }
         } catch (participantsError) {
           console.warn('Failed to fetch participants:', participantsError);
@@ -979,8 +1149,20 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
     startVideoCall: async () => {
       const { sessionState, participantId } = get();
       
+      console.log('startVideoCall called with state:', {
+        sessionId: sessionState?.id,
+        participantId,
+        hasSession: !!sessionState,
+        hasParticipantId: !!participantId
+      });
+      
       if (!sessionState?.id || !participantId) {
         console.error('Cannot start video call: No session or participant ID');
+        console.error('Current state:', {
+          sessionState: sessionState ? { id: sessionState.id } : null,
+          participantId,
+          allState: get()
+        });
         return null;
       }
 
@@ -1008,8 +1190,21 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
     joinVideoCall: async (videoSessionId: string) => {
       const { sessionState, participantId } = get();
       
+      console.log('joinVideoCall called with state:', {
+        videoSessionId,
+        sessionId: sessionState?.id,
+        participantId,
+        hasSession: !!sessionState,
+        hasParticipantId: !!participantId
+      });
+      
       if (!sessionState?.id || !participantId) {
         console.error('Cannot join video call: No session or participant ID');
+        console.error('Current state:', {
+          sessionState: sessionState ? { id: sessionState.id } : null,
+          participantId,
+          allState: get()
+        });
         return false;
       }
 
@@ -1043,8 +1238,20 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
     leaveVideoCall: async () => {
       const { sessionState, participantId } = get();
       
+      console.log('leaveVideoCall called with state:', {
+        sessionId: sessionState?.id,
+        participantId,
+        hasSession: !!sessionState,
+        hasParticipantId: !!participantId
+      });
+      
       if (!sessionState?.id || !participantId) {
         console.error('Cannot leave video call: No session or participant ID');
+        console.error('Current state:', {
+          sessionState: sessionState ? { id: sessionState.id } : null,
+          participantId,
+          allState: get()
+        });
         return;
       }
 
@@ -1104,6 +1311,34 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         });
       } catch (error) {
         console.error('Error updating video call participants:', error);
+      }
+    },
+
+    broadcastGuestAction: async (action: string, data: any) => {
+      const { channel, participantId, sessionState } = get();
+      
+      if (!channel || !sessionState?.id) {
+        console.error('Cannot broadcast guest action: No channel or session');
+        return;
+      }
+
+      try {
+        console.log('Broadcasting guest action:', { action, data, participantId });
+        
+        const payload = {
+          action,
+          data,
+          participantId,
+          timestamp: Date.now()
+        };
+
+        channel.send({
+          type: 'broadcast',
+          event: 'guest_action',
+          payload
+        });
+      } catch (error) {
+        console.error('Error broadcasting guest action:', error);
       }
     }
   }))
