@@ -12,7 +12,7 @@ export interface ReadingSessionState {
   deckId: string;
   selectedLayout: ReadingLayout | null;
   question: string;
-  readingStep: 'setup' | 'drawing' | 'interpretation';
+  readingStep: 'setup' | 'ask-question' | 'drawing' | 'interpretation';
   selectedCards: (Card & { position: string; isReversed: boolean; x?: number; y?: number; customPosition?: string })[];
   interpretation: string;
   zoomLevel: number;

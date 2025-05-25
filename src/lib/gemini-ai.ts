@@ -800,6 +800,156 @@ Create a high-quality tarot card with portrait orientation (3:4 aspect ratio). I
 
 // The generatePlaceholderImageUrl function is now defined at the top of the file
 
+/**
+ * Generates inspired questions for different life areas using Gemini Flash
+ * @param category The life area category (love, career, finance, relationships, spiritual-growth, past-lives)
+ * @param count Number of questions to generate (default 4)
+ * @returns Array of question strings
+ */
+export const generateInspiredQuestions = async (
+  category: string,
+  count: number = 4
+): Promise<string[]> => {
+  if (!genAI || !apiKey) {
+    // Return fallback questions when API key is missing or invalid
+    const fallbackQuestions = {
+      love: [
+        "What are their true feelings for me?",
+        "How can I attract my soulmate?", 
+        "Will I find love soon?",
+        "What blocks me from finding love?"
+      ],
+      career: [
+        "What career path aligns with my purpose?",
+        "Will I get the promotion I'm seeking?",
+        "Should I change careers?",
+        "What skills should I develop next?"
+      ],
+      finance: [
+        "Will my financial situation improve?",
+        "What investment opportunities should I consider?",
+        "How can I manifest abundance?",
+        "What blocks my financial growth?"
+      ],
+      relationships: [
+        "Is there a future for our relationship?",
+        "How can I improve my relationships?",
+        "What do I need to know about my family dynamics?",
+        "Who can I trust in my social circle?"
+      ],
+      'spiritual-growth': [
+        "What is my soul's purpose?",
+        "How can I deepen my spiritual practice?",
+        "What spiritual lessons am I learning?",
+        "How can I develop my intuition?"
+      ],
+      'past-lives': [
+        "Who was I in my past life?",
+        "What karma am I healing?",
+        "What past life influences my current relationships?",
+        "What talents did I bring from past lives?"
+      ]
+    };
+    
+    return fallbackQuestions[category as keyof typeof fallbackQuestions] || fallbackQuestions.love;
+  }
+
+  try {
+    // Use Gemini 2.0 Flash for fast question generation
+    const model = getGeminiModel('gemini-2.0-flash');
+    
+    const categoryDescriptions = {
+      love: "romantic love, relationships, soulmates, dating, marriage, and matters of the heart",
+      career: "professional life, job opportunities, business ventures, work relationships, and career growth",
+      finance: "money, wealth, investments, financial planning, abundance, and material prosperity", 
+      relationships: "family dynamics, friendships, social connections, and interpersonal relationships",
+      'spiritual-growth': "spiritual development, personal evolution, consciousness, enlightenment, and soul purpose",
+      'past-lives': "past life connections, karmic lessons, soul history, and past life influences on current life"
+    };
+
+    const categoryDescription = categoryDescriptions[category as keyof typeof categoryDescriptions] || categoryDescriptions.love;
+    
+    const prompt = `
+      Generate ${count} mystical and insightful tarot reading questions about ${categoryDescription}.
+      
+      The questions should be:
+      - Deeply meaningful and thought-provoking
+      - Written in a mystical, intuitive style that resonates with tarot readers
+      - Focused on personal insight and guidance rather than yes/no answers
+      - Varied in scope from personal to broader life themes
+      - Emotionally resonant and spiritually aligned
+      
+      Format your response as a simple JSON array of strings, with no additional text or markdown.
+      
+      Example format:
+      ["Question 1 text", "Question 2 text", "Question 3 text", "Question 4 text"]
+    `;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const responseText = response.text();
+    
+    try {
+      // Extract JSON from response
+      const jsonMatch = responseText.match(/\[\s*".*"\s*\]/s);
+      const jsonString = jsonMatch ? jsonMatch[0] : responseText;
+      const questions = JSON.parse(jsonString);
+      
+      if (Array.isArray(questions) && questions.length > 0) {
+        return questions.slice(0, count).map(q => String(q).trim());
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (parseError) {
+      console.warn('Error parsing generated questions, using fallbacks:', parseError);
+      throw new Error('Failed to parse generated questions');
+    }
+  } catch (error) {
+    console.error('Error generating inspired questions:', error);
+    // Return fallback questions for the category
+    const fallbackQuestions = {
+      love: [
+        "What are their true feelings for me?",
+        "How can I attract my soulmate?", 
+        "Will I find love soon?",
+        "What blocks me from finding love?"
+      ],
+      career: [
+        "What career path aligns with my purpose?",
+        "Will I get the promotion I'm seeking?",
+        "Should I change careers?",
+        "What skills should I develop next?"
+      ],
+      finance: [
+        "Will my financial situation improve?",
+        "What investment opportunities should I consider?",
+        "How can I manifest abundance?",
+        "What blocks my financial growth?"
+      ],
+      relationships: [
+        "Is there a future for our relationship?",
+        "How can I improve my relationships?",
+        "What do I need to know about my family dynamics?",
+        "Who can I trust in my social circle?"
+      ],
+      'spiritual-growth': [
+        "What is my soul's purpose?",
+        "How can I deepen my spiritual practice?",
+        "What spiritual lessons am I learning?",
+        "How can I develop my intuition?"
+      ],
+      'past-lives': [
+        "Who was I in my past life?",
+        "What karma am I healing?",
+        "What past life influences my current relationships?",
+        "What talents did I bring from past lives?"
+      ]
+    };
+    
+    return fallbackQuestions[category as keyof typeof fallbackQuestions] || fallbackQuestions.love;
+  }
+};
+
 export const getReadingInterpretation = async (
   question: string,
   cards: { name: string, position: string, isReversed: boolean }[],

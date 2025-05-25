@@ -7,7 +7,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
 import { useReadingSessionStore, getIsGuest } from '../../stores/readingSessionStore';
 import { fetchDeckById, fetchCardsByDeckId, fetchUserOwnedDecks } from '../../lib/deck-utils';
-import { getReadingInterpretation } from '../../lib/gemini-ai';
+import { getReadingInterpretation, generateInspiredQuestions } from '../../lib/gemini-ai';
 import VideoChat from '../../components/video/VideoChat';
 import TarotLogo from '../../components/ui/TarotLogo';
 import GuestAccountUpgrade from '../../components/ui/GuestAccountUpgrade';
@@ -296,6 +296,12 @@ const ReadingRoom = () => {
   const [addToCollectionSuccess, setAddToCollectionSuccess] = useState(false);
   const [showSubscriptionRequired, setShowSubscriptionRequired] = useState(false);
   
+  // Ask Question step state
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [generatedQuestions, setGeneratedQuestions] = useState<string[]>([]);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+  const [showCustomQuestionInput, setShowCustomQuestionInput] = useState(false);
+  
   // Memoized computed values to prevent unnecessary recalculations
   const cardCounts = useMemo(() => {
     const placedCards = selectedCards.filter(card => card).length;
@@ -440,7 +446,7 @@ const ReadingRoom = () => {
       updateSession({
         selectedLayout: layout,
         selectedCards: [],
-        readingStep: 'drawing',
+        readingStep: 'ask-question',
         interpretation: '',
         activeCardIndex: null,
         zoomLevel: isMobile ? (isLandscape ? (layout.id === 'celtic-cross' ? 0.8 : 1) : (layout.id === 'celtic-cross' ? 0.6 : 0.8)) : (layout.id === 'celtic-cross' ? 0.8 : 1)
@@ -458,6 +464,40 @@ const ReadingRoom = () => {
 
   const handleQuestionChange = useCallback((newQuestion: string) => {
     updateSession({ question: newQuestion });
+  }, [updateSession]);
+  
+  // Ask Question handlers
+  const handleCategorySelect = useCallback(async (category: string) => {
+    setSelectedCategory(category);
+    setIsLoadingQuestions(true);
+    
+    try {
+      const questions = await generateInspiredQuestions(category, 4);
+      setGeneratedQuestions(questions);
+    } catch (error) {
+      console.error('Error generating questions:', error);
+      // Set fallback questions
+      setGeneratedQuestions([
+        "What guidance do I need right now?",
+        "What should I focus on in this area of my life?",
+        "What obstacles should I be aware of?",
+        "What opportunities await me?"
+      ]);
+    } finally {
+      setIsLoadingQuestions(false);
+    }
+  }, []);
+  
+  const handleQuestionSelect = useCallback((selectedQuestion: string) => {
+    updateSession({ question: selectedQuestion, readingStep: 'drawing' });
+  }, [updateSession]);
+  
+  const handleSkipQuestion = useCallback(() => {
+    updateSession({ readingStep: 'drawing' });
+  }, [updateSession]);
+  
+  const handleCustomQuestion = useCallback((customQuestion: string) => {
+    updateSession({ question: customQuestion, readingStep: 'drawing' });
   }, [updateSession]);
   
   // Handle deck selection
@@ -2149,6 +2189,159 @@ const ReadingRoom = () => {
                     placeholder="What would you like guidance on?"
                     className={`w-full ${isMobile ? 'p-2 text-sm' : 'p-2 text-sm'} rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary`}
                   />
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Step 1.5: Ask a Question (Optional) */}
+          {readingStep === 'ask-question' && deck && selectedLayout && (
+            <div className={`absolute inset-0 flex items-center justify-center ${mobileLayoutClasses.mainPadding}`}>
+              <div className={`w-full ${isMobile ? 'max-w-2xl max-h-full overflow-y-auto' : 'max-w-lg'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
+                {/* Header */}
+                <div className="text-center mb-6">
+                  <div className="flex justify-center mb-4">
+                    <div className="rounded-full bg-primary/20 p-3">
+                      <TarotLogo className="h-8 w-8 text-primary" />
+                    </div>
+                  </div>
+                  <h2 className={`${isMobile ? 'text-lg' : 'text-xl'} font-serif font-bold mb-2`}>🔮 Inspired Questions</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Choose a life area for personalized questions, or skip to draw cards with your current question.
+                  </p>
+                </div>
+
+                {/* Current Question Display */}
+                {question && (
+                  <div className="mb-4 p-3 bg-muted/30 rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Current question:</p>
+                    <p className="text-sm font-medium">"{question}"</p>
+                  </div>
+                )}
+
+                {/* Life Areas Categories */}
+                {!selectedCategory && (
+                  <div className="grid grid-cols-2 gap-3 mb-6">
+                    {[
+                      { id: 'love', name: 'Love', icon: '💕', desc: 'Romance, relationships, soulmates' },
+                      { id: 'career', name: 'Career', icon: '🎯', desc: 'Work, business, professional growth' },
+                      { id: 'finance', name: 'Finance', icon: '💰', desc: 'Money, wealth, investments' },
+                      { id: 'relationships', name: 'Relationships', icon: '👥', desc: 'Family, friends, social connections' },
+                      { id: 'spiritual-growth', name: 'Spiritual Growth', icon: '⭐', desc: 'Soul purpose, enlightenment' },
+                      { id: 'past-lives', name: 'Past Lives', icon: '♾️', desc: 'Karma, soul history, past influences' }
+                    ].map((category) => (
+                      <button
+                        key={category.id}
+                        onClick={() => handleCategorySelect(category.id)}
+                        className="p-3 text-left border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-lg">{category.icon}</span>
+                          <h3 className="font-medium text-sm">{category.name}</h3>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{category.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Generated Questions */}
+                {selectedCategory && (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-medium text-sm">
+                        {selectedCategory === 'love' && '💕 Love Questions'}
+                        {selectedCategory === 'career' && '🎯 Career Questions'}
+                        {selectedCategory === 'finance' && '💰 Finance Questions'}
+                        {selectedCategory === 'relationships' && '👥 Relationship Questions'}
+                        {selectedCategory === 'spiritual-growth' && '⭐ Spiritual Growth Questions'}
+                        {selectedCategory === 'past-lives' && '♾️ Past Lives Questions'}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setSelectedCategory(null);
+                          setGeneratedQuestions([]);
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Back
+                      </button>
+                    </div>
+
+                    {isLoadingQuestions ? (
+                      <div className="text-center py-8">
+                        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                        <p className="text-sm text-muted-foreground">Generating personalized questions...</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {generatedQuestions.map((q, index) => (
+                          <button
+                            key={index}
+                            onClick={() => handleQuestionSelect(q)}
+                            className="w-full p-3 text-left border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                          >
+                            <p className="text-sm">{q}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Custom Question Input */}
+                {showCustomQuestionInput && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium mb-2">Write your own question</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="What would you like guidance on?"
+                        className="flex-1 p-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const input = e.target as HTMLInputElement;
+                            if (input.value.trim()) {
+                              handleCustomQuestion(input.value.trim());
+                            }
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => setShowCustomQuestionInput(false)}
+                        className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {!showCustomQuestionInput && !selectedCategory && (
+                    <button
+                      onClick={() => setShowCustomQuestionInput(true)}
+                      className="btn btn-secondary px-4 py-2 text-sm"
+                    >
+                      ✍️ Write Your Own
+                    </button>
+                  )}
+                  
+                  <button
+                    onClick={handleSkipQuestion}
+                    className="btn btn-ghost px-4 py-2 text-sm border border-input"
+                  >
+                    Skip & Draw Cards
+                  </button>
+                  
+                  <button
+                    onClick={() => updateSession({ readingStep: 'setup' })}
+                    className="btn btn-ghost px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    ← Back to Setup
+                  </button>
                 </div>
               </div>
             </div>
