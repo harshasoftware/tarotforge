@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Download, Sparkles, Eye, X, ArrowUp, ArrowDown, FileText } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Download, Sparkles, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
@@ -1437,6 +1437,17 @@ const ReadingRoom = () => {
     setShowCardDescription(false);
     setCardDescription('');
   }, []);
+
+  // Reveal all cards at once
+  const revealAllCards = useCallback(() => {
+    const updatedCards = selectedCards.map((card: any) => {
+      if (card && !card.revealed) {
+        return { ...card, revealed: true };
+      }
+      return card;
+    });
+    updateSession({ selectedCards: updatedCards });
+  }, [selectedCards, updateSession]);
   
   // Fetch card description from API/database
   const fetchCardDescription = useCallback(async (card: any) => {
@@ -2317,22 +2328,40 @@ const ReadingRoom = () => {
               </button>
             </Tooltip>
 
-            {/* View Cards Gallery Button - only show when cards are revealed */}
-            {selectedCards.some((card: any) => card?.revealed) && (
-              <Tooltip content="View cards gallery" position="bottom" disabled={isMobile}>
-                <button 
-                  onClick={() => {
-                    const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
-                    if (firstRevealedIndex !== -1) {
-                      openCardGallery(firstRevealedIndex);
-                    }
-                  }}
-                  className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
-                >
-                  <Eye className="h-4 w-4" />
-                  {!isMobile && <span className="ml-1 text-xs">View</span>}
-                </button>
-              </Tooltip>
+            {/* Desktop: Reveal All / View Cards Button - show when cards are placed */}
+            {!isMobile && selectedCards.some((card: any) => card) && (
+              <>
+                {/* Show Reveal All button if there are unrevealed cards */}
+                {selectedCards.some((card: any) => card && !card.revealed) && (
+                  <Tooltip content="Reveal all cards" position="bottom">
+                    <button 
+                      onClick={revealAllCards}
+                      className="btn btn-secondary bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center"
+                    >
+                      <EyeOff className="h-4 w-4" />
+                      <span className="ml-1 text-xs">Reveal All</span>
+                    </button>
+                  </Tooltip>
+                )}
+                
+                {/* Show View Cards button if all cards are revealed */}
+                {selectedCards.every((card: any) => !card || card.revealed) && selectedCards.some((card: any) => card?.revealed) && (
+                  <Tooltip content="View cards in detail" position="bottom">
+                    <button 
+                      onClick={() => {
+                        const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
+                        if (firstRevealedIndex !== -1) {
+                          openCardGallery(firstRevealedIndex);
+                        }
+                      }}
+                      className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center"
+                    >
+                      <Eye className="h-4 w-4" />
+                      <span className="ml-1 text-xs">View Detail</span>
+                    </button>
+                  </Tooltip>
+                )}
+              </>
             )}
 
             <Tooltip content={selectedCards.length === 0 ? "Add cards to save reading" : "Save reading as image"} position="bottom" disabled={isMobile}>
@@ -3506,6 +3535,38 @@ const ReadingRoom = () => {
                   </motion.div>
                 )}
                 
+                {/* Mobile: Floating Reveal/View Button */}
+                {isMobile && selectedCards.some((card: any) => card) && (
+                  <div className={`absolute ${isLandscape ? 'top-12 left-4' : 'top-20 left-4'} z-50`}>
+                    {/* Show Reveal All button if there are unrevealed cards */}
+                    {selectedCards.some((card: any) => card && !card.revealed) && (
+                      <button 
+                        onClick={revealAllCards}
+                        className="btn btn-secondary px-3 py-2 flex items-center text-sm bg-secondary/90 backdrop-blur-sm border-secondary shadow-lg rounded-full"
+                      >
+                        <EyeOff className="h-4 w-4 mr-2" />
+                        <span className="text-xs">Reveal All</span>
+                      </button>
+                    )}
+                    
+                    {/* Show View Cards button if all cards are revealed */}
+                    {selectedCards.every((card: any) => !card || card.revealed) && selectedCards.some((card: any) => card?.revealed) && (
+                      <button 
+                        onClick={() => {
+                          const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
+                          if (firstRevealedIndex !== -1) {
+                            openCardGallery(firstRevealedIndex);
+                          }
+                        }}
+                        className="btn btn-primary px-3 py-2 flex items-center text-sm bg-primary/90 backdrop-blur-sm border-primary shadow-lg rounded-full"
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        <span className="text-xs">View Detail</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {/* Generate interpretation button for free layout */}
                 {selectedLayout?.id === 'free-layout' && selectedCards.length > 0 && !isGeneratingInterpretation && readingStep === 'drawing' && (
                   <div className={`interpretation-button absolute ${isMobile ? (isLandscape ? 'top-12 right-4' : 'top-20 right-4') : 'top-4 right-4'} z-50`}>
@@ -3882,6 +3943,38 @@ const ReadingRoom = () => {
                   })}
                 </div>
                 
+                {/* Mobile: Floating Reveal/View Button for Interpretation */}
+                {isMobile && selectedCards.some((card: any) => card) && (
+                  <div className={`absolute ${isLandscape ? 'top-12 left-4' : 'top-20 left-4'} z-50`}>
+                    {/* Show Reveal All button if there are unrevealed cards */}
+                    {selectedCards.some((card: any) => card && !card.revealed) && (
+                      <button 
+                        onClick={revealAllCards}
+                        className="btn btn-secondary px-3 py-2 flex items-center text-sm bg-secondary/90 backdrop-blur-sm border-secondary shadow-lg rounded-full"
+                      >
+                        <EyeOff className="h-4 w-4 mr-2" />
+                        <span className="text-xs">Reveal All</span>
+                      </button>
+                    )}
+                    
+                    {/* Show View Cards button if all cards are revealed */}
+                    {selectedCards.every((card: any) => !card || card.revealed) && selectedCards.some((card: any) => card?.revealed) && (
+                      <button 
+                        onClick={() => {
+                          const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
+                          if (firstRevealedIndex !== -1) {
+                            openCardGallery(firstRevealedIndex);
+                          }
+                        }}
+                        className="btn btn-primary px-3 py-2 flex items-center text-sm bg-primary/90 backdrop-blur-sm border-primary shadow-lg rounded-full"
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        <span className="text-xs">View Detail</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {/* Reading controls */}
                 <div className={`absolute ${isMobile ? 'top-2 right-2' : 'bottom-6 right-6'} flex gap-1 md:gap-3`}>
                   <Tooltip content="View interpretation" position="left" disabled={isMobile}>

@@ -31,7 +31,8 @@ The Reading Room has multiple states and navigation patterns that differ between
 - **Guest Upgrade Button**: Visible for unauthenticated users
 - **Share Button**: Native share API or modal fallback
 - **Video Chat Button**: Start/join video call
-- **View Cards Button**: Open card gallery (visible when cards are revealed)
+- **Reveal All Button**: Reveals all placed cards at once (visible when unrevealed cards exist)
+- **View Detail Button**: Open card gallery (visible when all cards are revealed)
 - **Save Button**: Download reading as image
 
 ### Mobile-Specific Interactions
@@ -43,6 +44,15 @@ The Reading Room has multiple states and navigation patterns that differ between
 - **Drag to Pan**: Move view when zoomed in
 - **Card Dragging**: From deck pile to positions
 - **Gallery Swipe**: Navigate between cards in full-screen gallery
+
+#### Card Reveal System
+- **Individual Reveal**: Tap each card to flip and reveal
+- **Floating Action Button**: Top-left corner (below header) to save navigation space
+  - **"Reveal All"**: Rounded pill button when unrevealed cards exist
+  - **"View Detail"**: Switches to gallery button when all cards revealed
+  - **Adaptive Position**: Adjusts for landscape/portrait orientation
+  - **Visual Style**: Backdrop blur, shadow, and rounded design
+- **Progressive Enhancement**: Users can choose individual or batch reveal
 
 #### Zoom Controls (Mobile)
 - **Position**: Left side, vertical stack, middle of screen
@@ -111,6 +121,12 @@ The Reading Room has multiple states and navigation patterns that differ between
 - **Scroll Wheel + Ctrl/Cmd**: Zoom in/out
 - **Drag**: Pan when zoomed, move cards
 - **Hover**: Tooltips and visual feedback
+
+#### Card Reveal System (Desktop)
+- **Individual Reveal**: Click each card to flip and reveal
+- **Reveal All**: Button with tooltip appears when unrevealed cards exist
+- **View Detail**: Button changes to "View Detail" when all cards are revealed
+- **Clear Visual Feedback**: Tooltips explain current button function
 
 #### Keyboard Interactions (Desktop)
 - **Arrow Keys**: Pan the drawing area (up/down/left/right) or navigate gallery
