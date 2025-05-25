@@ -20,11 +20,13 @@ import html2canvas from 'html2canvas';
 // Mock reading layouts - moved outside component to prevent recreation
 const readingLayouts: ReadingLayout[] = [
   {
-    id: 'free-layout',
-    name: 'Free Layout',
-    description: 'Create your own custom spread - drag cards anywhere on the table',
-    card_count: 999, // Unlimited
-    positions: [] // No predefined positions
+    id: 'single-card',
+    name: 'Single Card',
+    description: 'Quick guidance for your day or a specific question',
+    card_count: 1,
+    positions: [
+      { id: 0, name: 'Guidance', meaning: 'Offers insight or guidance for your question', x: 50, y: 50 }
+    ]
   },
   {
     id: 'three-card',
@@ -56,13 +58,11 @@ const readingLayouts: ReadingLayout[] = [
     ]
   },
   {
-    id: 'single-card',
-    name: 'Single Card',
-    description: 'Quick guidance for your day or a specific question',
-    card_count: 1,
-    positions: [
-      { id: 0, name: 'Guidance', meaning: 'Offers insight or guidance for your question', x: 50, y: 50 }
-    ]
+    id: 'free-layout',
+    name: 'Freestyle Layout',
+    description: 'Create your own custom spread - drag cards anywhere on the table',
+    card_count: 999, // Unlimited
+    positions: [] // No predefined positions
   }
 ];
 
@@ -234,6 +234,9 @@ const ReadingRoom = () => {
   // Save functionality state
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  // Shuffling state
+  const [isShuffling, setIsShuffling] = useState(false);
   
   // Drag and Drop State
   const [draggedCard, setDraggedCard] = useState<Card | null>(null);
@@ -413,10 +416,10 @@ const ReadingRoom = () => {
       setShowPinchHint(true);
       setHasShownInitialHint(true);
       
-      // Auto-hide after 4 seconds
+      // Auto-hide after 2 seconds (faster fade)
       const timer = setTimeout(() => {
         setShowPinchHint(false);
-      }, 4000);
+      }, 2000);
       
       return () => clearTimeout(timer);
     }
@@ -426,10 +429,10 @@ const ReadingRoom = () => {
   const showHint = useCallback(() => {
     setShowPinchHint(true);
     
-    // Auto-hide after 4 seconds
+    // Auto-hide after 2 seconds (faster fade)
     setTimeout(() => {
       setShowPinchHint(false);
-    }, 4000);
+    }, 2000);
   }, []);
 
   // Function to hide hint manually
@@ -450,6 +453,22 @@ const ReadingRoom = () => {
     updateSession({ readingStep: step });
   }, [updateSession]);
 
+  // Fisher-Yates shuffle algorithm (Durstenfeld modern implementation)
+  const fisherYatesShuffle = useCallback((array: Card[]) => {
+    const shuffled = [...array]; // Create a copy to avoid mutating the original
+    
+    // Start from the last element and work backwards
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      // Pick a random index from 0 to i (inclusive)
+      const j = Math.floor(Math.random() * (i + 1));
+      
+      // Swap elements at positions i and j
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    
+    return shuffled;
+  }, []);
+
   const handleLayoutSelect = useCallback((layout: ReadingLayout) => {
     try {
       console.log('Layout selected:', layout);
@@ -464,13 +483,13 @@ const ReadingRoom = () => {
       
       // Only shuffle if cards are loaded
       if (cards && cards.length > 0) {
-        setShuffledDeck([...cards].sort(() => Math.random() - 0.5));
+        setShuffledDeck(fisherYatesShuffle(cards));
       }
     } catch (error) {
       console.error('Error selecting layout:', error);
       setError('Failed to select layout. Please try again.');
     }
-  }, [updateSession, cards, isMobile, isLandscape]);
+  }, [updateSession, cards, isMobile, isLandscape, fisherYatesShuffle]);
 
   const handleQuestionChange = useCallback((newQuestion: string) => {
     updateSession({ question: newQuestion });
@@ -722,7 +741,7 @@ const ReadingRoom = () => {
         
         if (cardsData && cardsData.length > 0) {
           setCards(cardsData);
-          setShuffledDeck([...cardsData].sort(() => Math.random() - 0.5));
+          setShuffledDeck(fisherYatesShuffle(cardsData));
         } else {
           throw new Error("No cards found for this deck");
         }
@@ -744,8 +763,14 @@ const ReadingRoom = () => {
   };
   
   const shuffleDeck = useCallback(() => {
-    setShuffledDeck(prev => [...prev].sort(() => Math.random() - 0.5));
-  }, []);
+    setIsShuffling(true);
+    
+    // Add a delay to show the shuffling animation
+    setTimeout(() => {
+      setShuffledDeck(prev => fisherYatesShuffle(prev));
+      setIsShuffling(false);
+    }, 1000); // 1 second delay for shuffling animation
+  }, [fisherYatesShuffle]);
   
   // Handle moving placed cards in free layout
   const handlePlacedCardDrag = useCallback((cardIndex: number, event: any, info: any) => {
@@ -803,10 +828,10 @@ const ReadingRoom = () => {
       zoomLevel: 1
     });
     if (cards.length > 0) {
-      setShuffledDeck([...cards].sort(() => Math.random() - 0.5));
+      setShuffledDeck(fisherYatesShuffle(cards));
     }
     setShowMobileInterpretation(false);
-  }, [updateSession, cards]);
+  }, [updateSession, cards, fisherYatesShuffle]);
   
   // Drag and Drop Functions
   const handleDragStart = (card: Card, index: number, e: any) => {
@@ -1537,7 +1562,7 @@ const ReadingRoom = () => {
         <div className={`absolute z-50 ${mobileLayoutClasses.topControls}`}>
           {/* Left side - Back button and title for mobile, back button and session info for desktop */}
           <div className={`flex ${isMobile ? 'items-center gap-2' : 'items-center gap-1 md:gap-2'}`}>
-            <Tooltip content={user ? "Back to Collection" : "Back to Home"} position="bottom">
+            <Tooltip content={user ? "Back to Collection" : "Back to Home"} position="bottom" disabled={isMobile}>
               <Link 
                 to={user ? "/collection" : "/"} 
                 className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} flex items-center text-muted-foreground hover:text-foreground`}
@@ -1548,7 +1573,7 @@ const ReadingRoom = () => {
             </Tooltip>
             
             {/* Mobile title display */}
-            <Tooltip content="Change reading layout" position="bottom" disabled={!(isMobile && selectedLayout)}>
+            <Tooltip content="Change reading layout" position="bottom" disabled={isMobile}>
               <div className={`bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-1 relative layout-dropdown-container ${!(isMobile && selectedLayout) ? 'hidden' : ''}`}>
                 <button
                   onClick={() => setShowLayoutDropdown(!showLayoutDropdown)}
@@ -1602,7 +1627,7 @@ const ReadingRoom = () => {
             {/* Desktop session info with layout selector */}
             <div className={`flex items-center gap-2 ${isMobile ? 'hidden' : ''}`}>
               {/* Layout selector for desktop */}
-              <Tooltip content="Change reading layout" position="bottom" disabled={!selectedLayout}>
+              <Tooltip content="Change reading layout" position="bottom" disabled={isMobile}>
                 <div className={`bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2 relative layout-dropdown-container ${!selectedLayout ? 'hidden' : ''}`}>
                   <button
                     onClick={() => setShowLayoutDropdown(!showLayoutDropdown)}
@@ -1682,7 +1707,7 @@ const ReadingRoom = () => {
           {/* Right side - Action buttons - horizontal for both mobile and desktop */}
           <div className={`flex ${isMobile ? 'items-center gap-1' : 'items-center gap-1 md:gap-2'}`}>
             {/* Deck change button - show when deck is selected */}
-            <Tooltip content="Change deck" position="bottom" disabled={!deck}>
+            <Tooltip content="Change deck" position="bottom" disabled={isMobile}>
               <button 
                 onClick={() => {
                   // Enter deck change mode while preserving session state
@@ -1694,7 +1719,6 @@ const ReadingRoom = () => {
                   // Don't reset URL or session state
                 }}
                 className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} ${!deck ? 'hidden' : ''}`}
-                title="Change deck"
               >
                 <Package className="h-4 w-4" />
                 {!isMobile && <span className="text-xs">Deck</span>}
@@ -1702,34 +1726,31 @@ const ReadingRoom = () => {
             </Tooltip>
             
             {/* Guest upgrade button */}
-            <Tooltip content="Create account to save your progress" position="bottom" disabled={!isGuest}>
+            <Tooltip content="Create account to save your progress" position="bottom" disabled={isMobile}>
               <button 
                 onClick={() => setShowGuestUpgrade(true)}
                 className={`btn btn-accent bg-accent/80 backdrop-blur-sm border border-accent/50 ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} ${!isGuest ? 'hidden' : ''}`}
-                title="Create account to save your progress"
               >
                 <UserPlus className="h-4 w-4" />
                 {!isMobile && <span className="text-xs">Upgrade</span>}
               </button>
             </Tooltip>
             
-            <Tooltip content="Share reading room" position="bottom">
+            <Tooltip content="Share reading room" position="bottom" disabled={isMobile}>
               <button 
                 onClick={() => handleShare()}
                 className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
                 disabled={!sessionId}
-                title="Share reading room"
               >
                 <Share2 className="h-4 w-4" />
               </button>
             </Tooltip>
             
-            <Tooltip content={showVideoChat ? "Video chat active" : "Start video chat"} position="bottom">
+            <Tooltip content={showVideoChat ? "Video chat active" : "Start video chat"} position="bottom" disabled={isMobile}>
               <button 
                 onClick={() => !isVideoConnecting && !showVideoChat && initiateVideoChat()}
                 className={`btn ${showVideoChat ? 'btn-success' : 'btn-secondary'} bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
                 disabled={isVideoConnecting}
-                title="Video chat"
               >
                 {isVideoConnecting ? (
                   <LoadingSpinner size="sm" />
@@ -1739,12 +1760,11 @@ const ReadingRoom = () => {
               </button>
             </Tooltip>
 
-            <Tooltip content={selectedCards.length === 0 ? "Add cards to save reading" : "Save reading as image"} position="bottom">
+            <Tooltip content={selectedCards.length === 0 ? "Add cards to save reading" : "Save reading as image"} position="bottom" disabled={isMobile}>
               <button 
                 onClick={() => saveReadingAsImage()}
                 className={`btn ${saveSuccess ? 'btn-success' : 'btn-primary'} bg-primary/80 backdrop-blur-sm border border-primary ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
                 disabled={isSaving || !selectedLayout || selectedCards.length === 0}
-                title={selectedCards.length === 0 ? "Add cards to save reading" : "Save reading as image"}
               >
                 {isSaving ? (
                   <LoadingSpinner size="sm" />
@@ -1778,7 +1798,6 @@ const ReadingRoom = () => {
                           fetchAndSetDeck(deckId || 'rider-waite-classic');
                         }}
                         className="btn btn-ghost p-2 text-muted-foreground hover:text-foreground"
-                        title="Cancel deck change"
                       >
                         <XCircle className="h-5 w-5" />
                       </button>
@@ -2440,33 +2459,33 @@ const ReadingRoom = () => {
                     ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
                     : 'top-4 left-4 flex-col'
                 } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
-                  <Tooltip content="Zoom out" position="right">
-                    <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm" title="Zoom Out">
-                      <ZoomOut className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Reset zoom" position="right">
-                    <button onClick={resetZoom} className="p-1 hover:bg-muted rounded-sm" title="Reset Zoom">
-                      <RotateCcw className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Zoom in" position="right">
-                    <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm" title="Zoom In">
+                  <Tooltip content="Zoom in" position="right" disabled={isMobile}>
+                    <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm">
                       <ZoomIn className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Shuffle deck" position="right" disabled={!isMobile}>
-                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`} title="Shuffle Deck">
+                  <Tooltip content="Reset zoom" position="right" disabled={isMobile}>
+                    <button onClick={resetZoom} className="p-1 hover:bg-muted rounded-sm">
+                      <RotateCcw className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Zoom out" position="right" disabled={isMobile}>
+                    <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm">
+                      <ZoomOut className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
+                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`}>
                       <Shuffle className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Show help" position="right" disabled={!isMobile}>
-                    <button onClick={showHint} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`} title="Show Help">
+                  <Tooltip content="Show help" position="right" disabled={isMobile}>
+                    <button onClick={showHint} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`}>
                       <HelpCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
                   <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
-                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${isMobile ? 'hidden' : ''}`} title="Shuffle Deck">
+                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${isMobile ? 'hidden' : ''}`}>
                       <Shuffle className="h-4 w-4" />
                     </button>
                   </Tooltip>
@@ -2476,21 +2495,21 @@ const ReadingRoom = () => {
                 <AnimatePresence>
                   {isMobile && showPinchHint && (
                     <motion.div 
-                      className={`absolute ${isLandscape ? 'top-16' : 'top-24'} left-1/2 transform -translate-x-1/2 bg-primary/90 text-primary-foreground px-4 py-2 rounded-full text-xs z-50 shadow-lg`}
-                      initial={{ opacity: 0, y: -10, scale: 0.9 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.9 }}
-                      transition={{ duration: 0.3 }}
+                      className="absolute left-16 top-1/2 transform -translate-y-1/2 bg-primary/90 text-primary-foreground px-3 py-2 rounded-lg text-xs z-50 shadow-lg max-w-48"
+                      initial={{ opacity: 0, x: -10, scale: 0.9 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: -10, scale: 0.9 }}
+                      transition={{ duration: 0.2, exit: { duration: 0.15 } }}
                       onClick={hideHint}
                     >
                       <div className="flex items-center gap-2">
                         <span>
-                          {selectedLayout?.id === 'free-layout' 
-                            ? 'Drag cards anywhere • Pinch to zoom • Drag to pan when zoomed • Double-tap card to focus' 
-                            : 'Drag cards from deck • Pinch to zoom • Drag to pan when zoomed • Double-tap card to focus'}
+                          Tap cards • Pinch to zoom • Drag to move
                         </span>
-                        <XCircle className="h-3 w-3 cursor-pointer hover:opacity-80" />
+                        <XCircle className="h-3 w-3 cursor-pointer hover:opacity-80 flex-shrink-0" />
                       </div>
+                      {/* Arrow pointing to help button */}
+                      <div className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-r-4 border-transparent border-r-primary/90"></div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -2869,7 +2888,7 @@ const ReadingRoom = () => {
                 {/* Generate interpretation button for free layout */}
                 {selectedLayout?.id === 'free-layout' && selectedCards.length > 0 && !isGeneratingInterpretation && readingStep === 'drawing' && (
                   <div className={`interpretation-button absolute ${isMobile ? (isLandscape ? 'top-12 right-4' : 'top-20 right-4') : 'top-4 right-4'} z-50`}>
-                    <Tooltip content={`Generate interpretation for ${selectedCards.length} cards`} position="left">
+                    <Tooltip content={`Generate interpretation for ${selectedCards.length} cards`} position="left" disabled={isMobile}>
                       <button 
                         onClick={() => generateInterpretation()}
                         className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm bg-primary/90 backdrop-blur-sm border-primary shadow-lg"
@@ -2904,6 +2923,16 @@ const ReadingRoom = () => {
                     <div className="bg-card p-4 md:p-6 rounded-xl shadow-lg text-center mx-4">
                       <LoadingSpinner size="lg" className="mx-auto mb-4" />
                       <p className="text-muted-foreground text-sm md:text-base">Generating interpretation...</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Loading indicator for shuffling */}
+                {isShuffling && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
+                    <div className="bg-card p-4 md:p-6 rounded-xl shadow-lg text-center mx-4">
+                      <LoadingSpinner size="lg" className="mx-auto mb-4" />
+                      <p className="text-muted-foreground text-sm md:text-base">Shuffling cards...</p>
                     </div>
                   </div>
                 )}
@@ -2948,33 +2977,33 @@ const ReadingRoom = () => {
                     ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
                     : 'top-4 left-4 flex-col'
                 } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
-                  <Tooltip content="Zoom out" position="right">
-                    <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm" title="Zoom Out">
+                  <Tooltip content="Zoom out" position="right" disabled={isMobile}>
+                    <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm">
                       <ZoomOut className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Reset zoom" position="right">
-                    <button onClick={resetZoom} className="p-1 hover:bg-muted rounded-sm" title="Reset Zoom">
+                  <Tooltip content="Reset zoom" position="right" disabled={isMobile}>
+                    <button onClick={resetZoom} className="p-1 hover:bg-muted rounded-sm">
                       <RotateCcw className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Zoom in" position="right">
-                    <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm" title="Zoom In">
+                  <Tooltip content="Zoom in" position="right" disabled={isMobile}>
+                    <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm">
                       <ZoomIn className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Shuffle deck" position="right" disabled={!isMobile}>
-                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`} title="Shuffle Deck">
+                  <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
+                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`}>
                       <Shuffle className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Show help" position="right" disabled={!isMobile}>
-                    <button onClick={showHint} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`} title="Show Help">
+                  <Tooltip content="Show help" position="right" disabled={isMobile}>
+                    <button onClick={showHint} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`}>
                       <HelpCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
                   <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
-                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${isMobile ? 'hidden' : ''}`} title="Shuffle Deck">
+                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${isMobile ? 'hidden' : ''}`}>
                       <Shuffle className="h-4 w-4" />
                     </button>
                   </Tooltip>
@@ -3161,7 +3190,7 @@ const ReadingRoom = () => {
                     <button 
                       onClick={() => setShowMobileInterpretation(true)}
                       className={`btn btn-primary px-2 py-1 text-xs mobile-interpretation-button ${!(isMobile && !isLandscape && !showMobileInterpretation) ? 'hidden' : ''}`}
-                      title="View interpretation"
+                  
                     >
                       <Info className="h-4 w-4" />
                     </button>

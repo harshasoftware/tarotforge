@@ -811,43 +811,43 @@ export const generateInspiredQuestions = async (
   count: number = 4
 ): Promise<string[]> => {
   if (!genAI || !apiKey) {
-    // Return fallback questions when API key is missing or invalid
+    // Return fallback questions when API key is missing or invalid - made shorter and more precise
     const fallbackQuestions = {
       love: [
-        "What are their true feelings for me?",
+        "What do they truly feel for me?",
         "How can I attract my soulmate?", 
-        "Will I find love soon?",
-        "What blocks me from finding love?"
+        "Will love find me soon?",
+        "What blocks my heart from love?"
       ],
       career: [
-        "What career path aligns with my purpose?",
-        "Will I get the promotion I'm seeking?",
-        "Should I change careers?",
-        "What skills should I develop next?"
+        "What career path serves my purpose?",
+        "Will I get this promotion?",
+        "Should I change careers now?",
+        "What skills do I need most?"
       ],
       finance: [
-        "Will my financial situation improve?",
-        "What investment opportunities should I consider?",
+        "Will my finances improve soon?",
+        "What investment should I consider?",
         "How can I manifest abundance?",
-        "What blocks my financial growth?"
+        "What blocks my financial flow?"
       ],
       relationships: [
-        "Is there a future for our relationship?",
-        "How can I improve my relationships?",
-        "What do I need to know about my family dynamics?",
-        "Who can I trust in my social circle?"
+        "Does this relationship have a future?",
+        "How can I improve my connections?",
+        "What should I know about family?",
+        "Who can I truly trust?"
       ],
       'spiritual-growth': [
         "What is my soul's purpose?",
-        "How can I deepen my spiritual practice?",
-        "What spiritual lessons am I learning?",
-        "How can I develop my intuition?"
+        "How can I deepen spiritually?",
+        "What lesson am I learning?",
+        "How do I develop intuition?"
       ],
       'past-lives': [
-        "Who was I in my past life?",
+        "Who was I before this life?",
         "What karma am I healing?",
-        "What past life influences my current relationships?",
-        "What talents did I bring from past lives?"
+        "How do past lives affect me?",
+        "What gifts did I bring forward?"
       ]
     };
     
@@ -870,19 +870,22 @@ export const generateInspiredQuestions = async (
     const categoryDescription = categoryDescriptions[category as keyof typeof categoryDescriptions] || categoryDescriptions.love;
     
     const prompt = `
-      Generate ${count} mystical and insightful tarot reading questions about ${categoryDescription}.
+      Generate ${count} concise, one-line tarot reading questions about ${categoryDescription}.
       
       The questions should be:
-      - Deeply meaningful and thought-provoking
-      - Written in a mystical, intuitive style that resonates with tarot readers
-      - Focused on personal insight and guidance rather than yes/no answers
-      - Varied in scope from personal to broader life themes
-      - Emotionally resonant and spiritually aligned
+      - Short and precise (maximum 8-10 words each)
+      - Direct and focused on specific insights
+      - Written in a mystical, intuitive style
+      - Easy to read and understand quickly
+      - Focused on personal guidance rather than yes/no answers
+      - Emotionally resonant but brief
+      
+      Keep each question under 10 words and make them punchy and memorable.
       
       Format your response as a simple JSON array of strings, with no additional text or markdown.
       
       Example format:
-      ["Question 1 text", "Question 2 text", "Question 3 text", "Question 4 text"]
+      ["Short question 1", "Brief question 2", "Concise question 3", "Quick question 4"]
     `;
 
     const result = await model.generateContent(prompt);
@@ -896,7 +899,18 @@ export const generateInspiredQuestions = async (
       const questions = JSON.parse(jsonString);
       
       if (Array.isArray(questions) && questions.length > 0) {
-        return questions.slice(0, count).map(q => String(q).trim());
+        // Ensure questions are short and trim any extra whitespace
+        return questions.slice(0, count).map(q => {
+          const trimmed = String(q).trim();
+          // If question is too long, truncate it intelligently
+          if (trimmed.length > 50) {
+            const words = trimmed.split(' ');
+            if (words.length > 8) {
+              return words.slice(0, 8).join(' ') + '?';
+            }
+          }
+          return trimmed;
+        });
       } else {
         throw new Error('Invalid response format');
       }
@@ -906,43 +920,43 @@ export const generateInspiredQuestions = async (
     }
   } catch (error) {
     console.error('Error generating inspired questions:', error);
-    // Return fallback questions for the category
+    // Return fallback questions for the category - made shorter and more precise
     const fallbackQuestions = {
       love: [
-        "What are their true feelings for me?",
+        "What do they truly feel for me?",
         "How can I attract my soulmate?", 
-        "Will I find love soon?",
-        "What blocks me from finding love?"
+        "Will love find me soon?",
+        "What blocks my heart from love?"
       ],
       career: [
-        "What career path aligns with my purpose?",
-        "Will I get the promotion I'm seeking?",
-        "Should I change careers?",
-        "What skills should I develop next?"
+        "What career path serves my purpose?",
+        "Will I get this promotion?",
+        "Should I change careers now?",
+        "What skills do I need most?"
       ],
       finance: [
-        "Will my financial situation improve?",
-        "What investment opportunities should I consider?",
+        "Will my finances improve soon?",
+        "What investment should I consider?",
         "How can I manifest abundance?",
-        "What blocks my financial growth?"
+        "What blocks my financial flow?"
       ],
       relationships: [
-        "Is there a future for our relationship?",
-        "How can I improve my relationships?",
-        "What do I need to know about my family dynamics?",
-        "Who can I trust in my social circle?"
+        "Does this relationship have a future?",
+        "How can I improve my connections?",
+        "What should I know about family?",
+        "Who can I truly trust?"
       ],
       'spiritual-growth': [
         "What is my soul's purpose?",
-        "How can I deepen my spiritual practice?",
-        "What spiritual lessons am I learning?",
-        "How can I develop my intuition?"
+        "How can I deepen spiritually?",
+        "What lesson am I learning?",
+        "How do I develop intuition?"
       ],
       'past-lives': [
-        "Who was I in my past life?",
+        "Who was I before this life?",
         "What karma am I healing?",
-        "What past life influences my current relationships?",
-        "What talents did I bring from past lives?"
+        "How do past lives affect me?",
+        "What gifts did I bring forward?"
       ]
     };
     
