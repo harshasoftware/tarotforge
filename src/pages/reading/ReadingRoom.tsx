@@ -2904,7 +2904,7 @@ const ReadingRoom = () => {
                 {/* All cards placed - show interpretation button (predefined layouts) */}
                 {selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count && !isGeneratingInterpretation && readingStep === 'drawing' && (
                   <div className={`interpretation-button absolute ${isMobile ? (isLandscape ? 'top-12 right-4' : 'top-20 right-4') : 'top-4 right-4'} z-50`}>
-                    <Tooltip content="Generate reading interpretation" position="left">
+                    <Tooltip content="Generate reading interpretation" position="left" disabled={isMobile}>
                       <button 
                         onClick={() => generateInterpretation()}
                         className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm bg-primary/90 backdrop-blur-sm border-primary shadow-lg"
@@ -3186,7 +3186,7 @@ const ReadingRoom = () => {
                 
                 {/* Reading controls */}
                 <div className={`absolute ${isMobile ? 'top-2 right-2' : 'bottom-6 right-6'} flex gap-1 md:gap-3`}>
-                  <Tooltip content="View interpretation" position="left" disabled={!(isMobile && !isLandscape && !showMobileInterpretation)}>
+                  <Tooltip content="View interpretation" position="left" disabled={isMobile}>
                     <button 
                       onClick={() => setShowMobileInterpretation(true)}
                       className={`btn btn-primary px-2 py-1 text-xs mobile-interpretation-button ${!(isMobile && !isLandscape && !showMobileInterpretation) ? 'hidden' : ''}`}
@@ -3195,15 +3195,15 @@ const ReadingRoom = () => {
                       <Info className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Close interpretation" position="left" disabled={!(isMobile && !isLandscape && showMobileInterpretation)}>
+                  <Tooltip content="Close interpretation" position="left" disabled={isMobile}>
                     <button 
                       onClick={() => setShowMobileInterpretation(false)}
-                      className={`text-muted-foreground hover:text-foreground ${!(isMobile && !isLandscape && showMobileInterpretation) ? 'hidden' : ''}`}
+                      className={`text-muted-foreground hover:text-foreground ${isMobile ? 'hidden' : ''}`}
                     >
                       <XCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Return to card table" position="left">
+                  <Tooltip content="Return to card table" position="left" disabled={isMobile}>
                     <button 
                       onClick={() => setReadingStepWrapped('drawing')}
                       className={`btn btn-secondary ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}
@@ -3230,10 +3230,10 @@ const ReadingRoom = () => {
                     <TarotLogo className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4 md:h-5 md:w-5'} text-primary mr-2`} />
                     <h3 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm md:text-base'}`}>Reading Interpretation</h3>
                   </div>
-                  <Tooltip content="Close interpretation" position="left" disabled={!isMobile}>
+                  <Tooltip content="Close interpretation" position="left" disabled={isMobile}>
                     <button 
                       onClick={() => setShowMobileInterpretation(false)}
-                      className={`text-muted-foreground hover:text-foreground ${!isMobile ? 'hidden' : ''}`}
+                      className={`text-muted-foreground hover:text-foreground ${isMobile ? 'hidden' : ''}`}
                     >
                       <XCircle className="h-4 w-4" />
                     </button>
