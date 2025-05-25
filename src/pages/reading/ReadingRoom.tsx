@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Sparkles, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Sparkles, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
@@ -358,15 +358,34 @@ const ReadingRoom = () => {
   const readingAreaRef = useRef<HTMLDivElement>(null);
   
   // Double tap zoom state
-  const [zoomFocus, setZoomFocus] = useState<{ x: number; y: number } | null>(null);
   const [lastTapTime, setLastTapTime] = useState(0);
   const [tapCount, setTapCount] = useState(0);
   
-  // Pan state for drag-to-pan functionality
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  // Pan state for drag-to-pan functionality - now synchronized via session state
   const [isPanning, setIsPanning] = useState(false);
   const [panStartPos, setPanStartPos] = useState({ x: 0, y: 0 });
   const [panStartOffset, setPanStartOffset] = useState({ x: 0, y: 0 });
+  
+  // Follow functionality state
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [showFollowNotification, setShowFollowNotification] = useState(false);
+  
+  // Follow functionality
+  const toggleFollow = useCallback(() => {
+    setIsFollowing(!isFollowing);
+    if (!isFollowing) {
+      setShowFollowNotification(true);
+      setTimeout(() => setShowFollowNotification(false), 3000);
+    }
+  }, [isFollowing]);
+  
+  // Auto-follow host's view when following is enabled
+  useEffect(() => {
+    if (isFollowing && !isHost && sessionState) {
+      // When following, don't allow local pan/zoom updates
+      // The session state will automatically update from the host's actions
+    }
+  }, [isFollowing, isHost, sessionState]);
   
   // Double click state for desktop
   const [lastClickTime, setLastClickTime] = useState(0);
@@ -391,6 +410,8 @@ const ReadingRoom = () => {
   const readingStep = sessionState?.readingStep || 'setup';
   const interpretation = sessionState?.interpretation || '';
   const zoomLevel = sessionState?.zoomLevel || 1;
+  const panOffset = sessionState?.panOffset || { x: 0, y: 0 };
+  const zoomFocus = sessionState?.zoomFocus || null;
   const activeCardIndex = sessionState?.activeCardIndex;
   const sessionId = sessionState?.id;
 
@@ -567,6 +588,18 @@ const ReadingRoom = () => {
   const setZoomLevelWrapped = useCallback((newZoomLevel: number) => {
     updateSession({ zoomLevel: newZoomLevel });
   }, [updateSession]);
+
+  const setPanOffsetWrapped = useCallback((newPanOffset: { x: number; y: number }) => {
+    if (!isFollowing) { // Only update if not following someone else
+      updateSession({ panOffset: newPanOffset });
+    }
+  }, [updateSession, isFollowing]);
+
+  const setZoomFocusWrapped = useCallback((newZoomFocus: { x: number; y: number } | null) => {
+    if (!isFollowing) { // Only update if not following someone else
+      updateSession({ zoomFocus: newZoomFocus });
+    }
+  }, [updateSession, isFollowing]);
 
   const setActiveCardIndexWrapped = useCallback((index: number | null) => {
     updateSession({ activeCardIndex: index });
@@ -790,7 +823,7 @@ const ReadingRoom = () => {
       const newPanX = Math.max(-maxPan, Math.min(maxPan, panStartOffset.x + deltaX * sensitivity));
       const newPanY = Math.max(-maxPan, Math.min(maxPan, panStartOffset.y + deltaY * sensitivity));
       
-      setPanOffset({ x: newPanX, y: newPanY });
+      setPanOffsetWrapped({ x: newPanX, y: newPanY });
     }, 8), // Reduced to ~120fps for smoother movement
     [isPanning, zoomLevel, panStartPos.x, panStartPos.y, panStartOffset.x, panStartOffset.y]
   );
@@ -1010,42 +1043,40 @@ const ReadingRoom = () => {
   
   const resetZoom = useCallback(() => {
     setZoomLevelWrapped(1);
-    setZoomFocus(null);
-    setPanOffset({ x: 0, y: 0 });
-  }, [setZoomLevelWrapped]);
+    setZoomFocusWrapped(null);
+    setPanOffsetWrapped({ x: 0, y: 0 });
+  }, [setZoomLevelWrapped, setZoomFocusWrapped, setPanOffsetWrapped]);
   
   // Reset pan to center
   const resetPan = useCallback(() => {
-    setPanOffset({ x: 0, y: 0 });
-  }, []);
+    setPanOffsetWrapped({ x: 0, y: 0 });
+  }, [setPanOffsetWrapped]);
   
   // Directional panning functions
   const panDirection = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
     const panStep = 50; // pixels to move per step
     const maxPan = 200; // maximum pan distance
     
-    setPanOffset(current => {
-      let newX = current.x;
-      let newY = current.y;
-      
-      switch (direction) {
-        case 'up':
-          newY = Math.max(-maxPan, current.y - panStep);
-          break;
-        case 'down':
-          newY = Math.min(maxPan, current.y + panStep);
-          break;
-        case 'left':
-          newX = Math.max(-maxPan, current.x - panStep);
-          break;
-        case 'right':
-          newX = Math.min(maxPan, current.x + panStep);
-          break;
-      }
-      
-      return { x: newX, y: newY };
-    });
-  }, []);
+    let newX = panOffset.x;
+    let newY = panOffset.y;
+    
+    switch (direction) {
+      case 'up':
+        newY = Math.max(-maxPan, panOffset.y - panStep);
+        break;
+      case 'down':
+        newY = Math.min(maxPan, panOffset.y + panStep);
+        break;
+      case 'left':
+        newX = Math.max(-maxPan, panOffset.x - panStep);
+        break;
+      case 'right':
+        newX = Math.min(maxPan, panOffset.x + panStep);
+        break;
+    }
+    
+    setPanOffsetWrapped({ x: newX, y: newY });
+  }, [panOffset, setPanOffsetWrapped]);
   
   const resetReading = useCallback(() => {
     updateSession({
@@ -1081,8 +1112,8 @@ const ReadingRoom = () => {
     }
     
     setShowMobileInterpretation(false);
-    setZoomFocus(null);
-    setPanOffset({ x: 0, y: 0 });
+    setZoomFocusWrapped(null);
+    setPanOffsetWrapped({ x: 0, y: 0 });
     setInterpretationCards([]); // Clear interpretation cards tracking
     setDeckRefreshKey(prev => prev + 1); // Force deck visual refresh
   }, [updateSession, cards, fisherYatesShuffle]);
@@ -1319,7 +1350,7 @@ const ReadingRoom = () => {
     const newPanX = Math.max(-maxPan, Math.min(maxPan, panStartOffset.x + deltaX * sensitivity));
     const newPanY = Math.max(-maxPan, Math.min(maxPan, panStartOffset.y + deltaY * sensitivity));
     
-    setPanOffset({ x: newPanX, y: newPanY });
+    setPanOffsetWrapped({ x: newPanX, y: newPanY });
   };
   
   const handlePanEnd = () => {
@@ -2012,6 +2043,29 @@ const ReadingRoom = () => {
                   <div className="font-medium">Session Synced!</div>
                   <div className="text-xs opacity-90">
                     Your reading is now saved to the cloud
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Follow Notification */}
+        <AnimatePresence>
+          {showFollowNotification && (
+            <motion.div 
+              className={`absolute ${isMobile ? 'top-28 left-4 right-4' : 'top-28 left-1/2 transform -translate-x-1/2'} bg-primary/95 text-primary-foreground px-4 py-3 rounded-lg text-sm z-[60] shadow-xl border border-primary/20`}
+              initial={{ opacity: 0, y: -20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.9 }}
+              transition={{ duration: 0.3, exit: { duration: 0.2 } }}
+            >
+              <div className="flex items-center gap-3">
+                <UserCheck className="h-5 w-5 text-primary-foreground" />
+                <div className="flex-1">
+                  <div className="font-medium">Following Host's View</div>
+                  <div className="text-xs opacity-90">
+                    Your view will sync with the host's pan and zoom
                   </div>
                 </div>
               </div>

@@ -16,6 +16,8 @@ export interface ReadingSessionState {
   selectedCards: (Card & { position: string; isReversed: boolean; x?: number; y?: number; customPosition?: string })[];
   interpretation: string;
   zoomLevel: number;
+  panOffset: { x: number; y: number };
+  zoomFocus: { x: number; y: number } | null;
   activeCardIndex: number | null;
   isActive: boolean;
   createdAt: string;
@@ -110,6 +112,8 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
             reading_step: 'setup',
             selected_cards: [],
             zoom_level: 1.0,
+            pan_offset: { x: 0, y: 0 },
+            zoom_focus: null,
             is_active: true
           })
           .select()
@@ -146,6 +150,8 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         selectedCards: [],
         interpretation: '',
         zoomLevel: 1.0,
+        panOffset: { x: 0, y: 0 },
+        zoomFocus: null,
         activeCardIndex: null,
         isActive: true,
         createdAt: now,
@@ -295,6 +301,8 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           selectedCards: session.selected_cards || [],
           interpretation: session.interpretation || '',
           zoomLevel: session.zoom_level || 1.0,
+          panOffset: session.pan_offset || { x: 0, y: 0 },
+          zoomFocus: session.zoom_focus || null,
           activeCardIndex: session.active_card_index,
           isActive: session.is_active,
           createdAt: session.created_at,
@@ -375,6 +383,12 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         }
         if (updates.zoomLevel !== undefined) {
           updateData.zoom_level = updates.zoomLevel;
+        }
+        if (updates.panOffset !== undefined) {
+          updateData.pan_offset = updates.panOffset;
+        }
+        if (updates.zoomFocus !== undefined) {
+          updateData.zoom_focus = updates.zoomFocus;
         }
         if (updates.activeCardIndex !== undefined) {
           updateData.active_card_index = updates.activeCardIndex;
@@ -621,6 +635,8 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           selectedCards: session.selected_cards || [],
           interpretation: session.interpretation || '',
           zoomLevel: session.zoom_level || 1.0,
+          panOffset: session.pan_offset || { x: 0, y: 0 },
+          zoomFocus: session.zoom_focus || null,
           activeCardIndex: session.active_card_index,
           isActive: session.is_active,
           createdAt: session.created_at,
@@ -729,6 +745,8 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
                 selectedCards: [],
                 interpretation: '',
                 zoomLevel: 1.0,
+                panOffset: { x: 0, y: 0 },
+                zoomFocus: null,
                 activeCardIndex: null,
                 isActive: true,
                 createdAt: new Date().toISOString(),
@@ -749,6 +767,8 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
               selectedCards: session.selected_cards || [],
               interpretation: session.interpretation || '',
               zoomLevel: session.zoom_level || 1.0,
+              panOffset: session.pan_offset || { x: 0, y: 0 },
+              zoomFocus: session.zoom_focus || null,
               activeCardIndex: session.active_card_index,
               isActive: session.is_active,
               createdAt: session.created_at,
