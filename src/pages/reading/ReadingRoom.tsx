@@ -966,7 +966,16 @@ const ReadingRoom = () => {
     try {
       setIsGeneratingInterpretation(true);
       
-      const formattedCards = cards.map((card: any) => ({
+      // Reveal all cards before generating interpretation
+      const revealedCards = cards.map((card: any) => ({
+        ...card,
+        revealed: true
+      }));
+      
+      // Update session with revealed cards
+      updateSession({ selectedCards: revealedCards });
+      
+      const formattedCards = revealedCards.map((card: any) => ({
         name: card.name,
         position: card.position,
         isReversed: card.isReversed
