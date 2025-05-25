@@ -1608,7 +1608,7 @@ const ReadingRoom = () => {
     }
   };
   
-  const initiateVideoChat = () => {
+  const initiateVideoChat = async () => {
     // Check if user is authenticated
     if (!user) {
       // Store current reading room path for post-auth redirect with session ID
@@ -1623,10 +1623,24 @@ const ReadingRoom = () => {
     
     setIsVideoConnecting(true);
     
-    setTimeout(() => {
+    try {
+      // Start video call in the session store first
+      console.log('Auto-starting video call for sharing...');
+      const videoSessionId = await startVideoCall();
+      
+      if (videoSessionId) {
+        console.log('Video call started in session state');
+        setShowVideoChat(true);
+      } else {
+        console.error('Failed to start video call in session');
+        setError('Failed to start video call. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error starting video call:', err);
+      setError('Failed to start video call. Please try again.');
+    } finally {
       setIsVideoConnecting(false);
-      setShowVideoChat(true);
-    }, 500);
+    }
   };
   
   // Pan functionality for dragging the view when zoomed

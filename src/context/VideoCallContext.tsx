@@ -275,15 +275,22 @@ export const VideoCallProvider: React.FC<VideoCallProviderProps> = ({ children }
       sessionId: sessionState.id
     });
 
-    if (isActive && !isParticipantInCall && connectionStatus === 'disconnected') {
-      // Auto-join video call
-      console.log('Auto-joining video call for participant:', participantId);
-      startCall('client', sessionState.id);
-    } else if (!isActive && connectionStatus !== 'disconnected') {
-      // Auto-leave video call
-      console.log('Auto-leaving video call for participant:', participantId);
-      endCall();
-    }
+    // Add a small delay to prevent interference with manual video call starts
+    const timeoutId = setTimeout(() => {
+      if (isActive && !isParticipantInCall && connectionStatus === 'disconnected') {
+        // Auto-join video call
+        console.log('Auto-joining video call for participant:', participantId);
+        startCall('client', sessionState.id);
+      } else if (!isActive && connectionStatus !== 'disconnected') {
+        // Auto-leave video call (but only if we're not currently connecting)
+        if (connectionStatus !== 'connecting') {
+          console.log('Auto-leaving video call for participant:', participantId);
+          endCall();
+        }
+      }
+    }, 1000); // 1 second delay
+
+    return () => clearTimeout(timeoutId);
   }, [sessionState?.videoCallState, isAutoJoinEnabled, connectionStatus, participantId]);
 
   const requestPermissions = useCallback(async (): Promise<boolean> => {
@@ -319,19 +326,22 @@ export const VideoCallProvider: React.FC<VideoCallProviderProps> = ({ children }
 
       let callSessionId: string;
       
-      if (mode === 'reader' || !existingSessionId) {
-        // Start new video call session
+      if (mode === 'reader') {
+        // Start new video call session (host)
         callSessionId = existingSessionId || sessionState?.id || uuidv4();
         await startVideoCall();
-             } else {
-         // Join existing video call
-         callSessionId = existingSessionId;
-         const existingParticipants = sessionState?.videoCallState?.participants || [];
-         await joinVideoCall(callSessionId);
-         
-         // Connect to all existing participants
-         await connectToExistingParticipants(existingParticipants);
-       }
+      } else {
+        // Join existing video call (client)
+        if (!existingSessionId) {
+          throw new Error('Session ID is required to join an existing call');
+        }
+        callSessionId = existingSessionId;
+        const existingParticipants = sessionState?.videoCallState?.participants || [];
+        await joinVideoCall(callSessionId);
+        
+        // Connect to all existing participants
+        await connectToExistingParticipants(existingParticipants);
+      }
 
       setSessionId(callSessionId);
       return callSessionId;

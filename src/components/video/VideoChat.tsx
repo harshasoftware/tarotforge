@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useVideoCall } from '../../context/VideoCallContext';
 import { useAuthStore } from '../../stores/authStore';
+import { useReadingSessionStore } from '../../stores/readingSessionStore';
 import { User, Video, X, Phone, Mic, MicOff, VideoOff, Copy, Check, AlertCircle, Share2, Settings, PhoneOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import VideoControls from './VideoControls';
@@ -161,22 +162,50 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         endCall();
         
         if (sessionId) {
-          // Join existing call as client
-          setIsCreatingRoom(false);
-          try {
-            const result = await startCall('client', sessionId);
-            if (result) {
-              setActualSessionId(result);
-            } else {
-              console.error('Failed to join call - no session ID returned');
-              setError('Failed to join the call. Please try again.');
+          // Check if this user is the host of the session
+          const { sessionState } = useReadingSessionStore.getState();
+          const { user } = useAuthStore.getState();
+          const isHost = sessionState?.hostUserId === user?.id || 
+                        (sessionState?.hostUserId === null && !user); // Guest host
+          
+          if (isHost && sessionState?.videoCallState?.isActive) {
+            // Host with active video call - start as reader
+            setIsCreatingRoom(true);
+            try {
+              const result = await startCall('reader', sessionId);
+              if (result) {
+                setGeneratedSessionId(result);
+                setActualSessionId(result);
+              } else {
+                console.error('Failed to start call as host - no session ID returned');
+                setError('Failed to start the call. Please try again.');
+              }
+            } catch (err) {
+              console.error('Error starting call as host:', err);
+              if (err instanceof Error && err.message.includes('Permission')) {
+                setShowPermissionModal(true);
+              } else {
+                setError('Failed to start the call. Please try again.');
+              }
             }
-          } catch (err) {
-            console.error('Error joining call:', err);
-            if (err instanceof Error && err.message.includes('Permission')) {
-              setShowPermissionModal(true);
-            } else {
-              setError('Failed to join the call. Please try again.');
+          } else {
+            // Join existing call as client
+            setIsCreatingRoom(false);
+            try {
+              const result = await startCall('client', sessionId);
+              if (result) {
+                setActualSessionId(result);
+              } else {
+                console.error('Failed to join call - no session ID returned');
+                setError('Failed to join the call. Please try again.');
+              }
+            } catch (err) {
+              console.error('Error joining call:', err);
+              if (err instanceof Error && err.message.includes('Permission')) {
+                setShowPermissionModal(true);
+              } else {
+                setError('Failed to join the call. Please try again.');
+              }
             }
           }
         } else {
