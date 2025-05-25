@@ -2273,19 +2273,6 @@ const ReadingRoom = () => {
                     </div>
                   ))}
                 </div>
-                
-                <div className={isMobile ? 'mb-3' : 'mb-4'}>
-                  <label htmlFor="question" className="block text-sm font-medium mb-1">
-                    Your Question (Optional)
-                  </label>
-                  <input
-                    id="question"
-                    value={question}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleQuestionChange(e.target.value)}
-                    placeholder="What would you like guidance on?"
-                    className={`w-full ${isMobile ? 'p-2 text-sm' : 'p-2 text-sm'} rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary`}
-                  />
-                </div>
               </div>
             </div>
           )}
@@ -2296,11 +2283,6 @@ const ReadingRoom = () => {
               <div className={`w-full ${isMobile ? 'max-w-2xl max-h-full overflow-y-auto' : 'max-w-lg'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
                 {/* Header */}
                 <div className="text-center mb-6">
-                  <div className="flex justify-center mb-4">
-                    <div className="rounded-full bg-primary/20 p-3">
-                      <TarotLogo className="h-8 w-8 text-primary" />
-                    </div>
-                  </div>
                   <h2 className={`${isMobile ? 'text-lg' : 'text-xl'} font-serif font-bold mb-2`}>🔮 Inspired Questions</h2>
                   <p className="text-sm text-muted-foreground">
                     Choose a life area for personalized questions, or skip to draw cards with your current question.
@@ -2416,7 +2398,7 @@ const ReadingRoom = () => {
 
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {!showCustomQuestionInput && !selectedCategory && (
+                  {!showCustomQuestionInput && (
                     <button
                       onClick={() => setShowCustomQuestionInput(true)}
                       className="btn btn-secondary px-4 py-2 text-sm"
