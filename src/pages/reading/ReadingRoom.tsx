@@ -947,9 +947,11 @@ const ReadingRoom = () => {
     
     // Check if user is a guest and prompt for account upgrade
     if (isGuest) {
-      // Store current reading room path for post-auth redirect
-      const currentPath = window.location.pathname + window.location.search;
-      localStorage.setItem('auth_return_path', currentPath);
+      // Store current reading room path for post-auth redirect with session ID
+      const currentPath = window.location.pathname;
+      const sessionParam = sessionId ? `?join=${sessionId}` : window.location.search;
+      const fullPath = currentPath + sessionParam;
+      localStorage.setItem('auth_return_path', fullPath);
       setShowGuestUpgrade(true);
       return;
     }
@@ -997,9 +999,11 @@ const ReadingRoom = () => {
   const initiateVideoChat = () => {
     // Check if user is authenticated
     if (!user) {
-      // Store current reading room path for post-auth redirect
-      const currentPath = window.location.pathname + window.location.search;
-      localStorage.setItem('auth_return_path', currentPath);
+      // Store current reading room path for post-auth redirect with session ID
+      const currentPath = window.location.pathname;
+      const sessionParam = sessionId ? `?join=${sessionId}` : window.location.search;
+      const fullPath = currentPath + sessionParam;
+      localStorage.setItem('auth_return_path', fullPath);
       setShowGuestUpgrade(true);
       return;
     }
@@ -1222,9 +1226,11 @@ const ReadingRoom = () => {
   const handleShare = async () => {
     // Check if user is authenticated
     if (!user) {
-      // Store current reading room path for post-auth redirect
-      const currentPath = window.location.pathname + window.location.search;
-      localStorage.setItem('auth_return_path', currentPath);
+      // Store current reading room path for post-auth redirect with session ID
+      const currentPath = window.location.pathname;
+      const sessionParam = sessionId ? `?join=${sessionId}` : window.location.search;
+      const fullPath = currentPath + sessionParam;
+      localStorage.setItem('auth_return_path', fullPath);
       setShowGuestUpgrade(true);
       return;
     }
