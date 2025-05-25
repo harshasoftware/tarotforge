@@ -109,6 +109,7 @@ The Reading Room has multiple states and navigation patterns that differ between
 - **Session Info**: Room title, deck info, participant count
 
 #### Right Section (Desktop)
+- **Reveal/View Detail**: First button when cards are placed (moved to front)
 - **All Controls Visible**: No space constraints
 - **Tooltips**: Hover descriptions for all buttons
 - **Larger Touch Targets**: Better for mouse interaction
@@ -124,8 +125,9 @@ The Reading Room has multiple states and navigation patterns that differ between
 
 #### Card Reveal System (Desktop)
 - **Individual Reveal**: Click each card to flip and reveal
-- **Reveal All**: Button with tooltip appears when unrevealed cards exist
+- **Reveal All**: First button in top-right navigation when unrevealed cards exist
 - **View Detail**: Button changes to "View Detail" when all cards are revealed
+- **Priority Position**: Moved to front of navigation for easy access
 - **Clear Visual Feedback**: Tooltips explain current button function
 
 #### Keyboard Interactions (Desktop)
@@ -401,3 +403,19 @@ Deck Selection → Setup → Ask Question → Drawing → Interpretation
 - **Progressive Web App**: Native app-like navigation
 - **Enhanced Gallery**: Zoom within gallery, card comparison view
 - **Card Annotations**: Add notes and bookmarks to cards in gallery 
+
+## Desktop Button Order Reference
+
+### Current Top-Right Navigation Order
+1. **🔍 Reveal All / View Detail** - First position when cards are placed
+2. **⚡ Offline Sync** - Conditional, when working offline
+3. **📦 Deck Change** - When deck is selected
+4. **🔗 Share** - Share reading room
+5. **📞 Video Chat** - Start/manage video chat
+6. **⬆️ Guest Upgrade** - Last position, conditional for guests only
+
+### Button Priority Logic
+- **Reveal/View Detail**: Highest priority - card-related actions
+- **Core Functions**: Deck, Share, Video Chat in middle
+- **Account Actions**: Guest Upgrade at end for less frequent use
+- **System Status**: Offline sync appears when needed

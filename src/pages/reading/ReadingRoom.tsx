@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Download, Sparkles, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Sparkles, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
@@ -15,7 +15,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import SignInModal from '../../components/auth/SignInModal';
 import Tooltip from '../../components/ui/Tooltip';
 import { v4 as uuidv4 } from 'uuid';
-import html2canvas from 'html2canvas';
+
 import Div100vh from 'react-div-100vh';
 
 // Mock reading layouts - moved outside component to prevent recreation
@@ -320,8 +320,7 @@ const ReadingRoom = () => {
   const [hasShownInviteUpgrade, setHasShownInviteUpgrade] = useState(false);
   
   // Save functionality state
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+
   
   // Shuffling state
   const [isShuffling, setIsShuffling] = useState(false);
@@ -1698,96 +1697,7 @@ const ReadingRoom = () => {
     }
   };
   
-  // Save reading as image
-  const saveReadingAsImage = async () => {
-    if (!readingAreaRef.current || !selectedLayout || selectedCards.length === 0) {
-      return;
-    }
 
-    try {
-      setIsSaving(true);
-      
-      // Hide certain UI elements during capture
-      const controlsToHide = [
-        '.zoom-controls',
-        '.mobile-interpretation-button',
-        '.deck-pile',
-        '.interpretation-button'
-      ];
-      
-      const hiddenElements: HTMLElement[] = [];
-      controlsToHide.forEach(selector => {
-        const elements = readingAreaRef.current?.querySelectorAll(selector);
-        elements?.forEach(element => {
-          const htmlElement = element as HTMLElement;
-          if (htmlElement.style.display !== 'none') {
-            htmlElement.style.display = 'none';
-            hiddenElements.push(htmlElement);
-          }
-        });
-      });
-
-      // Reset zoom and pan for clean screenshot
-      const originalTransform = readingAreaRef.current.style.transform;
-      const readingContent = readingAreaRef.current.querySelector('.reading-content') as HTMLElement;
-      if (readingContent) {
-        readingContent.style.transform = 'scale(1) translate(0px, 0px)';
-        readingContent.style.transformOrigin = 'center center';
-      }
-
-      // Capture the reading area
-      const canvas = await html2canvas(readingAreaRef.current, {
-        backgroundColor: null,
-        scale: 2, // Higher resolution
-        useCORS: true,
-        allowTaint: true,
-        foreignObjectRendering: true,
-        width: readingAreaRef.current.offsetWidth,
-        height: readingAreaRef.current.offsetHeight,
-        onclone: (clonedDoc) => {
-          // Ensure all cards are visible in the clone
-          const clonedCards = clonedDoc.querySelectorAll('[data-card-element="true"]');
-          clonedCards.forEach(card => {
-            (card as HTMLElement).style.opacity = '1';
-            (card as HTMLElement).style.visibility = 'visible';
-          });
-        }
-      });
-
-      // Restore hidden elements
-      hiddenElements.forEach(element => {
-        element.style.display = '';
-      });
-
-      // Restore original transform
-      if (readingContent) {
-        readingContent.style.transform = originalTransform;
-      }
-
-      // Create download link
-      const link = document.createElement('a');
-      const now = new Date();
-      const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-      const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
-      link.download = `tarot-reading-${selectedLayout.name.toLowerCase().replace(/\s+/g, '-')}-${dateStr}-${timeStr}.png`;
-      link.href = canvas.toDataURL('image/png', 1.0);
-      
-      // Trigger download
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Show success feedback
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-
-    } catch (error) {
-      console.error('Error saving reading as image:', error);
-      // Could add error toast here
-    } finally {
-      setIsSaving(false);
-    }
-  };
   
   // Function to fetch marketplace decks
   const fetchMarketplaceDecks = useCallback(async () => {
@@ -2255,6 +2165,42 @@ const ReadingRoom = () => {
           
           {/* Right side - Action buttons - horizontal for both mobile and desktop */}
           <div className={`flex ${isMobile ? 'items-center gap-1' : 'items-center gap-1 md:gap-2'}`}>
+            {/* Desktop: Reveal All / View Cards Button - show when cards are placed - moved to front */}
+            {!isMobile && selectedCards.some((card: any) => card) && (
+              <>
+                {/* Show Reveal All button if there are unrevealed cards */}
+                {selectedCards.some((card: any) => card && !card.revealed) && (
+                  <Tooltip content="Reveal all cards" position="bottom">
+                    <button 
+                      onClick={revealAllCards}
+                      className="btn btn-secondary bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center"
+                    >
+                      <EyeOff className="h-4 w-4" />
+                      <span className="ml-1 text-xs">Reveal All</span>
+                    </button>
+                  </Tooltip>
+                )}
+                
+                {/* Show View Cards button if all cards are revealed */}
+                {selectedCards.every((card: any) => !card || card.revealed) && selectedCards.some((card: any) => card?.revealed) && (
+                  <Tooltip content="View cards in detail" position="bottom">
+                    <button 
+                      onClick={() => {
+                        const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
+                        if (firstRevealedIndex !== -1) {
+                          openCardGallery(firstRevealedIndex);
+                        }
+                      }}
+                      className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center"
+                    >
+                      <Eye className="h-4 w-4" />
+                      <span className="ml-1 text-xs">View Detail</span>
+                    </button>
+                  </Tooltip>
+                )}
+              </>
+            )}
+
             {/* Offline mode indicator and sync button */}
             {isOfflineMode && (
               <Tooltip content="Working offline - click to sync to cloud" position="bottom" disabled={isMobile}>
@@ -2293,17 +2239,6 @@ const ReadingRoom = () => {
               </button>
             </Tooltip>
             
-            {/* Guest upgrade button */}
-            <Tooltip content="Create account to save your progress" position="bottom" disabled={isMobile}>
-              <button 
-                onClick={() => setShowGuestUpgrade(true)}
-                className={`btn btn-accent bg-accent/80 backdrop-blur-sm border border-accent/50 ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} ${!isGuest ? 'hidden' : ''}`}
-              >
-                <UserPlus className="h-4 w-4" />
-                {!isMobile && <span className="text-xs">Upgrade</span>}
-              </button>
-            </Tooltip>
-            
             <Tooltip content="Share reading room" position="bottom" disabled={isMobile}>
               <button 
                 onClick={() => handleShare()}
@@ -2327,8 +2262,19 @@ const ReadingRoom = () => {
                 )}
               </button>
             </Tooltip>
+            
+            {/* Guest upgrade button - moved to end */}
+            <Tooltip content="Create account to save your progress" position="bottom" disabled={isMobile}>
+              <button 
+                onClick={() => setShowGuestUpgrade(true)}
+                className={`btn btn-accent bg-accent/80 backdrop-blur-sm border border-accent/50 ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} ${!isGuest ? 'hidden' : ''}`}
+              >
+                <UserPlus className="h-4 w-4" />
+                {!isMobile && <span className="text-xs">Upgrade</span>}
+              </button>
+            </Tooltip>
 
-            {/* Desktop: Reveal All / View Cards Button - show when cards are placed */}
+            {/* Desktop: Reveal All / View Cards Button - show when cards are placed - moved to front */}
             {!isMobile && selectedCards.some((card: any) => card) && (
               <>
                 {/* Show Reveal All button if there are unrevealed cards */}
@@ -2363,22 +2309,6 @@ const ReadingRoom = () => {
                 )}
               </>
             )}
-
-            <Tooltip content={selectedCards.length === 0 ? "Add cards to save reading" : "Save reading as image"} position="bottom" disabled={isMobile}>
-              <button 
-                onClick={() => saveReadingAsImage()}
-                className={`btn ${saveSuccess ? 'btn-success' : 'btn-primary'} bg-primary/80 backdrop-blur-sm border border-primary ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
-                disabled={isSaving || !selectedLayout || selectedCards.length === 0}
-              >
-                {isSaving ? (
-                  <LoadingSpinner size="sm" />
-                ) : saveSuccess ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-              </button>
-            </Tooltip>
           </div>
         </div>
 
