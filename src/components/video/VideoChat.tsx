@@ -56,17 +56,59 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
       const isMobileDevice = window.innerWidth < 768;
       setIsMobile(isMobileDevice);
       
+      // Helper function to ensure positions are within viewport bounds
+      const constrainToViewport = (x: number, y: number, videoSize: number) => {
+        const margin = 8;
+        return {
+          x: Math.max(margin, Math.min(x, window.innerWidth - videoSize - margin)),
+          y: Math.max(margin, Math.min(y, window.innerHeight - videoSize - margin))
+        };
+      };
+      
       // Auto-adjust controls for mobile
       if (isMobileDevice) {
         setControlsPosition('bubble'); // Use bubble controls for mobile
         setControlsMinimized(true); // Start minimized on mobile
-        setLocalVideoPosition({ x: 16, y: 120 }); // Lower position to avoid top bar
-        setRemoteVideoPosition({ x: window.innerWidth - 136, y: 120 });
+        // Position both bubbles next to each other at top center for mobile
+        // Below top bar (top-2 = 8px) and zoom controls (top-16 = 64px)
+        const mobileVideoSize = 64; // w-16 h-16 when minimized
+        const spacing = 8; // Smaller spacing for mobile
+        const topOffset = 80; // Below zoom controls (64px + 16px margin)
+        
+        const centerX = window.innerWidth / 2;
+        // Calculate positions so both bubbles are centered as a group
+        const totalWidth = (mobileVideoSize * 2) + spacing;
+        const startX = centerX - (totalWidth / 2);
+        const localX = startX;
+        const remoteX = startX + mobileVideoSize + spacing;
+        
+        const localPos = constrainToViewport(localX, topOffset, mobileVideoSize);
+        const remotePos = constrainToViewport(remoteX, topOffset, mobileVideoSize);
+        
+        setLocalVideoPosition(localPos);
+        setRemoteVideoPosition(remotePos);
       } else {
         setControlsPosition('bottom'); // Use bottom controls for desktop
         setControlsMinimized(false);
-        setLocalVideoPosition({ x: 20, y: 20 });
-        setRemoteVideoPosition({ x: window.innerWidth - 320, y: 20 });
+        // Position both bubbles next to each other at top center for desktop
+        // Below top bar (top-4 = 16px + controls height ~40px)
+        const desktopVideoSize = 128; // Updated for circular bubbles (w-32 h-32)
+        const spacing = 10; // Space between the two bubbles
+        const topOffset = 70; // Below top controls with margin
+        
+        // Position both videos at top center, side by side
+        const centerX = window.innerWidth / 2;
+        // Calculate positions so both bubbles are centered as a group
+        const totalWidth = (desktopVideoSize * 2) + spacing;
+        const startX = centerX - (totalWidth / 2);
+        const localX = startX;
+        const remoteX = startX + desktopVideoSize + spacing;
+        
+        const localPos = constrainToViewport(localX, topOffset, desktopVideoSize);
+        const remotePos = constrainToViewport(remoteX, topOffset, desktopVideoSize);
+        
+        setLocalVideoPosition(localPos);
+        setRemoteVideoPosition(remotePos);
       }
     };
     
@@ -306,6 +348,22 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
     }
   }, [permissionDenied, error]);
 
+  // Debug logging for desktop video positioning
+  useEffect(() => {
+    if (!isMobile) {
+      console.log('Desktop video chat - Video positions:', {
+        localVideoPosition,
+        remoteVideoPosition,
+        windowWidth: window.innerWidth,
+        windowHeight: window.innerHeight,
+        localStream: !!localStream,
+        remoteStream: !!remoteStream,
+        connectionStatus,
+        isInitializing
+      });
+    }
+  }, [isMobile, localVideoPosition, remoteVideoPosition, localStream, remoteStream, connectionStatus, isInitializing]);
+
   return (
     <>
       {/* Permission Modal - Mobile Optimized */}
@@ -440,7 +498,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         label={`You${isVideoOff ? " (Camera Off)" : ""}`}
         initialPosition={localVideoPosition}
         onPositionChange={updateLocalVideoPosition}
-        className="z-[1000]"
+        className="z-[1500]"
         isMobile={isMobile}
         fallbackContent={
           <div className="absolute inset-0 flex items-center justify-center">
@@ -467,7 +525,7 @@ const VideoChat = ({ onClose, sessionId }: VideoChatProps) => {
         stream={remoteStream}
         isVideoOff={false}
         label={isCreatingRoom ? 'Client' : 'Reader'}
-        className="z-[1000]"
+        className="z-[1500]"
         initialPosition={remoteVideoPosition}
         onPositionChange={updateRemoteVideoPosition}
         isMobile={isMobile}

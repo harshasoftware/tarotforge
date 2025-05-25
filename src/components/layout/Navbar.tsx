@@ -87,19 +87,13 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-1">
             <NavLink to="/marketplace">Marketplace</NavLink>
             <NavLink to="/readers">Readers</NavLink>
+            <NavLink to="/reading-room">Reading Room</NavLink>
             {user ? (
               <>
-                <NavLink to="/reading-room">Reading Room</NavLink>
                 <NavLink to="/collection">My Collection</NavLink>
               </>
             ) : (
               <>
-                <button 
-                  onClick={() => setShowSignInModal(true)}
-                  className="px-3 py-2 rounded-md text-sm hover:text-accent transition-colors"
-                >
-                  Reading Room
-                </button>
                 <NavLink to="/pricing">Pricing</NavLink>
               </>
             )}
@@ -236,11 +230,11 @@ const Navbar = () => {
               <Link to="/readers" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                 Readers
               </Link>
+              <Link to="/reading-room" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
+                Reading Room
+              </Link>
               {user ? (
                 <>
-                  <Link to="/reading-room" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
-                    Reading Room
-                  </Link>
                   <Link to="/collection" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                     My Collection
                   </Link>
@@ -266,15 +260,6 @@ const Navbar = () => {
                 </>
               ) : (
                 <>
-                  <button 
-                    onClick={() => {
-                      setIsOpen(false);
-                      setShowSignInModal(true);
-                    }} 
-                    className="block w-full text-left py-2 px-4 rounded-md hover:bg-secondary/50"
-                  >
-                    Reading Room
-                  </button>
                   <Link to="/pricing" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                     Pricing
                   </Link>

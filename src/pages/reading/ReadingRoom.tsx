@@ -12,6 +12,8 @@ import VideoChat from '../../components/video/VideoChat';
 import TarotLogo from '../../components/ui/TarotLogo';
 import GuestAccountUpgrade from '../../components/ui/GuestAccountUpgrade';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import SignInModal from '../../components/auth/SignInModal';
+import Tooltip from '../../components/ui/Tooltip';
 import { v4 as uuidv4 } from 'uuid';
 import html2canvas from 'html2canvas';
 
@@ -157,7 +159,7 @@ const cleanMarkdownText = (text: string): { content: string; isHeader: boolean; 
 
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
-  const { user } = useAuthStore();
+  const { user, setShowSignInModal, showSignInModal } = useAuthStore();
   const { isSubscribed } = useSubscription();
   const navigate = useNavigate();
   const location = useLocation();
@@ -184,6 +186,14 @@ const ReadingRoom = () => {
   
   // Get isGuest from computed selector
   const isGuest = getIsGuest();
+  
+  // Handle successful authentication from SignInModal - moved before early returns to fix hooks order
+  const handleSignInSuccess = useCallback(() => {
+    // Close the modal - user is now authenticated and can use features
+    setShowSignInModal(false);
+    // Clear the stored path since we're already in the right place
+    localStorage.removeItem('auth_return_path');
+  }, [setShowSignInModal]);
   
   // Initialize session on mount
   useEffect(() => {
@@ -943,6 +953,15 @@ const ReadingRoom = () => {
   };
   
   const initiateVideoChat = () => {
+    // Check if user is authenticated
+    if (!user) {
+      // Store current reading room path for post-auth redirect
+      const currentPath = window.location.pathname + window.location.search;
+      localStorage.setItem('auth_return_path', currentPath);
+      setShowSignInModal(true);
+      return;
+    }
+    
     setIsVideoConnecting(true);
     
     setTimeout(() => {
@@ -1159,6 +1178,15 @@ const ReadingRoom = () => {
   
   // Handle sharing with native share API on mobile or modal on desktop
   const handleShare = async () => {
+    // Check if user is authenticated
+    if (!user) {
+      // Store current reading room path for post-auth redirect
+      const currentPath = window.location.pathname + window.location.search;
+      localStorage.setItem('auth_return_path', currentPath);
+      setShowSignInModal(true);
+      return;
+    }
+    
     if (!sessionId) return;
     
     const shareableLink = generateShareableLink(sessionId);
@@ -1470,12 +1498,25 @@ const ReadingRoom = () => {
             {sessionError || error}
           </p>
           <div className="flex flex-col gap-4 justify-center">
-            <Link to="/collection" className="btn btn-secondary px-6 py-2">
-              My Collection
-            </Link>
-            <Link to="/marketplace" className="btn btn-primary px-6 py-2">
-              Browse Marketplace
-            </Link>
+            {user ? (
+              <>
+                <Link to="/collection" className="btn btn-secondary px-6 py-2">
+                  My Collection
+                </Link>
+                <Link to="/marketplace" className="btn btn-primary px-6 py-2">
+                  Browse Marketplace
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/" className="btn btn-secondary px-6 py-2">
+                  Home
+                </Link>
+                <Link to="/marketplace" className="btn btn-primary px-6 py-2">
+                  Browse Marketplace
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1496,23 +1537,25 @@ const ReadingRoom = () => {
         <div className={`absolute z-50 ${mobileLayoutClasses.topControls}`}>
           {/* Left side - Back button and title for mobile, back button and session info for desktop */}
           <div className={`flex ${isMobile ? 'items-center gap-2' : 'items-center gap-1 md:gap-2'}`}>
-            <Link 
-              to="/collection" 
-              className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} flex items-center text-muted-foreground hover:text-foreground`}
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {!isMobile && <span className="ml-1 text-sm">Back</span>}
-            </Link>
+            <Tooltip content={user ? "Back to Collection" : "Back to Home"} position="bottom">
+              <Link 
+                to={user ? "/collection" : "/"} 
+                className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} flex items-center text-muted-foreground hover:text-foreground`}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {!isMobile && <span className="ml-1 text-sm">Back</span>}
+              </Link>
+            </Tooltip>
             
             {/* Mobile title display */}
-            {isMobile && selectedLayout && (
-              <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-1 relative layout-dropdown-container">
+            <Tooltip content="Change reading layout" position="bottom" disabled={!(isMobile && selectedLayout)}>
+              <div className={`bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-1 relative layout-dropdown-container ${!(isMobile && selectedLayout) ? 'hidden' : ''}`}>
                 <button
                   onClick={() => setShowLayoutDropdown(!showLayoutDropdown)}
                   className="flex items-center gap-2 text-sm font-medium"
                 >
-                  <span className="truncate">{selectedLayout.name}</span>
-                  {readingStep === 'drawing' && (
+                  <span className="truncate">{selectedLayout?.name || ''}</span>
+                  {readingStep === 'drawing' && selectedLayout && (
                     <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full whitespace-nowrap">
                       {selectedCards.filter(card => card).length}/{selectedLayout.card_count === 999 ? '∞' : selectedLayout.card_count}
                     </span>
@@ -1538,7 +1581,7 @@ const ReadingRoom = () => {
                             setShowLayoutDropdown(false);
                           }}
                           className={`w-full text-left p-2 hover:bg-muted transition-colors ${
-                            selectedLayout.id === layout.id ? 'bg-primary/10 text-primary' : ''
+                            selectedLayout?.id === layout.id ? 'bg-primary/10 text-primary' : ''
                           }`}
                         >
                           <div className="flex items-center justify-between">
@@ -1554,94 +1597,92 @@ const ReadingRoom = () => {
                   )}
                 </AnimatePresence>
               </div>
-            )}
+            </Tooltip>
             
             {/* Desktop session info with layout selector */}
-            {!isMobile && (
-              <div className="flex items-center gap-2">
-                {/* Layout selector for desktop */}
-                {selectedLayout && (
-                  <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2 relative layout-dropdown-container">
-                    <button
-                      onClick={() => setShowLayoutDropdown(!showLayoutDropdown)}
-                      className="flex items-center gap-2 text-sm font-medium"
-                    >
-                      <span className="truncate max-w-32">{selectedLayout.name}</span>
-                      {readingStep === 'drawing' && (
-                        <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full whitespace-nowrap">
-                          {selectedCards.filter(card => card).length}/{selectedLayout.card_count === 999 ? '∞' : selectedLayout.card_count}
-                        </span>
-                      )}
-                      <ChevronRight className={`h-3 w-3 transition-transform ${showLayoutDropdown ? 'rotate-90' : ''}`} />
-                    </button>
-                    
-                    {/* Desktop Layout dropdown */}
-                    <AnimatePresence>
-                      {showLayoutDropdown && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                          transition={{ duration: 0.2 }}
-                          className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto min-w-80"
-                        >
-                          {readingLayouts.map((layout) => (
-                            <button
-                              key={layout.id}
-                              onClick={() => {
-                                handleLayoutSelect(layout);
-                                setShowLayoutDropdown(false);
-                              }}
-                              className={`w-full text-left p-3 hover:bg-muted transition-colors ${
-                                selectedLayout.id === layout.id ? 'bg-primary/10 text-primary' : ''
-                              }`}
-                            >
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-sm font-medium">{layout.name}</span>
-                                <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
-                                  {layout.card_count === 999 ? 'Free' : `${layout.card_count} cards`}
-                                </span>
-                              </div>
-                              <p className="text-xs text-muted-foreground">{layout.description}</p>
-                            </button>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                )}
-                
-                {/* Session info */}
-                <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-sm font-serif font-bold">Reading Room</h1>
-                    {participants.length > 0 && (
-                      <div 
-                        className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full cursor-pointer"
-                        title={participantNames}
+            <div className={`flex items-center gap-2 ${isMobile ? 'hidden' : ''}`}>
+              {/* Layout selector for desktop */}
+              <Tooltip content="Change reading layout" position="bottom" disabled={!selectedLayout}>
+                <div className={`bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2 relative layout-dropdown-container ${!selectedLayout ? 'hidden' : ''}`}>
+                  <button
+                    onClick={() => setShowLayoutDropdown(!showLayoutDropdown)}
+                    className="flex items-center gap-2 text-sm font-medium"
+                  >
+                    <span className="truncate max-w-32">{selectedLayout?.name || ''}</span>
+                    {readingStep === 'drawing' && selectedLayout && (
+                      <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                        {selectedCards.filter(card => card).length}/{selectedLayout.card_count === 999 ? '∞' : selectedLayout.card_count}
+                      </span>
+                    )}
+                    <ChevronRight className={`h-3 w-3 transition-transform ${showLayoutDropdown ? 'rotate-90' : ''}`} />
+                  </button>
+                  
+                  {/* Desktop Layout dropdown */}
+                  <AnimatePresence>
+                    {showLayoutDropdown && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto min-w-80"
                       >
-                        <Users className="h-3 w-3" />
-                        <span className="text-xs">{participants.length}</span>
-                      </div>
+                        {readingLayouts.map((layout) => (
+                          <button
+                            key={layout.id}
+                            onClick={() => {
+                              handleLayoutSelect(layout);
+                              setShowLayoutDropdown(false);
+                            }}
+                            className={`w-full text-left p-3 hover:bg-muted transition-colors ${
+                              selectedLayout?.id === layout.id ? 'bg-primary/10 text-primary' : ''
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium">{layout.name}</span>
+                              <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
+                                {layout.card_count === 999 ? 'Free' : `${layout.card_count} cards`}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{layout.description}</p>
+                          </button>
+                        ))}
+                      </motion.div>
                     )}
-                    {!isHost && (
-                      <span className="text-xs bg-accent px-2 py-0.5 rounded-full">Guest</span>
-                    )}
-                  </div>
-                  {deck && (
-                    <p className="text-xs text-muted-foreground truncate max-w-48">
-                      {deck.title} by {deck.creator_name}
-                    </p>
+                  </AnimatePresence>
+                </div>
+              </Tooltip>
+              
+              {/* Session info */}
+              <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-sm font-serif font-bold">Reading Room</h1>
+                  {participants.length > 0 && (
+                    <div 
+                      className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full cursor-pointer"
+                      title={participantNames}
+                    >
+                      <Users className="h-3 w-3" />
+                      <span className="text-xs">{participants.length}</span>
+                    </div>
+                  )}
+                  {!isHost && (
+                    <span className="text-xs bg-accent px-2 py-0.5 rounded-full">Guest</span>
                   )}
                 </div>
+                {deck && (
+                  <p className="text-xs text-muted-foreground truncate max-w-48">
+                    {deck.title} by {deck.creator_name}
+                  </p>
+                )}
               </div>
-            )}
+            </div>
           </div>
           
           {/* Right side - Action buttons - horizontal for both mobile and desktop */}
           <div className={`flex ${isMobile ? 'items-center gap-1' : 'items-center gap-1 md:gap-2'}`}>
             {/* Deck change button - show when deck is selected */}
-            {deck && (
+            <Tooltip content="Change deck" position="bottom" disabled={!deck}>
               <button 
                 onClick={() => {
                   // Enter deck change mode while preserving session state
@@ -1652,62 +1693,68 @@ const ReadingRoom = () => {
                   setSelectedDeckId(null);
                   // Don't reset URL or session state
                 }}
-                className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''}`}
+                className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} ${!deck ? 'hidden' : ''}`}
                 title="Change deck"
               >
                 <Package className="h-4 w-4" />
                 {!isMobile && <span className="text-xs">Deck</span>}
               </button>
-            )}
+            </Tooltip>
             
             {/* Guest upgrade button */}
-            {isGuest && (
+            <Tooltip content="Create account to save your progress" position="bottom" disabled={!isGuest}>
               <button 
                 onClick={() => setShowGuestUpgrade(true)}
-                className={`btn btn-accent bg-accent/80 backdrop-blur-sm border border-accent/50 ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''}`}
+                className={`btn btn-accent bg-accent/80 backdrop-blur-sm border border-accent/50 ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} ${!isGuest ? 'hidden' : ''}`}
                 title="Create account to save your progress"
               >
                 <UserPlus className="h-4 w-4" />
                 {!isMobile && <span className="text-xs">Upgrade</span>}
               </button>
-            )}
+            </Tooltip>
             
-            <button 
-              onClick={() => handleShare()}
-              className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
-              disabled={!sessionId}
-              title="Share reading room"
-            >
-              <Share2 className="h-4 w-4" />
-            </button>
+            <Tooltip content="Share reading room" position="bottom">
+              <button 
+                onClick={() => handleShare()}
+                className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
+                disabled={!sessionId}
+                title="Share reading room"
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
+            </Tooltip>
             
-            <button 
-              onClick={() => !isVideoConnecting && !showVideoChat && setShowVideoChat(true)}
-              className={`btn ${showVideoChat ? 'btn-success' : 'btn-secondary'} bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
-              disabled={isVideoConnecting}
-              title="Video chat"
-            >
-              {isVideoConnecting ? (
-                <LoadingSpinner size="sm" />
-              ) : (
-                <PhoneCall className="h-4 w-4" />
-              )}
-            </button>
+            <Tooltip content={showVideoChat ? "Video chat active" : "Start video chat"} position="bottom">
+              <button 
+                onClick={() => !isVideoConnecting && !showVideoChat && initiateVideoChat()}
+                className={`btn ${showVideoChat ? 'btn-success' : 'btn-secondary'} bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
+                disabled={isVideoConnecting}
+                title="Video chat"
+              >
+                {isVideoConnecting ? (
+                  <LoadingSpinner size="sm" />
+                ) : (
+                  <PhoneCall className="h-4 w-4" />
+                )}
+              </button>
+            </Tooltip>
 
-            <button 
-              onClick={() => saveReadingAsImage()}
-              className={`btn ${saveSuccess ? 'btn-success' : 'btn-primary'} bg-primary/80 backdrop-blur-sm border border-primary ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
-              disabled={isSaving || !selectedLayout || selectedCards.length === 0}
-              title={selectedCards.length === 0 ? "Add cards to save reading" : "Save reading as image"}
-            >
-              {isSaving ? (
-                <LoadingSpinner size="sm" />
-              ) : saveSuccess ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-            </button>
+            <Tooltip content={selectedCards.length === 0 ? "Add cards to save reading" : "Save reading as image"} position="bottom">
+              <button 
+                onClick={() => saveReadingAsImage()}
+                className={`btn ${saveSuccess ? 'btn-success' : 'btn-primary'} bg-primary/80 backdrop-blur-sm border border-primary ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
+                disabled={isSaving || !selectedLayout || selectedCards.length === 0}
+                title={selectedCards.length === 0 ? "Add cards to save reading" : "Save reading as image"}
+              >
+                {isSaving ? (
+                  <LoadingSpinner size="sm" />
+                ) : saveSuccess ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+              </button>
+            </Tooltip>
           </div>
         </div>
 
@@ -2388,31 +2435,41 @@ const ReadingRoom = () => {
                 }}
               >
                 {/* Zoom controls with shuffle button - repositioned for mobile */}
-                <div className={`zoom-controls absolute ${isMobile ? (isLandscape ? 'top-10 left-1/2 transform -translate-x-1/2 flex-row' : 'top-16 left-1/2 transform -translate-x-1/2 flex-row') : 'top-4 left-4 flex-col'} flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
-                  <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm" title="Zoom Out">
-                    <ZoomOut className="h-4 w-4" />
-                  </button>
-                  <button onClick={resetZoom} className="p-1 hover:bg-muted rounded-sm" title="Reset Zoom">
-                    <RotateCcw className="h-4 w-4" />
-                  </button>
-                  <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm" title="Zoom In">
-                    <ZoomIn className="h-4 w-4" />
-                  </button>
-                  {isMobile && (
-                    <>
-                      <button onClick={shuffleDeck} className="p-1 hover:bg-muted rounded-sm" title="Shuffle Deck">
-                        <Shuffle className="h-4 w-4" />
-                      </button>
-                      <button onClick={showHint} className="p-1 hover:bg-muted rounded-sm" title="Show Help">
-                        <HelpCircle className="h-4 w-4" />
-                      </button>
-                    </>
-                  )}
-                  {!isMobile && (
-                    <button onClick={shuffleDeck} className="p-1 hover:bg-muted rounded-sm" title="Shuffle Deck">
+                <div className={`zoom-controls absolute ${
+                  isMobile 
+                    ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
+                    : 'top-4 left-4 flex-col'
+                } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
+                  <Tooltip content="Zoom out" position="right">
+                    <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm" title="Zoom Out">
+                      <ZoomOut className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Reset zoom" position="right">
+                    <button onClick={resetZoom} className="p-1 hover:bg-muted rounded-sm" title="Reset Zoom">
+                      <RotateCcw className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Zoom in" position="right">
+                    <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm" title="Zoom In">
+                      <ZoomIn className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Shuffle deck" position="right" disabled={!isMobile}>
+                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`} title="Shuffle Deck">
                       <Shuffle className="h-4 w-4" />
                     </button>
-                  )}
+                  </Tooltip>
+                  <Tooltip content="Show help" position="right" disabled={!isMobile}>
+                    <button onClick={showHint} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`} title="Show Help">
+                      <HelpCircle className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
+                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${isMobile ? 'hidden' : ''}`} title="Shuffle Deck">
+                      <Shuffle className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
                 </div>
                 
                 {/* Animated pinch zoom hint for mobile */}
@@ -2812,28 +2869,32 @@ const ReadingRoom = () => {
                 {/* Generate interpretation button for free layout */}
                 {selectedLayout?.id === 'free-layout' && selectedCards.length > 0 && !isGeneratingInterpretation && readingStep === 'drawing' && (
                   <div className={`interpretation-button absolute ${isMobile ? (isLandscape ? 'top-12 right-4' : 'top-20 right-4') : 'top-4 right-4'} z-50`}>
-                    <button 
-                      onClick={() => generateInterpretation()}
-                      className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm bg-primary/90 backdrop-blur-sm border-primary shadow-lg"
-                    >
-                      <TarotLogo className="mr-1 md:mr-2 h-4 w-4" />
-                      <span className="hidden md:inline">Interpret ({selectedCards.length} cards)</span>
-                      <span className="md:hidden">Read ({selectedCards.length})</span>
-                    </button>
+                    <Tooltip content={`Generate interpretation for ${selectedCards.length} cards`} position="left">
+                      <button 
+                        onClick={() => generateInterpretation()}
+                        className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm bg-primary/90 backdrop-blur-sm border-primary shadow-lg"
+                      >
+                        <TarotLogo className="mr-1 md:mr-2 h-4 w-4" />
+                        <span className="hidden md:inline">Interpret ({selectedCards.length} cards)</span>
+                        <span className="md:hidden">Read ({selectedCards.length})</span>
+                      </button>
+                    </Tooltip>
                   </div>
                 )}
                 
                 {/* All cards placed - show interpretation button (predefined layouts) */}
                 {selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count && !isGeneratingInterpretation && readingStep === 'drawing' && (
                   <div className={`interpretation-button absolute ${isMobile ? (isLandscape ? 'top-12 right-4' : 'top-20 right-4') : 'top-4 right-4'} z-50`}>
-                    <button 
-                      onClick={() => generateInterpretation()}
-                      className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm bg-primary/90 backdrop-blur-sm border-primary shadow-lg"
-                    >
-                      <TarotLogo className="mr-1 md:mr-2 h-4 w-4" />
-                      <span className="hidden md:inline">See Interpretation</span>
-                      <span className="md:hidden">Read</span>
-                    </button>
+                    <Tooltip content="Generate reading interpretation" position="left">
+                      <button 
+                        onClick={() => generateInterpretation()}
+                        className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm bg-primary/90 backdrop-blur-sm border-primary shadow-lg"
+                      >
+                        <TarotLogo className="mr-1 md:mr-2 h-4 w-4" />
+                        <span className="hidden md:inline">See Interpretation</span>
+                        <span className="md:hidden">Read</span>
+                      </button>
+                    </Tooltip>
                   </div>
                 )}
                 
@@ -2882,31 +2943,41 @@ const ReadingRoom = () => {
                 }}
               >
                 {/* Zoom controls */}
-                <div className={`zoom-controls absolute ${isMobile ? (isLandscape ? 'top-10 left-1/2 transform -translate-x-1/2 flex-row' : 'top-16 left-1/2 transform -translate-x-1/2 flex-row') : 'top-4 left-4 flex-col'} flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
-                  <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm" title="Zoom Out">
-                    <ZoomOut className="h-4 w-4" />
-                  </button>
-                  <button onClick={resetZoom} className="p-1 hover:bg-muted rounded-sm" title="Reset Zoom">
-                    <RotateCcw className="h-4 w-4" />
-                  </button>
-                  <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm" title="Zoom In">
-                    <ZoomIn className="h-4 w-4" />
-                  </button>
-                  {isMobile && (
-                    <>
-                      <button onClick={shuffleDeck} className="p-1 hover:bg-muted rounded-sm" title="Shuffle Deck">
-                        <Shuffle className="h-4 w-4" />
-                      </button>
-                      <button onClick={showHint} className="p-1 hover:bg-muted rounded-sm" title="Show Help">
-                        <HelpCircle className="h-4 w-4" />
-                      </button>
-                    </>
-                  )}
-                  {!isMobile && (
-                    <button onClick={shuffleDeck} className="p-1 hover:bg-muted rounded-sm" title="Shuffle Deck">
+                <div className={`zoom-controls absolute ${
+                  isMobile 
+                    ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
+                    : 'top-4 left-4 flex-col'
+                } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
+                  <Tooltip content="Zoom out" position="right">
+                    <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm" title="Zoom Out">
+                      <ZoomOut className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Reset zoom" position="right">
+                    <button onClick={resetZoom} className="p-1 hover:bg-muted rounded-sm" title="Reset Zoom">
+                      <RotateCcw className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Zoom in" position="right">
+                    <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm" title="Zoom In">
+                      <ZoomIn className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Shuffle deck" position="right" disabled={!isMobile}>
+                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`} title="Shuffle Deck">
                       <Shuffle className="h-4 w-4" />
                     </button>
-                  )}
+                  </Tooltip>
+                  <Tooltip content="Show help" position="right" disabled={!isMobile}>
+                    <button onClick={showHint} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`} title="Show Help">
+                      <HelpCircle className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
+                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${isMobile ? 'hidden' : ''}`} title="Shuffle Deck">
+                      <Shuffle className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
                 </div>
                 
                 {/* Card layout with zoom applied */}
@@ -3086,36 +3157,40 @@ const ReadingRoom = () => {
                 
                 {/* Reading controls */}
                 <div className={`absolute ${isMobile ? 'top-2 right-2' : 'bottom-6 right-6'} flex gap-1 md:gap-3`}>
-                  {isMobile && !isLandscape && !showMobileInterpretation && (
+                  <Tooltip content="View interpretation" position="left" disabled={!(isMobile && !isLandscape && !showMobileInterpretation)}>
                     <button 
                       onClick={() => setShowMobileInterpretation(true)}
-                      className="btn btn-primary px-2 py-1 text-xs mobile-interpretation-button"
+                      className={`btn btn-primary px-2 py-1 text-xs mobile-interpretation-button ${!(isMobile && !isLandscape && !showMobileInterpretation) ? 'hidden' : ''}`}
                       title="View interpretation"
                     >
                       <Info className="h-4 w-4" />
                     </button>
-                  )}
-                  {isMobile && !isLandscape && showMobileInterpretation && (
+                  </Tooltip>
+                  <Tooltip content="Close interpretation" position="left" disabled={!(isMobile && !isLandscape && showMobileInterpretation)}>
                     <button 
                       onClick={() => setShowMobileInterpretation(false)}
-                      className="text-muted-foreground hover:text-foreground"
+                      className={`text-muted-foreground hover:text-foreground ${!(isMobile && !isLandscape && showMobileInterpretation) ? 'hidden' : ''}`}
                     >
                       <XCircle className="h-4 w-4" />
                     </button>
-                  )}
-                  <button 
-                    onClick={() => setReadingStepWrapped('drawing')}
-                    className={`btn btn-secondary ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}
-                  >
-                    {isMobile ? 'Back' : 'Back to Table'}
-                  </button>
+                  </Tooltip>
+                  <Tooltip content="Return to card table" position="left">
+                    <button 
+                      onClick={() => setReadingStepWrapped('drawing')}
+                      className={`btn btn-secondary ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}
+                    >
+                      {isMobile ? 'Back' : 'Back to Table'}
+                    </button>
+                  </Tooltip>
                   
-                  <button 
-                    onClick={resetReading}
-                    className={`btn btn-ghost border border-input ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}
-                  >
-                    {isMobile ? 'New' : 'New Reading'}
-                  </button>
+                  <Tooltip content="Start a new reading" position="left">
+                    <button 
+                      onClick={resetReading}
+                      className={`btn btn-ghost border border-input ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}
+                    >
+                      {isMobile ? 'New' : 'New Reading'}
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
               
@@ -3126,14 +3201,14 @@ const ReadingRoom = () => {
                     <TarotLogo className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4 md:h-5 md:w-5'} text-primary mr-2`} />
                     <h3 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm md:text-base'}`}>Reading Interpretation</h3>
                   </div>
-                  {isMobile && (
+                  <Tooltip content="Close interpretation" position="left" disabled={!isMobile}>
                     <button 
                       onClick={() => setShowMobileInterpretation(false)}
-                      className="text-muted-foreground hover:text-foreground"
+                      className={`text-muted-foreground hover:text-foreground ${!isMobile ? 'hidden' : ''}`}
                     >
                       <XCircle className="h-4 w-4" />
                     </button>
-                  )}
+                  </Tooltip>
                 </div>
                 
                 <div className={`flex-1 ${isMobile ? 'p-2' : 'p-3 md:p-4'} overflow-y-auto`}>
@@ -3183,31 +3258,35 @@ const ReadingRoom = () => {
                 {/* Card navigation */}
                 {selectedCards.length > 1 && (
                   <div className={`${isMobile ? 'p-1' : 'p-2 md:p-3'} border-t border-border flex justify-between items-center`}>
-                    <button 
-                      onClick={() => {
-                        const currentIndex = activeCardIndex ?? 0;
-                        const newIndex = currentIndex > 0 ? currentIndex - 1 : selectedCards.length - 1;
-                        setActiveCardIndexWrapped(newIndex);
-                      }}
-                      className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'}`}
-                    >
-                      <ChevronLeft className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
-                    </button>
+                    <Tooltip content="Previous card" position="top">
+                      <button 
+                        onClick={() => {
+                          const currentIndex = activeCardIndex ?? 0;
+                          const newIndex = currentIndex > 0 ? currentIndex - 1 : selectedCards.length - 1;
+                          setActiveCardIndexWrapped(newIndex);
+                        }}
+                        className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'}`}
+                      >
+                        <ChevronLeft className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
+                      </button>
+                    </Tooltip>
                     
                     <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
                       {(activeCardIndex ?? 0) + 1} of {selectedCards.length} cards
                     </div>
                     
-                    <button 
-                      onClick={() => {
-                        const currentIndex = activeCardIndex ?? 0;
-                        const newIndex = currentIndex < selectedCards.length - 1 ? currentIndex + 1 : 0;
-                        setActiveCardIndexWrapped(newIndex);
-                      }}
-                      className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'}`}
-                    >
-                      <ChevronRight className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
-                    </button>
+                    <Tooltip content="Next card" position="top">
+                      <button 
+                        onClick={() => {
+                          const currentIndex = activeCardIndex ?? 0;
+                          const newIndex = currentIndex < selectedCards.length - 1 ? currentIndex + 1 : 0;
+                          setActiveCardIndexWrapped(newIndex);
+                        }}
+                        className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'}`}
+                      >
+                        <ChevronRight className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
+                      </button>
+                    </Tooltip>
                   </div>
                 )}
               </div>
@@ -3255,12 +3334,14 @@ const ReadingRoom = () => {
             >
               <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
                 <h3 className="font-serif font-bold">Share Reading Room</h3>
-                <button 
-                  onClick={() => setShowShareModal(false)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <XCircle className="h-5 w-5" />
-                </button>
+                <Tooltip content="Close share modal" position="left">
+                  <button 
+                    onClick={() => setShowShareModal(false)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <XCircle className="h-5 w-5" />
+                  </button>
+                </Tooltip>
               </div>
               
               <div className="p-6">
@@ -3281,12 +3362,14 @@ const ReadingRoom = () => {
                       readOnly
                       className="flex-1 p-2 text-sm rounded-l-md border border-r-0 border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                     />
-                    <button
-                      onClick={copyRoomLink}
-                      className="p-2 bg-primary text-primary-foreground rounded-r-md hover:bg-primary/90 transition-colors flex items-center"
-                    >
-                      {showCopied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
-                    </button>
+                    <Tooltip content={showCopied ? "Link copied!" : "Copy link to clipboard"} position="top">
+                      <button
+                        onClick={copyRoomLink}
+                        className="p-2 bg-primary text-primary-foreground rounded-r-md hover:bg-primary/90 transition-colors flex items-center"
+                      >
+                        {showCopied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
+                      </button>
+                    </Tooltip>
                   </div>
                   {showCopied && (
                     <p className="text-xs text-success mt-2">Link copied to clipboard!</p>
@@ -3328,6 +3411,13 @@ const ReadingRoom = () => {
           );
         })()}
       </AnimatePresence>
+      
+      {/* Sign In Modal */}
+      <SignInModal 
+        isOpen={showSignInModal}
+        onClose={() => setShowSignInModal(false)}
+        onSuccess={handleSignInSuccess}
+      />
     </div>
   );
 };
