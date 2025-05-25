@@ -208,8 +208,11 @@ const ReadingRoom = () => {
         try {
           const newSessionId = await createSession();
           if (newSessionId) {
-            // Update URL to remove create flag and add session ID
-            const newUrl = `/reading-room?join=${newSessionId}`;
+            // Update URL to remove create flag and add session ID while preserving deck ID
+            const currentPath = window.location.pathname;
+            const newUrl = deckId && currentPath.includes(deckId)
+              ? `/reading-room/${deckId}?join=${newSessionId}`
+              : `/reading-room?join=${newSessionId}`;
             window.history.replaceState({}, '', newUrl);
             setInitialSessionId(newSessionId);
           } else {
@@ -682,15 +685,20 @@ const ReadingRoom = () => {
   const handleDeckSelect = useCallback(async (deck: Deck) => {
     try {
       await fetchAndSetDeck(deck.id);
-      // Update URL to reflect selected deck
-      window.history.replaceState({}, '', `/reading-room/${deck.id}`);
+      // Update URL to reflect selected deck while preserving session ID
+      const currentParams = new URLSearchParams(location.search);
+      const sessionParam = currentParams.get('join');
+      const newUrl = sessionParam 
+        ? `/reading-room/${deck.id}?join=${sessionParam}`
+        : `/reading-room/${deck.id}`;
+      window.history.replaceState({}, '', newUrl);
       // Trigger deck visual refresh animation
       setDeckRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error selecting deck:', error);
       setError('Failed to select deck. Please try again.');
     }
-  }, []);
+  }, [location.search]);
   
   // Handle deck change during reading (preserve session state)
   const handleDeckChange = useCallback(async (deck: Deck) => {
@@ -711,8 +719,13 @@ const ReadingRoom = () => {
       updateSession(preservedState);
       
       await fetchAndSetDeck(deck.id);
-      // Update URL to reflect new deck
-      window.history.replaceState({}, '', `/reading-room/${deck.id}`);
+      // Update URL to reflect new deck while preserving session ID
+      const currentParams = new URLSearchParams(location.search);
+      const sessionParam = currentParams.get('join');
+      const newUrl = sessionParam 
+        ? `/reading-room/${deck.id}?join=${sessionParam}`
+        : `/reading-room/${deck.id}`;
+      window.history.replaceState({}, '', newUrl);
       
       // Trigger deck visual refresh animation
       setDeckRefreshKey(prev => prev + 1);
@@ -723,7 +736,7 @@ const ReadingRoom = () => {
       console.error('Error changing deck:', error);
       setError('Failed to change deck. Please try again.');
     }
-  }, [updateSession, selectedLayout, question, readingStep, zoomLevel, selectedCards]);
+  }, [updateSession, selectedLayout, question, readingStep, zoomLevel, selectedCards, location.search]);
   
   // Pinch to Zoom functionality
   const getTouchDistance = (touches: TouchList) => {
