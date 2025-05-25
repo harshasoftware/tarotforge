@@ -1900,11 +1900,29 @@ const ReadingRoom = () => {
             <Tooltip content={
               isMobile && showMobileInterpretation 
                 ? "Close interpretation" 
+                : isMobile && readingStep === 'ask-question'
+                ? "Back to setup"
+                : isMobile && readingStep === 'interpretation'
+                ? "Back to cards"
                 : (user ? "Back to Collection" : "Back to Home")
             } position="bottom" disabled={isMobile}>
               {isMobile && showMobileInterpretation ? (
                 <button 
                   onClick={() => setShowMobileInterpretation(false)}
+                  className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+              ) : isMobile && readingStep === 'ask-question' ? (
+                <button 
+                  onClick={() => updateSession({ readingStep: 'setup' })}
+                  className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+              ) : isMobile && readingStep === 'interpretation' ? (
+                <button 
+                  onClick={() => setReadingStepWrapped('drawing')}
                   className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
                 >
                   <ArrowLeft className="h-4 w-4" />
@@ -2749,13 +2767,6 @@ const ReadingRoom = () => {
                     className="btn btn-ghost px-4 py-2 text-sm border border-input"
                   >
                     Skip & Draw Cards
-                  </button>
-                  
-                  <button
-                    onClick={() => updateSession({ readingStep: 'setup' })}
-                    className="btn btn-ghost px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-                  >
-                    ← Back to Setup
                   </button>
                 </div>
               </div>
