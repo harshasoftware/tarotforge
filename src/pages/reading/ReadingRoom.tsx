@@ -186,6 +186,7 @@ const ReadingRoom = () => {
     createSession,
     isOfflineMode,
     syncLocalSessionToDatabase,
+    syncCompleteSessionState,
     cleanup
   } = useReadingSessionStore();
   
@@ -235,7 +236,7 @@ const ReadingRoom = () => {
     
     initSession();
     
-    // Set up periodic sync for offline sessions
+    // Set up periodic sync for offline sessions and state synchronization
     const syncInterval = setInterval(async () => {
       if (isOfflineMode && sessionState?.id?.startsWith('local_')) {
         console.log('Attempting periodic sync of local session...');
@@ -244,6 +245,10 @@ const ReadingRoom = () => {
           console.log('Periodic sync successful');
           clearInterval(syncInterval);
         }
+      } else if (sessionState?.id && !isHost && !sessionState.id.startsWith('local_')) {
+        // For non-host participants, periodically sync state to ensure consistency
+        console.log('Syncing session state for participant...');
+        await syncCompleteSessionState(sessionState.id);
       }
     }, 30000); // Try every 30 seconds
     
@@ -279,7 +284,18 @@ const ReadingRoom = () => {
       cleanup();
       clearInterval(syncInterval);
     };
-  }, [joinSessionId, deckId, setInitialSessionId, setDeckId, initializeSession, cleanup]);
+  }, [joinSessionId, deckId, setInitialSessionId, setDeckId, initializeSession, cleanup, syncCompleteSessionState, isHost]);
+
+  // Ensure complete state sync when joining via shared link
+  useEffect(() => {
+    if (joinSessionId && sessionState?.id && !isHost && !sessionLoading) {
+      console.log('Performing immediate state sync for shared link join...');
+      setIsSyncing(true);
+      syncCompleteSessionState(sessionState.id).finally(() => {
+        setIsSyncing(false);
+      });
+    }
+  }, [joinSessionId, sessionState?.id, isHost, sessionLoading, syncCompleteSessionState]);
   
   // Watch for successful sync from offline to online
   useEffect(() => {
@@ -318,6 +334,9 @@ const ReadingRoom = () => {
   // Guest upgrade state
   const [showGuestUpgrade, setShowGuestUpgrade] = useState(false);
   const [hasShownInviteUpgrade, setHasShownInviteUpgrade] = useState(false);
+  
+  // Sync state
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // Save functionality state
 
@@ -1641,6 +1660,20 @@ const ReadingRoom = () => {
     }
     
     if (!sessionId) return;
+
+    // Ensure session state is up to date before sharing
+    if (sessionState?.id && isHost) {
+      console.log('Updating session state before sharing...');
+      await updateSession({
+        selectedLayout,
+        question,
+        readingStep,
+        selectedCards,
+        interpretation,
+        zoomLevel,
+        activeCardIndex
+      });
+    }
     
     const shareableLink = generateShareableLink(sessionId);
     const shareData = {
@@ -2217,6 +2250,16 @@ const ReadingRoom = () => {
                   <Zap className="h-4 w-4" />
                   {!isMobile && <span className="text-xs">Offline</span>}
                 </button>
+              </Tooltip>
+            )}
+
+            {/* Sync indicator for real-time updates */}
+            {isSyncing && (
+              <Tooltip content="Synchronizing session state..." position="bottom" disabled={isMobile}>
+                <div className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} animate-pulse`}>
+                  <LoadingSpinner size="sm" />
+                  {!isMobile && <span className="text-xs">Syncing</span>}
+                </div>
               </Tooltip>
             )}
             

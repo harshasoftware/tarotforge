@@ -69,6 +69,7 @@ interface ReadingSessionStore {
   setGuestName: (name: string) => Promise<boolean>;
   initializeSession: () => Promise<void>;
   setupRealtimeSubscriptions: () => void;
+  syncCompleteSessionState: (sessionId: string) => Promise<boolean>;
   cleanup: () => void;
 }
 
@@ -283,6 +284,26 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           throw new Error('Session not found or inactive');
         }
 
+        // Immediately set the session state for the joining user
+        const sessionState: ReadingSessionState = {
+          id: session.id,
+          hostUserId: session.host_user_id,
+          deckId: session.deck_id,
+          selectedLayout: session.selected_layout,
+          question: session.question || '',
+          readingStep: session.reading_step,
+          selectedCards: session.selected_cards || [],
+          interpretation: session.interpretation || '',
+          zoomLevel: session.zoom_level || 1.0,
+          activeCardIndex: session.active_card_index,
+          isActive: session.is_active,
+          createdAt: session.created_at,
+          updatedAt: session.updated_at
+        };
+
+        // Set the session state immediately for better UX
+        set({ sessionState });
+
         // Add participant
         const { data: participant, error: participantError } = await supabase
           .from('session_participants')
@@ -298,6 +319,19 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         if (participantError) throw participantError;
 
         set({ participantId: participant.id });
+        
+        // Fetch current participants list
+        const { data: participantsData } = await supabase
+          .from('session_participants')
+          .select('*')
+          .eq('session_id', sessionId)
+          .eq('is_active', true);
+
+        if (participantsData) {
+          set({ participants: participantsData });
+        }
+
+        console.log('Successfully joined session with complete state:', sessionState);
         return sessionId;
       } catch (err: any) {
         console.error('Error joining session:', err);
@@ -504,24 +538,26 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         .on('postgres_changes', 
           { event: 'UPDATE', schema: 'public', table: 'reading_sessions', filter: `id=eq.${sessionState.id}` },
           (payload: any) => {
-            console.log('Session updated:', payload);
+            console.log('Real-time session update received:', payload);
             const newSession = payload.new as any;
             const currentState = get().sessionState;
             
             if (currentState) {
-              set({
-                sessionState: {
-                  ...currentState,
-                  selectedLayout: newSession.selected_layout,
-                  question: newSession.question,
-                  readingStep: newSession.reading_step,
-                  selectedCards: newSession.selected_cards,
-                  interpretation: newSession.interpretation,
-                  zoomLevel: newSession.zoom_level,
-                  activeCardIndex: newSession.active_card_index,
-                  updatedAt: newSession.updated_at
-                }
-              });
+              const updatedState = {
+                ...currentState,
+                selectedLayout: newSession.selected_layout,
+                question: newSession.question || '',
+                readingStep: newSession.reading_step,
+                selectedCards: newSession.selected_cards || [],
+                interpretation: newSession.interpretation || '',
+                zoomLevel: newSession.zoom_level || 1.0,
+                activeCardIndex: newSession.active_card_index,
+                deckId: newSession.deck_id, // Ensure deck ID is synced
+                updatedAt: newSession.updated_at
+              };
+              
+              console.log('Updating local state with:', updatedState);
+              set({ sessionState: updatedState });
             }
           }
         )
@@ -555,6 +591,61 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
       }, 30000); // Every 30 seconds
 
       set({ presenceInterval: newInterval });
+    },
+
+    syncCompleteSessionState: async (sessionId: string) => {
+      try {
+        console.log('Syncing complete session state for:', sessionId);
+        
+        // Fetch the latest session data
+        const { data: session, error: sessionError } = await supabase
+          .from('reading_sessions')
+          .select('*')
+          .eq('id', sessionId)
+          .eq('is_active', true)
+          .single();
+
+        if (sessionError || !session) {
+          console.error('Failed to fetch session for sync:', sessionError);
+          return false;
+        }
+
+        // Convert to local format and update state
+        const syncedState: ReadingSessionState = {
+          id: session.id,
+          hostUserId: session.host_user_id,
+          deckId: session.deck_id,
+          selectedLayout: session.selected_layout,
+          question: session.question || '',
+          readingStep: session.reading_step,
+          selectedCards: session.selected_cards || [],
+          interpretation: session.interpretation || '',
+          zoomLevel: session.zoom_level || 1.0,
+          activeCardIndex: session.active_card_index,
+          isActive: session.is_active,
+          createdAt: session.created_at,
+          updatedAt: session.updated_at
+        };
+
+        set({ sessionState: syncedState });
+
+        // Also sync participants
+        const { data: participantsData } = await supabase
+          .from('session_participants')
+          .select('*')
+          .eq('session_id', sessionId)
+          .eq('is_active', true);
+
+        if (participantsData) {
+          set({ participants: participantsData });
+        }
+
+        console.log('Complete session state synced successfully:', syncedState);
+        return true;
+      } catch (error) {
+        console.error('Error syncing complete session state:', error);
+        return false;
+      }
     },
 
     initializeSession: async () => {
