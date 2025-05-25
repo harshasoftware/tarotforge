@@ -472,10 +472,15 @@ const ReadingRoom = () => {
   const handleLayoutSelect = useCallback((layout: ReadingLayout) => {
     try {
       console.log('Layout selected:', layout);
+      
+      // Determine the appropriate reading step based on current state
+      // If user is already in a reading session (past setup), skip question step
+      const targetReadingStep = (readingStep && readingStep !== 'setup') ? 'drawing' : 'ask-question';
+      
       updateSession({
         selectedLayout: layout,
         selectedCards: [],
-        readingStep: 'ask-question',
+        readingStep: targetReadingStep,
         interpretation: '',
         activeCardIndex: null,
         zoomLevel: isMobile ? (isLandscape ? (layout.id === 'celtic-cross' ? 0.8 : 1) : (layout.id === 'celtic-cross' ? 0.6 : 0.8)) : (layout.id === 'celtic-cross' ? 0.8 : 1)
@@ -489,7 +494,7 @@ const ReadingRoom = () => {
       console.error('Error selecting layout:', error);
       setError('Failed to select layout. Please try again.');
     }
-  }, [updateSession, cards, isMobile, isLandscape, fisherYatesShuffle]);
+  }, [updateSession, cards, isMobile, isLandscape, fisherYatesShuffle, readingStep]);
 
   const handleQuestionChange = useCallback((newQuestion: string) => {
     updateSession({ question: newQuestion });
@@ -1567,6 +1572,35 @@ const ReadingRoom = () => {
     >
       {/* Main content - full screen with floating controls */}
       <main className="flex-1 overflow-hidden relative">
+        {/* Mobile Help Hint Alert - positioned at top right below controls */}
+        <AnimatePresence>
+          {isMobile && showPinchHint && (
+            <motion.div 
+              className="absolute top-16 right-4 bg-primary/95 text-primary-foreground px-4 py-3 rounded-lg text-sm z-[60] shadow-xl max-w-72 border border-primary/20"
+              initial={{ opacity: 0, y: -20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.9 }}
+              transition={{ duration: 0.3, exit: { duration: 0.2 } }}
+              onClick={hideHint}
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <div className="font-medium mb-1">💡 Quick Tips</div>
+                  <div className="text-xs opacity-90">
+                    Tap cards • Pinch to zoom • Drag to move
+                  </div>
+                </div>
+                <button 
+                  onClick={hideHint}
+                  className="text-primary-foreground/70 hover:text-primary-foreground transition-colors"
+                >
+                  <XCircle className="h-4 w-4" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
         {/* Floating controls - redesigned mobile layout */}
         <div className={`absolute z-50 ${mobileLayoutClasses.topControls}`}>
           {/* Left side - Back button and title for mobile, back button and session info for desktop */}
@@ -2499,30 +2533,7 @@ const ReadingRoom = () => {
                     </button>
                   </Tooltip>
                 </div>
-                
-                {/* Animated pinch zoom hint for mobile */}
-                <AnimatePresence>
-                  {isMobile && showPinchHint && (
-                    <motion.div 
-                      className="absolute left-16 top-1/2 transform -translate-y-1/2 bg-primary/90 text-primary-foreground px-3 py-2 rounded-lg text-xs z-50 shadow-lg max-w-48"
-                      initial={{ opacity: 0, x: -10, scale: 0.9 }}
-                      animate={{ opacity: 1, x: 0, scale: 1 }}
-                      exit={{ opacity: 0, x: -10, scale: 0.9 }}
-                      transition={{ duration: 0.2, exit: { duration: 0.15 } }}
-                      onClick={hideHint}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>
-                          Tap cards • Pinch to zoom • Drag to move
-                        </span>
-                        <XCircle className="h-3 w-3 cursor-pointer hover:opacity-80 flex-shrink-0" />
-                      </div>
-                      {/* Arrow pointing to help button */}
-                      <div className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-r-4 border-transparent border-r-primary/90"></div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              
+
                 {/* Layout visualization with mobile-responsive card sizes */}
                 <div 
                   className="reading-content absolute inset-0 transition-transform duration-300 ease-in-out"

@@ -572,23 +572,13 @@ const Home = () => {
                 <ShoppingBag className="h-4 w-4 mr-2" />
                 Browse Marketplace
               </Link>
-              {user ? (
-                <Link 
-                  to="/reading-room" 
-                  className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
-                >
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  Try Free Reading
-                </Link>
-              ) : (
-                <button 
-                  onClick={() => setShowSignInModal(true)}
-                  className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
-                >
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  Try Free Reading
-                </button>
-              )}
+              <Link 
+                to="/reading-room" 
+                className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
+              >
+                <BookOpen className="h-4 w-4 mr-2" />
+                Try Free Reading
+              </Link>
             </div>
           </div>
         </motion.div>
