@@ -190,7 +190,8 @@ const ReadingRoom = () => {
     syncLocalSessionToDatabase,
     syncCompleteSessionState,
     cleanup,
-    participantId
+    participantId,
+    startVideoCall
   } = useReadingSessionStore();
   
   // Get isGuest from computed selector - also consider non-authenticated users as guests
@@ -1947,6 +1948,14 @@ const ReadingRoom = () => {
     if (!showVideoChat && !isVideoConnecting) {
       console.log('Auto-starting video call for sharing...');
       setIsVideoConnecting(true);
+      
+      // Start the video call in the session state so other participants can auto-join
+      try {
+        await startVideoCall();
+        console.log('Video call started in session state');
+      } catch (error) {
+        console.error('Failed to start video call in session:', error);
+      }
       
       setTimeout(() => {
         setIsVideoConnecting(false);

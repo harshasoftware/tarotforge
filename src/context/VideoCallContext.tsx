@@ -66,7 +66,8 @@ export const VideoCallProvider: React.FC<VideoCallProviderProps> = ({ children }
     startVideoCall, 
     joinVideoCall, 
     leaveVideoCall, 
-    updateVideoCallParticipants 
+    updateVideoCallParticipants,
+    participantId: sessionParticipantId
   } = useReadingSessionStore();
 
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -80,7 +81,8 @@ export const VideoCallProvider: React.FC<VideoCallProviderProps> = ({ children }
   const [peerConnections, setPeerConnections] = useState<Map<string, Peer.Instance>>(new Map());
 
   const endCallRef = useRef<() => void>();
-  const participantId = user?.id || `anonymous-${Date.now()}`;
+  // Use the participant ID from the reading session store instead of user ID
+  const participantId = sessionParticipantId || user?.id || `anonymous-${Date.now()}`;
 
   // Multi-party peer management
   const createPeerConnection = useCallback((targetParticipantId: string, initiator: boolean) => {
@@ -252,18 +254,34 @@ export const VideoCallProvider: React.FC<VideoCallProviderProps> = ({ children }
 
   // Auto-sync with session video call state
   useEffect(() => {
-    if (!sessionState?.videoCallState || !isAutoJoinEnabled) return;
+    if (!sessionState?.videoCallState || !isAutoJoinEnabled || !participantId) {
+      console.log('Auto-sync skipped:', {
+        hasVideoCallState: !!sessionState?.videoCallState,
+        isAutoJoinEnabled,
+        hasParticipantId: !!participantId
+      });
+      return;
+    }
 
     const { isActive, participants } = sessionState.videoCallState;
     const isParticipantInCall = participants?.includes(participantId) || false;
 
+    console.log('Auto-sync evaluation:', {
+      isActive,
+      participants,
+      participantId,
+      isParticipantInCall,
+      connectionStatus,
+      sessionId: sessionState.id
+    });
+
     if (isActive && !isParticipantInCall && connectionStatus === 'disconnected') {
       // Auto-join video call
-      console.log('Auto-joining video call');
+      console.log('Auto-joining video call for participant:', participantId);
       startCall('client', sessionState.id);
     } else if (!isActive && connectionStatus !== 'disconnected') {
       // Auto-leave video call
-      console.log('Auto-leaving video call');
+      console.log('Auto-leaving video call for participant:', participantId);
       endCall();
     }
   }, [sessionState?.videoCallState, isAutoJoinEnabled, connectionStatus, participantId]);
