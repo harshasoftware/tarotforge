@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Download, Sparkles, Eye, X, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Download, Sparkles, Eye, X, ArrowUp, ArrowDown, FileText } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
@@ -419,6 +419,9 @@ const ReadingRoom = () => {
   const [showCardGallery, setShowCardGallery] = useState(false);
   const [galleryCardIndex, setGalleryCardIndex] = useState<number | null>(null);
   const [gallerySwipeStart, setGallerySwipeStart] = useState<{ x: number; y: number } | null>(null);
+  const [showCardDescription, setShowCardDescription] = useState(false);
+  const [cardDescription, setCardDescription] = useState<string>('');
+  const [loadingDescription, setLoadingDescription] = useState(false);
   
   // Helper function to get today's date string
   const getTodayDateString = () => {
@@ -1431,7 +1434,46 @@ const ReadingRoom = () => {
     setShowCardGallery(false);
     setGalleryCardIndex(null);
     setGallerySwipeStart(null);
+    setShowCardDescription(false);
+    setCardDescription('');
   }, []);
+  
+  // Fetch card description from API/database
+  const fetchCardDescription = useCallback(async (card: any) => {
+    if (!card || !deck) return;
+    
+    setLoadingDescription(true);
+    
+    try {
+      // For Rider-Waite deck, use the existing description
+      if (deck.id === 'rider-waite-classic' || deck.id === 'rider-waite') {
+        setCardDescription(card.description || 'No description available for this card.');
+        setShowCardDescription(true);
+        return;
+      }
+      
+      // For custom decks, fetch from API
+      // This would be replaced with actual API call
+      const response = await fetch(`/api/cards/${card.id}/description`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setCardDescription(data.description || 'No description available for this card.');
+      } else {
+        // Fallback to card's existing description if API fails
+        setCardDescription(card.description || 'No description available for this card.');
+      }
+      
+      setShowCardDescription(true);
+    } catch (error) {
+      console.error('Error fetching card description:', error);
+      // Fallback to existing description
+      setCardDescription(card.description || 'No description available for this card.');
+      setShowCardDescription(true);
+    } finally {
+      setLoadingDescription(false);
+    }
+  }, [deck]);
   
   // Keyboard navigation for gallery and panning
   useEffect(() => {
@@ -1440,7 +1482,11 @@ const ReadingRoom = () => {
       if (showCardGallery) {
         switch (event.key) {
           case 'Escape':
-            closeCardGallery();
+            if (showCardDescription) {
+              setShowCardDescription(false);
+            } else {
+              closeCardGallery();
+            }
             break;
           case 'ArrowLeft':
             event.preventDefault();
@@ -1479,7 +1525,7 @@ const ReadingRoom = () => {
     
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showCardGallery, closeCardGallery, navigateGallery, isMobile, readingStep, panDirection]);
+  }, [showCardGallery, showCardDescription, closeCardGallery, navigateGallery, isMobile, readingStep, panDirection]);
   
   // Handle gallery swipe gestures
   const handleGalleryTouchStart = useCallback((e: React.TouchEvent) => {
@@ -4101,16 +4147,37 @@ const ReadingRoom = () => {
                     {selectedCards[galleryCardIndex].position}
                   </span>
                 </div>
-                <button 
-                  onClick={closeCardGallery}
-                  className={`p-2 rounded-full transition-colors ${isMobile ? 'text-white hover:bg-white/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Description Button */}
+                  <button 
+                    onClick={() => fetchCardDescription(selectedCards[galleryCardIndex])}
+                    disabled={loadingDescription}
+                    className={`p-2 rounded-full transition-colors ${
+                      isMobile 
+                        ? 'text-white hover:bg-white/20 disabled:opacity-50' 
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50'
+                    }`}
+                    title="View card description"
+                  >
+                    {loadingDescription ? (
+                      <LoadingSpinner size="sm" />
+                    ) : (
+                      <FileText className="h-5 w-5" />
+                    )}
+                  </button>
+                  
+                  {/* Close Button */}
+                  <button 
+                    onClick={closeCardGallery}
+                    className={`p-2 rounded-full transition-colors ${isMobile ? 'text-white hover:bg-white/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
 
               {/* Gallery Content */}
-              <div className={`${isMobile ? 'h-full pt-16 pb-20' : 'p-6'} flex flex-col items-center justify-center`}>
+              <div className={`${isMobile ? 'h-full pt-16 pb-20' : 'p-6'} flex flex-col items-center justify-center relative`}>
                 {/* Card Image */}
                 <div className={`relative ${isMobile ? 'w-full max-w-sm h-full max-h-96' : 'w-80 h-[480px]'} mb-4`}>
                   <motion.img 
@@ -4124,12 +4191,68 @@ const ReadingRoom = () => {
                   />
                 </div>
 
-                {/* Card Description */}
-                <div className={`${isMobile ? 'px-4' : 'max-w-2xl'} text-center`}>
-                  <p className={`${isMobile ? 'text-white/90 text-sm' : 'text-muted-foreground'} leading-relaxed`}>
-                    {selectedCards[galleryCardIndex].description}
-                  </p>
-                </div>
+                {/* Basic Card Info (always visible) */}
+                {!showCardDescription && (
+                  <div className={`${isMobile ? 'px-4' : 'max-w-2xl'} text-center`}>
+                    <p className={`${isMobile ? 'text-white/90 text-sm' : 'text-muted-foreground'} leading-relaxed`}>
+                      {selectedCards[galleryCardIndex].description}
+                    </p>
+                    <p className={`${isMobile ? 'text-white/60 text-xs' : 'text-muted-foreground/60 text-sm'} mt-2`}>
+                      Tap the description button above for detailed card meaning
+                    </p>
+                  </div>
+                )}
+
+                {/* Detailed Description Overlay */}
+                <AnimatePresence>
+                  {showCardDescription && (
+                    <motion.div
+                      className={`absolute inset-0 ${isMobile ? 'bg-black/90' : 'bg-card/95'} backdrop-blur-sm rounded-lg flex flex-col`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      {/* Description Header */}
+                      <div className={`${isMobile ? 'p-4 border-b border-white/20' : 'p-4 border-b border-border'} flex items-center justify-between`}>
+                        <h4 className={`font-medium ${isMobile ? 'text-white' : 'text-foreground'}`}>
+                          Card Meaning
+                        </h4>
+                        <button
+                          onClick={() => setShowCardDescription(false)}
+                          className={`p-1 rounded-full transition-colors ${
+                            isMobile 
+                              ? 'text-white/80 hover:text-white hover:bg-white/20' 
+                              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                          }`}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      {/* Description Content */}
+                      <div className="flex-1 overflow-y-auto p-4">
+                        <div className={`${isMobile ? 'text-white/90 text-sm' : 'text-foreground text-sm'} leading-relaxed space-y-3`}>
+                          {cardDescription.split('\n').map((paragraph, index) => (
+                            <p key={index} className="text-left">
+                              {paragraph}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Description Footer */}
+                      <div className={`${isMobile ? 'p-4 border-t border-white/20' : 'p-4 border-t border-border'} text-center`}>
+                        <p className={`text-xs ${isMobile ? 'text-white/60' : 'text-muted-foreground'}`}>
+                          {deck?.id === 'rider-waite-classic' || deck?.id === 'rider-waite' 
+                            ? 'Traditional Rider-Waite interpretation'
+                            : `Custom description from ${deck?.title || 'this deck'}`
+                          }
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Gallery Navigation */}

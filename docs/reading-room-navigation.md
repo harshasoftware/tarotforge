@@ -113,9 +113,9 @@ The Reading Room has multiple states and navigation patterns that differ between
 - **Hover**: Tooltips and visual feedback
 
 #### Keyboard Interactions (Desktop)
-- **Arrow Keys**: Pan the drawing area (up/down/left/right)
+- **Arrow Keys**: Pan the drawing area (up/down/left/right) or navigate gallery
 - **Ctrl/Cmd + Scroll**: Zoom in/out
-- **Escape**: Close gallery or modals
+- **Escape**: Close description overlay, then gallery, then modals (hierarchical)
 - **Tab**: Navigate through interactive elements
 
 #### Zoom Controls (Desktop)
@@ -169,9 +169,15 @@ The Card Gallery provides an immersive way to view and analyze individual cards 
   - Tap left/right thirds of screen for navigation
   - Visual indicators on sides showing swipe direction
 - **Controls**: 
-  - Header with card name, position, and close button
+  - Header with card name, position, description button, and close button
   - Footer with Previous/Next buttons and card counter
-- **Content**: Large card image with description below
+- **Content**: Large card image with basic description below
+- **Description Feature**:
+  - Description button (FileText icon) in header
+  - Fetches detailed card meanings from API/database
+  - Full-screen overlay with scrollable content
+  - Different sources: Rider-Waite (traditional) vs custom decks
+  - Close with X button or Escape key
 - **Exit**: Close button or back gesture
 
 ### Desktop Gallery (Modal)
@@ -181,9 +187,15 @@ The Card Gallery provides an immersive way to view and analyze individual cards 
   - Keyboard arrows (left/right) for navigation
   - Click Previous/Next buttons
 - **Controls**: 
-  - Header with card details and close button
+  - Header with card details, description button, and close button
   - Footer with navigation controls and counter
-- **Content**: Large card image (up to 480px height) with description
+- **Content**: Large card image (up to 480px height) with basic description
+- **Description Feature**:
+  - Description button (FileText icon) in header
+  - Fetches detailed card meanings from API/database
+  - Modal overlay with scrollable content
+  - Different sources: Rider-Waite (traditional) vs custom decks
+  - Close with X button or Escape key
 - **Exit**: Escape key, close button, or click outside modal
 
 ### Gallery Navigation Logic
@@ -193,11 +205,20 @@ The Card Gallery provides an immersive way to view and analyze individual cards 
 - **Keyboard Support**: Arrow keys and Escape for desktop
 - **Touch Support**: Swipe gestures for mobile
 
+### Card Description System
+- **Rider-Waite Decks**: Uses traditional interpretations stored locally
+- **Custom Decks**: Fetches unique descriptions from `/api/cards/{cardId}/description`
+- **Fallback Handling**: Uses card's basic description if API fails
+- **Loading States**: Shows spinner while fetching descriptions
+- **Error Handling**: Graceful fallback to existing card descriptions
+- **Source Attribution**: Footer indicates description source (traditional vs custom)
+
 ### Interaction Patterns
 - **Non-Interfering**: Gallery doesn't conflict with existing zoom/pan
 - **Context-Aware**: Button only appears when cards are revealed
 - **Responsive**: Adapts to device capabilities and screen size
 - **Accessible**: Keyboard navigation and proper focus management
+- **Progressive Enhancement**: Basic descriptions always available, detailed on demand
 
 ## Desktop Joypad Controls
 
@@ -306,24 +327,39 @@ Deck Selection → Setup → Ask Question → Drawing → Interpretation
 2. **Landscape Navigation**: Split view behavior
 3. **Touch Gestures**: Pinch, pan, tap, double-tap, swipe
 4. **Card Gallery**: Full-screen viewing and swipe navigation
-5. **Orientation Changes**: State preservation during rotation
-6. **Safe Area Handling**: Notched devices and different screen sizes
+5. **Card Descriptions**: Fetch and display detailed card meanings
+6. **Orientation Changes**: State preservation during rotation
+7. **Safe Area Handling**: Notched devices and different screen sizes
 
 ### Desktop Test Cases
 1. **Mouse Interactions**: Click, hover, drag behaviors
 2. **Keyboard Navigation**: Tab order and shortcuts (including gallery and panning)
 3. **Joypad Controls**: Directional panning button functionality
 4. **Card Gallery Modal**: Modal behavior and keyboard controls
-5. **Window Resizing**: Responsive behavior
-6. **Zoom Levels**: Browser zoom compatibility
-7. **Multi-Monitor**: Behavior across different displays
+5. **Card Descriptions**: API integration and fallback handling
+6. **Window Resizing**: Responsive behavior
+7. **Zoom Levels**: Browser zoom compatibility
+8. **Multi-Monitor**: Behavior across different displays
 
 ### Cross-Platform Test Cases
 1. **State Synchronization**: Real-time updates between devices
 2. **Session Sharing**: Join links work across platforms
 3. **Feature Parity**: Core functionality available on both
-4. **Performance**: Smooth animations and interactions
-5. **Error Recovery**: Graceful handling of connection issues
+4. **Card Description API**: Consistent behavior across platforms
+5. **Performance**: Smooth animations and interactions
+6. **Error Recovery**: Graceful handling of connection issues
+
+### Description Feature Test Cases
+1. **Rider-Waite Decks**: Verify traditional descriptions load instantly
+2. **Custom Decks**: Test API calls to `/api/cards/{cardId}/description`
+3. **Loading States**: Spinner appears during API requests
+4. **Error Handling**: Fallback to basic description when API fails
+5. **Network Offline**: Graceful degradation to cached descriptions
+6. **Keyboard Navigation**: Escape key closes description overlay
+7. **Source Attribution**: Footer shows correct description source
+8. **Content Scrolling**: Long descriptions scroll properly
+9. **State Persistence**: Description state resets when gallery closes
+10. **Performance**: No lag when switching between cards with descriptions
 
 ## Performance Considerations
 
