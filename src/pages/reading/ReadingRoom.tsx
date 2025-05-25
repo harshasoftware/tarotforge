@@ -2631,14 +2631,35 @@ const ReadingRoom = () => {
                     const selectedCard = selectedCards[index];
                     const isHovered = hoveredPosition === index && isDragging;
                     
+                    // Special handling for Celtic Cross Present (0) and Challenge (1) positions
+                    const isCelticCross = selectedLayout?.id === 'celtic-cross';
+                    const isPresentPosition = isCelticCross && index === 0;
+                    const isChallengePosition = isCelticCross && index === 1;
+                    const presentCard = isCelticCross ? selectedCards[0] : null;
+                    const challengeCard = isCelticCross ? selectedCards[1] : null;
+                    
+                    // For Celtic Cross, adjust positioning when both cards are present
+                    let adjustedPosition = { ...position };
+                    if (isCelticCross && (isPresentPosition || isChallengePosition)) {
+                      if (presentCard && challengeCard) {
+                        // Both cards are present - perfect cross formation
+                        adjustedPosition = { ...position }; // Keep original positions for perfect overlap
+                      } else if (!selectedCard) {
+                        // No card in this position - offset slightly for separate drop zones
+                        if (isChallengePosition) {
+                          adjustedPosition = { ...position, x: position.x + 0.5, y: position.y + 0.5 };
+                        }
+                      }
+                    }
+                    
                     return (
                       <div 
                         key={position.id}
                         className="absolute transform -translate-x-1/2 -translate-y-1/2"
                         style={{ 
-                          left: `${position.x}%`, 
-                          top: `${position.y}%`,
-                          zIndex: selectedCard ? 10 + index : 1
+                          left: `${adjustedPosition.x}%`, 
+                          top: `${adjustedPosition.y}%`,
+                          zIndex: selectedCard ? (isChallengePosition ? 12 : 10 + index) : (index === 1 ? 2 : 1) // Challenge card always on top when both present
                         }}
                         onDragOver={(e) => {
                           e.preventDefault();
@@ -2708,6 +2729,9 @@ const ReadingRoom = () => {
                           >
                             <motion.div 
                               className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`}
+                              style={{ 
+                                transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none' 
+                              }}
                               animate={{ 
                                 rotateY: (selectedCard as any).revealed ? 0 : 180 
                               }}
@@ -3153,14 +3177,23 @@ const ReadingRoom = () => {
                     const selectedCard = selectedCards[index];
                     if (!selectedCard) return null;
                     
+                    // Special handling for Celtic Cross Present (0) and Challenge (1) positions in interpretation
+                    const isCelticCross = selectedLayout?.id === 'celtic-cross';
+                    const isChallengePosition = isCelticCross && index === 1;
+                    const presentCard = isCelticCross ? selectedCards[0] : null;
+                    const challengeCard = isCelticCross ? selectedCards[1] : null;
+                    
+                    // For Celtic Cross interpretation, always use original positions for perfect cross
+                    const adjustedPosition = { ...position };
+                    
                     return (
                       <div 
                         key={position.id}
                         className="absolute transform -translate-x-1/2 -translate-y-1/2"
                         style={{ 
-                          left: `${position.x}%`, 
-                          top: `${position.y}%`,
-                          zIndex: activeCardIndex === index ? 20 : 10 + index
+                          left: `${adjustedPosition.x}%`, 
+                          top: `${adjustedPosition.y}%`,
+                          zIndex: activeCardIndex === index ? 20 : (isChallengePosition ? 12 : 10 + index) // Challenge card always on top
                         }}
                       >
                         <motion.div
@@ -3184,6 +3217,9 @@ const ReadingRoom = () => {
                         >
                           <motion.div 
                             className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`}
+                            style={{ 
+                              transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none' 
+                            }}
                             animate={{ 
                               rotateY: (selectedCard as any).revealed ? 0 : 180 
                             }}
