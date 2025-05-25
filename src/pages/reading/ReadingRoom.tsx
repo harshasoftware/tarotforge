@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Sparkles, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
@@ -14,6 +14,7 @@ import GuestAccountUpgrade from '../../components/ui/GuestAccountUpgrade';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import SignInModal from '../../components/auth/SignInModal';
 import Tooltip from '../../components/ui/Tooltip';
+import ParticipantNotificationManager from '../../components/ui/ParticipantNotificationManager';
 import { v4 as uuidv4 } from 'uuid';
 
 import Div100vh from 'react-div-100vh';
@@ -399,6 +400,16 @@ const ReadingRoom = () => {
   const [showVideoChat, setShowVideoChat] = useState(false);
   const [isVideoConnecting, setIsVideoConnecting] = useState(false);
   
+  // Participant notification state
+  const [notifications, setNotifications] = useState<Array<{
+    id: string;
+    type: 'join' | 'leave';
+    participantName: string;
+    isAnonymous: boolean;
+    timestamp: number;
+  }>>([]);
+  const [previousParticipants, setPreviousParticipants] = useState<typeof participants>([]);
+  
   // Dragged placed card state (for moving cards in free layout)
   const [draggedPlacedCard, setDraggedPlacedCard] = useState<any>(null);
   const [draggedPlacedCardIndex, setDraggedPlacedCardIndex] = useState<number | null>(null);
@@ -620,6 +631,67 @@ const ReadingRoom = () => {
   } | null) => {
     updateSession({ sharedModalState: modalState });
   }, [updateSession]);
+
+  // Track participant changes for notifications
+  useEffect(() => {
+    if (!sessionState?.id || sessionLoading) return;
+
+    // Skip initial load to avoid showing notifications for existing participants
+    if (previousParticipants.length === 0 && participants.length > 0) {
+      setPreviousParticipants(participants);
+      return;
+    }
+
+    // Find new participants (joined)
+    const newParticipants = participants.filter(current => 
+      !previousParticipants.find(prev => prev.id === current.id)
+    );
+
+    // Find removed participants (left)
+    const leftParticipants = previousParticipants.filter(prev => 
+      !participants.find(current => current.id === prev.id)
+    );
+
+    // Create notifications for new participants
+    newParticipants.forEach(participant => {
+      // Don't show notification for the current user joining
+      if (participant.id === participantId) return;
+
+      const notification = {
+        id: `join-${participant.id}-${Date.now()}`,
+        type: 'join' as const,
+        participantName: participant.name || 'Anonymous User',
+        isAnonymous: !participant.userId, // Anonymous if no userId
+        timestamp: Date.now()
+      };
+
+      setNotifications(prev => [...prev, notification]);
+    });
+
+    // Create notifications for participants who left
+    leftParticipants.forEach(participant => {
+      // Don't show notification for the current user leaving
+      if (participant.id === participantId) return;
+
+      const notification = {
+        id: `leave-${participant.id}-${Date.now()}`,
+        type: 'leave' as const,
+        participantName: participant.name || 'Anonymous User',
+        isAnonymous: !participant.userId, // Anonymous if no userId
+        timestamp: Date.now()
+      };
+
+      setNotifications(prev => [...prev, notification]);
+    });
+
+    // Update previous participants
+    setPreviousParticipants(participants);
+  }, [participants, previousParticipants, participantId, sessionState?.id, sessionLoading]);
+
+  // Function to remove notifications
+  const removeNotification = useCallback((notificationId: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+  }, []);
 
   // Fisher-Yates shuffle algorithm (Durstenfeld modern implementation)
   const fisherYatesShuffle = useCallback((array: Card[]) => {
@@ -4506,6 +4578,12 @@ const ReadingRoom = () => {
         isOpen={showSignInModal}
         onClose={() => setShowSignInModal(false)}
         onSuccess={handleSignInSuccess}
+      />
+
+      {/* Participant Notifications */}
+      <ParticipantNotificationManager
+        notifications={notifications}
+        onRemoveNotification={removeNotification}
       />
     </Div100vh>
   );
