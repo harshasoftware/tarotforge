@@ -95,7 +95,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         const { data, error } = await supabase
           .from('reading_sessions')
           .insert({
-            host_user_id: user?.id || null, // Allow null for guest sessions
+            host_user_id: user?.id || null, // null for guest sessions - clear and simple
             deck_id: deckId,
             reading_step: 'setup',
             selected_cards: [],
@@ -260,7 +260,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
     },
 
     upgradeGuestAccount: async (newUserId: string) => {
-      const { participantId, anonymousId } = get();
+      const { participantId, anonymousId, sessionState, isHost } = get();
       
       if (!participantId || !anonymousId) return false;
 
@@ -275,6 +275,28 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           .eq('id', participantId);
 
         if (participantError) throw participantError;
+
+        // If this guest was the host (created the session), update the session's host_user_id
+        if (isHost && sessionState?.id && sessionState.hostUserId === null) {
+          const { error: sessionError } = await supabase
+            .from('reading_sessions')
+            .update({ host_user_id: newUserId })
+            .eq('id', sessionState.id);
+
+          if (sessionError) {
+            console.error('Error updating session host:', sessionError);
+            // Don't fail the upgrade if session update fails, participant update is more important
+          } else {
+            // Update local session state
+            set({
+              sessionState: {
+                ...sessionState,
+                hostUserId: newUserId,
+                updatedAt: new Date().toISOString()
+              }
+            });
+          }
+        }
 
         return true;
       } catch (err: any) {
