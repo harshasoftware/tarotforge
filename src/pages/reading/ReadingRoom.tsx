@@ -202,6 +202,33 @@ const ReadingRoom = () => {
     setDeckId(deckId || 'rider-waite-classic');
     initializeSession();
     
+    // Load question cache from localStorage
+    try {
+      const savedCache = localStorage.getItem('tarot_question_cache');
+      if (savedCache) {
+        const parsedCache = JSON.parse(savedCache);
+        // Clean up expired cache entries (older than today)
+        const today = getTodayDateString();
+        const validCache: {[key: string]: {questions: string[], date: string}} = {};
+        
+        Object.entries(parsedCache).forEach(([category, data]: [string, any]) => {
+          if (data.date === today) {
+            validCache[category] = data;
+          }
+        });
+        
+        setQuestionCache(validCache);
+        
+        // Save cleaned cache back to localStorage
+        if (Object.keys(validCache).length !== Object.keys(parsedCache).length) {
+          localStorage.setItem('tarot_question_cache', JSON.stringify(validCache));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading question cache:', error);
+      localStorage.removeItem('tarot_question_cache');
+    }
+    
     // Cleanup on unmount
     return cleanup;
   }, [joinSessionId, deckId, setInitialSessionId, setDeckId, initializeSession, cleanup]);
@@ -312,6 +339,24 @@ const ReadingRoom = () => {
   const [generatedQuestions, setGeneratedQuestions] = useState<string[]>([]);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
   const [showCustomQuestionInput, setShowCustomQuestionInput] = useState(false);
+  
+  // Track cards used for current interpretation to prevent regeneration
+  const [interpretationCards, setInterpretationCards] = useState<any[]>([]);
+  
+  // Cache for inspiration questions with daily expiration
+  const [questionCache, setQuestionCache] = useState<{[key: string]: {questions: string[], date: string}}>({});
+  
+  // Helper function to get today's date string
+  const getTodayDateString = () => {
+    return new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+  };
+  
+  // Helper function to check if cached questions are still valid (same day)
+  const isCacheValid = (category: string) => {
+    const cached = questionCache[category];
+    if (!cached) return false;
+    return cached.date === getTodayDateString();
+  };
   
   // Memoized computed values to prevent unnecessary recalculations
   const cardCounts = useMemo(() => {
@@ -486,24 +531,71 @@ const ReadingRoom = () => {
   // Ask Question handlers
   const handleCategorySelect = useCallback(async (category: string) => {
     setSelectedCategory(category);
+    
+    // Check if we have valid cached questions for this category
+    if (isCacheValid(category)) {
+      const cachedQuestions = questionCache[category].questions;
+      setGeneratedQuestions(cachedQuestions);
+      return;
+    }
+    
     setIsLoadingQuestions(true);
     
     try {
       const questions = await generateInspiredQuestions(category, 4);
       setGeneratedQuestions(questions);
+      
+      // Cache the questions with today's date
+      const today = getTodayDateString();
+      const newCache = {
+        ...questionCache,
+        [category]: {
+          questions,
+          date: today
+        }
+      };
+      
+      setQuestionCache(newCache);
+      
+      // Save to localStorage
+      try {
+        localStorage.setItem('tarot_question_cache', JSON.stringify(newCache));
+      } catch (error) {
+        console.error('Error saving question cache:', error);
+      }
+      
     } catch (error) {
       console.error('Error generating questions:', error);
       // Set fallback questions
-      setGeneratedQuestions([
+      const fallbackQuestions = [
         "What guidance do I need right now?",
         "What should I focus on in this area of my life?",
         "What obstacles should I be aware of?",
         "What opportunities await me?"
-      ]);
+      ];
+      setGeneratedQuestions(fallbackQuestions);
+      
+      // Cache fallback questions too
+      const today = getTodayDateString();
+      const newCache = {
+        ...questionCache,
+        [category]: {
+          questions: fallbackQuestions,
+          date: today
+        }
+      };
+      
+      setQuestionCache(newCache);
+      
+      try {
+        localStorage.setItem('tarot_question_cache', JSON.stringify(newCache));
+      } catch (error) {
+        console.error('Error saving fallback question cache:', error);
+      }
     } finally {
       setIsLoadingQuestions(false);
     }
-  }, []);
+  }, [questionCache, isCacheValid, getTodayDateString]);
   
   const handleQuestionSelect = useCallback((selectedQuestion: string) => {
     updateSession({ question: selectedQuestion, readingStep: 'drawing' });
@@ -819,6 +911,7 @@ const ReadingRoom = () => {
       setShuffledDeck(fisherYatesShuffle(cards));
     }
     setShowMobileInterpretation(false);
+    setInterpretationCards([]); // Clear interpretation cards tracking
   }, [updateSession, cards, fisherYatesShuffle]);
   
   const resetCards = useCallback(() => {
@@ -839,6 +932,7 @@ const ReadingRoom = () => {
     setShowMobileInterpretation(false);
     setZoomFocus(null);
     setPanOffset({ x: 0, y: 0 });
+    setInterpretationCards([]); // Clear interpretation cards tracking
   }, [updateSession, cards, fisherYatesShuffle]);
   
   // Drag and Drop Functions
@@ -945,6 +1039,21 @@ const ReadingRoom = () => {
   const generateInterpretation = async (cards = selectedCards) => {
     if (!deck || !cards.length) return;
     
+    // Check if interpretation already exists for the same set of cards
+    const cardsSignature = cards.map((card: any) => `${card.name}-${card.position}-${card.isReversed}`).sort().join('|');
+    const existingSignature = interpretationCards.map((card: any) => `${card.name}-${card.position}-${card.isReversed}`).sort().join('|');
+    
+    if (interpretation && cardsSignature === existingSignature) {
+      // Same cards, just go to interpretation view without regenerating
+      updateSession({ readingStep: 'interpretation' });
+      
+      // Auto-show mobile interpretation on mobile portrait mode
+      if (isMobile && !isLandscape) {
+        setShowMobileInterpretation(true);
+      }
+      return;
+    }
+    
     // Check if user is a guest and prompt for account upgrade
     if (isGuest) {
       // Store current reading room path for post-auth redirect with session ID
@@ -986,6 +1095,9 @@ const ReadingRoom = () => {
         formattedCards,
         deck.theme
       );
+      
+      // Store the cards used for this interpretation
+      setInterpretationCards([...revealedCards]);
       
       updateSession({
         interpretation: result,
@@ -3274,14 +3386,6 @@ const ReadingRoom = () => {
                       <Info className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Close interpretation" position="left" disabled={isMobile}>
-                    <button 
-                      onClick={() => setShowMobileInterpretation(false)}
-                      className={`text-muted-foreground hover:text-foreground ${isMobile ? 'hidden' : ''}`}
-                    >
-                      <XCircle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
                   <Tooltip content="Return to card table" position="left" disabled={isMobile}>
                     <button 
                       onClick={() => setReadingStepWrapped('drawing')}
@@ -3309,9 +3413,9 @@ const ReadingRoom = () => {
                     <TarotLogo className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4 md:h-5 md:w-5'} text-primary mr-2`} />
                     <h3 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm md:text-base'}`}>Reading Interpretation</h3>
                   </div>
-                  <Tooltip content="Close interpretation" position="left" disabled={isMobile}>
+                  <Tooltip content="Back to table" position="left" disabled={isMobile}>
                     <button 
-                      onClick={() => setShowMobileInterpretation(false)}
+                      onClick={() => setReadingStepWrapped('drawing')}
                       className={`text-muted-foreground hover:text-foreground ${isMobile ? 'hidden' : ''}`}
                     >
                       <XCircle className="h-4 w-4" />
