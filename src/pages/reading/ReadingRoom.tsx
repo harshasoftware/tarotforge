@@ -16,18 +16,7 @@ import SignInModal from '../../components/auth/SignInModal';
 import Tooltip from '../../components/ui/Tooltip';
 import { v4 as uuidv4 } from 'uuid';
 import html2canvas from 'html2canvas';
-
-// TypeScript declarations for Visual Viewport API
-declare global {
-  interface Window {
-    visualViewport?: {
-      height: number;
-      width: number;
-      addEventListener: (type: string, listener: () => void) => void;
-      removeEventListener: (type: string, listener: () => void) => void;
-    };
-  }
-}
+import Div100vh from 'react-div-100vh';
 
 // Mock reading layouts - moved outside component to prevent recreation
 const readingLayouts: ReadingLayout[] = [
@@ -232,9 +221,6 @@ const ReadingRoom = () => {
   const [isLandscape, setIsLandscape] = useState(false);
   const [showMobileInterpretation, setShowMobileInterpretation] = useState(false);
   
-  // Mobile viewport height state for iOS Safari fix
-  const [viewportHeight, setViewportHeight] = useState(0);
-  
   // Pinch zoom hint state
   const [showPinchHint, setShowPinchHint] = useState(false);
   const [hasShownInitialHint, setHasShownInitialHint] = useState(false);
@@ -365,22 +351,11 @@ const ReadingRoom = () => {
       setIsMobile(isMobileDevice);
       setIsLandscape(isLandscapeOrientation);
       
-      // Set proper viewport height for iOS Safari fix
+      // Prevent scrolling on mobile for better UX
       if (isMobileDevice) {
-        // Use visualViewport if available (better for iOS Safari), fallback to innerHeight
-        const vh = window.visualViewport?.height || window.innerHeight;
-        setViewportHeight(vh);
-        
-        // Also set CSS custom property for other components
-        document.documentElement.style.setProperty('--vh', `${vh * 0.01}px`);
-        
-        // Don't use position fixed on body as it causes issues on iOS Safari
-        // Instead just prevent scrolling
         document.body.style.overflow = 'hidden';
         document.body.style.touchAction = 'none'; // Prevent iOS Safari bounce
       } else {
-        setViewportHeight(0); // Reset for desktop
-        
         // Re-enable scrolling on desktop
         document.body.style.overflow = '';
         document.body.style.touchAction = '';
@@ -389,39 +364,21 @@ const ReadingRoom = () => {
     
     checkMobileAndOrientation();
     
-    // Listen for visual viewport changes (iOS Safari address bar show/hide)
-    const handleViewportChange = () => {
-      if (isMobile && window.visualViewport) {
-        const vh = window.visualViewport.height;
-        setViewportHeight(vh);
-        document.documentElement.style.setProperty('--vh', `${vh * 0.01}px`);
-      }
-    };
-    
     window.addEventListener('resize', checkMobileAndOrientation);
     window.addEventListener('orientationchange', () => {
-      // Longer delay for iOS Safari to properly update viewport
+      // Delay for orientation change to complete
       setTimeout(checkMobileAndOrientation, 300);
     });
-    
-    // Listen for visual viewport changes
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleViewportChange);
-    }
     
     return () => {
       window.removeEventListener('resize', checkMobileAndOrientation);
       window.removeEventListener('orientationchange', checkMobileAndOrientation);
       
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleViewportChange);
-      }
-      
       // Cleanup: restore normal scrolling when component unmounts
       document.body.style.overflow = '';
       document.body.style.touchAction = '';
     };
-  }, [isMobile]);
+  }, []);
 
   // Auto-show guest upgrade modal for invite link joiners
   useEffect(() => {
@@ -1589,10 +1546,9 @@ const ReadingRoom = () => {
   }
   
   return (
-    <div 
+    <Div100vh 
       className={`flex flex-col ${!isMobile ? 'h-screen overflow-hidden' : 'overflow-hidden'}`}
       style={isMobile ? { 
-        height: viewportHeight > 0 ? `${viewportHeight}px` : '100vh',
         width: '100vw',
         position: 'relative',
         paddingTop: 'env(safe-area-inset-top)',
@@ -3498,7 +3454,7 @@ const ReadingRoom = () => {
         onClose={() => setShowSignInModal(false)}
         onSuccess={handleSignInSuccess}
       />
-    </div>
+    </Div100vh>
   );
 };
 
