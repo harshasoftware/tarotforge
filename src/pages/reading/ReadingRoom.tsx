@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Download, Sparkles } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, PhoneCall, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, Package, ShoppingBag, Plus, Home, Download, Sparkles, Eye, X } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
@@ -414,6 +414,11 @@ const ReadingRoom = () => {
   
   // Sync success notification
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
+  
+  // Card gallery state
+  const [showCardGallery, setShowCardGallery] = useState(false);
+  const [galleryCardIndex, setGalleryCardIndex] = useState<number | null>(null);
+  const [gallerySwipeStart, setGallerySwipeStart] = useState<{ x: number; y: number } | null>(null);
   
   // Helper function to get today's date string
   const getTodayDateString = () => {
@@ -1282,30 +1287,9 @@ const ReadingRoom = () => {
       const selectedCard = selectedCards[cardIndex];
       if (!selectedCard) return;
       
-      // If card is revealed, activate it and zoom to it
+      // If card is revealed, open gallery instead of zooming
       if ((selectedCard as any)?.revealed) {
-        setActiveCardIndexWrapped(cardIndex);
-        
-        let cardX: number, cardY: number;
-        
-        if (selectedLayout?.id === 'free-layout') {
-          // For free layout, use the card's stored position
-          cardX = selectedCard.x || 50;
-          cardY = selectedCard.y || 50;
-        } else {
-          // For predefined layouts, use the position from layout
-          const position = selectedLayout?.positions?.[cardIndex];
-          if (position) {
-            cardX = position.x;
-            cardY = position.y;
-          } else {
-            return;
-          }
-        }
-        
-        // Set zoom focus to the card position and zoom in significantly
-        setZoomFocus({ x: cardX, y: cardY });
-        setZoomLevelWrapped(2.5); // High zoom for detail viewing
+        openCardGallery(cardIndex);
       }
       
       // Reset tap count
@@ -1355,10 +1339,10 @@ const ReadingRoom = () => {
     const timeDiff = now - lastClickTime;
     
     if (timeDiff < 300 && clickCount === 1) {
-      // Double click detected - activate card if revealed
+      // Double click detected - open gallery if card is revealed
       const selectedCard = selectedCards[cardIndex];
       if ((selectedCard as any)?.revealed) {
-        setActiveCardIndexWrapped(cardIndex);
+        openCardGallery(cardIndex);
       }
       setClickCount(0);
     } else {
@@ -1380,6 +1364,91 @@ const ReadingRoom = () => {
       updateSession({ selectedCards: newSelectedCards });
     }
   }, [selectedCards, updateSession]);
+  
+  // Handle opening card gallery
+  const openCardGallery = useCallback((cardIndex: number) => {
+    const selectedCard = selectedCards[cardIndex];
+    if ((selectedCard as any)?.revealed) {
+      setGalleryCardIndex(cardIndex);
+      setShowCardGallery(true);
+    }
+  }, [selectedCards]);
+  
+  // Handle gallery navigation
+  const navigateGallery = useCallback((direction: 'prev' | 'next') => {
+    if (galleryCardIndex === null) return;
+    
+    const revealedCards = selectedCards
+      .map((card, index) => ({ card, index }))
+      .filter(({ card }) => (card as any)?.revealed);
+    
+    const currentRevealedIndex = revealedCards.findIndex(({ index }) => index === galleryCardIndex);
+    
+    if (direction === 'prev') {
+      const newIndex = currentRevealedIndex > 0 ? currentRevealedIndex - 1 : revealedCards.length - 1;
+      setGalleryCardIndex(revealedCards[newIndex].index);
+    } else {
+      const newIndex = currentRevealedIndex < revealedCards.length - 1 ? currentRevealedIndex + 1 : 0;
+      setGalleryCardIndex(revealedCards[newIndex].index);
+    }
+  }, [galleryCardIndex, selectedCards]);
+  
+  // Close gallery
+  const closeCardGallery = useCallback(() => {
+    setShowCardGallery(false);
+    setGalleryCardIndex(null);
+    setGallerySwipeStart(null);
+  }, []);
+  
+  // Keyboard navigation for gallery
+  useEffect(() => {
+    if (!showCardGallery) return;
+    
+    const handleKeyDown = (event: KeyboardEvent) => {
+      switch (event.key) {
+        case 'Escape':
+          closeCardGallery();
+          break;
+        case 'ArrowLeft':
+          event.preventDefault();
+          navigateGallery('prev');
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          navigateGallery('next');
+          break;
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showCardGallery, closeCardGallery, navigateGallery]);
+  
+  // Handle gallery swipe gestures
+  const handleGalleryTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!isMobile || !showCardGallery) return;
+    const touch = e.touches[0];
+    setGallerySwipeStart({ x: touch.clientX, y: touch.clientY });
+  }, [isMobile, showCardGallery]);
+  
+  const handleGalleryTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!isMobile || !showCardGallery || !gallerySwipeStart) return;
+    
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - gallerySwipeStart.x;
+    const deltaY = touch.clientY - gallerySwipeStart.y;
+    
+    // Only trigger swipe if horizontal movement is greater than vertical
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      if (deltaX > 0) {
+        navigateGallery('prev');
+      } else {
+        navigateGallery('next');
+      }
+    }
+    
+    setGallerySwipeStart(null);
+  }, [isMobile, showCardGallery, gallerySwipeStart, navigateGallery]);
   
   // Add mouse move handler to document for dragging - optimized
   useEffect(() => {
@@ -2144,6 +2213,24 @@ const ReadingRoom = () => {
                 )}
               </button>
             </Tooltip>
+
+            {/* View Cards Gallery Button - only show when cards are revealed */}
+            {selectedCards.some((card: any) => card?.revealed) && (
+              <Tooltip content="View cards gallery" position="bottom" disabled={isMobile}>
+                <button 
+                  onClick={() => {
+                    const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
+                    if (firstRevealedIndex !== -1) {
+                      openCardGallery(firstRevealedIndex);
+                    }
+                  }}
+                  className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
+                >
+                  <Eye className="h-4 w-4" />
+                  {!isMobile && <span className="ml-1 text-xs">View</span>}
+                </button>
+              </Tooltip>
+            )}
 
             <Tooltip content={selectedCards.length === 0 ? "Add cards to save reading" : "Save reading as image"} position="bottom" disabled={isMobile}>
               <button 
@@ -3813,6 +3900,136 @@ const ReadingRoom = () => {
         )}
       </AnimatePresence>
       
+      {/* Card Gallery - Full Screen on Mobile, Modal on Desktop */}
+      <AnimatePresence>
+        {showCardGallery && galleryCardIndex !== null && selectedCards[galleryCardIndex] && (
+          <div className={`fixed inset-0 z-[100] ${isMobile ? 'bg-black' : 'bg-black/80'} flex items-center justify-center`}>
+            <motion.div 
+              className={`relative ${isMobile ? 'w-full h-full' : 'max-w-4xl max-h-[90vh] w-full mx-4'} ${!isMobile ? 'bg-card rounded-xl overflow-hidden shadow-2xl' : ''}`}
+              initial={{ opacity: 0, scale: isMobile ? 1 : 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: isMobile ? 1 : 0.9 }}
+              transition={{ duration: 0.3 }}
+              onTouchStart={handleGalleryTouchStart}
+              onTouchEnd={handleGalleryTouchEnd}
+            >
+              {/* Gallery Header */}
+              <div className={`${isMobile ? 'absolute top-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm' : 'bg-primary/10 border-b border-border'} p-4 flex items-center justify-between`}>
+                <div className="flex items-center gap-3">
+                  <h3 className={`font-medium ${isMobile ? 'text-white' : 'text-foreground'}`}>
+                    {selectedCards[galleryCardIndex].name}
+                    {(selectedCards[galleryCardIndex] as any).isReversed && ' (Reversed)'}
+                  </h3>
+                  <span className={`text-sm px-2 py-1 rounded-full ${isMobile ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
+                    {selectedCards[galleryCardIndex].position}
+                  </span>
+                </div>
+                <button 
+                  onClick={closeCardGallery}
+                  className={`p-2 rounded-full transition-colors ${isMobile ? 'text-white hover:bg-white/20' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Gallery Content */}
+              <div className={`${isMobile ? 'h-full pt-16 pb-20' : 'p-6'} flex flex-col items-center justify-center`}>
+                {/* Card Image */}
+                <div className={`relative ${isMobile ? 'w-full max-w-sm h-full max-h-96' : 'w-80 h-[480px]'} mb-4`}>
+                  <motion.img 
+                    key={galleryCardIndex}
+                    src={selectedCards[galleryCardIndex].image_url} 
+                    alt={selectedCards[galleryCardIndex].name}
+                    className={`w-full h-full object-contain rounded-lg shadow-lg ${(selectedCards[galleryCardIndex] as any).isReversed ? 'rotate-180' : ''}`}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3 }}
+                  />
+                </div>
+
+                {/* Card Description */}
+                <div className={`${isMobile ? 'px-4' : 'max-w-2xl'} text-center`}>
+                  <p className={`${isMobile ? 'text-white/90 text-sm' : 'text-muted-foreground'} leading-relaxed`}>
+                    {selectedCards[galleryCardIndex].description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Gallery Navigation */}
+              <div className={`${isMobile ? 'absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm' : 'border-t border-border bg-muted/30'} p-4 flex items-center justify-between`}>
+                {/* Previous Button */}
+                <button 
+                  onClick={() => navigateGallery('prev')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    isMobile 
+                      ? 'bg-white/20 text-white hover:bg-white/30' 
+                      : 'bg-background border border-border hover:bg-muted'
+                  }`}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="text-sm">Previous</span>
+                </button>
+
+                {/* Card Counter */}
+                <div className={`text-sm ${isMobile ? 'text-white/80' : 'text-muted-foreground'}`}>
+                  {(() => {
+                    const revealedCards = selectedCards.filter((card: any) => card?.revealed);
+                    const currentIndex = selectedCards
+                      .map((card, index) => ({ card, index }))
+                      .filter(({ card }) => (card as any)?.revealed)
+                      .findIndex(({ index }) => index === galleryCardIndex);
+                    return `${currentIndex + 1} of ${revealedCards.length}`;
+                  })()}
+                </div>
+
+                {/* Next Button */}
+                <button 
+                  onClick={() => navigateGallery('next')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    isMobile 
+                      ? 'bg-white/20 text-white hover:bg-white/30' 
+                      : 'bg-background border border-border hover:bg-muted'
+                  }`}
+                >
+                  <span className="text-sm">Next</span>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Mobile Swipe Indicators */}
+              {isMobile && (
+                <div className="absolute left-0 top-1/2 transform -translate-y-1/2 p-4">
+                  <div className="w-8 h-16 bg-white/10 rounded-full flex items-center justify-center">
+                    <ChevronLeft className="h-6 w-6 text-white/60" />
+                  </div>
+                </div>
+              )}
+              {isMobile && (
+                <div className="absolute right-0 top-1/2 transform -translate-y-1/2 p-4">
+                  <div className="w-8 h-16 bg-white/10 rounded-full flex items-center justify-center">
+                    <ChevronRight className="h-6 w-6 text-white/60" />
+                  </div>
+                </div>
+              )}
+
+              {/* Mobile Touch Areas for Navigation */}
+              {isMobile && (
+                <>
+                  <div 
+                    className="absolute left-0 top-16 bottom-20 w-1/3 z-20"
+                    onClick={() => navigateGallery('prev')}
+                  />
+                  <div 
+                    className="absolute right-0 top-16 bottom-20 w-1/3 z-20"
+                    onClick={() => navigateGallery('next')}
+                  />
+                </>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Sign In Modal */}
       <SignInModal 
         isOpen={showSignInModal}

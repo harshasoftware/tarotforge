@@ -31,16 +31,18 @@ The Reading Room has multiple states and navigation patterns that differ between
 - **Guest Upgrade Button**: Visible for unauthenticated users
 - **Share Button**: Native share API or modal fallback
 - **Video Chat Button**: Start/join video call
+- **View Cards Button**: Open card gallery (visible when cards are revealed)
 - **Save Button**: Download reading as image
 
 ### Mobile-Specific Interactions
 
 #### Touch Gestures
 - **Single Tap**: Flip cards or activate revealed cards
-- **Double Tap**: Zoom to card and activate (revealed cards only)
+- **Double Tap**: Open card gallery (revealed cards only)
 - **Pinch to Zoom**: Scale reading area (0.5x to 2x)
 - **Drag to Pan**: Move view when zoomed in
 - **Card Dragging**: From deck pile to positions
+- **Gallery Swipe**: Navigate between cards in full-screen gallery
 
 #### Zoom Controls (Mobile)
 - **Position**: Left side, vertical stack, middle of screen
@@ -81,6 +83,7 @@ The Reading Room has multiple states and navigation patterns that differ between
 - **Portrait Mode**: Full screen interpretation overlay
 - **Landscape Mode**: Split view (3/5 cards, 2/5 interpretation)
 - **Card Navigation**: Previous/Next buttons
+- **Card Gallery**: Full-screen card viewer with swipe navigation
 - **Back Actions**: Context-sensitive based on mode
 
 ## Desktop Navigation Patterns
@@ -104,7 +107,7 @@ The Reading Room has multiple states and navigation patterns that differ between
 
 #### Mouse Interactions
 - **Click**: Flip cards or activate
-- **Double Click**: Activate revealed cards
+- **Double Click**: Open card gallery (revealed cards only)
 - **Scroll Wheel + Ctrl/Cmd**: Zoom in/out
 - **Drag**: Pan when zoomed, move cards
 - **Hover**: Tooltips and visual feedback
@@ -141,7 +144,51 @@ The Reading Room has multiple states and navigation patterns that differ between
 #### Interpretation (Desktop)
 - **Split View**: Always 3/5 cards, 2/5 interpretation
 - **Card Details**: Larger preview with full descriptions
+- **Card Gallery**: Modal overlay with keyboard navigation
 - **Navigation**: Enhanced with keyboard support
+
+## Card Gallery Feature
+
+### Overview
+The Card Gallery provides an immersive way to view and analyze individual cards in detail, with different implementations for mobile and desktop platforms.
+
+### Mobile Gallery (Full-Screen)
+- **Activation**: Double-tap on revealed cards or "View Cards" button
+- **Layout**: Full-screen black background with card centered
+- **Navigation**: 
+  - Swipe left/right to navigate between cards
+  - Tap left/right thirds of screen for navigation
+  - Visual indicators on sides showing swipe direction
+- **Controls**: 
+  - Header with card name, position, and close button
+  - Footer with Previous/Next buttons and card counter
+- **Content**: Large card image with description below
+- **Exit**: Close button or back gesture
+
+### Desktop Gallery (Modal)
+- **Activation**: Double-click on revealed cards or "View Cards" button
+- **Layout**: Modal overlay with card-colored background
+- **Navigation**: 
+  - Keyboard arrows (left/right) for navigation
+  - Click Previous/Next buttons
+- **Controls**: 
+  - Header with card details and close button
+  - Footer with navigation controls and counter
+- **Content**: Large card image (up to 480px height) with description
+- **Exit**: Escape key, close button, or click outside modal
+
+### Gallery Navigation Logic
+- **Card Selection**: Only revealed cards are included in gallery
+- **Cycling**: Navigation wraps around (last card → first card)
+- **State Preservation**: Gallery remembers position when reopened
+- **Keyboard Support**: Arrow keys and Escape for desktop
+- **Touch Support**: Swipe gestures for mobile
+
+### Interaction Patterns
+- **Non-Interfering**: Gallery doesn't conflict with existing zoom/pan
+- **Context-Aware**: Button only appears when cards are revealed
+- **Responsive**: Adapts to device capabilities and screen size
+- **Accessible**: Keyboard navigation and proper focus management
 
 ## Navigation States and Transitions
 
@@ -209,16 +256,18 @@ Deck Selection → Setup → Ask Question → Drawing → Interpretation
 ### Mobile Test Cases
 1. **Portrait Navigation**: All states in portrait mode
 2. **Landscape Navigation**: Split view behavior
-3. **Touch Gestures**: Pinch, pan, tap, double-tap
-4. **Orientation Changes**: State preservation during rotation
-5. **Safe Area Handling**: Notched devices and different screen sizes
+3. **Touch Gestures**: Pinch, pan, tap, double-tap, swipe
+4. **Card Gallery**: Full-screen viewing and swipe navigation
+5. **Orientation Changes**: State preservation during rotation
+6. **Safe Area Handling**: Notched devices and different screen sizes
 
 ### Desktop Test Cases
 1. **Mouse Interactions**: Click, hover, drag behaviors
-2. **Keyboard Navigation**: Tab order and shortcuts
-3. **Window Resizing**: Responsive behavior
-4. **Zoom Levels**: Browser zoom compatibility
-5. **Multi-Monitor**: Behavior across different displays
+2. **Keyboard Navigation**: Tab order and shortcuts (including gallery)
+3. **Card Gallery Modal**: Modal behavior and keyboard controls
+4. **Window Resizing**: Responsive behavior
+5. **Zoom Levels**: Browser zoom compatibility
+6. **Multi-Monitor**: Behavior across different displays
 
 ### Cross-Platform Test Cases
 1. **State Synchronization**: Real-time updates between devices
@@ -248,4 +297,6 @@ Deck Selection → Setup → Ask Question → Drawing → Interpretation
 - **Quick Actions**: Floating action button for common tasks
 - **Gesture Customization**: User-configurable gestures
 - **Voice Navigation**: Voice commands for accessibility
-- **Progressive Web App**: Native app-like navigation 
+- **Progressive Web App**: Native app-like navigation
+- **Enhanced Gallery**: Zoom within gallery, card comparison view
+- **Card Annotations**: Add notes and bookmarks to cards in gallery 
