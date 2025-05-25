@@ -521,6 +521,9 @@ const ReadingRoom = () => {
       if (cards && cards.length > 0) {
         setShuffledDeck(fisherYatesShuffle(cards));
       }
+      
+      // Trigger deck visual refresh animation
+      setDeckRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error selecting layout:', error);
       setError('Failed to select layout. Please try again.');
@@ -618,6 +621,8 @@ const ReadingRoom = () => {
       await fetchAndSetDeck(deck.id);
       // Update URL to reflect selected deck
       window.history.replaceState({}, '', `/reading-room/${deck.id}`);
+      // Trigger deck visual refresh animation
+      setDeckRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error selecting deck:', error);
       setError('Failed to select deck. Please try again.');
@@ -645,6 +650,9 @@ const ReadingRoom = () => {
       await fetchAndSetDeck(deck.id);
       // Update URL to reflect new deck
       window.history.replaceState({}, '', `/reading-room/${deck.id}`);
+      
+      // Trigger deck visual refresh animation
+      setDeckRefreshKey(prev => prev + 1);
       
       // Close deck selection and return to current state
       setIsChangingDeckMidSession(false);
@@ -825,6 +833,8 @@ const ReadingRoom = () => {
         if (cardsData && cardsData.length > 0) {
           setCards(cardsData);
           setShuffledDeck(fisherYatesShuffle(cardsData));
+          // Trigger deck visual refresh animation when new deck is loaded
+          setDeckRefreshKey(prev => prev + 1);
         } else {
           throw new Error("No cards found for this deck");
         }
