@@ -2521,11 +2521,6 @@ const ReadingRoom = () => {
                       <ZoomOut className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Reset cards" position="right" disabled={isMobile}>
-                    <button onClick={resetCards} className="p-1 hover:bg-muted rounded-sm text-red-500 hover:text-red-600">
-                      <XCircle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
                   <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
                     <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`}>
                       <Shuffle className="h-4 w-4" />
@@ -2539,6 +2534,11 @@ const ReadingRoom = () => {
                   <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
                     <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${isMobile ? 'hidden' : ''}`}>
                       <Shuffle className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Reset cards" position="right" disabled={isMobile}>
+                    <button onClick={resetCards} className="p-1 hover:bg-muted rounded-sm text-red-500 hover:text-red-600">
+                      <XCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
                 </div>
@@ -3045,11 +3045,6 @@ const ReadingRoom = () => {
                       <ZoomIn className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Reset cards" position="right" disabled={isMobile}>
-                    <button onClick={resetCards} className="p-1 hover:bg-muted rounded-sm text-red-500 hover:text-red-600">
-                      <XCircle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
                   <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
                     <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`}>
                       <Shuffle className="h-4 w-4" />
@@ -3063,6 +3058,11 @@ const ReadingRoom = () => {
                   <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
                     <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${isMobile ? 'hidden' : ''}`}>
                       <Shuffle className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Reset cards" position="right" disabled={isMobile}>
+                    <button onClick={resetCards} className="p-1 hover:bg-muted rounded-sm text-red-500 hover:text-red-600">
+                      <XCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
                 </div>
