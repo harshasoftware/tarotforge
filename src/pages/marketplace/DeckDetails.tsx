@@ -71,7 +71,8 @@ const DeckDetails = () => {
   };
 
   const gotoReadingRoom = () => {
-    navigate(`/reading-room/${deckId}`);
+    // Add create=true flag to ensure user becomes host when starting from marketplace
+    navigate(`/reading-room/${deckId}?create=true`);
   };
   
   // Join an existing reading session

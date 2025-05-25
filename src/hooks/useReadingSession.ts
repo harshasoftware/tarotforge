@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import { ReadingLayout, Card } from '../types';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import { getPersistentBrowserId } from '../utils/browserFingerprint';
 
 export interface ReadingSessionState {
   id: string;
@@ -49,10 +50,10 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
   const presenceIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const anonymousIdRef = useRef<string | null>(null);
 
-  // Generate anonymous ID for non-authenticated users
+  // Generate persistent browser ID for non-authenticated users
   useEffect(() => {
     if (!user && !anonymousIdRef.current) {
-      anonymousIdRef.current = uuidv4();
+      anonymousIdRef.current = getPersistentBrowserId();
     }
   }, [user]);
 
@@ -103,7 +104,7 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
         .insert({
           session_id: sessionId,
           user_id: user?.id || null,
-          anonymous_id: user ? null : anonymousIdRef.current,
+          anonymous_id: user ? null : (anonymousIdRef.current || null),
           is_active: true
         })
         .select()

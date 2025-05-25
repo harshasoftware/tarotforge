@@ -8,13 +8,15 @@ interface DeckPreviewProps {
   showControls?: boolean; 
   onToggleListed?: (deckId: string) => void;
   onToggleSellable?: (deckId: string) => void;
+  linkTo?: 'marketplace' | 'reading'; // Controls whether to link to marketplace details or start reading
 }
 
 const DeckPreview = ({ 
   deck,
   showControls = false,
   onToggleListed,
-  onToggleSellable
+  onToggleSellable,
+  linkTo = 'marketplace'
 }: DeckPreviewProps) => {
   const handleToggleListed = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -32,8 +34,13 @@ const DeckPreview = ({
     }
   };
   
+  // Determine the link destination based on linkTo prop
+  const linkDestination = linkTo === 'reading' 
+    ? `/reading-room/${deck.id}?create=true`  // Start new reading session as host
+    : `/marketplace/${deck.id}`;              // View marketplace details
+
   return (
-    <Link to={`/marketplace/${deck.id}`}>
+    <Link to={linkDestination}>
       <motion.div 
         className="group rounded-xl overflow-hidden bg-card border border-border hover:border-accent/50 transition-all duration-300"
         whileHover={{ y: -5, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' }}

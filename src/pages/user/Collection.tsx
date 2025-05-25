@@ -276,7 +276,7 @@ const Collection = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: index * 0.1 }}
                   >
-                    <DeckPreview deck={deck} />
+                    <DeckPreview deck={deck} linkTo="reading" />
                   </motion.div>
                 ))}
               </div>
@@ -419,7 +419,7 @@ const Collection = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
               >
-                <DeckPreview deck={deck} />
+                <DeckPreview deck={deck} linkTo="reading" />
               </motion.div>
             ))}
             {filteredFreeDecks.length === 0 && (

@@ -5,6 +5,7 @@ import { useAuthStore } from './authStore';
 import { ReadingLayout, Card } from '../types';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import { getPersistentBrowserId } from '../utils/browserFingerprint';
 
 export interface ReadingSessionState {
   id: string;
@@ -71,7 +72,7 @@ interface ReadingSessionStore {
   setDeckId: (deckId: string) => void;
   createSession: () => Promise<string | null>;
   createLocalSession: () => string;
-  joinSession: (sessionId: string) => Promise<string | null>;
+  joinSession: (sessionId: string, accessMethod?: 'invite' | 'direct') => Promise<string | null>;
   updateSession: (updates: Partial<ReadingSessionState>) => Promise<void>;
   updateLocalSession: (updates: Partial<ReadingSessionState>) => void;
   syncLocalSessionToDatabase: () => Promise<boolean>;
@@ -293,9 +294,16 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
       }
     },
 
-    joinSession: async (sessionId: string) => {
+    joinSession: async (sessionId: string, accessMethod: 'invite' | 'direct' = 'direct') => {
       const { user } = useAuthStore.getState();
       const state = get();
+      
+      // Ensure anonymous ID is set for non-authenticated users before joining
+      if (!user && !state.anonymousId) {
+        const browserFingerprint = getPersistentBrowserId();
+        set({ anonymousId: browserFingerprint });
+        console.log('Generated browser fingerprint for joining session:', browserFingerprint);
+      }
       
       try {
         // Check if session exists and is active
@@ -334,17 +342,40 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         // Set the session state immediately for better UX
         set({ sessionState });
 
+        // Determine if user should be host based on access method and session ownership
+        const { determineUserRole } = await import('../utils/inviteLinks');
+        const userRole = determineUserRole(accessMethod, session.host_user_id, user?.id || null);
+        const shouldBeHost = userRole === 'host';
+        
+        console.log('User role determination:', {
+          accessMethod,
+          sessionHostUserId: session.host_user_id,
+          currentUserId: user?.id || null,
+          determinedRole: userRole,
+          shouldBeHost
+        });
+
+        set({ isHost: shouldBeHost });
+
         // Add participant
+        const currentState = get(); // Get updated state after potential anonymousId setting
         const { data: participant, error: participantError } = await supabase
           .from('session_participants')
           .insert({
             session_id: sessionId,
             user_id: user?.id || null,
-            anonymous_id: user ? null : state.anonymousId,
+            anonymous_id: user ? null : currentState.anonymousId,
             is_active: true
           })
           .select()
           .single();
+          
+        console.log('Creating participant with:', {
+          session_id: sessionId,
+          user_id: user?.id || null,
+          anonymous_id: user ? null : currentState.anonymousId,
+          is_active: true
+        });
 
         if (participantError) throw participantError;
 
@@ -643,6 +674,8 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
       try {
         console.log('Syncing complete session state for:', sessionId);
         
+        const { isHost, sessionState: currentState } = get();
+        
         // Fetch the latest session data
         const { data: session, error: sessionError } = await supabase
           .from('reading_sessions')
@@ -656,7 +689,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           return false;
         }
 
-        // Convert to local format and update state
+        // Convert to local format
         const syncedState: ReadingSessionState = {
           id: session.id,
           hostUserId: session.host_user_id,
@@ -676,6 +709,65 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           createdAt: session.created_at,
           updatedAt: session.updated_at
         };
+
+        // Check if we should preserve local state
+        const { user } = useAuthStore.getState();
+        const isSessionCreator = isHost || 
+          (syncedState.hostUserId === null && !user) || // Guest session creator
+          (syncedState.hostUserId === user?.id); // Authenticated session creator
+          
+        // Check if local state was recently updated (within last 10 seconds)
+        const localStateAge = currentState ? Date.now() - new Date(currentState.updatedAt).getTime() : Infinity;
+        const isRecentLocalUpdate = localStateAge < 10000; // 10 seconds
+          
+        if (currentState) {
+          const currentStepOrder = ['setup', 'ask-question', 'drawing', 'interpretation'];
+          const currentStepIndex = currentStepOrder.indexOf(currentState.readingStep);
+          const syncedStepIndex = currentStepOrder.indexOf(syncedState.readingStep);
+          
+          console.log('Session sync check:', {
+            isHost,
+            isSessionCreator,
+            isRecentLocalUpdate,
+            localStateAge,
+            currentStep: currentState.readingStep,
+            syncedStep: syncedState.readingStep,
+            currentStepIndex,
+            syncedStepIndex,
+            hostUserId: syncedState.hostUserId,
+            currentUserId: user?.id
+          });
+          
+          // Preserve local state if:
+          // 1. User is session creator AND local state is more advanced, OR
+          // 2. Local state was recently updated (user is actively working)
+          const shouldPreserveLocal = 
+            (isSessionCreator && currentStepIndex > syncedStepIndex) ||
+            isRecentLocalUpdate;
+            
+          if (shouldPreserveLocal) {
+            console.log('Preserving local state:', {
+              reason: isRecentLocalUpdate ? 'recent local update' : 'session creator with advanced progress',
+              preserving: {
+                readingStep: currentState.readingStep,
+                selectedLayout: currentState.selectedLayout,
+                question: currentState.question,
+                selectedCardsCount: currentState.selectedCards.length
+              }
+            });
+            
+            syncedState.readingStep = currentState.readingStep;
+            syncedState.selectedLayout = currentState.selectedLayout || syncedState.selectedLayout;
+            syncedState.question = currentState.question || syncedState.question;
+            syncedState.selectedCards = currentState.selectedCards.length > 0 ? currentState.selectedCards : syncedState.selectedCards;
+            syncedState.interpretation = currentState.interpretation || syncedState.interpretation;
+            syncedState.activeCardIndex = currentState.activeCardIndex ?? syncedState.activeCardIndex;
+          } else {
+            console.log('Using synced state - no local preservation needed');
+          }
+        } else {
+          console.log('No current state to preserve, using synced state');
+        }
 
         set({ sessionState: syncedState });
 
@@ -704,16 +796,22 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
       
       set({ isLoading: true, error: null });
 
-      // Generate anonymous ID for non-authenticated users
+      // Generate persistent browser ID for non-authenticated users
       if (!user && !state.anonymousId) {
-        set({ anonymousId: uuidv4() });
+        set({ anonymousId: getPersistentBrowserId() });
       }
 
       try {
         let sessionId = state.initialSessionId;
 
         if (!sessionId) {
-          // Create new session
+          // Create new session - user becomes host
+          // This happens when accessing from:
+          // - Navbar "Try Free Reading"
+          // - Home page "Start Reading"
+          // - Collections page deck selection
+          // - Marketplace deck selection
+          // - Any internal navigation creating new session
           console.log('Creating new session for user:', user?.id || 'anonymous');
           sessionId = await get().createSession();
           if (!sessionId) {
@@ -751,10 +849,16 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           
           // Join existing database session
           console.log('Joining existing session:', sessionId);
-          const joinedSessionId = await get().joinSession(sessionId);
+          
+          // Determine access method from URL params (this would be passed from the component)
+          const urlParams = new URLSearchParams(window.location.search);
+          const accessMethod = urlParams.get('invite') === 'true' ? 'invite' : 'direct';
+          
+          const joinedSessionId = await get().joinSession(sessionId, accessMethod);
           if (!joinedSessionId) return;
           sessionId = joinedSessionId;
-          set({ isHost: false });
+          
+          // Note: isHost is now set within joinSession based on access method
         }
 
         // Fetch session data

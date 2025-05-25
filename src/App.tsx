@@ -42,6 +42,7 @@ const Marketplace = lazy(() => import('./pages/marketplace/Marketplace'));
 const DeckDetails = lazy(() => import('./pages/marketplace/DeckDetails'));
 const Collection = lazy(() => import('./pages/user/Collection')); 
 const ReadingRoom = lazy(() => import('./pages/reading/ReadingRoom'));
+const InvitePage = lazy(() => import('./pages/InvitePage'));
 const Profile = lazy(() => import('./pages/user/Profile'));
 const Checkout = lazy(() => import('./pages/marketplace/Checkout'));
 const AuthCallback = lazy(() => import('./pages/auth/AuthCallback'));
@@ -136,6 +137,10 @@ function App() {
         <Routes>
           {/* Reading room outside Layout for full-screen experience */}
           <Route path="reading-room/:deckId?" element={<ReadingRoom />} />
+          <Route path="reading/:deckId?" element={<ReadingRoom />} />
+          
+          {/* Invite page for processing invite links */}
+          <Route path="invite/:inviteId" element={<InvitePage />} />
           
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
