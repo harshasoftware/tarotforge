@@ -360,7 +360,7 @@ const Home = () => {
       {/* Hero Section */}
       <motion.section 
         id="#"
-        className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-0 pb-12 md:py-6 overflow-hidden"
+        className="relative h-[calc(100vh-4rem)] min-h-[600px] flex flex-col items-center justify-center px-4 pt-0 pb-12 md:py-6 overflow-hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
