@@ -937,6 +937,15 @@ const ReadingRoom = () => {
   const generateInterpretation = async (cards = selectedCards) => {
     if (!deck || !cards.length) return;
     
+    // Check if user is a guest and prompt for account upgrade
+    if (isGuest) {
+      // Store current reading room path for post-auth redirect
+      const currentPath = window.location.pathname + window.location.search;
+      localStorage.setItem('auth_return_path', currentPath);
+      setShowGuestUpgrade(true);
+      return;
+    }
+    
     try {
       setIsGeneratingInterpretation(true);
       
