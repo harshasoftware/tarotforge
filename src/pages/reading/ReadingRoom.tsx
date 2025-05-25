@@ -1618,7 +1618,7 @@ const ReadingRoom = () => {
                 className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} flex items-center text-muted-foreground hover:text-foreground`}
               >
                 <ArrowLeft className="h-4 w-4" />
-                {!isMobile && <span className="ml-1 text-sm">Back</span>}
+                {!isMobile && <span className="ml-1 text-sm">Exit</span>}
               </Link>
             </Tooltip>
             
