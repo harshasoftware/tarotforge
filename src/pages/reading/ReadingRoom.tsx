@@ -17,6 +17,18 @@ import Tooltip from '../../components/ui/Tooltip';
 import { v4 as uuidv4 } from 'uuid';
 import html2canvas from 'html2canvas';
 
+// TypeScript declarations for Visual Viewport API
+declare global {
+  interface Window {
+    visualViewport?: {
+      height: number;
+      width: number;
+      addEventListener: (type: string, listener: () => void) => void;
+      removeEventListener: (type: string, listener: () => void) => void;
+    };
+  }
+}
+
 // Mock reading layouts - moved outside component to prevent recreation
 const readingLayouts: ReadingLayout[] = [
   {
@@ -355,47 +367,61 @@ const ReadingRoom = () => {
       
       // Set proper viewport height for iOS Safari fix
       if (isMobileDevice) {
-        // Use the actual viewport height instead of 100vh
-        const vh = window.innerHeight;
+        // Use visualViewport if available (better for iOS Safari), fallback to innerHeight
+        const vh = window.visualViewport?.height || window.innerHeight;
         setViewportHeight(vh);
         
         // Also set CSS custom property for other components
         document.documentElement.style.setProperty('--vh', `${vh * 0.01}px`);
         
-        // Prevent scrolling on mobile
+        // Don't use position fixed on body as it causes issues on iOS Safari
+        // Instead just prevent scrolling
         document.body.style.overflow = 'hidden';
-        document.body.style.position = 'fixed';
-        document.body.style.width = '100%';
-        document.body.style.height = '100%';
+        document.body.style.touchAction = 'none'; // Prevent iOS Safari bounce
       } else {
         setViewportHeight(0); // Reset for desktop
         
         // Re-enable scrolling on desktop
         document.body.style.overflow = '';
-        document.body.style.position = '';
-        document.body.style.width = '';
-        document.body.style.height = '';
+        document.body.style.touchAction = '';
       }
     };
     
     checkMobileAndOrientation();
+    
+    // Listen for visual viewport changes (iOS Safari address bar show/hide)
+    const handleViewportChange = () => {
+      if (isMobile && window.visualViewport) {
+        const vh = window.visualViewport.height;
+        setViewportHeight(vh);
+        document.documentElement.style.setProperty('--vh', `${vh * 0.01}px`);
+      }
+    };
+    
     window.addEventListener('resize', checkMobileAndOrientation);
     window.addEventListener('orientationchange', () => {
-      // Small delay to ensure viewport is updated after orientation change
-      setTimeout(checkMobileAndOrientation, 100);
+      // Longer delay for iOS Safari to properly update viewport
+      setTimeout(checkMobileAndOrientation, 300);
     });
+    
+    // Listen for visual viewport changes
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleViewportChange);
+    }
     
     return () => {
       window.removeEventListener('resize', checkMobileAndOrientation);
       window.removeEventListener('orientationchange', checkMobileAndOrientation);
       
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleViewportChange);
+      }
+      
       // Cleanup: restore normal scrolling when component unmounts
       document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
+      document.body.style.touchAction = '';
     };
-  }, []);
+  }, [isMobile]);
 
   // Auto-show guest upgrade modal for invite link joiners
   useEffect(() => {
@@ -1567,7 +1593,12 @@ const ReadingRoom = () => {
       className={`flex flex-col ${!isMobile ? 'h-screen overflow-hidden' : 'overflow-hidden'}`}
       style={isMobile ? { 
         height: viewportHeight > 0 ? `${viewportHeight}px` : '100vh',
-        minHeight: '100vh' 
+        width: '100vw',
+        position: 'relative',
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)'
       } : undefined}
     >
       {/* Main content - full screen with floating controls */}
