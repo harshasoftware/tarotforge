@@ -983,7 +983,7 @@ const ReadingRoom = () => {
       // Store current reading room path for post-auth redirect
       const currentPath = window.location.pathname + window.location.search;
       localStorage.setItem('auth_return_path', currentPath);
-      setShowSignInModal(true);
+      setShowGuestUpgrade(true);
       return;
     }
     
@@ -1208,7 +1208,7 @@ const ReadingRoom = () => {
       // Store current reading room path for post-auth redirect
       const currentPath = window.location.pathname + window.location.search;
       localStorage.setItem('auth_return_path', currentPath);
-      setShowSignInModal(true);
+      setShowGuestUpgrade(true);
       return;
     }
     
@@ -3212,7 +3212,7 @@ const ReadingRoom = () => {
                     </button>
                   </Tooltip>
                   
-                  <Tooltip content="Start a new reading" position="left">
+                  <Tooltip content="Start a new reading" position="left" disabled={isMobile}>
                     <button 
                       onClick={resetReading}
                       className={`btn btn-ghost border border-input ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}
@@ -3287,7 +3287,7 @@ const ReadingRoom = () => {
                 {/* Card navigation */}
                 {selectedCards.length > 1 && (
                   <div className={`${isMobile ? 'p-1' : 'p-2 md:p-3'} border-t border-border flex justify-between items-center`}>
-                    <Tooltip content="Previous card" position="top">
+                    <Tooltip content="Previous card" position="top" disabled={isMobile}>
                       <button 
                         onClick={() => {
                           const currentIndex = activeCardIndex ?? 0;
@@ -3304,7 +3304,7 @@ const ReadingRoom = () => {
                       {(activeCardIndex ?? 0) + 1} of {selectedCards.length} cards
                     </div>
                     
-                    <Tooltip content="Next card" position="top">
+                    <Tooltip content="Next card" position="top" disabled={isMobile}>
                       <button 
                         onClick={() => {
                           const currentIndex = activeCardIndex ?? 0;
@@ -3363,7 +3363,7 @@ const ReadingRoom = () => {
             >
               <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
                 <h3 className="font-serif font-bold">Share Reading Room</h3>
-                <Tooltip content="Close share modal" position="left">
+                <Tooltip content="Close share modal" position="left" disabled={isMobile}>
                   <button 
                     onClick={() => setShowShareModal(false)}
                     className="text-muted-foreground hover:text-foreground"
@@ -3391,7 +3391,7 @@ const ReadingRoom = () => {
                       readOnly
                       className="flex-1 p-2 text-sm rounded-l-md border border-r-0 border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                     />
-                    <Tooltip content={showCopied ? "Link copied!" : "Copy link to clipboard"} position="top">
+                    <Tooltip content={showCopied ? "Link copied!" : "Copy link to clipboard"} position="top" disabled={isMobile}>
                       <button
                         onClick={copyRoomLink}
                         className="p-2 bg-primary text-primary-foreground rounded-r-md hover:bg-primary/90 transition-colors flex items-center"
