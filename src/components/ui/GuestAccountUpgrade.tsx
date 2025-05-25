@@ -317,7 +317,7 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
 
   if (showAsModal) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-2 md:p-4">
+      <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-2 md:p-4">
         <motion.div
           initial={{ scale: 0.95, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}

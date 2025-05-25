@@ -185,8 +185,8 @@ const ReadingRoom = () => {
     cleanup
   } = useReadingSessionStore();
   
-  // Get isGuest from computed selector
-  const isGuest = getIsGuest();
+  // Get isGuest from computed selector - also consider non-authenticated users as guests
+  const isGuest = !user;
   
   // Handle successful authentication from SignInModal - moved before early returns to fix hooks order
   const handleSignInSuccess = useCallback(() => {
@@ -3428,24 +3428,15 @@ const ReadingRoom = () => {
       
       {/* Guest Account Upgrade Modal */}
       <AnimatePresence>
-        {showGuestUpgrade && isGuest && (() => {
-          console.log('Rendering GuestAccountUpgrade modal', { 
-            showGuestUpgrade, 
-            isGuest, 
-            joinSessionId, 
-            participantCount: participants.length,
-            isInviteJoin: !!joinSessionId 
-          });
-          return (
-            <GuestAccountUpgrade
-              onUpgradeSuccess={handleGuestUpgrade}
-              onClose={handleCloseGuestUpgrade}
-              participantCount={participants.length}
-              isInviteJoin={!!joinSessionId}
-              onGuestNameSet={handleGuestNameSet}
-            />
-          );
-        })()}
+        {showGuestUpgrade && isGuest && (
+          <GuestAccountUpgrade
+            onUpgradeSuccess={handleGuestUpgrade}
+            onClose={handleCloseGuestUpgrade}
+            participantCount={participants.length}
+            isInviteJoin={!!joinSessionId}
+            onGuestNameSet={handleGuestNameSet}
+          />
+        )}
       </AnimatePresence>
       
       {/* Sign In Modal */}
