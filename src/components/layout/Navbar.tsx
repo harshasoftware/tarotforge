@@ -22,16 +22,11 @@ const Navbar = () => {
   const isMobile = useMediaQuery('(max-width: 767px)');
   const dropdownRef = useRef<HTMLDivElement>(null);
   
-  // Function to generate reading room URL with session ID
-  const generateReadingRoomUrl = () => {
-    const sessionId = uuidv4();
-    return `/reading-room?join=${sessionId}`;
-  };
-  
-  // Handle reading room navigation
+  // Handle reading room navigation - navigate immediately and create session in reading room
   const handleReadingRoomClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    navigate(generateReadingRoomUrl());
+    // Navigate immediately with a flag to create a new session
+    navigate('/reading-room?create=true');
   };
 
   // Handle scroll effect

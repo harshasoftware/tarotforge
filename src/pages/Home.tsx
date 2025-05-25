@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw, CreditCard, Check, Clock } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useCredits } from '../context/CreditContext';
+
 import { generateThemeSuggestions } from '../lib/gemini-ai';
 import TarotLogo from '../components/ui/TarotLogo';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -135,10 +136,10 @@ const Home = () => {
   const { user, setShowSignInModal } = useAuthStore();
   const { credits } = useCredits();
   
-  // Function to generate reading room URL with session ID
-  const generateReadingRoomUrl = () => {
-    const sessionId = uuidv4();
-    return `/reading-room?join=${sessionId}`;
+  // Function to navigate to reading room and create session there
+  const navigateToReadingRoom = () => {
+    // Navigate immediately with a flag to create a new session
+    navigate('/reading-room?create=true');
   };
   const [themePrompt, setThemePrompt] = useState("");
   const [themeSuggestions, setThemeSuggestions] = useState<string[]>([]);
@@ -580,7 +581,7 @@ const Home = () => {
                 Browse Marketplace
               </Link>
               <button 
-                onClick={() => navigate(generateReadingRoomUrl())}
+                onClick={navigateToReadingRoom}
                 className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors w-full"
               >
                 <BookOpen className="h-4 w-4 mr-2" />
@@ -664,7 +665,7 @@ const Home = () => {
                 Experience immersive tarot readings with AI interpretations or connect with professional readers for personalized guidance.
               </p>
               <button 
-                onClick={() => navigate(generateReadingRoomUrl())}
+                onClick={navigateToReadingRoom}
                 className="text-primary hover:underline flex items-center text-sm"
               >
                 Try a Reading

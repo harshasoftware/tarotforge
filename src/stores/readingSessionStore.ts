@@ -44,6 +44,8 @@ interface ReadingSessionStore {
   participantId: string | null;
   presenceInterval: NodeJS.Timeout | null;
   anonymousId: string | null;
+  isOfflineMode: boolean;
+  pendingSyncData: Partial<ReadingSessionState> | null;
 
   // Actions
   setSessionState: (sessionState: ReadingSessionState | null) => void;
@@ -54,8 +56,13 @@ interface ReadingSessionStore {
   setInitialSessionId: (sessionId: string | null) => void;
   setDeckId: (deckId: string) => void;
   createSession: () => Promise<string | null>;
+  createLocalSession: () => string;
   joinSession: (sessionId: string) => Promise<string | null>;
   updateSession: (updates: Partial<ReadingSessionState>) => Promise<void>;
+  updateLocalSession: (updates: Partial<ReadingSessionState>) => void;
+  syncLocalSessionToDatabase: () => Promise<boolean>;
+  loadLocalSession: (sessionId: string) => ReadingSessionState | null;
+  saveLocalSession: (sessionState: ReadingSessionState) => void;
   updatePresence: () => Promise<void>;
   leaveSession: () => Promise<void>;
   upgradeGuestAccount: (newUserId: string) => Promise<boolean>;
@@ -78,6 +85,8 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
     participantId: null,
     presenceInterval: null,
     anonymousId: null,
+    isOfflineMode: false,
+    pendingSyncData: null,
 
     setSessionState: (sessionState) => set({ sessionState }),
     setParticipants: (participants) => set({ participants }),
@@ -110,8 +119,150 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         return data.id;
       } catch (err: any) {
         console.error('Error creating session:', err);
-        set({ error: err.message });
-        return null;
+        
+        // Fallback to local session if database fails
+        console.log('Database failed, creating local session as fallback');
+        const localSessionId = get().createLocalSession();
+        set({ isOfflineMode: true });
+        return localSessionId;
+      }
+    },
+
+    createLocalSession: () => {
+      const { user } = useAuthStore.getState();
+      const { deckId } = get();
+      
+      const sessionId = `local_${uuidv4()}`;
+      const now = new Date().toISOString();
+      
+      const localSession: ReadingSessionState = {
+        id: sessionId,
+        hostUserId: user?.id || null,
+        deckId,
+        selectedLayout: null,
+        question: '',
+        readingStep: 'setup',
+        selectedCards: [],
+        interpretation: '',
+        zoomLevel: 1.0,
+        activeCardIndex: null,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now
+      };
+      
+      // Save to localStorage
+      get().saveLocalSession(localSession);
+      
+      // Set as current session
+      set({ 
+        sessionState: localSession,
+        isHost: true,
+        isOfflineMode: true
+      });
+      
+      return sessionId;
+    },
+
+    loadLocalSession: (sessionId: string) => {
+      try {
+        const stored = localStorage.getItem(`tarot_session_${sessionId}`);
+        if (stored) {
+          return JSON.parse(stored) as ReadingSessionState;
+        }
+      } catch (error) {
+        console.error('Error loading local session:', error);
+      }
+      return null;
+    },
+
+    saveLocalSession: (sessionState: ReadingSessionState) => {
+      try {
+        localStorage.setItem(`tarot_session_${sessionState.id}`, JSON.stringify(sessionState));
+      } catch (error) {
+        console.error('Error saving local session:', error);
+      }
+    },
+
+    updateLocalSession: (updates: Partial<ReadingSessionState>) => {
+      const { sessionState } = get();
+      
+      if (!sessionState) return;
+      
+      const updatedSession = {
+        ...sessionState,
+        ...updates,
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Update local state
+      set({ sessionState: updatedSession });
+      
+      // Save to localStorage
+      get().saveLocalSession(updatedSession);
+      
+      // Store pending sync data if we're offline
+      const { isOfflineMode } = get();
+      if (isOfflineMode) {
+        set({ pendingSyncData: { ...get().pendingSyncData, ...updates } });
+      }
+    },
+
+    syncLocalSessionToDatabase: async () => {
+      const { sessionState, pendingSyncData, isOfflineMode } = get();
+      
+      if (!sessionState || !isOfflineMode || !sessionState.id.startsWith('local_')) {
+        return false;
+      }
+      
+      try {
+        const { user } = useAuthStore.getState();
+        
+        // Create the session in the database
+        const { data, error } = await supabase
+          .from('reading_sessions')
+          .insert({
+            host_user_id: user?.id || sessionState.hostUserId,
+            deck_id: sessionState.deckId,
+            selected_layout: sessionState.selectedLayout,
+            question: sessionState.question,
+            reading_step: sessionState.readingStep,
+            selected_cards: sessionState.selectedCards,
+            interpretation: sessionState.interpretation,
+            zoom_level: sessionState.zoomLevel,
+            active_card_index: sessionState.activeCardIndex,
+            is_active: true
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Update session with new database ID
+        const syncedSession: ReadingSessionState = {
+          ...sessionState,
+          id: data.id,
+          updatedAt: new Date().toISOString()
+        };
+        
+        // Clean up local session
+        localStorage.removeItem(`tarot_session_${sessionState.id}`);
+        
+        // Save synced session
+        get().saveLocalSession(syncedSession);
+        
+        // Update state
+        set({ 
+          sessionState: syncedSession,
+          isOfflineMode: false,
+          pendingSyncData: null
+        });
+        
+        console.log('Successfully synced local session to database:', data.id);
+        return true;
+      } catch (error) {
+        console.error('Failed to sync local session to database:', error);
+        return false;
       }
     },
 
@@ -156,10 +307,16 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
     },
 
     updateSession: async (updates: Partial<ReadingSessionState>) => {
-      const { sessionState } = get();
+      const { sessionState, isOfflineMode } = get();
       
       if (!sessionState?.id) {
         console.warn('No session ID available for update');
+        return;
+      }
+
+      // If in offline mode or local session, use local update
+      if (isOfflineMode || sessionState.id.startsWith('local_')) {
+        get().updateLocalSession(updates);
         return;
       }
 
@@ -419,33 +576,39 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           console.log('Creating new session for user:', user?.id || 'anonymous');
           sessionId = await get().createSession();
           if (!sessionId) {
-            // If database creation fails, create a local session for development
-            console.warn('Database session creation failed, creating local session');
-            sessionId = uuidv4();
-            set({
-              sessionState: {
-                id: sessionId,
-                hostUserId: user?.id || null,
-                deckId: state.deckId,
-                selectedLayout: null,
-                question: '',
-                readingStep: 'setup',
-                selectedCards: [],
-                interpretation: '',
-                zoomLevel: 1.0,
-                activeCardIndex: null,
-                isActive: true,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-              },
-              isHost: true,
-              isLoading: false
-            });
+            set({ error: 'Failed to create session' });
             return;
           }
           set({ isHost: true });
         } else {
-          // Join existing session
+          // Check if it's a local session first
+          if (sessionId.startsWith('local_')) {
+            console.log('Loading local session:', sessionId);
+            const localSession = get().loadLocalSession(sessionId);
+            if (localSession) {
+              set({
+                sessionState: localSession,
+                isHost: true,
+                isOfflineMode: true,
+                isLoading: false
+              });
+              
+              // Try to sync to database in the background
+              setTimeout(async () => {
+                const synced = await get().syncLocalSessionToDatabase();
+                if (synced) {
+                  console.log('Local session successfully synced to database');
+                }
+              }, 1000);
+              
+              return;
+            } else {
+              set({ error: 'Local session not found' });
+              return;
+            }
+          }
+          
+          // Join existing database session
           console.log('Joining existing session:', sessionId);
           const joinedSessionId = await get().joinSession(sessionId);
           if (!joinedSessionId) return;

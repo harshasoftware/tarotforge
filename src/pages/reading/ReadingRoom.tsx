@@ -165,9 +165,10 @@ const ReadingRoom = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Get join session ID from URL params
+  // Get join session ID and create flag from URL params
   const urlParams = new URLSearchParams(location.search);
   const joinSessionId = urlParams.get('join');
+  const shouldCreateSession = urlParams.get('create') === 'true';
   
   // Initialize reading session store
   const {
@@ -182,6 +183,9 @@ const ReadingRoom = () => {
     setInitialSessionId,
     setDeckId,
     initializeSession,
+    createSession,
+    isOfflineMode,
+    syncLocalSessionToDatabase,
     cleanup
   } = useReadingSessionStore();
   
@@ -198,9 +202,47 @@ const ReadingRoom = () => {
   
   // Initialize session on mount
   useEffect(() => {
-    setInitialSessionId(joinSessionId);
-    setDeckId(deckId || 'rider-waite-classic');
-    initializeSession();
+    const initSession = async () => {
+      if (shouldCreateSession) {
+        // Create a new session and update URL
+        try {
+          const newSessionId = await createSession();
+          if (newSessionId) {
+            // Update URL to remove create flag and add session ID
+            const newUrl = `/reading-room?join=${newSessionId}`;
+            window.history.replaceState({}, '', newUrl);
+            setInitialSessionId(newSessionId);
+          } else {
+            // Session creation failed, show error
+            setError('Failed to create reading room session. Please try again.');
+            return;
+          }
+        } catch (error) {
+          console.error('Error creating session:', error);
+          setError('Failed to create reading room session. Please try again.');
+          return;
+        }
+      } else {
+        setInitialSessionId(joinSessionId);
+      }
+      
+      setDeckId(deckId || 'rider-waite-classic');
+      initializeSession();
+    };
+    
+    initSession();
+    
+    // Set up periodic sync for offline sessions
+    const syncInterval = setInterval(async () => {
+      if (isOfflineMode && sessionState?.id?.startsWith('local_')) {
+        console.log('Attempting periodic sync of local session...');
+        const synced = await syncLocalSessionToDatabase();
+        if (synced) {
+          console.log('Periodic sync successful');
+          clearInterval(syncInterval);
+        }
+      }
+    }, 30000); // Try every 30 seconds
     
     // Load question cache from localStorage
     try {
@@ -230,8 +272,26 @@ const ReadingRoom = () => {
     }
     
     // Cleanup on unmount
-    return cleanup;
+    return () => {
+      cleanup();
+      clearInterval(syncInterval);
+    };
   }, [joinSessionId, deckId, setInitialSessionId, setDeckId, initializeSession, cleanup]);
+  
+  // Watch for successful sync from offline to online
+  useEffect(() => {
+    const wasOffline = localStorage.getItem('was_offline_mode');
+    if (wasOffline === 'true' && !isOfflineMode && sessionState?.id && !sessionState.id.startsWith('local_')) {
+      setShowSyncSuccess(true);
+      localStorage.removeItem('was_offline_mode');
+      setTimeout(() => setShowSyncSuccess(false), 3000);
+    }
+    
+    // Track offline mode state
+    if (isOfflineMode) {
+      localStorage.setItem('was_offline_mode', 'true');
+    }
+  }, [isOfflineMode, sessionState?.id]);
   
   const [deck, setDeck] = useState<Deck | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
@@ -348,6 +408,9 @@ const ReadingRoom = () => {
   
   // Deck refresh key to force visual re-render when deck is reset
   const [deckRefreshKey, setDeckRefreshKey] = useState(0);
+  
+  // Sync success notification
+  const [showSyncSuccess, setShowSyncSuccess] = useState(false);
   
   // Helper function to get today's date string
   const getTodayDateString = () => {
@@ -1657,13 +1720,22 @@ const ReadingRoom = () => {
   }, [isSubscribed]);
   
   if (loading) {
+    const loadingMessage = shouldCreateSession 
+      ? 'Creating your reading room...'
+      : 'Preparing reading room...';
+      
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
           <LoadingSpinner size="lg" className="mx-auto mb-4" />
           <p className="text-muted-foreground">
-            Preparing reading room...
+            {loadingMessage}
           </p>
+          {shouldCreateSession && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Setting up your session...
+            </p>
+          )}
         </div>
       </div>
     );
@@ -1671,28 +1743,52 @@ const ReadingRoom = () => {
 
   // Show session loading only if deck data is also loading
   if (sessionLoading && loading) {
+    const sessionLoadingMessage = shouldCreateSession 
+      ? 'Creating your reading room...'
+      : 'Connecting to reading room...';
+      
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
           <LoadingSpinner size="lg" className="mx-auto mb-4" />
           <p className="text-muted-foreground">
-            Connecting to reading room...
+            {sessionLoadingMessage}
           </p>
+          {shouldCreateSession && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Please wait while we set up your session...
+            </p>
+          )}
         </div>
       </div>
     );
   }
   
   if (error || sessionError) {
+    const isSessionCreationError = error?.includes('Failed to create reading room session');
+    
     return (
       <div className="h-screen flex flex-col items-center justify-center p-4">
         <div className="text-center max-w-md mx-auto p-6 bg-card border border-border rounded-xl">
           <HelpCircle className="h-16 w-16 text-warning mx-auto mb-4" />
-          <h2 className="text-xl md:text-2xl font-serif font-bold mb-4">Something Went Wrong</h2>
+          <h2 className="text-xl md:text-2xl font-serif font-bold mb-4">
+            {isSessionCreationError ? 'Failed to Create Reading Room' : 'Something Went Wrong'}
+          </h2>
           <p className="text-muted-foreground mb-6 text-sm md:text-base">
             {sessionError || error}
           </p>
           <div className="flex flex-col gap-4 justify-center">
+            {isSessionCreationError && (
+              <button 
+                onClick={() => {
+                  setError(null);
+                  window.location.reload();
+                }}
+                className="btn btn-primary px-6 py-2"
+              >
+                Try Again
+              </button>
+            )}
             {user ? (
               <>
                 <Link to="/collection" className="btn btn-secondary px-6 py-2">
@@ -1756,6 +1852,29 @@ const ReadingRoom = () => {
                 >
                   <XCircle className="h-4 w-4" />
                 </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {/* Sync Success Notification */}
+        <AnimatePresence>
+          {showSyncSuccess && (
+            <motion.div 
+              className={`absolute ${isMobile ? 'top-16 left-4 right-4' : 'top-16 left-1/2 transform -translate-x-1/2'} bg-success/95 text-success-foreground px-4 py-3 rounded-lg text-sm z-[60] shadow-xl border border-success/20`}
+              initial={{ opacity: 0, y: -20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.9 }}
+              transition={{ duration: 0.3, exit: { duration: 0.2 } }}
+            >
+              <div className="flex items-center gap-3">
+                <Check className="h-5 w-5 text-success-foreground" />
+                <div className="flex-1">
+                  <div className="font-medium">Session Synced!</div>
+                  <div className="text-xs opacity-90">
+                    Your reading is now saved to the cloud
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
@@ -1909,6 +2028,25 @@ const ReadingRoom = () => {
           
           {/* Right side - Action buttons - horizontal for both mobile and desktop */}
           <div className={`flex ${isMobile ? 'items-center gap-1' : 'items-center gap-1 md:gap-2'}`}>
+            {/* Offline mode indicator and sync button */}
+            {isOfflineMode && (
+              <Tooltip content="Working offline - click to sync to cloud" position="bottom" disabled={isMobile}>
+                <button 
+                  onClick={async () => {
+                    const synced = await syncLocalSessionToDatabase();
+                    if (!synced) {
+                      // Show error or retry logic
+                      console.log('Sync failed, will retry later');
+                    }
+                  }}
+                  className={`btn btn-warning bg-warning/80 backdrop-blur-sm border border-warning/50 ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} animate-pulse`}
+                >
+                  <Zap className="h-4 w-4" />
+                  {!isMobile && <span className="text-xs">Offline</span>}
+                </button>
+              </Tooltip>
+            )}
+            
             {/* Deck change button - show when deck is selected */}
             <Tooltip content="Change deck" position="bottom" disabled={isMobile}>
               <button 
