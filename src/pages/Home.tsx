@@ -8,6 +8,7 @@ import { generateThemeSuggestions } from '../lib/gemini-ai';
 import TarotLogo from '../components/ui/TarotLogo';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { generateElaborateTheme } from '../lib/gemini-ai';
+import { v4 as uuidv4 } from 'uuid';
 
 // Featured decks data
 const featuredDecks = [
@@ -133,6 +134,12 @@ const Home = () => {
   const location = useLocation();
   const { user, setShowSignInModal } = useAuthStore();
   const { credits } = useCredits();
+  
+  // Function to generate reading room URL with session ID
+  const generateReadingRoomUrl = () => {
+    const sessionId = uuidv4();
+    return `/reading-room?join=${sessionId}`;
+  };
   const [themePrompt, setThemePrompt] = useState("");
   const [themeSuggestions, setThemeSuggestions] = useState<string[]>([]);
   const [isGeneratingThemes, setIsGeneratingThemes] = useState(false);
@@ -572,13 +579,13 @@ const Home = () => {
                 <ShoppingBag className="h-4 w-4 mr-2" />
                 Browse Marketplace
               </Link>
-              <Link 
-                to="/reading-room" 
-                className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
+              <button 
+                onClick={() => navigate(generateReadingRoomUrl())}
+                className="py-4 flex items-center justify-center text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors w-full"
               >
                 <BookOpen className="h-4 w-4 mr-2" />
                 Try Free Reading
-              </Link>
+              </button>
             </div>
           </div>
         </motion.div>
@@ -656,10 +663,13 @@ const Home = () => {
               <p className="text-muted-foreground mb-4">
                 Experience immersive tarot readings with AI interpretations or connect with professional readers for personalized guidance.
               </p>
-              <Link to="/reading-room" className="text-primary hover:underline flex items-center text-sm">
+              <button 
+                onClick={() => navigate(generateReadingRoomUrl())}
+                className="text-primary hover:underline flex items-center text-sm"
+              >
                 Try a Reading
                 <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
+              </button>
             </motion.div>
           </div>
         </div>
