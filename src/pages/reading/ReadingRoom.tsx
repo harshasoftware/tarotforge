@@ -3029,14 +3029,14 @@ const ReadingRoom = () => {
                   {!isMobile && (
                     <>
                       <div className="w-full h-px bg-border my-1"></div>
-                      <div className="relative w-12 h-12 mx-auto">
+                      <div className="relative w-14 h-14">
                         {/* Up */}
                         <Tooltip content="Pan up (↑)" position="right">
                           <button 
                             onClick={() => panDirection('up')}
-                            className="absolute top-0 left-1/2 transform -translate-x-1/2 p-1 hover:bg-muted rounded-sm"
+                            className="absolute top-0 left-1/2 transform -translate-x-1/2 p-1.5 hover:bg-muted rounded-sm"
                           >
-                            <ArrowUp className="h-3 w-3" />
+                            <ArrowUp className="h-4 w-4" />
                           </button>
                         </Tooltip>
                         
@@ -3044,9 +3044,9 @@ const ReadingRoom = () => {
                         <Tooltip content="Pan left (←)" position="right">
                           <button 
                             onClick={() => panDirection('left')}
-                            className="absolute left-0 top-1/2 transform -translate-y-1/2 p-1 hover:bg-muted rounded-sm"
+                            className="absolute left-0 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-muted rounded-sm"
                           >
-                            <ChevronLeft className="h-3 w-3" />
+                            <ChevronLeft className="h-4 w-4" />
                           </button>
                         </Tooltip>
                         
@@ -3054,9 +3054,9 @@ const ReadingRoom = () => {
                         <Tooltip content="Reset pan to center" position="right">
                           <button 
                             onClick={resetPan}
-                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
+                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-5 h-5 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
                           >
-                            <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full"></div>
+                            <div className="w-2 h-2 bg-muted-foreground rounded-full"></div>
                           </button>
                         </Tooltip>
                         
@@ -3064,9 +3064,9 @@ const ReadingRoom = () => {
                         <Tooltip content="Pan right (→)" position="right">
                           <button 
                             onClick={() => panDirection('right')}
-                            className="absolute right-0 top-1/2 transform -translate-y-1/2 p-1 hover:bg-muted rounded-sm"
+                            className="absolute right-0 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-muted rounded-sm"
                           >
-                            <ChevronRight className="h-3 w-3" />
+                            <ChevronRight className="h-4 w-4" />
                           </button>
                         </Tooltip>
                         
@@ -3074,9 +3074,9 @@ const ReadingRoom = () => {
                         <Tooltip content="Pan down (↓)" position="right">
                           <button 
                             onClick={() => panDirection('down')}
-                            className="absolute bottom-0 left-1/2 transform -translate-x-1/2 p-1 hover:bg-muted rounded-sm"
+                            className="absolute bottom-0 left-1/2 transform -translate-x-1/2 p-1.5 hover:bg-muted rounded-sm"
                           >
-                            <ArrowDown className="h-3 w-3" />
+                            <ArrowDown className="h-4 w-4" />
                           </button>
                         </Tooltip>
                       </div>
@@ -3619,14 +3619,14 @@ const ReadingRoom = () => {
                   {!isMobile && (
                     <>
                       <div className="w-full h-px bg-border my-1"></div>
-                      <div className="relative w-12 h-12 mx-auto">
+                      <div className="relative w-14 h-14">
                         {/* Up */}
                         <Tooltip content="Pan up (↑)" position="right">
                           <button 
                             onClick={() => panDirection('up')}
-                            className="absolute top-0 left-1/2 transform -translate-x-1/2 p-1 hover:bg-muted rounded-sm"
+                            className="absolute top-0 left-1/2 transform -translate-x-1/2 p-1.5 hover:bg-muted rounded-sm"
                           >
-                            <ArrowUp className="h-3 w-3" />
+                            <ArrowUp className="h-4 w-4" />
                           </button>
                         </Tooltip>
                         
@@ -3634,9 +3634,9 @@ const ReadingRoom = () => {
                         <Tooltip content="Pan left (←)" position="right">
                           <button 
                             onClick={() => panDirection('left')}
-                            className="absolute left-0 top-1/2 transform -translate-y-1/2 p-1 hover:bg-muted rounded-sm"
+                            className="absolute left-0 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-muted rounded-sm"
                           >
-                            <ChevronLeft className="h-3 w-3" />
+                            <ChevronLeft className="h-4 w-4" />
                           </button>
                         </Tooltip>
                         
@@ -3644,9 +3644,9 @@ const ReadingRoom = () => {
                         <Tooltip content="Reset pan to center" position="right">
                           <button 
                             onClick={resetPan}
-                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
+                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-5 h-5 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
                           >
-                            <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full"></div>
+                            <div className="w-2 h-2 bg-muted-foreground rounded-full"></div>
                           </button>
                         </Tooltip>
                         
@@ -3654,9 +3654,9 @@ const ReadingRoom = () => {
                         <Tooltip content="Pan right (→)" position="right">
                           <button 
                             onClick={() => panDirection('right')}
-                            className="absolute right-0 top-1/2 transform -translate-y-1/2 p-1 hover:bg-muted rounded-sm"
+                            className="absolute right-0 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-muted rounded-sm"
                           >
-                            <ChevronRight className="h-3 w-3" />
+                            <ChevronRight className="h-4 w-4" />
                           </button>
                         </Tooltip>
                         
@@ -3664,9 +3664,9 @@ const ReadingRoom = () => {
                         <Tooltip content="Pan down (↓)" position="right">
                           <button 
                             onClick={() => panDirection('down')}
-                            className="absolute bottom-0 left-1/2 transform -translate-x-1/2 p-1 hover:bg-muted rounded-sm"
+                            className="absolute bottom-0 left-1/2 transform -translate-x-1/2 p-1.5 hover:bg-muted rounded-sm"
                           >
-                            <ArrowDown className="h-3 w-3" />
+                            <ArrowDown className="h-4 w-4" />
                           </button>
                         </Tooltip>
                       </div>

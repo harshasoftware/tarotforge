@@ -226,10 +226,10 @@ The Card Gallery provides an immersive way to view and analyze individual cards 
 Desktop users have access to a visual directional control pad (joypad) integrated into the zoom controls panel for precise panning of the drawing area.
 
 ### Visual Design
-- **Position**: Below zoom controls in left panel
-- **Layout**: Cross-shaped directional pad with center dot
-- **Size**: 48x48px compact design
-- **Styling**: Consistent with zoom control buttons
+- **Position**: Below zoom controls in left panel, aligned with zoom controls vertical axis
+- **Layout**: Cross-shaped directional pad with center button
+- **Size**: 56x56px design with larger touch targets
+- **Styling**: Consistent with zoom control buttons, enhanced padding
 - **Separators**: Visual dividers above and below joypad
 
 ### Directional Controls
