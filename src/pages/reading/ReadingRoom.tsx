@@ -236,10 +236,13 @@ const ReadingRoom = () => {
       }
       
       setDeckId(deckId || 'rider-waite-classic');
-      initializeSession();
+      await initializeSession();
     };
     
-    initSession();
+    initSession().catch(error => {
+      console.error('Error initializing session:', error);
+      setError('Failed to initialize session. Please try again.');
+    });
     
     // Set up periodic sync for offline sessions and state synchronization
     const syncInterval = setInterval(async () => {

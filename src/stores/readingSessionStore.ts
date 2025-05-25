@@ -15,6 +15,7 @@ export interface ReadingSessionState {
   question: string;
   readingStep: 'setup' | 'ask-question' | 'drawing' | 'interpretation';
   selectedCards: (Card & { position: string; isReversed: boolean; x?: number; y?: number; customPosition?: string })[];
+  shuffledDeck: Card[];
   interpretation: string;
   zoomLevel: number;
   panOffset: { x: number; y: number };
@@ -332,7 +333,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           question: session.question || '',
           readingStep: session.reading_step,
           selectedCards: session.selected_cards || [],
-          shuffledDeck: session.shuffled_deck || [],
+          shuffledDeck: session.shuffled_deck ?? [],
           interpretation: session.interpretation || '',
           zoomLevel: session.zoom_level || 1.0,
           panOffset: session.pan_offset || { x: 0, y: 0 },
@@ -667,6 +668,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
                 question: newSession.question || '',
                 readingStep: newSession.reading_step,
                 selectedCards: newSession.selected_cards || [],
+                shuffledDeck: newSession.shuffled_deck ?? [],
                 interpretation: newSession.interpretation || '',
                 zoomLevel: newSession.zoom_level || 1.0,
                 panOffset: newSession.pan_offset || { x: 0, y: 0 },
@@ -769,7 +771,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           question: session.question || '',
           readingStep: session.reading_step,
           selectedCards: session.selected_cards || [],
-          shuffledDeck: session.shuffled_deck || [],
+          shuffledDeck: session.shuffled_deck ?? [],
           interpretation: session.interpretation || '',
           zoomLevel: session.zoom_level || 1.0,
           panOffset: session.pan_offset || { x: 0, y: 0 },
@@ -1035,7 +1037,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
               question: session.question || '',
               readingStep: session.reading_step,
               selectedCards: session.selected_cards || [],
-              shuffledDeck: session.shuffled_deck || [],
+              shuffledDeck: session.shuffled_deck ?? [],
               interpretation: session.interpretation || '',
               zoomLevel: session.zoom_level || 1.0,
               panOffset: session.pan_offset || { x: 0, y: 0 },
@@ -1120,8 +1122,11 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           // Continue without participants data
         }
 
-        // Setup realtime subscriptions
-        get().setupRealtimeSubscriptions();
+        // Setup realtime subscriptions after participant ID is set
+        // Add a small delay to ensure participant ID is properly set
+        setTimeout(() => {
+          get().setupRealtimeSubscriptions();
+        }, 100);
 
       } catch (err: any) {
         console.error('Error initializing session:', err);
@@ -1350,6 +1355,28 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
       } catch (error) {
         console.error('Error broadcasting guest action:', error);
       }
+    },
+
+    subscribeToBroadcast: (callback: (action: string, data: any, participantId: string) => void) => {
+      const { channel } = get();
+      
+      if (!channel) {
+        console.warn('Cannot subscribe to broadcast: No channel available');
+        return () => {}; // Return empty unsubscribe function
+      }
+
+      // Subscribe to broadcast events
+      const unsubscribe = channel.on('broadcast', { event: 'guest_action' }, (payload: any) => {
+        const { action, data, participantId } = payload.payload;
+        callback(action, data, participantId);
+      });
+
+      // Return unsubscribe function
+      return () => {
+        if (unsubscribe && typeof unsubscribe.unsubscribe === 'function') {
+          unsubscribe.unsubscribe();
+        }
+      };
     }
   }))
 );

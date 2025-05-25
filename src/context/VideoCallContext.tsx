@@ -88,87 +88,93 @@ export const VideoCallProvider: React.FC<VideoCallProviderProps> = ({ children }
   const createPeerConnection = useCallback((targetParticipantId: string, initiator: boolean) => {
     const peerId = uuidv4();
     
-    const peer = new Peer({
-      initiator,
-      trickle: false,
-      stream: localStream || undefined,
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-        ]
-      }
-    });
+    try {
+      const peer = new Peer({
+        initiator,
+        trickle: false,
+        stream: localStream || undefined,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+          ]
+        }
+      });
 
-    // Store peer connection
-    setPeerConnections(prev => new Map(prev).set(peerId, peer));
-    setConnectedPeers(prev => new Map(prev).set(targetParticipantId, peerId));
+      // Store peer connection
+      setPeerConnections(prev => new Map(prev).set(peerId, peer));
+      setConnectedPeers(prev => new Map(prev).set(targetParticipantId, peerId));
 
-    peer.on('signal', async (data) => {
-      console.log('Sending signal to', targetParticipantId);
-      
-      // Send signal through Supabase realtime
-      await supabase
-        .from('video_signals')
-        .insert({
-          session_id: sessionId,
-          from_participant: participantId,
-          to_participant: targetParticipantId,
-          signal_data: data,
-          peer_id: peerId,
-          created_at: new Date().toISOString()
+      peer.on('signal', async (data) => {
+        console.log('Sending signal to', targetParticipantId);
+        
+        // Send signal through Supabase realtime
+        await supabase
+          .from('video_signals')
+          .insert({
+            session_id: sessionId,
+            from_participant: participantId,
+            to_participant: targetParticipantId,
+            signal_data: data,
+            peer_id: peerId,
+            created_at: new Date().toISOString()
+          });
+      });
+
+      peer.on('stream', (remoteStream) => {
+        console.log('Received remote stream from', targetParticipantId);
+        setRemoteStreams(prev => new Map(prev).set(targetParticipantId, remoteStream));
+      });
+
+      peer.on('connect', () => {
+        console.log('Connected to peer:', targetParticipantId);
+        setConnectionStatus('connected');
+      });
+
+      peer.on('error', (err) => {
+        console.error('Peer connection error with', targetParticipantId, ':', err);
+        setError(`Connection error with participant: ${err.message}`);
+        
+        // Clean up failed connection
+        setPeerConnections(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(peerId);
+          return newMap;
         });
-    });
-
-    peer.on('stream', (remoteStream) => {
-      console.log('Received remote stream from', targetParticipantId);
-      setRemoteStreams(prev => new Map(prev).set(targetParticipantId, remoteStream));
-    });
-
-    peer.on('connect', () => {
-      console.log('Connected to peer:', targetParticipantId);
-      setConnectionStatus('connected');
-    });
-
-    peer.on('error', (err) => {
-      console.error('Peer connection error with', targetParticipantId, ':', err);
-      setError(`Connection error with participant: ${err.message}`);
-      
-      // Clean up failed connection
-      setPeerConnections(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(peerId);
-        return newMap;
+        setConnectedPeers(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(targetParticipantId);
+          return newMap;
+        });
       });
-      setConnectedPeers(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(targetParticipantId);
-        return newMap;
-      });
-    });
 
-    peer.on('close', () => {
-      console.log('Peer connection closed with', targetParticipantId);
-      
-      // Clean up closed connection
-      setPeerConnections(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(peerId);
-        return newMap;
+      peer.on('close', () => {
+        console.log('Peer connection closed with', targetParticipantId);
+        
+        // Clean up closed connection
+        setPeerConnections(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(peerId);
+          return newMap;
+        });
+        setConnectedPeers(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(targetParticipantId);
+          return newMap;
+        });
+        setRemoteStreams(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(targetParticipantId);
+          return newMap;
+        });
       });
-      setConnectedPeers(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(targetParticipantId);
-        return newMap;
-      });
-      setRemoteStreams(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(targetParticipantId);
-        return newMap;
-      });
-    });
 
-    return { peer, peerId };
+      return { peer, peerId };
+    } catch (error) {
+      console.error('Error creating peer connection:', error);
+      setError(`Failed to create peer connection: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return null;
+    }
   }, [localStream, sessionId, participantId]);
 
   // Handle incoming signals
@@ -192,14 +198,18 @@ export const VideoCallProvider: React.FC<VideoCallProviderProps> = ({ children }
         
         if (!peer) {
           // Create new peer connection for incoming signal
-          const { peer: newPeer } = createPeerConnection(from_participant, false);
-          peer = newPeer;
+          const result = createPeerConnection(from_participant, false);
+          if (result) {
+            peer = result.peer;
+          }
         }
         
-        try {
-          peer.signal(signal_data);
-        } catch (err) {
-          console.error('Error processing signal:', err);
+        if (peer) {
+          try {
+            peer.signal(signal_data);
+          } catch (err) {
+            console.error('Error processing signal:', err);
+          }
         }
         
         // Clean up the signal record
@@ -220,25 +230,33 @@ export const VideoCallProvider: React.FC<VideoCallProviderProps> = ({ children }
     for (const targetParticipantId of existingParticipants) {
       if (targetParticipantId !== participantId) {
         console.log('Connecting to existing participant:', targetParticipantId);
-        createPeerConnection(targetParticipantId, true);
+        const result = createPeerConnection(targetParticipantId, true);
+        if (!result) {
+          console.error('Failed to create peer connection for:', targetParticipantId);
+        }
       }
     }
   }, [participantId, createPeerConnection]);
 
   // Handle new participants joining
   useEffect(() => {
-    if (!sessionState?.videoCallState?.isActive) return;
+    if (!sessionState?.videoCallState?.isActive || !participantId) return;
     
     const currentParticipants = sessionState.videoCallState.participants || [];
     const newParticipants = currentParticipants.filter(p => 
       p !== participantId && !connectedPeers.has(p)
     );
     
-    // Connect to new participants
-    newParticipants.forEach(targetParticipantId => {
-      console.log('New participant joined, connecting:', targetParticipantId);
-      createPeerConnection(targetParticipantId, true);
-    });
+    // Connect to new participants only if we have local stream
+    if (localStream && newParticipants.length > 0) {
+      newParticipants.forEach(targetParticipantId => {
+        console.log('New participant joined, connecting:', targetParticipantId);
+        const result = createPeerConnection(targetParticipantId, true);
+        if (!result) {
+          console.error('Failed to create peer connection for new participant:', targetParticipantId);
+        }
+      });
+    }
     
     // Clean up connections for participants who left
     connectedPeers.forEach((peerId, targetParticipantId) => {
@@ -275,8 +293,14 @@ export const VideoCallProvider: React.FC<VideoCallProviderProps> = ({ children }
       sessionId: sessionState.id
     });
 
-    // Add a small delay to prevent interference with manual video call starts
+    // Add a longer delay to prevent interference with manual video call starts and session initialization
     const timeoutId = setTimeout(() => {
+      // Double-check that participant ID is still available
+      if (!participantId) {
+        console.log('Auto-sync cancelled: participant ID no longer available');
+        return;
+      }
+
       if (isActive && !isParticipantInCall && connectionStatus === 'disconnected') {
         // Auto-join video call
         console.log('Auto-joining video call for participant:', participantId);
@@ -288,7 +312,7 @@ export const VideoCallProvider: React.FC<VideoCallProviderProps> = ({ children }
           endCall();
         }
       }
-    }, 1000); // 1 second delay
+    }, 2000); // 2 second delay to allow for session initialization
 
     return () => clearTimeout(timeoutId);
   }, [sessionState?.videoCallState, isAutoJoinEnabled, connectionStatus, participantId]);
