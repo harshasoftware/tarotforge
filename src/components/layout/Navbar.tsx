@@ -8,6 +8,7 @@ import SignInModal from '../auth/SignInModal';
 import TarotLogo from '../ui/TarotLogo';
 import DeckQuotaBadge from '../ui/CreditBadge';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { v4 as uuidv4 } from 'uuid';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,8 +18,21 @@ const Navbar = () => {
   const { user, signOut, showSignInModal, setShowSignInModal } = useAuthStore();
   const { isSubscribed } = useSubscription();
   const location = useLocation();
+  const navigate = useNavigate();
   const isMobile = useMediaQuery('(max-width: 767px)');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Function to generate reading room URL with session ID
+  const generateReadingRoomUrl = () => {
+    const sessionId = uuidv4();
+    return `/reading-room?join=${sessionId}`;
+  };
+  
+  // Handle reading room navigation
+  const handleReadingRoomClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigate(generateReadingRoomUrl());
+  };
 
   // Handle scroll effect
   useEffect(() => {
@@ -87,7 +101,14 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-1">
             <NavLink to="/marketplace">Marketplace</NavLink>
             <NavLink to="/readers">Readers</NavLink>
-            <NavLink to="/reading-room">Reading Room</NavLink>
+            <button
+              onClick={handleReadingRoomClick}
+              className={`px-3 py-2 rounded-md text-sm transition-colors hover:text-accent ${
+                location.pathname === '/reading-room' ? 'text-accent font-medium' : ''
+              }`}
+            >
+              Reading Room
+            </button>
             {user ? (
               <>
                 <NavLink to="/collection">My Collection</NavLink>
@@ -230,9 +251,15 @@ const Navbar = () => {
               <Link to="/readers" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                 Readers
               </Link>
-              <Link to="/reading-room" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
+              <button 
+                onClick={(e) => {
+                  setIsOpen(false);
+                  handleReadingRoomClick(e);
+                }}
+                className="block w-full text-left py-2 px-4 rounded-md hover:bg-secondary/50"
+              >
                 Reading Room
-              </Link>
+              </button>
               {user ? (
                 <>
                   <Link to="/collection" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
