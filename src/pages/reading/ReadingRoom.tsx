@@ -951,6 +951,13 @@ const ReadingRoom = () => {
       const currentPath = window.location.pathname;
       const sessionParam = sessionId ? `?join=${sessionId}` : window.location.search;
       const fullPath = currentPath + sessionParam;
+      console.log('Storing auth_return_path for interpretation:', {
+        currentPath,
+        sessionId,
+        sessionParam,
+        fullPath,
+        windowSearch: window.location.search
+      });
       localStorage.setItem('auth_return_path', fullPath);
       setShowGuestUpgrade(true);
       return;
@@ -1003,6 +1010,7 @@ const ReadingRoom = () => {
       const currentPath = window.location.pathname;
       const sessionParam = sessionId ? `?join=${sessionId}` : window.location.search;
       const fullPath = currentPath + sessionParam;
+      console.log('Storing auth_return_path for video chat:', fullPath);
       localStorage.setItem('auth_return_path', fullPath);
       setShowGuestUpgrade(true);
       return;
@@ -1230,6 +1238,7 @@ const ReadingRoom = () => {
       const currentPath = window.location.pathname;
       const sessionParam = sessionId ? `?join=${sessionId}` : window.location.search;
       const fullPath = currentPath + sessionParam;
+      console.log('Storing auth_return_path for share:', fullPath);
       localStorage.setItem('auth_return_path', fullPath);
       setShowGuestUpgrade(true);
       return;

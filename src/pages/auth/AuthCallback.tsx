@@ -40,6 +40,12 @@ const AuthCallback = () => {
             const withDeckCreation = localStorage.getItem('auth_with_deck_creation');
             const returnPath = localStorage.getItem('auth_return_path');
             
+            console.log('Auth callback - stored preferences:', {
+              returnToHome,
+              withDeckCreation,
+              returnPath
+            });
+            
             // Clear stored preferences
             localStorage.removeItem('auth_return_to_home');
             localStorage.removeItem('auth_with_deck_creation');

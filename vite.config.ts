@@ -56,6 +56,21 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    sourcemap: true
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['framer-motion', 'lucide-react'],
+          'analytics': ['logrocket', 'logrocket-react', 'mixpanel-browser', '@sentry/react', '@sentry/tracing'],
+          'crypto': ['crypto-js'],
+          'pdf': ['html2canvas', 'jspdf'],
+          'peer': ['simple-peer'],
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,
+    target: 'esnext',
+    minify: 'esbuild'
   }
 });
