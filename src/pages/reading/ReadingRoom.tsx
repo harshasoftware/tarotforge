@@ -346,6 +346,9 @@ const ReadingRoom = () => {
   // Cache for inspiration questions with daily expiration
   const [questionCache, setQuestionCache] = useState<{[key: string]: {questions: string[], date: string}}>({});
   
+  // Deck refresh key to force visual re-render when deck is reset
+  const [deckRefreshKey, setDeckRefreshKey] = useState(0);
+  
   // Helper function to get today's date string
   const getTodayDateString = () => {
     return new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
@@ -849,6 +852,7 @@ const ReadingRoom = () => {
     setTimeout(() => {
       setShuffledDeck(prev => fisherYatesShuffle(prev));
       setIsShuffling(false);
+      setDeckRefreshKey(prev => prev + 1); // Force deck visual refresh
     }, 1000); // 1 second delay for shuffling animation
   }, [fisherYatesShuffle]);
   
@@ -924,15 +928,18 @@ const ReadingRoom = () => {
       zoomLevel: 1
     });
     
-    // Restore all cards to the shuffled deck
+    // Shuffle and restore all cards to create a fresh deck
     if (cards.length > 0) {
-      setShuffledDeck(fisherYatesShuffle(cards));
+      // Force a fresh shuffle by creating a new shuffled array
+      const freshlyShuffled = fisherYatesShuffle([...cards]);
+      setShuffledDeck(freshlyShuffled);
     }
     
     setShowMobileInterpretation(false);
     setZoomFocus(null);
     setPanOffset({ x: 0, y: 0 });
     setInterpretationCards([]); // Clear interpretation cards tracking
+    setDeckRefreshKey(prev => prev + 1); // Force deck visual refresh
   }, [updateSession, cards, fisherYatesShuffle]);
   
   // Drag and Drop Functions
@@ -2904,7 +2911,13 @@ const ReadingRoom = () => {
                 
                 {/* Deck pile - show cards that can be dragged */}
                 {shuffledDeck.length > 0 && (
-                  <div className={`deck-pile absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2' : 'bottom-8 left-1/2 transform -translate-x-1/2'} z-20`}>
+                  <motion.div 
+                    key={`deck-pile-${deckRefreshKey}`} 
+                    className={`deck-pile absolute ${isMobile ? 'bottom-4 left-1/2 transform -translate-x-1/2' : 'bottom-8 left-1/2 transform -translate-x-1/2'} z-20`}
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                  >
                     {isMobile ? (
                       /* Mobile: Full deck with horizontal panning - all 78 cards */
                       <div className="relative w-screen h-24 overflow-x-auto">
@@ -3056,7 +3069,7 @@ const ReadingRoom = () => {
                         </div>
                       </div>
                     )}
-                  </div>
+                  </motion.div>
                 )}
                 
                 {/* Generate interpretation button for free layout */}
