@@ -57,6 +57,7 @@ export interface SessionParticipant {
   name: string | null;
   isActive: boolean;
   joinedAt: string;
+  lastSeenAt?: string;
 }
 
 interface ReadingSessionStore {
@@ -107,6 +108,9 @@ interface ReadingSessionStore {
   broadcastGuestAction: (action: string, data: any) => Promise<void>;
   // Subscribe to broadcast events
   subscribeToBroadcast: (callback: (action: string, data: any, participantId: string) => void) => () => void;
+  // Session cleanup
+  cleanupInactiveSessions: () => Promise<void>;
+  checkSessionExpiry: () => Promise<boolean>;
 }
 
 export const useReadingSessionStore = create<ReadingSessionStore>()(
@@ -334,6 +338,32 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
 
         if (sessionError || !session) {
           throw new Error('Session not found or inactive');
+        }
+
+        // Check if session link has expired (1 hour of inactivity)
+        if (accessMethod === 'invite') {
+          const { data: participants } = await supabase
+            .from('session_participants')
+            .select('last_seen_at')
+            .eq('session_id', sessionId)
+            .eq('is_active', true)
+            .order('last_seen_at', { ascending: false })
+            .limit(1);
+
+          if (participants && participants.length > 0) {
+            const lastActivity = new Date(participants[0].last_seen_at || session.updated_at);
+            const hoursSinceActivity = (Date.now() - lastActivity.getTime()) / (1000 * 60 * 60);
+            
+            if (hoursSinceActivity > 1) {
+              throw new Error('This invitation link has expired. Sessions become inactive after 1 hour of no activity.');
+            }
+          } else {
+            // No participants, check session creation time
+            const sessionAge = (Date.now() - new Date(session.created_at).getTime()) / (1000 * 60 * 60);
+            if (sessionAge > 1) {
+              throw new Error('This invitation link has expired. Sessions become inactive after 1 hour of no activity.');
+            }
+          }
         }
 
         // Immediately set the session state for the joining user
@@ -750,14 +780,30 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
 
       set({ channel: newChannel });
 
-      // Setup presence updates
+      // Setup presence updates and session expiry checks
       const currentInterval = get().presenceInterval;
       if (currentInterval) {
         clearInterval(currentInterval);
       }
       
-      const newInterval = setInterval(() => {
+      const newInterval = setInterval(async () => {
+        // Update presence
         get().updatePresence();
+        
+        // Check if current session has expired every 5 minutes (10 cycles)
+        const now = Date.now();
+        const lastExpiryCheck = (get() as any).lastExpiryCheck || 0;
+        if (now - lastExpiryCheck > 5 * 60 * 1000) { // 5 minutes
+          const isExpired = await get().checkSessionExpiry();
+          if (isExpired) {
+            console.log('Current session has expired, cleaning up...');
+            get().cleanup();
+            // Optionally redirect to home or show a message
+            window.location.href = '/';
+          }
+          // Store the last check time
+          (get() as any).lastExpiryCheck = now;
+        }
       }, 30000); // Every 30 seconds
 
       set({ presenceInterval: newInterval });
@@ -1403,6 +1449,71 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           unsubscribe.unsubscribe();
         }
       };
+    },
+
+    cleanupInactiveSessions: async () => {
+      try {
+        // Call the database function to cleanup inactive sessions
+        const { error } = await supabase.rpc('cleanup_inactive_sessions');
+        
+        if (error) {
+          console.error('Error cleaning up inactive sessions:', error);
+        } else {
+          console.log('Successfully cleaned up inactive sessions');
+        }
+      } catch (err: any) {
+        console.error('Error in cleanupInactiveSessions:', err);
+      }
+    },
+
+    checkSessionExpiry: async () => {
+      const { sessionState } = get();
+      
+      if (!sessionState?.id) return false;
+
+      try {
+        // Check if current session has any active participants
+        const { data: activeParticipants, error } = await supabase
+          .from('session_participants')
+          .select('last_seen_at')
+          .eq('session_id', sessionState.id)
+          .eq('is_active', true);
+
+        if (error) {
+          console.error('Error checking session expiry:', error);
+          return false;
+        }
+
+        // If no active participants, session should be considered expired
+        if (!activeParticipants || activeParticipants.length === 0) {
+          console.log('Session expired: no active participants');
+          return true;
+        }
+
+        // Check if all participants have been inactive for more than 1 hour
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        const allInactive = activeParticipants.every(participant => {
+          const lastSeen = new Date(participant.last_seen_at);
+          return lastSeen < oneHourAgo;
+        });
+
+        if (allInactive) {
+          console.log('Session expired: all participants inactive for over 1 hour');
+          
+          // Mark session as inactive
+          await supabase
+            .from('reading_sessions')
+            .update({ is_active: false })
+            .eq('id', sessionState.id);
+          
+          return true;
+        }
+
+        return false;
+      } catch (err: any) {
+        console.error('Error checking session expiry:', err);
+        return false;
+      }
     }
   }))
 );

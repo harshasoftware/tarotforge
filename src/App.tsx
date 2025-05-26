@@ -10,6 +10,7 @@ import * as Sentry from "@sentry/react";
 import setupLogRocketReact from 'logrocket-react';
 import LogRocket from 'logrocket';
 import { trackPageView } from './utils/analytics';
+import { sessionCleanupService } from './utils/sessionCleanup';
 
 // Initialize LogRocket React plugin
 setupLogRocketReact(LogRocket);
@@ -95,6 +96,17 @@ function App() {
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
+
+  // Initialize session cleanup service
+  useEffect(() => {
+    // Start the cleanup service when the app loads
+    sessionCleanupService.start(15); // Run every 15 minutes
+    
+    // Cleanup when the app unmounts
+    return () => {
+      sessionCleanupService.stop();
+    };
+  }, []);
 
   // Handle auth redirect from URL params for deep linking
   useEffect(() => {
