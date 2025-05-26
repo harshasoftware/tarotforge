@@ -416,6 +416,22 @@ const ReadingRoom = () => {
               setDeckRefreshKey(prev => prev + 1); // Force deck visual refresh
             }
             break;
+          case 'startShuffling':
+            console.log('Starting shuffle animation from broadcast');
+            setIsShuffling(true);
+            break;
+          case 'stopShuffling':
+            console.log('Stopping shuffle animation from broadcast');
+            setIsShuffling(false);
+            break;
+          case 'startGeneratingInterpretation':
+            console.log('Starting interpretation generation from broadcast');
+            setIsGeneratingInterpretation(true);
+            break;
+          case 'stopGeneratingInterpretation':
+            console.log('Stopping interpretation generation from broadcast');
+            setIsGeneratingInterpretation(false);
+            break;
           case 'resetReading':
             if (data.shuffledDeck) {
               console.log('Resetting reading from broadcast');
@@ -432,6 +448,18 @@ const ReadingRoom = () => {
               setShowMobileInterpretation(false);
               setInterpretationCards([]);
               setDeckRefreshKey(prev => prev + 1);
+              
+              // Show deck cleared notification
+              if (data.participantName) {
+                const notification = {
+                  id: `deck-cleared-${senderParticipantId}-${Date.now()}`,
+                  type: 'deck-cleared' as const,
+                  participantName: data.participantName,
+                  isAnonymous: data.isAnonymous || false,
+                  timestamp: Date.now()
+                };
+                setNotifications(prev => [...prev, notification]);
+              }
             }
             break;
           case 'resetPan':
@@ -479,7 +507,7 @@ const ReadingRoom = () => {
   // Participant notification state
   const [notifications, setNotifications] = useState<Array<{
     id: string;
-    type: 'join' | 'leave';
+    type: 'join' | 'leave' | 'deck-cleared';
     participantName: string;
     isAnonymous: boolean;
     timestamp: number;
@@ -503,6 +531,32 @@ const ReadingRoom = () => {
   const activeCardIndex = sessionState?.activeCardIndex;
   const sharedModalState = sessionState?.sharedModalState;
   const sessionId = sessionState?.id;
+  
+  // Use shuffledDeck from session state, fallback to local state for initialization
+  const sessionShuffledDeck = sessionState?.shuffledDeck || [];
+  const shouldUseSessionDeck = sessionShuffledDeck.length > 0;
+  
+  // Use loading states from session state, fallback to local state
+  const sessionLoadingStates = sessionState?.loadingStates;
+  const sessionIsShuffling = sessionLoadingStates?.isShuffling || false;
+  const sessionIsGeneratingInterpretation = sessionLoadingStates?.isGeneratingInterpretation || false;
+
+  // Sync shuffledDeck with session state when session state changes
+  useEffect(() => {
+    if (shouldUseSessionDeck) {
+      console.log('Syncing shuffled deck from session state:', sessionShuffledDeck.length, 'cards');
+      setShuffledDeck(sessionShuffledDeck);
+    }
+  }, [sessionShuffledDeck, shouldUseSessionDeck]);
+
+  // Sync loading states with session state when session state changes
+  useEffect(() => {
+    if (sessionLoadingStates) {
+      console.log('Syncing loading states from session state:', sessionLoadingStates);
+      setIsShuffling(sessionIsShuffling);
+      setIsGeneratingInterpretation(sessionIsGeneratingInterpretation);
+    }
+  }, [sessionLoadingStates, sessionIsShuffling, sessionIsGeneratingInterpretation]);
 
   // Deck selection state
   const [userOwnedDecks, setUserOwnedDecks] = useState<Deck[]>([]);
@@ -512,15 +566,31 @@ const ReadingRoom = () => {
   // Add state to track if we're changing decks mid-session
   const [isChangingDeckMidSession, setIsChangingDeckMidSession] = useState(false);
   
-  // Add state for deck selection modal tabs
-  const [deckSelectionTab, setDeckSelectionTab] = useState<'collection' | 'marketplace'>('collection');
+  // Use synchronized deck selection state from session
+  const sessionDeckSelectionState = sessionState?.deckSelectionState;
+  const deckSelectionTab = sessionDeckSelectionState?.activeTab || 'collection';
+  const isDeckSelectionOpen = sessionDeckSelectionState?.isOpen || false;
+  const selectedMarketplaceDeckId = sessionDeckSelectionState?.selectedMarketplaceDeck;
   
   // Add state for marketplace decks
   const [marketplaceDecks, setMarketplaceDecks] = useState<Deck[]>([]);
   const [loadingMarketplace, setLoadingMarketplace] = useState(false);
   
-  // Add state for marketplace deck details view
+  // Add state for marketplace deck details view - now synchronized
   const [selectedMarketplaceDeck, setSelectedMarketplaceDeck] = useState<Deck | null>(null);
+  
+  // Sync selectedMarketplaceDeck with session state
+  useEffect(() => {
+    if (selectedMarketplaceDeckId && marketplaceDecks.length > 0) {
+      const deck = marketplaceDecks.find(d => d.id === selectedMarketplaceDeckId);
+      if (deck && deck !== selectedMarketplaceDeck) {
+        setSelectedMarketplaceDeck(deck);
+      }
+    } else if (!selectedMarketplaceDeckId && selectedMarketplaceDeck) {
+      setSelectedMarketplaceDeck(null);
+    }
+  }, [selectedMarketplaceDeckId, marketplaceDecks, selectedMarketplaceDeck]);
+
   const [addingToCollection, setAddingToCollection] = useState(false);
   const [addToCollectionSuccess, setAddToCollectionSuccess] = useState(false);
   const [showSubscriptionRequired, setShowSubscriptionRequired] = useState(false);
@@ -581,6 +651,30 @@ const ReadingRoom = () => {
   const participantNames = useMemo(() => 
     participants.map(p => p.name || 'Anonymous').join(', ')
   , [participants]);
+
+  // Determine collection tab label based on number of logged-in participants
+  const collectionTabLabel = useMemo(() => {
+    const loggedInParticipants = participants.filter(p => p.userId);
+    // Include current user if logged in and not already in participants list
+    const totalLoggedIn = user?.id && !loggedInParticipants.find(p => p.userId === user.id) 
+      ? loggedInParticipants.length + 1 
+      : loggedInParticipants.length;
+    
+    return totalLoggedIn > 1 ? 'Our Collection' : 'My Collection';
+  }, [participants, user?.id]);
+
+  // Get names of participants contributing to the collection
+  const collectionContributors = useMemo(() => {
+    const loggedInParticipants = participants.filter(p => p.userId);
+    const names = loggedInParticipants.map(p => p.name || 'Anonymous');
+    
+    // Include current user if logged in and not already in participants list
+    if (user?.id && !loggedInParticipants.find(p => p.userId === user.id)) {
+      names.unshift('You');
+    }
+    
+    return names;
+  }, [participants, user?.id]);
   
   // Optimized mobile layout classes
   const mobileLayoutClasses = useMemo(() => ({
@@ -710,7 +804,131 @@ const ReadingRoom = () => {
     updateSession({ sharedModalState: modalState });
   }, [updateSession]);
 
-  // Track participant changes for notifications with debouncing
+  // Deck selection synchronization wrapper
+  const updateDeckSelectionState = useCallback((deckSelectionState: {
+    isOpen: boolean;
+    activeTab: 'collection' | 'marketplace';
+    selectedMarketplaceDeck: string | null;
+    triggeredBy: string | null;
+  } | null) => {
+    updateSession({ deckSelectionState: deckSelectionState });
+  }, [updateSession]);
+
+  // Helper function to update deck selection tab
+  const setDeckSelectionTab = useCallback((tab: 'collection' | 'marketplace') => {
+    updateDeckSelectionState({
+      isOpen: isDeckSelectionOpen,
+      activeTab: tab,
+      selectedMarketplaceDeck: selectedMarketplaceDeckId || null,
+      triggeredBy: participantId || null
+    });
+  }, [updateDeckSelectionState, isDeckSelectionOpen, selectedMarketplaceDeckId, participantId]);
+
+  // Helper function to open deck selection modal
+  const openDeckSelection = useCallback(() => {
+    updateDeckSelectionState({
+      isOpen: true,
+      activeTab: deckSelectionTab,
+      selectedMarketplaceDeck: selectedMarketplaceDeckId || null,
+      triggeredBy: participantId || null
+    });
+  }, [updateDeckSelectionState, deckSelectionTab, selectedMarketplaceDeckId, participantId]);
+
+  // Helper function to close deck selection modal
+  const closeDeckSelection = useCallback(() => {
+    updateDeckSelectionState(null);
+  }, [updateDeckSelectionState]);
+
+  // Helper function to select marketplace deck
+  const selectMarketplaceDeck = useCallback((deckId: string | null) => {
+    updateDeckSelectionState({
+      isOpen: isDeckSelectionOpen,
+      activeTab: deckSelectionTab,
+      selectedMarketplaceDeck: deckId,
+      triggeredBy: participantId || null
+    });
+  }, [updateDeckSelectionState, isDeckSelectionOpen, deckSelectionTab, participantId]);
+
+    // Fetch combined collection from all logged-in participants
+  const fetchCombinedCollection = useCallback(async () => {
+    try {
+      const allDecks = new Map<string, Deck>();
+      
+      // Get all logged-in participants (those with user_id)
+      const loggedInParticipants = participants.filter(p => p.userId);
+      
+      // If current user is logged in, include them even if not in participants list yet
+      if (user?.id && !loggedInParticipants.find(p => p.userId === user.id)) {
+        loggedInParticipants.push({
+          id: 'current-user',
+          sessionId: sessionState?.id || '',
+          userId: user.id,
+          anonymousId: null,
+          name: user.email?.split('@')[0] || 'You',
+          isActive: true,
+          joinedAt: new Date().toISOString()
+        });
+      }
+      
+      console.log('Fetching combined collection for participants:', loggedInParticipants.map(p => ({ userId: p.userId, name: p.name })));
+      console.log('Current user:', user?.id ? { id: user.id, email: user.email } : 'No user (guest)');
+      
+      // If no logged-in participants, fetch free decks for guests
+      if (loggedInParticipants.length === 0) {
+        console.log('No logged-in participants, fetching free decks for guest access');
+        const freeDecks = await fetchUserOwnedDecks(); // Call without userId for guest access
+        setUserOwnedDecks(freeDecks);
+        return;
+      }
+      
+      // Fetch decks for each logged-in participant
+      for (const participant of loggedInParticipants) {
+        if (participant.userId) {
+          try {
+            const participantDecks = await fetchUserOwnedDecks(participant.userId);
+            participantDecks.forEach(deck => {
+              // Use Map to automatically deduplicate by deck ID
+              allDecks.set(deck.id, deck);
+            });
+          } catch (error) {
+            console.error(`Error fetching decks for participant ${participant.name}:`, error);
+          }
+        }
+      }
+      
+      // Convert Map back to array and sort by title
+      const combinedDecks = Array.from(allDecks.values()).sort((a, b) => a.title.localeCompare(b.title));
+      
+      console.log(`Combined collection: ${combinedDecks.length} unique decks from ${loggedInParticipants.length} participants`);
+      console.log('Combined decks:', combinedDecks.map(d => ({ id: d.id, title: d.title })));
+      
+      // If no decks found, ensure we at least have the Rider-Waite deck
+      if (combinedDecks.length === 0) {
+        console.log('No decks found, adding Rider-Waite deck as fallback');
+        const freeDecks = await fetchUserOwnedDecks(); // Call without userId for guest access
+        setUserOwnedDecks(freeDecks);
+      } else {
+        setUserOwnedDecks(combinedDecks);
+      }
+      
+    } catch (error) {
+      console.error('Error fetching combined collection:', error);
+      // Fallback to free decks for all users
+      console.log('Error fallback: fetching free decks');
+      const fallbackDecks = await fetchUserOwnedDecks(user?.id);
+      setUserOwnedDecks(fallbackDecks);
+    }
+  }, [participants, user?.id, sessionState?.id]);
+
+  // Refetch combined collection when participants change or when user changes
+  useEffect(() => {
+    // Always fetch collection if we have a user or participants
+    if (user?.id || participants.length > 0) {
+      fetchCombinedCollection();
+    }
+  }, [participants, fetchCombinedCollection, user?.id]);
+  
+    // Track participant changes for notifications with debouncing
   useEffect(() => {
     if (!sessionState?.id || sessionLoading) return;
 
@@ -934,9 +1152,12 @@ const ReadingRoom = () => {
         zoomLevel: isMobile ? (isLandscape ? (layout.id === 'celtic-cross' ? 0.8 : 1) : (layout.id === 'celtic-cross' ? 0.6 : 0.8)) : (layout.id === 'celtic-cross' ? 0.8 : 1)
       });
       
-      // Only shuffle if cards are loaded
-      if (cards && cards.length > 0) {
-        setShuffledDeck(fisherYatesShuffle(cards));
+      // Only shuffle if cards are loaded and not already in session state
+      if (cards && cards.length > 0 && !shouldUseSessionDeck) {
+        const newShuffledDeck = fisherYatesShuffle(cards);
+        setShuffledDeck(newShuffledDeck);
+        // Update session state with shuffled deck
+        updateSession({ shuffledDeck: newShuffledDeck });
       }
       
       // Trigger deck visual refresh animation
@@ -1222,9 +1443,9 @@ const ReadingRoom = () => {
         setLoading(true);
         setError(null);
         
-        // First, fetch user's owned decks
-        const ownedDecks = await fetchUserOwnedDecks(user?.id);
-        setUserOwnedDecks(ownedDecks);
+        // Fetch combined collection from all logged-in participants
+        console.log('Initial data fetch - calling fetchCombinedCollection');
+        await fetchCombinedCollection();
         
         // If there's a deckId in the URL, use that deck
         if (deckId) {
@@ -1259,7 +1480,12 @@ const ReadingRoom = () => {
         
         if (cardsData && cardsData.length > 0) {
           setCards(cardsData);
-          setShuffledDeck(fisherYatesShuffle(cardsData));
+          const newShuffledDeck = fisherYatesShuffle(cardsData);
+          setShuffledDeck(newShuffledDeck);
+          
+          // Update session state with new shuffled deck
+          updateSession({ shuffledDeck: newShuffledDeck });
+          
           // Trigger deck visual refresh animation when new deck is loaded
           setDeckRefreshKey(prev => prev + 1);
         } else {
@@ -1285,19 +1511,35 @@ const ReadingRoom = () => {
   const shuffleDeck = useCallback(() => {
     setIsShuffling(true);
     
+    // Update session state to show shuffling for all participants
+    updateSession({ 
+      loadingStates: { 
+        isShuffling: true, 
+        isGeneratingInterpretation: false,
+        triggeredBy: participantId 
+      } 
+    });
+    
     // Add a delay to show the shuffling animation
     setTimeout(() => {
-      const newShuffledDeck = fisherYatesShuffle(shuffledDeck);
+      const currentDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
+      const newShuffledDeck = fisherYatesShuffle(currentDeck);
       setShuffledDeck(newShuffledDeck);
       setIsShuffling(false);
       setDeckRefreshKey(prev => prev + 1); // Force deck visual refresh
+      
+      // Update session state with new shuffled deck and clear loading state
+      updateSession({ 
+        shuffledDeck: newShuffledDeck,
+        loadingStates: null
+      });
       
       // Broadcast shuffle action to other participants
       broadcastGuestAction('shuffleDeck', { 
         shuffledDeck: newShuffledDeck 
       });
     }, 1000); // 1 second delay for shuffling animation
-  }, [fisherYatesShuffle, shuffledDeck, broadcastGuestAction]);
+  }, [fisherYatesShuffle, shuffledDeck, sessionShuffledDeck, shouldUseSessionDeck, updateSession, broadcastGuestAction, participantId]);
   
   // Handle moving placed cards in free layout
   const handlePlacedCardDrag = useCallback((cardIndex: number, event: any, info: any) => {
@@ -1382,20 +1624,21 @@ const ReadingRoom = () => {
   }, [panOffset, setPanOffsetWrapped]);
   
   const resetReading = useCallback(() => {
+    let newShuffledDeck: Card[] = [];
+    if (cards.length > 0) {
+      newShuffledDeck = fisherYatesShuffle(cards);
+      setShuffledDeck(newShuffledDeck);
+    }
+    
     updateSession({
       readingStep: 'setup',
       selectedLayout: null,
       selectedCards: [],
       interpretation: '',
       activeCardIndex: null,
-      zoomLevel: 1
+      zoomLevel: 1,
+      shuffledDeck: newShuffledDeck
     });
-    
-    let newShuffledDeck: Card[] = [];
-    if (cards.length > 0) {
-      newShuffledDeck = fisherYatesShuffle(cards);
-      setShuffledDeck(newShuffledDeck);
-    }
     
     setShowMobileInterpretation(false);
     setInterpretationCards([]); // Clear interpretation cards tracking
@@ -1408,15 +1651,6 @@ const ReadingRoom = () => {
   }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction]);
   
   const resetCards = useCallback(() => {
-    // Return cards to deck and go back to drawing step, but keep layout and question
-    updateSession({
-      selectedCards: [],
-      interpretation: '',
-      activeCardIndex: null,
-      readingStep: 'drawing',
-      zoomLevel: 1
-    });
-    
     // Shuffle and restore all cards to create a fresh deck
     let freshlyShuffled: Card[] = [];
     if (cards.length > 0) {
@@ -1424,6 +1658,16 @@ const ReadingRoom = () => {
       freshlyShuffled = fisherYatesShuffle([...cards]);
       setShuffledDeck(freshlyShuffled);
     }
+    
+    // Return cards to deck and go back to drawing step, but keep layout and question
+    updateSession({
+      selectedCards: [],
+      interpretation: '',
+      activeCardIndex: null,
+      readingStep: 'drawing',
+      zoomLevel: 1,
+      shuffledDeck: freshlyShuffled
+    });
     
     setShowMobileInterpretation(false);
     setZoomFocusWrapped(null);
@@ -1434,9 +1678,11 @@ const ReadingRoom = () => {
     // Broadcast reset cards action to other participants
     broadcastGuestAction('resetCards', { 
       shuffledDeck: freshlyShuffled,
-      resetType: 'cards'
+      resetType: 'cards',
+      participantName: user?.email?.split('@')[0] || participants.find(p => p.id === participantId)?.name || 'Anonymous',
+      isAnonymous: !user
     });
-  }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction]);
+  }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId]);
   
   // Drag and Drop Functions
   const handleDragStart = (card: Card, index: number, e: any) => {
@@ -1513,8 +1759,12 @@ const ReadingRoom = () => {
     
     // Remove card from shuffled deck
     if (draggedCardIndex !== null) {
-      const newShuffledDeck = shuffledDeck.filter((_: any, index: number) => index !== draggedCardIndex);
+      const currentDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
+      const newShuffledDeck = currentDeck.filter((_: any, index: number) => index !== draggedCardIndex);
       setShuffledDeck(newShuffledDeck);
+      
+      // Update session state with new shuffled deck
+      updateSession({ shuffledDeck: newShuffledDeck });
       
       // Broadcast shuffled deck update to other participants
       broadcastGuestAction('updateShuffledDeck', { 
@@ -1584,6 +1834,15 @@ const ReadingRoom = () => {
     try {
       setIsGeneratingInterpretation(true);
       
+      // Update session state to show interpretation generation for all participants
+      updateSession({ 
+        loadingStates: { 
+          isShuffling: false, 
+          isGeneratingInterpretation: true,
+          triggeredBy: participantId 
+        } 
+      });
+      
       // Reveal all cards before generating interpretation
       const revealedCards = cards.map((card: any) => ({
         ...card,
@@ -1610,7 +1869,8 @@ const ReadingRoom = () => {
       
       updateSession({
         interpretation: result,
-        readingStep: 'interpretation'
+        readingStep: 'interpretation',
+        loadingStates: null
       });
       
       // Auto-show mobile interpretation on mobile portrait mode
@@ -1621,7 +1881,8 @@ const ReadingRoom = () => {
       console.error('Error generating interpretation:', error);
       updateSession({
         interpretation: 'Unable to generate an interpretation at this time. Please try again later.',
-        readingStep: 'interpretation'
+        readingStep: 'interpretation',
+        loadingStates: null
       });
       
       // Auto-show mobile interpretation even for errors on mobile portrait mode
@@ -2259,8 +2520,8 @@ const ReadingRoom = () => {
   
   // Handle marketplace deck selection for details
   const handleMarketplaceDeckSelect = useCallback((deck: Deck) => {
-    setSelectedMarketplaceDeck(deck);
-  }, []);
+    selectMarketplaceDeck(deck.id);
+  }, [selectMarketplaceDeck]);
   
   // Handle adding marketplace deck to collection
   const handleAddToCollection = useCallback(async (deck: Deck) => {
@@ -2291,7 +2552,7 @@ const ReadingRoom = () => {
       setAddToCollectionSuccess(true);
       setTimeout(() => {
         setAddToCollectionSuccess(false);
-        setSelectedMarketplaceDeck(null); // Close details view
+        selectMarketplaceDeck(null); // Close details view
       }, 2000);
       
     } catch (error) {
@@ -2843,7 +3104,7 @@ const ReadingRoom = () => {
                     }`}
                   >
                     <Package className="h-4 w-4" />
-                    My Collection
+                    {collectionTabLabel}
                     {userOwnedDecks.length > 0 && (
                       <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full">
                         {userOwnedDecks.length}
@@ -2871,12 +3132,26 @@ const ReadingRoom = () => {
                   {/* My Collection Tab */}
                   {deckSelectionTab === 'collection' && (
                     <div>
+                      {/* Collection contributors info for shared collections */}
+                      {collectionTabLabel === 'Our Collection' && collectionContributors.length > 1 && (
+                        <div className="mb-4 p-3 bg-muted/30 rounded-lg text-sm">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Users className="h-4 w-4" />
+                            <span>
+                              Combined collection from: {collectionContributors.join(', ')}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                 {userOwnedDecks.length === 0 ? (
                         <div className="text-center py-12">
                     <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                           <h3 className="text-lg font-medium mb-2">No Decks in Collection</h3>
                           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                            You don't have any decks in your collection yet. Browse the marketplace or create your own deck to get started.
+                            {collectionTabLabel === 'Our Collection' 
+                              ? "Your group doesn't have any decks in the collection yet. Browse the marketplace or create your own deck to get started."
+                              : "You don't have any decks in your collection yet. Browse the marketplace or create your own deck to get started."
+                            }
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
                             <button
@@ -2957,7 +3232,7 @@ const ReadingRoom = () => {
                           {/* Back button and title */}
                           <div className="flex items-center gap-3">
                             <button
-                              onClick={() => setSelectedMarketplaceDeck(null)}
+                              onClick={() => selectMarketplaceDeck(null)}
                               className="btn btn-ghost p-2 hover:bg-muted rounded-md"
                             >
                               <ArrowLeft className="h-4 w-4" />
@@ -3436,19 +3711,19 @@ const ReadingRoom = () => {
                   isMobile 
                     ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
                     : 'top-4 left-4 flex-col'
-                } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
+                } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-2 rounded-md z-40 items-center`}>
                   <Tooltip content="Zoom in" position="right" disabled={isMobile}>
-                    <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm">
+                    <button onClick={zoomIn} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <ZoomIn className="h-4 w-4" />
                     </button>
                   </Tooltip>
                   <Tooltip content="Reset zoom" position="right" disabled={isMobile}>
-                    <button onClick={resetZoom} className="p-1 hover:bg-muted rounded-sm">
+                    <button onClick={resetZoom} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <RotateCcw className="h-4 w-4" />
                     </button>
                   </Tooltip>
                   <Tooltip content="Zoom out" position="right" disabled={isMobile}>
-                    <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm">
+                    <button onClick={zoomOut} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <ZoomOut className="h-4 w-4" />
                     </button>
                   </Tooltip>
@@ -3456,79 +3731,74 @@ const ReadingRoom = () => {
                   {/* Desktop Directional Joypad */}
                   {!isMobile && (
                     <>
-                      <div className="w-full h-px bg-border my-1"></div>
-                      <div className="relative w-14 h-14">
+                      <div className="w-full h-px bg-border my-2"></div>
+                      <div className="relative w-16 h-16 flex-shrink-0 mx-auto">
                         {/* Up */}
-                        <Tooltip content="Pan up (↑)" position="right">
+                        <Tooltip content="Pan up (↑)" position="right" wrapperClassName="absolute top-0 left-1/2 transform -translate-x-1/2">
                           <button 
                             onClick={() => panDirection('up')}
-                            className="absolute top-0 left-1/2 transform -translate-x-1/2 p-1.5 hover:bg-muted rounded-sm"
+                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
                           >
-                            <ArrowUp className="h-4 w-4" />
+                            <ArrowUp className="h-3 w-3" />
                           </button>
                         </Tooltip>
                         
                         {/* Left */}
-                        <Tooltip content="Pan left (←)" position="right">
+                        <Tooltip content="Pan left (←)" position="right" wrapperClassName="absolute left-0 top-1/2 transform -translate-y-1/2">
                           <button 
                             onClick={() => panDirection('left')}
-                            className="absolute left-0 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-muted rounded-sm"
+                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
                           >
-                            <ChevronLeft className="h-4 w-4" />
+                            <ChevronLeft className="h-3 w-3" />
                           </button>
                         </Tooltip>
                         
                         {/* Center button */}
-                        <Tooltip content="Reset pan to center" position="right">
+                        <Tooltip content="Reset pan to center" position="right" wrapperClassName="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
                           <button 
                             onClick={resetPan}
-                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-5 h-5 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
+                            className="w-5 h-5 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
                           >
-                            <div className="w-2 h-2 bg-muted-foreground rounded-full"></div>
+                            <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full"></div>
                           </button>
                         </Tooltip>
                         
                         {/* Right */}
-                        <Tooltip content="Pan right (→)" position="right">
+                        <Tooltip content="Pan right (→)" position="right" wrapperClassName="absolute right-0 top-1/2 transform -translate-y-1/2">
                           <button 
                             onClick={() => panDirection('right')}
-                            className="absolute right-0 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-muted rounded-sm"
+                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
                           >
-                            <ChevronRight className="h-4 w-4" />
+                            <ChevronRight className="h-3 w-3" />
                           </button>
                         </Tooltip>
                         
                         {/* Down */}
-                        <Tooltip content="Pan down (↓)" position="right">
+                        <Tooltip content="Pan down (↓)" position="right" wrapperClassName="absolute bottom-0 left-1/2 transform -translate-x-1/2">
                           <button 
                             onClick={() => panDirection('down')}
-                            className="absolute bottom-0 left-1/2 transform -translate-x-1/2 p-1.5 hover:bg-muted rounded-sm"
+                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
                           >
-                            <ArrowDown className="h-4 w-4" />
+                            <ArrowDown className="h-3 w-3" />
                           </button>
                         </Tooltip>
                       </div>
-                      <div className="w-full h-px bg-border my-1"></div>
+                      <div className="w-full h-px bg-border my-2"></div>
                     </>
                   )}
                   
                   <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
-                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`}>
+                    <button onClick={shuffleDeck} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <Shuffle className="h-4 w-4" />
                     </button>
                   </Tooltip>
                   <Tooltip content="Show help" position="right" disabled={isMobile}>
-                    <button onClick={showHint} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`}>
+                    <button onClick={showHint} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <HelpCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
-                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${isMobile ? 'hidden' : ''}`}>
-                      <Shuffle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
                   <Tooltip content="Reset cards" position="right" disabled={isMobile}>
-                    <button onClick={resetCards} className="p-1 hover:bg-muted rounded-sm text-red-500 hover:text-red-600">
+                    <button onClick={resetCards} className="p-1.5 hover:bg-muted rounded-sm text-red-500 hover:text-red-600 flex items-center justify-center">
                       <XCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
@@ -3566,7 +3836,15 @@ const ReadingRoom = () => {
                       whileHover={{ scale: 1.05 }}
                       whileDrag={{ scale: 1.1, zIndex: 50 }}
                       onClick={() => {
-                        if (!(selectedCard as any).revealed) {
+                        if ((selectedCard as any).revealed) {
+                          // Open card detail modal for revealed cards
+                          updateSharedModalState({
+                            isOpen: true,
+                            cardIndex: index,
+                            showDescription: false,
+                            triggeredBy: participantId || null
+                          });
+                        } else {
                           handleCardFlip(index);
                         }
                       }}
@@ -3705,7 +3983,13 @@ const ReadingRoom = () => {
                             data-card-element="true"
                             onClick={() => {
                               if ((selectedCard as any).revealed) {
-                                setActiveCardIndexWrapped(index);
+                                // Open card detail modal for revealed cards
+                                updateSharedModalState({
+                                  isOpen: true,
+                                  cardIndex: index,
+                                  showDescription: false,
+                                  triggeredBy: participantId || null
+                                });
                               } else {
                                 handleCardFlip(index);
                               }
@@ -3773,7 +4057,7 @@ const ReadingRoom = () => {
                 </div>
                 
                 {/* Deck pile - show cards that can be dragged */}
-                {shuffledDeck.length > 0 && (
+                {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length > 0 && (
                   <motion.div 
                     key={`deck-pile-${deckRefreshKey}`} 
                     className={`deck-pile absolute ${isMobile ? 'bottom-4 left-0 right-0' : 'bottom-8 left-1/2 transform -translate-x-1/2'} z-20`}
@@ -3791,8 +4075,8 @@ const ReadingRoom = () => {
                             margin: '0 auto'
                           }}
                         >
-                          {shuffledDeck.map((card: Card, index: number) => {
-                            const totalCards = shuffledDeck.length;
+                          {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).map((card: Card, index: number) => {
+                            const totalCards = (shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length;
                             const angle = (index - (totalCards - 1) / 2) * 1.2; // 1.2 degrees between cards for mobile shallow arc
                             const radius = 200; // Radius for mobile arc
                             const x = Math.sin((angle * Math.PI) / 180) * radius + (totalCards * 4); // Center the arc properly
@@ -3847,7 +4131,7 @@ const ReadingRoom = () => {
                                 </div>
                                 {index === Math.floor(totalCards / 2) && (
                                   <div className="absolute -top-2 -right-1 bg-accent text-accent-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center shadow-md z-[300]">
-                                    {shuffledDeck.length}
+                                    {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length}
                                   </div>
                                 )}
                               </motion.div>
@@ -3857,7 +4141,7 @@ const ReadingRoom = () => {
                         
                         {/* Mobile navigation hints */}
                         <div className="absolute top-0 left-1/2 transform -translate-x-1/2 bg-muted/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs text-muted-foreground">
-                          ← Swipe to browse all {shuffledDeck.length} cards →
+                          ← Swipe to browse all {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length} cards →
                         </div>
                         
                         {/* Left/Right gradient overlays to indicate more cards */}
@@ -3867,8 +4151,8 @@ const ReadingRoom = () => {
                     ) : (
                       /* Desktop: Wide fan spread showing all cards - larger and more readable */
                       <div className="relative w-full h-36">
-                        {shuffledDeck.map((card: Card, index: number) => {
-                          const totalCards = shuffledDeck.length;
+                        {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).map((card: Card, index: number) => {
+                          const totalCards = (shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length;
                           const angle = (index - (totalCards - 1) / 2) * 2.2; // 2.2 degrees between cards for wider spread
                           const radius = 600; // Larger radius for gentler curve
                           const x = Math.sin((angle * Math.PI) / 180) * radius;
@@ -3927,7 +4211,7 @@ const ReadingRoom = () => {
 
                         {/* Card count indicator */}
                         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-accent text-accent-foreground rounded-full w-8 h-8 text-sm flex items-center justify-center shadow-lg z-[300]">
-                          {shuffledDeck.length}
+                          {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length}
                         </div>
                       </div>
                     )}
@@ -3999,21 +4283,31 @@ const ReadingRoom = () => {
                 )}
                 
                 {/* Loading indicator for interpretation */}
-                {isGeneratingInterpretation && (
+                {(isGeneratingInterpretation || sessionIsGeneratingInterpretation) && (
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
                     <div className="bg-card p-4 md:p-6 rounded-xl shadow-lg text-center mx-4">
                       <LoadingSpinner size="lg" className="mx-auto mb-4" />
-                      <p className="text-muted-foreground text-sm md:text-base">Generating interpretation...</p>
+                      <p className="text-muted-foreground text-sm md:text-base">
+                        {sessionLoadingStates?.triggeredBy && sessionLoadingStates.triggeredBy !== participantId
+                          ? 'Another participant is generating interpretation...'
+                          : 'Generating interpretation...'
+                        }
+                      </p>
                     </div>
                   </div>
                 )}
                 
                 {/* Loading indicator for shuffling */}
-                {isShuffling && (
+                {(isShuffling || sessionIsShuffling) && (
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
                     <div className="bg-card p-4 md:p-6 rounded-xl shadow-lg text-center mx-4">
                       <LoadingSpinner size="lg" className="mx-auto mb-4" />
-                      <p className="text-muted-foreground text-sm md:text-base">Shuffling cards...</p>
+                      <p className="text-muted-foreground text-sm md:text-base">
+                        {sessionLoadingStates?.triggeredBy && sessionLoadingStates.triggeredBy !== participantId
+                          ? 'Another participant is shuffling cards...'
+                          : 'Shuffling cards...'
+                        }
+                      </p>
                     </div>
                   </div>
                 )}
@@ -4057,19 +4351,19 @@ const ReadingRoom = () => {
                   isMobile 
                     ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
                     : 'top-4 left-4 flex-col'
-                } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-1 rounded-md z-40`}>
+                } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-2 rounded-md z-40 items-center`}>
                   <Tooltip content="Zoom out" position="right" disabled={isMobile}>
-                    <button onClick={zoomOut} className="p-1 hover:bg-muted rounded-sm">
+                    <button onClick={zoomOut} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <ZoomOut className="h-4 w-4" />
                     </button>
                   </Tooltip>
                   <Tooltip content="Reset zoom" position="right" disabled={isMobile}>
-                    <button onClick={resetZoom} className="p-1 hover:bg-muted rounded-sm">
+                    <button onClick={resetZoom} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <RotateCcw className="h-4 w-4" />
                     </button>
                   </Tooltip>
                   <Tooltip content="Zoom in" position="right" disabled={isMobile}>
-                    <button onClick={zoomIn} className="p-1 hover:bg-muted rounded-sm">
+                    <button onClick={zoomIn} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <ZoomIn className="h-4 w-4" />
                     </button>
                   </Tooltip>
@@ -4077,79 +4371,74 @@ const ReadingRoom = () => {
                   {/* Desktop Directional Joypad */}
                   {!isMobile && (
                     <>
-                      <div className="w-full h-px bg-border left-12 my-1"></div>
-                      <div className="relative w-14 h-14">
+                      <div className="w-full h-px bg-border my-2"></div>
+                      <div className="relative w-16 h-16 flex-shrink-0 mx-auto">
                         {/* Up */}
-                        <Tooltip content="Pan up (↑)" position="right">
+                        <Tooltip content="Pan up (↑)" position="right" wrapperClassName="absolute top-0 left-1/2 transform -translate-x-1/2">
                           <button 
                             onClick={() => panDirection('up')}
-                            className="absolute top-0 left-1/2 transform -translate-x-1/2 p-1.5 hover:bg-muted rounded-sm"
+                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
                           >
-                            <ArrowUp className="h-4 w-4" />
+                            <ArrowUp className="h-3 w-3" />
                           </button>
                         </Tooltip>
                         
                         {/* Left */}
-                        <Tooltip content="Pan left (←)" position="right">
+                        <Tooltip content="Pan left (←)" position="right" wrapperClassName="absolute left-0 top-1/2 transform -translate-y-1/2">
                           <button 
                             onClick={() => panDirection('left')}
-                            className="absolute left-0 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-muted rounded-sm"
+                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
                           >
-                            <ChevronLeft className="h-4 w-4" />
+                            <ChevronLeft className="h-3 w-3" />
                           </button>
                         </Tooltip>
                         
                         {/* Center button */}
-                        <Tooltip content="Reset pan to center" position="right">
+                        <Tooltip content="Reset pan to center" position="right" wrapperClassName="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
                           <button 
                             onClick={resetPan}
-                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-5 h-5 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
+                            className="w-5 h-5 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
                           >
-                            <div className="w-2 h-2 bg-muted-foreground rounded-full"></div>
+                            <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full"></div>
                           </button>
                         </Tooltip>
                         
                         {/* Right */}
-                        <Tooltip content="Pan right (→)" position="right">
+                        <Tooltip content="Pan right (→)" position="right" wrapperClassName="absolute right-0 top-1/2 transform -translate-y-1/2">
                           <button 
                             onClick={() => panDirection('right')}
-                            className="absolute right-0 top-1/2 transform -translate-y-1/2 p-1.5 hover:bg-muted rounded-sm"
+                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
                           >
-                            <ChevronRight className="h-4 w-4" />
+                            <ChevronRight className="h-3 w-3" />
                           </button>
                         </Tooltip>
                         
                         {/* Down */}
-                        <Tooltip content="Pan down (↓)" position="right">
+                        <Tooltip content="Pan down (↓)" position="right" wrapperClassName="absolute bottom-0 left-1/2 transform -translate-x-1/2">
                           <button 
                             onClick={() => panDirection('down')}
-                            className="absolute bottom-0 left-1/2 transform -translate-x-1/2 p-1.5 hover:bg-muted rounded-sm"
+                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
                           >
-                            <ArrowDown className="h-4 w-4" />
+                            <ArrowDown className="h-3 w-3" />
                           </button>
                         </Tooltip>
                       </div>
-                      <div className="w-full h-px bg-border my-1"></div>
+                      <div className="w-full h-px bg-border my-2"></div>
                     </>
                   )}
                   
                   <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
-                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`}>
+                    <button onClick={shuffleDeck} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <Shuffle className="h-4 w-4" />
                     </button>
                   </Tooltip>
                   <Tooltip content="Show help" position="right" disabled={isMobile}>
-                    <button onClick={showHint} className={`p-1 hover:bg-muted rounded-sm ${!isMobile ? 'hidden' : ''}`}>
+                    <button onClick={showHint} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <HelpCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
-                    <button onClick={shuffleDeck} className={`p-1 hover:bg-muted rounded-sm ${isMobile ? 'hidden' : ''}`}>
-                      <Shuffle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
                   <Tooltip content="Reset cards" position="right" disabled={isMobile}>
-                    <button onClick={resetCards} className="p-1 hover:bg-muted rounded-sm text-red-500 hover:text-red-600">
+                    <button onClick={resetCards} className="p-1.5 hover:bg-muted rounded-sm text-red-500 hover:text-red-600 flex items-center justify-center">
                       <XCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
@@ -4209,7 +4498,15 @@ const ReadingRoom = () => {
                       whileHover={{ scale: 1.05 }}
                       whileDrag={{ scale: 1.1, zIndex: 50 }}
                       onClick={() => {
-                        if (!(selectedCard as any).revealed) {
+                        if ((selectedCard as any).revealed) {
+                          // Open card detail modal for revealed cards
+                          updateSharedModalState({
+                            isOpen: true,
+                            cardIndex: index,
+                            showDescription: false,
+                            triggeredBy: participantId || null
+                          });
+                        } else {
                           handleCardFlip(index);
                         }
                       }}
@@ -4289,7 +4586,13 @@ const ReadingRoom = () => {
                           data-card-element="true"
                           onClick={() => {
                             if ((selectedCard as any).revealed) {
-                              setActiveCardIndexWrapped(index);
+                              // Open card detail modal for revealed cards
+                              updateSharedModalState({
+                                isOpen: true,
+                                cardIndex: index,
+                                showDescription: false,
+                                triggeredBy: participantId || null
+                              });
                             } else {
                               handleCardFlip(index);
                             }

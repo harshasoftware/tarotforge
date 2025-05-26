@@ -8,6 +8,7 @@ interface TooltipProps {
   delay?: number;
   disabled?: boolean;
   className?: string;
+  wrapperClassName?: string;
 }
 
 const Tooltip: React.FC<TooltipProps> = ({
@@ -16,7 +17,8 @@ const Tooltip: React.FC<TooltipProps> = ({
   position = 'top',
   delay = 500,
   disabled = false,
-  className = ''
+  className = '',
+  wrapperClassName
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [actualPosition, setActualPosition] = useState(position);
@@ -127,7 +129,7 @@ const Tooltip: React.FC<TooltipProps> = ({
   return (
     <div 
       ref={triggerRef}
-      className={`relative inline-block ${className}`}
+      className={wrapperClassName || `relative inline-block ${className}`}
       onMouseEnter={showTooltip}
       onMouseLeave={hideTooltip}
       onFocus={showTooltip}

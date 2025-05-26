@@ -3,7 +3,7 @@ import ParticipantNotification from './ParticipantNotification';
 
 interface NotificationData {
   id: string;
-  type: 'join' | 'leave';
+  type: 'join' | 'leave' | 'deck-cleared';
   participantName: string;
   isAnonymous: boolean;
   timestamp: number;

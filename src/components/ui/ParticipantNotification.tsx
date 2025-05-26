@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, UserMinus, X } from 'lucide-react';
+import { UserPlus, UserMinus, X, RotateCcw } from 'lucide-react';
 
 interface ParticipantNotificationProps {
-  type: 'join' | 'leave';
+  type: 'join' | 'leave' | 'deck-cleared';
   participantName: string;
   isAnonymous: boolean;
   onClose: () => void;
@@ -34,25 +34,57 @@ const ParticipantNotification: React.FC<ParticipantNotificationProps> = ({
   };
 
   const getIcon = () => {
-    return type === 'join' ? (
-      <UserPlus className="h-5 w-5 text-green-500" />
-    ) : (
-      <UserMinus className="h-5 w-5 text-orange-500" />
-    );
+    switch (type) {
+      case 'join':
+        return <UserPlus className="h-5 w-5 text-green-500" />;
+      case 'leave':
+        return <UserMinus className="h-5 w-5 text-orange-500" />;
+      case 'deck-cleared':
+        return <RotateCcw className="h-5 w-5 text-blue-500" />;
+      default:
+        return <UserPlus className="h-5 w-5 text-green-500" />;
+    }
   };
 
   const getMessage = () => {
-    const action = type === 'join' ? 'joined' : 'left';
     const userType = isAnonymous ? 'Guest' : 'User';
-    return `${userType} "${participantName}" ${action} the session`;
+    
+    switch (type) {
+      case 'join':
+        return `${userType} "${participantName}" joined the session`;
+      case 'leave':
+        return `${userType} "${participantName}" left the session`;
+      case 'deck-cleared':
+        return `${userType} "${participantName}" cleared the deck`;
+      default:
+        return `${userType} "${participantName}" joined the session`;
+    }
   };
 
   const getBorderColor = () => {
-    return type === 'join' ? 'border-green-500/30' : 'border-orange-500/30';
+    switch (type) {
+      case 'join':
+        return 'border-green-500/30';
+      case 'leave':
+        return 'border-orange-500/30';
+      case 'deck-cleared':
+        return 'border-blue-500/30';
+      default:
+        return 'border-green-500/30';
+    }
   };
 
   const getBackgroundColor = () => {
-    return type === 'join' ? 'bg-green-500/10' : 'bg-orange-500/10';
+    switch (type) {
+      case 'join':
+        return 'bg-green-500/10';
+      case 'leave':
+        return 'bg-orange-500/10';
+      case 'deck-cleared':
+        return 'bg-blue-500/10';
+      default:
+        return 'bg-green-500/10';
+    }
   };
 
   return (

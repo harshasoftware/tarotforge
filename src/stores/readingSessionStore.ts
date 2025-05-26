@@ -33,6 +33,17 @@ export interface ReadingSessionState {
     hostParticipantId: string | null;
     participants: string[]; // participant IDs in the video call
   } | null;
+  loadingStates?: {
+    isShuffling: boolean;
+    isGeneratingInterpretation: boolean;
+    triggeredBy: string | null; // participant ID who triggered the action
+  } | null;
+  deckSelectionState?: {
+    isOpen: boolean;
+    activeTab: 'collection' | 'marketplace';
+    selectedMarketplaceDeck: string | null; // deck ID
+    triggeredBy: string | null; // participant ID who opened the modal
+  } | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -180,6 +191,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         activeCardIndex: null,
         sharedModalState: null,
         videoCallState: null,
+        loadingStates: null,
         isActive: true,
         createdAt: now,
         updatedAt: now
@@ -341,6 +353,8 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           activeCardIndex: session.active_card_index,
           sharedModalState: session.shared_modal_state || null,
           videoCallState: session.video_call_state || null,
+          loadingStates: session.loading_states || null,
+          deckSelectionState: session.deck_selection_state || null,
           isActive: session.is_active,
           createdAt: session.created_at,
           updatedAt: session.updated_at
@@ -478,6 +492,12 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         }
         if (updates.videoCallState !== undefined) {
           updateData.video_call_state = updates.videoCallState;
+        }
+              if (updates.loadingStates !== undefined) {
+        updateData.loading_states = updates.loadingStates;
+      }
+        if (updates.deckSelectionState !== undefined) {
+          updateData.deck_selection_state = updates.deckSelectionState;
         }
 
         console.log('Updating session with data:', updateData);
@@ -779,6 +799,8 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           activeCardIndex: session.active_card_index,
           sharedModalState: session.shared_modal_state || null,
           videoCallState: session.video_call_state || null,
+          loadingStates: session.loading_states || null,
+          deckSelectionState: session.deck_selection_state || null,
           isActive: session.is_active,
           createdAt: session.created_at,
           updatedAt: session.updated_at
@@ -997,6 +1019,8 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
                 activeCardIndex: null,
                 sharedModalState: null,
                 videoCallState: null,
+                loadingStates: null,
+                deckSelectionState: null,
                 isActive: true,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
@@ -1045,6 +1069,8 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
               activeCardIndex: session.active_card_index,
               sharedModalState: session.shared_modal_state || null,
               videoCallState: session.video_call_state || null,
+              loadingStates: session.loading_states || null,
+              deckSelectionState: session.deck_selection_state || null,
               isActive: session.is_active,
               createdAt: session.created_at,
               updatedAt: session.updated_at
