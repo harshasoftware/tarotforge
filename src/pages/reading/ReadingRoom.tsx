@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX, LogIn } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX, LogIn, Keyboard, Navigation, BookOpen, Lightbulb } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
@@ -377,6 +377,10 @@ const ReadingRoom = () => {
   const [isPanning, setIsPanning] = useState(false);
   const [panStartPos, setPanStartPos] = useState({ x: 0, y: 0 });
   const [panStartOffset, setPanStartOffset] = useState({ x: 0, y: 0 });
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+  
+  // Help modal state
+  const [showHelpModal, setShowHelpModal] = useState(false);
   
   // Follow functionality state
   const [isFollowing, setIsFollowing] = useState(false);
@@ -754,14 +758,9 @@ const ReadingRoom = () => {
     }
   }, [isMobile, readingStep, hasShownInitialHint]);
 
-  // Function to show hint manually (via help button)
+  // Function to show help modal (via help button)
   const showHint = useCallback(() => {
-    setShowPinchHint(true);
-    
-    // Auto-hide after 2 seconds (faster fade)
-    setTimeout(() => {
-      setShowPinchHint(false);
-    }, 2000);
+    setShowHelpModal(true);
   }, []);
 
   // Function to hide hint manually
@@ -1929,24 +1928,23 @@ const ReadingRoom = () => {
     }
   };
   
-  // Pan functionality for dragging the view when zoomed
+  // Pan functionality for dragging the view (works at any zoom level, like Figma)
   const handlePanStart = (clientX: number, clientY: number) => {
-    if (zoomLevel <= 1) return; // Only allow panning when zoomed in
-    
     setIsPanning(true);
     setPanStartPos({ x: clientX, y: clientY });
     setPanStartOffset({ ...panOffset });
   };
   
   const handlePanMove = (clientX: number, clientY: number) => {
-    if (!isPanning || zoomLevel <= 1) return;
+    if (!isPanning) return;
     
     const deltaX = clientX - panStartPos.x;
     const deltaY = clientY - panStartPos.y;
     
-    // Apply sensitivity and constraints
+    // Apply sensitivity and constraints based on zoom level
     const sensitivity = 1;
-    const maxPan = 200; // Maximum pan distance in pixels
+    // Increase max pan distance when zoomed in, allow more movement when zoomed out
+    const maxPan = zoomLevel > 1 ? 400 : 800;
     
     const newPanX = Math.max(-maxPan, Math.min(maxPan, panStartOffset.x + deltaX * sensitivity));
     const newPanY = Math.max(-maxPan, Math.min(maxPan, panStartOffset.y + deltaY * sensitivity));
@@ -2167,6 +2165,13 @@ const ReadingRoom = () => {
   // Keyboard navigation for gallery and panning
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Track space key for space+drag panning (like Figma)
+      if (event.code === 'Space' && !event.repeat && !isMobile) {
+        setIsSpacePressed(true);
+        event.preventDefault();
+        return;
+      }
+      
       // Gallery navigation (takes priority when gallery is open)
       if (showCardGallery) {
         switch (event.key) {
@@ -2216,8 +2221,20 @@ const ReadingRoom = () => {
       }
     };
     
+    const handleKeyUp = (event: KeyboardEvent) => {
+      // Release space key
+      if (event.code === 'Space' && !isMobile) {
+        setIsSpacePressed(false);
+        event.preventDefault();
+      }
+    };
+    
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keyup', handleKeyUp);
+    };
   }, [showCardGallery, showCardDescription, closeCardGallery, navigateGallery, isMobile, readingStep, panDirection]);
   
   // Handle gallery swipe gestures
@@ -3685,8 +3702,8 @@ const ReadingRoom = () => {
                   }
                 }}
                 onMouseDown={(e) => {
-                  // Only start panning if not on mobile, zoomed in, clicking on empty space, and not dragging cards
-                  if (!isMobile && zoomLevel > 1 && !isDragging && !isDraggingPlacedCard && e.target === e.currentTarget) {
+                  // Only allow panning with space key to avoid conflicts with card dragging
+                  if (!isMobile && !isDragging && !isDraggingPlacedCard && isSpacePressed) {
                     e.preventDefault();
                     e.stopPropagation();
                     handlePanStart(e.clientX, e.clientY);
@@ -3703,7 +3720,7 @@ const ReadingRoom = () => {
                   }
                 }}
                 style={{
-                  cursor: zoomLevel > 1 && !isDragging && !isDraggingPlacedCard ? (isPanning ? 'grabbing' : 'grab') : 'default'
+                  cursor: !isMobile && !isDragging && !isDraggingPlacedCard ? (isPanning ? 'grabbing' : (isSpacePressed ? 'grab' : 'default')) : 'default'
                 }}
               >
                 {/* Zoom controls with shuffle button - repositioned for mobile */}
@@ -4322,8 +4339,8 @@ const ReadingRoom = () => {
               <div 
                 className={`${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-3/5' : (showMobileInterpretation ? 'hidden' : 'flex-1')) : 'w-3/5'} relative`}
                 onMouseDown={(e) => {
-                  // Only start panning if not on mobile, zoomed in, clicking on empty space, and not dragging cards
-                  if (!isMobile && zoomLevel > 1 && !isDragging && !isDraggingPlacedCard && e.target === e.currentTarget) {
+                  // Only allow panning with space key to avoid conflicts with card dragging
+                  if (!isMobile && !isDragging && !isDraggingPlacedCard && isSpacePressed) {
                     e.preventDefault();
                     e.stopPropagation();
                     handlePanStart(e.clientX, e.clientY);
@@ -4343,7 +4360,7 @@ const ReadingRoom = () => {
                   ...getTransform(zoomLevel, zoomFocus, panOffset),
                   // Additional optimizations for smooth performance
                   contain: 'layout style paint',
-                  cursor: zoomLevel > 1 && !isDragging && !isDraggingPlacedCard ? (isPanning ? 'grabbing' : 'grab') : 'default'
+                  cursor: !isMobile && !isDragging && !isDraggingPlacedCard ? (isPanning ? 'grabbing' : (isSpacePressed ? 'grab' : 'default')) : 'default'
                 }}
               >
                 {/* Zoom controls */}
@@ -4448,8 +4465,8 @@ const ReadingRoom = () => {
                 <div 
                   className="absolute inset-0 transition-transform duration-300 ease-in-out"
                   onMouseDown={(e) => {
-                    // Only start panning if not on mobile, zoomed in, clicking on empty space, and not dragging cards
-                    if (!isMobile && zoomLevel > 1 && !isDragging && !isDraggingPlacedCard && e.target === e.currentTarget) {
+                    // Only allow panning with space key to avoid conflicts with card dragging
+                    if (!isMobile && !isDragging && !isDraggingPlacedCard && isSpacePressed) {
                       e.preventDefault();
                       e.stopPropagation();
                       handlePanStart(e.clientX, e.clientY);
@@ -4469,7 +4486,7 @@ const ReadingRoom = () => {
                     ...getTransform(zoomLevel, zoomFocus, panOffset),
                     // Additional optimizations for smooth performance
                     contain: 'layout style paint',
-                    cursor: zoomLevel > 1 && !isDragging && !isDraggingPlacedCard ? (isPanning ? 'grabbing' : 'grab') : 'default'
+                    cursor: !isMobile && !isDragging && !isDraggingPlacedCard ? (isPanning ? 'grabbing' : (isSpacePressed ? 'grab' : 'default')) : 'default'
                   }}
                 >
                   {/* Free layout cards in interpretation */}
@@ -4897,6 +4914,221 @@ const ReadingRoom = () => {
                     className="btn btn-primary px-4 py-2"
                   >
                     Done
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      
+      {/* Help Modal - Desktop */}
+      <AnimatePresence>
+        {showHelpModal && (
+          <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+            <motion.div 
+              className="relative bg-card max-w-4xl w-full max-h-[90vh] rounded-xl overflow-hidden"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
+                <h3 className="font-serif font-bold text-xl">TarotForge Reading Room Guide</h3>
+                <button 
+                  onClick={() => setShowHelpModal(false)}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+                <div className="grid md:grid-cols-2 gap-8">
+                  {/* Keyboard Shortcuts */}
+                  <div>
+                    <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                      <Keyboard className="h-5 w-5 text-primary" />
+                      Keyboard Shortcuts
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Pan view</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Space + Drag</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Pan up</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">↑</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Pan down</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">↓</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Pan left</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">←</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Pan right</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">→</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Zoom in/out</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">{navigator.platform.toLowerCase().includes('mac') ? 'Cmd' : 'Ctrl'} + Scroll</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Navigate gallery</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">← →</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Close gallery</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Esc</kbd>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Navigation & Controls */}
+                  <div>
+                    <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                      <Navigation className="h-5 w-5 text-primary" />
+                      Navigation & Controls
+                    </h4>
+                    <div className="space-y-4">
+                      <div className="bg-muted/30 p-3 rounded-lg">
+                        <div className="font-medium text-sm mb-1">Zoom Controls</div>
+                        <div className="text-xs text-muted-foreground">Use the zoom buttons or {navigator.platform.toLowerCase().includes('mac') ? 'Cmd' : 'Ctrl'}+Scroll to zoom in/out. Pan with Space+Drag or arrow keys.</div>
+                      </div>
+                      <div className="bg-muted/30 p-3 rounded-lg">
+                        <div className="font-medium text-sm mb-1">Card Interaction</div>
+                        <div className="text-xs text-muted-foreground">Drag cards from the deck to positions. Click to flip cards. Double-click revealed cards for detailed view.</div>
+                      </div>
+                      <div className="bg-muted/30 p-3 rounded-lg">
+                        <div className="font-medium text-sm mb-1">Free Layout</div>
+                        <div className="text-xs text-muted-foreground">Drop cards anywhere on the board. Drag placed cards to reposition them.</div>
+                      </div>
+                      <div className="bg-muted/30 p-3 rounded-lg">
+                        <div className="font-medium text-sm mb-1">Directional Joypad</div>
+                        <div className="text-xs text-muted-foreground">Use the mini joystick in zoom controls for precise panning.</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Collaborative Features */}
+                  <div>
+                    <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                      <Users className="h-5 w-5 text-primary" />
+                      Collaborative Features
+                    </h4>
+                    <div className="space-y-4">
+                      <div className="bg-muted/30 p-3 rounded-lg">
+                        <div className="font-medium text-sm mb-1">Real-time Sync</div>
+                        <div className="text-xs text-muted-foreground">All participants see changes instantly - card placements, flips, zoom, and pan.</div>
+                      </div>
+                      <div className="bg-muted/30 p-3 rounded-lg">
+                        <div className="font-medium text-sm mb-1">Video Chat</div>
+                        <div className="text-xs text-muted-foreground">Click the video button to start/join video calls with other participants.</div>
+                      </div>
+                      <div className="bg-muted/30 p-3 rounded-lg">
+                        <div className="font-medium text-sm mb-1">Shared Deck</div>
+                        <div className="text-xs text-muted-foreground">All logged-in participants' deck collections are combined and available to everyone.</div>
+                      </div>
+                      <div className="bg-muted/30 p-3 rounded-lg">
+                        <div className="font-medium text-sm mb-1">Guest Access</div>
+                        <div className="text-xs text-muted-foreground">Guests can join and participate but have limited deck access. Upgrade to unlock full features.</div>
+                      </div>
+                      <div className="bg-muted/30 p-3 rounded-lg">
+                        <div className="font-medium text-sm mb-1">Invite Others</div>
+                        <div className="text-xs text-muted-foreground">Use the share button to generate invitation links for your reading room.</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Reading Process */}
+                  <div>
+                    <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                      <BookOpen className="h-5 w-5 text-primary" />
+                      Reading Process
+                    </h4>
+                    <div className="space-y-4">
+                      <div className="bg-muted/30 p-3 rounded-lg">
+                        <div className="font-medium text-sm mb-1">1. Setup</div>
+                        <div className="text-xs text-muted-foreground">Choose your deck and layout. Ask your question.</div>
+                      </div>
+                      <div className="bg-muted/30 p-3 rounded-lg">
+                        <div className="font-medium text-sm mb-1">2. Drawing</div>
+                        <div className="text-xs text-muted-foreground">Drag cards from the deck to positions. Cards start face-down.</div>
+                      </div>
+                      <div className="bg-muted/30 p-3 rounded-lg">
+                        <div className="font-medium text-sm mb-1">3. Reveal</div>
+                        <div className="text-xs text-muted-foreground">Click cards to flip them. Use "Reveal All" for quick reveal.</div>
+                      </div>
+                      <div className="bg-muted/30 p-3 rounded-lg">
+                        <div className="font-medium text-sm mb-1">4. Interpret</div>
+                        <div className="text-xs text-muted-foreground">Click "See Interpretation" to generate AI-powered insights based on your cards and question.</div>
+                      </div>
+                      <div className="bg-muted/30 p-3 rounded-lg">
+                        <div className="font-medium text-sm mb-1">Card Details</div>
+                        <div className="text-xs text-muted-foreground">Double-click any revealed card to see its full description and meaning.</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tips & Tricks */}
+                  <div className="md:col-span-2">
+                    <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                      <Lightbulb className="h-5 w-5 text-primary" />
+                      Tips & Tricks
+                    </h4>
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        <div className="bg-muted/20 p-3 rounded-lg">
+                          <div className="font-medium text-sm mb-1">Space+Drag</div>
+                          <div className="text-xs text-muted-foreground">Pan from anywhere, even over cards and UI elements</div>
+                        </div>
+                        <div className="bg-muted/20 p-3 rounded-lg">
+                          <div className="font-medium text-sm mb-1">Zoom Focus</div>
+                          <div className="text-xs text-muted-foreground">Zoom centers on your mouse cursor position</div>
+                        </div>
+                        <div className="bg-muted/20 p-3 rounded-lg">
+                          <div className="font-medium text-sm mb-1">Mobile</div>
+                          <div className="text-xs text-muted-foreground">Pinch to zoom, two-finger drag to pan</div>
+                        </div>
+                        <div className="bg-muted/20 p-3 rounded-lg">
+                          <div className="font-medium text-sm mb-1">Card Gallery</div>
+                          <div className="text-xs text-muted-foreground">Swipe or use arrow keys to navigate between revealed cards</div>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="bg-muted/20 p-3 rounded-lg">
+                          <div className="font-medium text-sm mb-1">Collaborative</div>
+                          <div className="text-xs text-muted-foreground">Changes sync in real-time across all participants</div>
+                        </div>
+                        <div className="bg-muted/20 p-3 rounded-lg">
+                          <div className="font-medium text-sm mb-1">Deck Switching</div>
+                          <div className="text-xs text-muted-foreground">Change decks mid-reading without losing card positions</div>
+                        </div>
+                        <div className="bg-muted/20 p-3 rounded-lg">
+                          <div className="font-medium text-sm mb-1">Session Persistence</div>
+                          <div className="text-xs text-muted-foreground">Your reading room stays active for others to join</div>
+                        </div>
+                        <div className="bg-muted/20 p-3 rounded-lg">
+                          <div className="font-medium text-sm mb-1">Guest Mode</div>
+                          <div className="text-xs text-muted-foreground">Try the app without signing up, upgrade anytime</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-8 pt-6 border-t border-border text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Need more help? Visit our documentation or contact support.
+                  </p>
+                  <button
+                    onClick={() => setShowHelpModal(false)}
+                    className="btn btn-primary px-6 py-2 mt-4"
+                  >
+                    Got it!
                   </button>
                 </div>
               </div>
