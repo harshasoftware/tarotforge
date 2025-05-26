@@ -29,7 +29,18 @@ export const fetchAllReaders = async (): Promise<User[]> => {
       throw readersError;
     }
     
-    return readersData || [];
+    // Process online status for each reader
+    const now = new Date();
+    const ONLINE_THRESHOLD_MINUTES = 5;
+    
+    const processedReaders = readersData?.map(reader => ({
+      ...reader,
+      is_online: reader.is_online && reader.last_seen_at 
+        ? (now.getTime() - new Date(reader.last_seen_at).getTime()) / (1000 * 60) <= ONLINE_THRESHOLD_MINUTES
+        : false
+    })) || [];
+    
+    return processedReaders;
   } catch (error) {
     console.error('Error in fetchAllReaders:', error);
     return [];

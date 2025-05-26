@@ -49,6 +49,13 @@ const ReadersPage: React.FC = () => {
     };
     
     loadReaders();
+
+    // Refresh reader data every 2 minutes to update online status
+    const refreshInterval = setInterval(() => {
+      loadReaders();
+    }, 120000); // 2 minutes
+
+    return () => clearInterval(refreshInterval);
   }, []);
   
   // Filter readers based on search query and active filter

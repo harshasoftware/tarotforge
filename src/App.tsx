@@ -11,6 +11,7 @@ import setupLogRocketReact from 'logrocket-react';
 import LogRocket from 'logrocket';
 import { trackPageView } from './utils/analytics';
 import { sessionCleanupService } from './utils/sessionCleanup';
+import { readerPresenceService } from './lib/reader-presence';
 
 // Initialize LogRocket React plugin
 setupLogRocketReact(LogRocket);
@@ -107,6 +108,20 @@ function App() {
       sessionCleanupService.stop();
     };
   }, []);
+
+  // Initialize reader presence tracking
+  useEffect(() => {
+    if (user?.is_reader) {
+      readerPresenceService.startTracking();
+    } else {
+      readerPresenceService.stopTracking();
+    }
+
+    // Cleanup when user changes or app unmounts
+    return () => {
+      readerPresenceService.stopTracking();
+    };
+  }, [user?.is_reader]);
 
   // Handle auth redirect from URL params for deep linking
   useEffect(() => {

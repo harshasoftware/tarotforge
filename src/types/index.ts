@@ -14,6 +14,8 @@ export interface User {
   completed_readings?: number;
   readerLevel?: ReaderLevel;
   custom_price_per_minute?: number | null | undefined;
+  is_online?: boolean;
+  last_seen_at?: string;
 }
 
 export interface Deck {

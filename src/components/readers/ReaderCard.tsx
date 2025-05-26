@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { User, Star, Calendar, Clock, Video, BookOpen, Crown, Heart, Sun, Flame, Sparkles } from 'lucide-react';
+import { User, Star, Calendar, Clock, Video, BookOpen, Crown, Heart, Sun, Flame, Sparkles, Circle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { User as UserType } from '../../types';
 import TarotLogo from '../ui/TarotLogo';
@@ -180,6 +180,14 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
                 {reader.username?.charAt(0) || reader.email.charAt(0)}
               </div>
             )}
+            
+            {/* Online Status Indicator */}
+            <div className="absolute -top-1 -right-1 flex items-center justify-center">
+              <Circle 
+                className={`h-4 w-4 ${reader.is_online ? 'text-green-500 fill-green-500' : 'text-gray-400 fill-gray-400'}`}
+              />
+            </div>
+            
             <div className={`absolute -bottom-1 -right-1 ${getButtonBg()} p-1 rounded-full`}>
               <TarotLogo className="h-4 w-4" />
             </div>
@@ -205,6 +213,14 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
                 <Star className="h-3 w-3 fill-accent text-accent mr-1" />
                 <span>{reader.average_rating ? reader.average_rating.toFixed(1) : '5.0'}</span>
               </div>
+            </div>
+            
+            {/* Online Status Text */}
+            <div className="flex items-center mt-1">
+              <Circle className={`h-2 w-2 mr-1 ${reader.is_online ? 'text-green-500 fill-green-500' : 'text-gray-400 fill-gray-400'}`} />
+              <span className={`text-xs ${reader.is_online ? 'text-green-600' : 'text-muted-foreground'}`}>
+                {reader.is_online ? 'Online' : 'Offline'}
+              </span>
             </div>
           </div>
         </div>
@@ -243,10 +259,20 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
         
         {/* Reading Options */}
         <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-          <Link to="#" className="flex-1 btn btn-secondary p-2 text-xs flex items-center justify-center">
-            <Video className="h-3 w-3 mr-1" />
-            Video
-          </Link>
+          {reader.is_online ? (
+            <Link to="#" className="flex-1 btn btn-secondary p-2 text-xs flex items-center justify-center hover:bg-secondary/80">
+              <Video className="h-3 w-3 mr-1" />
+              Video
+            </Link>
+          ) : (
+            <button 
+              disabled 
+              className="flex-1 p-2 text-xs flex items-center justify-center rounded-md bg-muted/50 text-muted-foreground cursor-not-allowed opacity-60"
+            >
+              <Video className="h-3 w-3 mr-1" />
+              Video
+            </button>
+          )}
           <Link to="#" className={`flex-1 p-2 text-xs flex items-center justify-center rounded-md ${getButtonBg()}`}>
             <BookOpen className="h-3 w-3 mr-1" />
             Book
