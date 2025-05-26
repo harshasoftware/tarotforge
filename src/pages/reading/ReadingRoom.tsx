@@ -383,6 +383,9 @@ const ReadingRoom = () => {
   // Help modal state
   const [showHelpModal, setShowHelpModal] = useState(false);
   
+  // Exit modal state
+  const [showExitModal, setShowExitModal] = useState(false);
+  
   // Follow functionality state
   const [isFollowing, setIsFollowing] = useState(false);
   const [showFollowNotification, setShowFollowNotification] = useState(false);
@@ -2779,13 +2782,13 @@ const ReadingRoom = () => {
                   <ArrowLeft className="h-4 w-4" />
                 </button>
               ) : (
-                <Link 
-                  to={user ? "/collection" : "/"} 
+                <button 
+                  onClick={() => setShowExitModal(true)}
                   className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} flex items-center text-muted-foreground hover:text-foreground`}
                 >
                   <ArrowLeft className="h-4 w-4" />
                   {!isMobile && <span className="ml-1 text-sm">Exit</span>}
-                </Link>
+                </button>
               )}
             </Tooltip>
             
@@ -4725,7 +4728,6 @@ const ReadingRoom = () => {
                     <button 
                       onClick={() => setShowMobileInterpretation(true)}
                       className={`btn btn-primary px-2 py-1 text-xs mobile-interpretation-button ${!(isMobile && !isLandscape && !showMobileInterpretation) ? 'hidden' : ''}`}
-                  
                     >
                       <Info className="h-4 w-4" />
                     </button>
@@ -5172,6 +5174,69 @@ const ReadingRoom = () => {
             isInviteJoin={!!joinSessionId}
             onGuestNameSet={handleGuestNameSet}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Exit Confirmation Modal */}
+      <AnimatePresence>
+        {showExitModal && (
+          <motion.div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setShowExitModal(false)}
+          >
+            <motion.div
+              className={`bg-card border border-border rounded-lg shadow-lg ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md'} p-6`}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-destructive/10 rounded-full">
+                  <ArrowLeft className="h-5 w-5 text-destructive" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Exit Reading Room</h3>
+                  <p className="text-sm text-muted-foreground">Are you sure you want to leave?</p>
+                </div>
+              </div>
+              
+              <div className="space-y-3 mb-6">
+                <p className="text-sm text-muted-foreground">
+                  {selectedCards.some((card: any) => card) ? (
+                    <>Your reading progress will be saved and you can return to this session later.</>
+                  ) : (
+                    <>You haven't started your reading yet. You can always come back to continue.</>
+                  )}
+                </p>
+                {participants.length > 1 && (
+                  <p className="text-sm text-muted-foreground">
+                    Other participants will remain in the session and can continue without you.
+                  </p>
+                )}
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowExitModal(false)}
+                  className="flex-1 px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors"
+                >
+                  Stay in Session
+                </button>
+                <Link
+                  to={user ? "/collection" : "/"}
+                  className="flex-1 px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors text-center"
+                >
+                  Exit Reading Room
+                </Link>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
       
