@@ -3830,6 +3830,13 @@ const ReadingRoom = () => {
                     contain: 'layout style paint',
                   }}
                 >
+                  {/* TarotForge Watermark */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
+                    <div className="flex items-center gap-3 opacity-15 transform scale-150">
+                      <TarotLogo className="w-12 h-12 text-foreground" />
+                      <span className="font-serif text-4xl font-bold tracking-wider text-foreground">TarotForge</span>
+                    </div>
+                  </div>
                   {/* Free layout cards */}
                   {selectedLayout?.id === 'free-layout' && selectedCards.map((selectedCard: any, index: number) => (
                     <motion.div
