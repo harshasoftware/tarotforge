@@ -1606,16 +1606,16 @@ const ReadingRoom = () => {
     
     switch (direction) {
       case 'up':
-        newY = Math.max(-maxPan, panOffset.y - panStep);
-        break;
-      case 'down':
         newY = Math.min(maxPan, panOffset.y + panStep);
         break;
+      case 'down':
+        newY = Math.max(-maxPan, panOffset.y - panStep);
+        break;
       case 'left':
-        newX = Math.max(-maxPan, panOffset.x - panStep);
+        newX = Math.min(maxPan, panOffset.x + panStep);
         break;
       case 'right':
-        newX = Math.min(maxPan, panOffset.x + panStep);
+        newX = Math.max(-maxPan, panOffset.x - panStep);
         break;
     }
     
