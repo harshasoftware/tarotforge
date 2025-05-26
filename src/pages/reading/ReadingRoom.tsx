@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX, LogIn, Keyboard, Navigation, BookOpen, Lightbulb } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Wand, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX, LogIn, Keyboard, Navigation, BookOpen, Lightbulb, Sun, Moon, DoorOpen, ScanSearch } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
@@ -337,6 +337,7 @@ const ReadingRoom = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [showMobileInterpretation, setShowMobileInterpretation] = useState(false);
   
@@ -390,6 +391,9 @@ const ReadingRoom = () => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [showFollowNotification, setShowFollowNotification] = useState(false);
   
+  // Theme state
+  const [darkMode, setDarkMode] = useState(true);
+  
   // Follow functionality
   const toggleFollow = useCallback(() => {
     setIsFollowing(!isFollowing);
@@ -398,6 +402,12 @@ const ReadingRoom = () => {
       setTimeout(() => setShowFollowNotification(false), 3000);
     }
   }, [isFollowing]);
+  
+  // Theme toggle functionality
+  const toggleTheme = useCallback(() => {
+    setDarkMode(!darkMode);
+    document.body.classList.toggle('light-theme');
+  }, [darkMode]);
   
   // Listen for shuffled deck updates from other participants
   useEffect(() => {
@@ -507,6 +517,8 @@ const ReadingRoom = () => {
   
   // Layout dropdown state
   const [showLayoutDropdown, setShowLayoutDropdown] = useState(false);
+  const [highlightedLayoutIndex, setHighlightedLayoutIndex] = useState(0);
+  const [highlightedSetupLayoutIndex, setHighlightedSetupLayoutIndex] = useState(0);
   
   // Video chat state
   const [showVideoChat, setShowVideoChat] = useState(false);
@@ -608,6 +620,17 @@ const ReadingRoom = () => {
   const [generatedQuestions, setGeneratedQuestions] = useState<string[]>([]);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
   const [showCustomQuestionInput, setShowCustomQuestionInput] = useState(false);
+  const [highlightedCategoryIndex, setHighlightedCategoryIndex] = useState(0);
+  
+  // Question categories for keyboard navigation
+  const questionCategories = [
+    { id: 'love', name: 'Love', icon: '💕', desc: 'Romance, relationships, soulmates' },
+    { id: 'career', name: 'Career', icon: '🎯', desc: 'Work, business, professional growth' },
+    { id: 'finance', name: 'Finance', icon: '💰', desc: 'Money, wealth, investments' },
+    { id: 'relationships', name: 'Relationships', icon: '👥', desc: 'Family, friends, social connections' },
+    { id: 'spiritual-growth', name: 'Spiritual Growth', icon: '⭐', desc: 'Soul purpose, enlightenment' },
+    { id: 'past-lives', name: 'Past Lives', icon: '♾️', desc: 'Karma, soul history, past influences' }
+  ];
   
   // Track cards used for current interpretation to prevent regeneration
   const [interpretationCards, setInterpretationCards] = useState<any[]>([]);
@@ -700,9 +723,11 @@ const ReadingRoom = () => {
   useEffect(() => {
     const checkMobileAndOrientation = () => {
       const isMobileDevice = window.innerWidth < 768;
+      const isTabletDevice = window.innerWidth >= 768 && window.innerWidth < 1024;
       const isLandscapeOrientation = window.innerWidth > window.innerHeight && isMobileDevice;
       
       setIsMobile(isMobileDevice);
+      setIsTablet(isTabletDevice);
       setIsLandscape(isLandscapeOrientation);
       
       // Prevent scrolling on mobile for better UX
@@ -829,13 +854,24 @@ const ReadingRoom = () => {
 
   // Helper function to open deck selection modal
   const openDeckSelection = useCallback(() => {
+    // If there's already a deck selected, enter deck change mode (don't use session state)
+    if (deck) {
+      setIsChangingDeckMidSession(true);
+      setDeck(null);
+      setCards([]);
+      setShuffledDeck([]);
+      setSelectedDeckId(null);
+      return; // Exit early, don't update session state
+    }
+    
+    // Only update session state if no deck is selected (initial setup)
     updateDeckSelectionState({
       isOpen: true,
       activeTab: deckSelectionTab,
       selectedMarketplaceDeck: selectedMarketplaceDeckId || null,
       triggeredBy: participantId || null
     });
-  }, [updateDeckSelectionState, deckSelectionTab, selectedMarketplaceDeckId, participantId]);
+  }, [updateDeckSelectionState, deckSelectionTab, selectedMarketplaceDeckId, participantId, deck, setDeck, setCards, setShuffledDeck, setSelectedDeckId, setIsChangingDeckMidSession]);
 
   // Helper function to close deck selection modal
   const closeDeckSelection = useCallback(() => {
@@ -1152,7 +1188,7 @@ const ReadingRoom = () => {
         readingStep: targetReadingStep,
         interpretation: '',
         activeCardIndex: null,
-        zoomLevel: isMobile ? (isLandscape ? (layout.id === 'celtic-cross' ? 0.8 : 1) : (layout.id === 'celtic-cross' ? 0.6 : 0.8)) : (layout.id === 'celtic-cross' ? 0.8 : 1)
+        zoomLevel: isMobile ? (isLandscape ? (layout.id === 'celtic-cross' ? 0.8 : 1) : (layout.id === 'celtic-cross' ? 0.6 : 0.8)) : (layout.id === 'celtic-cross' ? 1.0 : 1.6)
       });
       
       // Only shuffle if cards are loaded and not already in session state
@@ -1590,6 +1626,12 @@ const ReadingRoom = () => {
     setPanOffsetWrapped({ x: 0, y: 0 });
   }, [setZoomLevelWrapped, setZoomFocusWrapped, setPanOffsetWrapped]);
   
+  // Helper function to get default zoom level based on layout
+  const getDefaultZoomLevel = useCallback((layout: any) => {
+    if (!layout) return 1;
+    return layout.id === 'celtic-cross' ? 1.0 : 1.6;
+  }, []);
+  
   // Reset pan to center
   const resetPan = useCallback(() => {
     setPanOffsetWrapped({ x: 0, y: 0 });
@@ -1639,7 +1681,7 @@ const ReadingRoom = () => {
       selectedCards: [],
       interpretation: '',
       activeCardIndex: null,
-      zoomLevel: 1,
+      zoomLevel: 1, // Reset to 1 when no layout is selected
       shuffledDeck: newShuffledDeck
     });
     
@@ -1668,7 +1710,7 @@ const ReadingRoom = () => {
       interpretation: '',
       activeCardIndex: null,
       readingStep: 'drawing',
-      zoomLevel: 1,
+      zoomLevel: getDefaultZoomLevel(selectedLayout),
       shuffledDeck: freshlyShuffled
     });
     
@@ -1685,7 +1727,7 @@ const ReadingRoom = () => {
       participantName: user?.email?.split('@')[0] || participants.find(p => p.id === participantId)?.name || 'Anonymous',
       isAnonymous: !user
     });
-  }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId]);
+  }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId, getDefaultZoomLevel, selectedLayout]);
   
   // Drag and Drop Functions
   const handleDragStart = (card: Card, index: number, e: any) => {
@@ -2169,6 +2211,14 @@ const ReadingRoom = () => {
   // Keyboard navigation for gallery and panning
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Skip keyboard shortcuts if typing in an input/textarea
+      if (event.target instanceof HTMLElement && 
+          (event.target.tagName === 'INPUT' || 
+           event.target.tagName === 'TEXTAREA' || 
+           event.target.contentEditable === 'true')) {
+        return;
+      }
+      
       // Track space key for space+drag panning (like Figma)
       if (event.code === 'Space' && !event.repeat && !isMobile) {
         setIsSpacePressed(true);
@@ -2202,7 +2252,161 @@ const ReadingRoom = () => {
         return;
       }
       
-      // Panning navigation (only on desktop and when not in gallery)
+      // Enter key handling for exit confirmation modal
+      if (event.key === 'Enter' && showExitModal && (readingStep === 'setup' || readingStep === 'drawing' || readingStep === 'interpretation')) {
+        // Confirm exit - navigate away from reading room (same logic as exit button)
+        event.preventDefault();
+        window.location.href = user ? '/collection' : '/';
+        return;
+      }
+      
+      // Global Escape key handling for all modals (during setup/drawing/interpretation steps)
+      if (event.key === 'Escape' && (readingStep === 'setup' || readingStep === 'drawing' || readingStep === 'interpretation')) {
+        // Close modals in priority order (most specific to least specific)
+        if (showShareModal) {
+          setShowShareModal(false);
+          event.preventDefault();
+          return;
+        }
+        if (showHelpModal) {
+          setShowHelpModal(false);
+          event.preventDefault();
+          return;
+        }
+        if (showExitModal) {
+          // Second Escape: Close exit modal (don't exit)
+          setShowExitModal(false);
+          event.preventDefault();
+          return;
+        }
+        if (showSignInModal) {
+          setShowSignInModal(false);
+          event.preventDefault();
+          return;
+        }
+        if (showGuestUpgrade) {
+          setShowGuestUpgrade(false);
+          event.preventDefault();
+          return;
+        }
+        if (isChangingDeckMidSession) {
+          // Cancel deck change and restore previous deck
+          setIsChangingDeckMidSession(false);
+          fetchAndSetDeck(deckId || 'rider-waite-classic');
+          event.preventDefault();
+          return;
+        }
+        
+        // First Escape: No modals open, show exit confirmation
+        setShowExitModal(true);
+        event.preventDefault();
+        return;
+      }
+      
+      // Setup screen layout navigation
+      if (readingStep === 'setup') {
+        switch (event.key) {
+          case 'ArrowUp':
+            event.preventDefault();
+            setHighlightedSetupLayoutIndex(prev => 
+              prev > 0 ? prev - 1 : readingLayouts.length - 1
+            );
+            return; // Prevent other handlers
+          case 'ArrowDown':
+            event.preventDefault();
+            setHighlightedSetupLayoutIndex(prev => 
+              prev < readingLayouts.length - 1 ? prev + 1 : 0
+            );
+            return; // Prevent other handlers
+          case 'Enter':
+            event.preventDefault();
+            const selectedLayoutFromSetup = readingLayouts[highlightedSetupLayoutIndex];
+            handleLayoutSelect(selectedLayoutFromSetup);
+            return; // Prevent other handlers
+          case 'Escape':
+            // Show exit confirmation dialog like in drawing screen
+            event.preventDefault();
+            setShowExitModal(true);
+            return; // Prevent other handlers
+        }
+        // Don't return here - allow other shortcuts like theme toggle to work
+      }
+
+      // Question step category navigation (2-column grid)
+      if (readingStep === 'ask-question' && !selectedCategory) {
+        switch (event.key) {
+          case 'ArrowUp':
+            event.preventDefault();
+            setHighlightedCategoryIndex(prev => {
+              // Move up by 2 positions (previous row), wrap to bottom if needed
+              const newIndex = prev - 2;
+              return newIndex >= 0 ? newIndex : questionCategories.length + newIndex;
+            });
+            return; // Prevent other handlers
+          case 'ArrowDown':
+            event.preventDefault();
+            setHighlightedCategoryIndex(prev => {
+              // Move down by 2 positions (next row), wrap to top if needed
+              const newIndex = prev + 2;
+              return newIndex < questionCategories.length ? newIndex : newIndex - questionCategories.length;
+            });
+            return; // Prevent other handlers
+          case 'ArrowLeft':
+            event.preventDefault();
+            setHighlightedCategoryIndex(prev => 
+              prev > 0 ? prev - 1 : questionCategories.length - 1
+            );
+            return; // Prevent other handlers
+          case 'ArrowRight':
+            event.preventDefault();
+            setHighlightedCategoryIndex(prev => 
+              prev < questionCategories.length - 1 ? prev + 1 : 0
+            );
+            return; // Prevent other handlers
+          case 'Enter':
+            event.preventDefault();
+            const selectedCategoryFromKeyboard = questionCategories[highlightedCategoryIndex];
+            handleCategorySelect(selectedCategoryFromKeyboard.id);
+            return; // Prevent other handlers
+          case 'Escape':
+            // Show exit confirmation dialog like in other screens
+            event.preventDefault();
+            setShowExitModal(true);
+            return; // Prevent other handlers
+        }
+        // Don't return here - allow other shortcuts like theme toggle to work
+      }
+
+      // Layout dropdown navigation (takes priority when dropdown is open)
+      if (showLayoutDropdown && readingStep === 'drawing') {
+        switch (event.key) {
+          case 'ArrowUp':
+            event.preventDefault();
+            setHighlightedLayoutIndex(prev => 
+              prev > 0 ? prev - 1 : readingLayouts.length - 1
+            );
+            break;
+          case 'ArrowDown':
+            event.preventDefault();
+            setHighlightedLayoutIndex(prev => 
+              prev < readingLayouts.length - 1 ? prev + 1 : 0
+            );
+            break;
+          case 'Enter':
+            event.preventDefault();
+            const selectedLayoutFromDropdown = readingLayouts[highlightedLayoutIndex];
+            handleLayoutSelect(selectedLayoutFromDropdown);
+            setShowLayoutDropdown(false);
+            break;
+          case 'Escape':
+            event.preventDefault();
+            setShowLayoutDropdown(false);
+            break;
+        }
+        return; // Don't process other keyboard shortcuts when dropdown is open
+      }
+
+      // Panning navigation (only on desktop and when not in gallery or layout dropdown)
       if (!isMobile && (readingStep === 'drawing' || readingStep === 'interpretation')) {
         switch (event.key) {
           case 'ArrowUp':
@@ -2221,6 +2425,124 @@ const ReadingRoom = () => {
             event.preventDefault();
             panDirection('right');
             break;
+          case 'Enter':
+          case 'c':
+          case 'C':
+            event.preventDefault();
+            resetPan();
+            break;
+          case '+':
+          case '=':
+            event.preventDefault();
+            setZoomLevelWrapped(Math.min(zoomLevel + 0.2, 3));
+            break;
+          case '-':
+          case '_':
+            event.preventDefault();
+            setZoomLevelWrapped(Math.max(zoomLevel - 0.2, 0.5));
+            break;
+          case 'z':
+          case 'Z':
+            event.preventDefault();
+            setZoomLevelWrapped(getDefaultZoomLevel(selectedLayout));
+            setZoomFocusWrapped(null);
+            break;
+        }
+      }
+      
+      // Global shortcuts (available in drawing and interpretation steps)
+      if (!isMobile && (readingStep === 'drawing' || readingStep === 'interpretation')) {
+        switch (event.code) {
+          case 'ShiftLeft':
+            event.preventDefault();
+            shuffleDeck();
+            break;
+        }
+      }
+      
+      // Card action shortcuts (available in drawing/interpretation steps)
+      if (!isMobile && (readingStep === 'drawing' || readingStep === 'interpretation')) {
+        switch (event.key) {
+          case 'r':
+          case 'R':
+            // R for reveal all cards (only if cards are placed and some are unrevealed)
+            if (!event.metaKey && !event.ctrlKey) {
+              const hasPlacedCards = selectedCards.some((card: any) => card);
+              const hasUnrevealedCards = selectedCards.some((card: any) => card && !card.revealed);
+              if (hasPlacedCards && hasUnrevealedCards) {
+                event.preventDefault();
+                revealAllCards();
+              }
+            } else {
+              // Cmd+R / Ctrl+R for reset cards (only if cards are placed)
+              const hasPlacedCards = selectedCards.some((card: any) => card);
+              if (hasPlacedCards) {
+                event.preventDefault();
+                resetCards();
+              }
+            }
+            break;
+        }
+      }
+      
+      // Global shortcuts (available in all steps)
+      if (!isMobile) {
+        switch (event.key) {
+          case 'F1':
+            // F1 for Windows/Linux
+            if (!navigator.platform.toLowerCase().includes('mac')) {
+              event.preventDefault();
+              showHint();
+            }
+            break;
+          case 'h':
+          case 'H':
+            // H for Mac (and as fallback for other platforms)
+            if (navigator.platform.toLowerCase().includes('mac') || event.metaKey || event.ctrlKey) {
+              event.preventDefault();
+              showHint();
+            }
+            break;
+          case 't':
+          case 'T':
+            // T for theme toggle (works in all steps)
+            event.preventDefault();
+            toggleTheme();
+            break;
+          case 'd':
+          case 'D':
+            // D for deck selection
+            event.preventDefault();
+            openDeckSelection();
+            break;
+          case 'v':
+          case 'V':
+            // V for viewing card detail modal (only if all cards are revealed)
+            const hasPlacedCards = selectedCards.some((card: any) => card);
+            const allCardsRevealed = hasPlacedCards && selectedCards.every((card: any) => !card || card.revealed);
+            if (allCardsRevealed && !showCardGallery) {
+              event.preventDefault();
+              // Open gallery with first revealed card
+              const firstRevealedIndex = selectedCards.findIndex((card: any) => card && card.revealed);
+              if (firstRevealedIndex !== -1) {
+                openCardGallery(firstRevealedIndex);
+              }
+            }
+            break;
+          case 'l':
+          case 'L':
+            // L for layout selection (only during drawing step)
+            if (readingStep === 'drawing') {
+              event.preventDefault();
+              if (!showLayoutDropdown) {
+                // Find current layout index when opening dropdown
+                const currentIndex = readingLayouts.findIndex(layout => layout.id === selectedLayout?.id);
+                setHighlightedLayoutIndex(currentIndex >= 0 ? currentIndex : 0);
+              }
+              setShowLayoutDropdown(!showLayoutDropdown);
+            }
+            break;
+
         }
       }
     };
@@ -2239,7 +2561,7 @@ const ReadingRoom = () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
     };
-  }, [showCardGallery, showCardDescription, closeCardGallery, navigateGallery, isMobile, readingStep, panDirection]);
+  }, [showCardGallery, showCardDescription, closeCardGallery, navigateGallery, isMobile, readingStep, panDirection, resetPan, shuffleDeck, showHint, toggleTheme, setZoomLevelWrapped, zoomLevel, getDefaultZoomLevel, selectedLayout, setZoomFocusWrapped, openDeckSelection, showShareModal, setShowShareModal, showHelpModal, setShowHelpModal, showExitModal, setShowExitModal, showSignInModal, setShowSignInModal, showGuestUpgrade, setShowGuestUpgrade, isChangingDeckMidSession, setIsChangingDeckMidSession, fetchAndSetDeck, deckId, user, selectedCards, revealAllCards, resetCards, openCardGallery, showLayoutDropdown, setShowLayoutDropdown, highlightedLayoutIndex, setHighlightedLayoutIndex, highlightedSetupLayoutIndex, setHighlightedSetupLayoutIndex, handleLayoutSelect, readingLayouts, selectedCategory, highlightedCategoryIndex, setHighlightedCategoryIndex, handleCategorySelect, questionCategories]);
   
   // Handle gallery swipe gestures
   const handleGalleryTouchStart = useCallback((e: React.TouchEvent) => {
@@ -2456,6 +2778,28 @@ const ReadingRoom = () => {
     }
   };
   
+  // Handle invite keyboard shortcut (I key)
+  useEffect(() => {
+    const handleInviteKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'i' || event.key === 'I') {
+        // Only trigger if not typing in an input/textarea
+        if (event.target instanceof HTMLElement && 
+            (event.target.tagName === 'INPUT' || 
+             event.target.tagName === 'TEXTAREA' || 
+             event.target.contentEditable === 'true')) {
+          return;
+        }
+        
+        event.preventDefault();
+        handleShare();
+      }
+    };
+
+    document.addEventListener('keydown', handleInviteKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleInviteKeyDown);
+    };
+  }, [handleShare]);
 
   
   // Function to fetch marketplace decks
@@ -2818,7 +3162,7 @@ const ReadingRoom = () => {
                       transition={{ duration: 0.2 }}
                       className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto"
                     >
-                      {readingLayouts.map((layout) => (
+                      {readingLayouts.map((layout, index) => (
                         <button
                           key={layout.id}
                           onClick={() => {
@@ -2827,6 +3171,8 @@ const ReadingRoom = () => {
                           }}
                           className={`w-full text-left p-2 hover:bg-muted transition-colors ${
                             selectedLayout?.id === layout.id ? 'bg-primary/10 text-primary' : ''
+                          } ${
+                            index === highlightedLayoutIndex ? 'bg-accent/20 ring-1 ring-accent' : ''
                           }`}
                         >
                           <div className="flex items-center justify-between">
@@ -2872,7 +3218,7 @@ const ReadingRoom = () => {
                         transition={{ duration: 0.2 }}
                         className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto min-w-80"
                       >
-                        {readingLayouts.map((layout) => (
+                        {readingLayouts.map((layout, index) => (
                           <button
                             key={layout.id}
                             onClick={() => {
@@ -2881,6 +3227,8 @@ const ReadingRoom = () => {
                             }}
                             className={`w-full text-left p-3 hover:bg-muted transition-colors ${
                               selectedLayout?.id === layout.id ? 'bg-primary/10 text-primary' : ''
+                            } ${
+                              index === highlightedLayoutIndex ? 'bg-accent/20 ring-1 ring-accent' : ''
                             }`}
                           >
                             <div className="flex items-center justify-between mb-1">
@@ -2926,6 +3274,29 @@ const ReadingRoom = () => {
           
           {/* Right side - Action buttons - horizontal for both mobile and desktop */}
           <div className={`flex ${isMobile ? 'items-center gap-1' : 'items-center gap-1 md:gap-2'}`}>
+            {/* Desktop: Generate Interpretation Button - show when ready */}
+            {!isMobile && readingStep === 'drawing' && !isGeneratingInterpretation && (
+              (selectedLayout?.id === 'free-layout' && selectedCards.length > 0) ||
+              (selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count)
+            ) && (
+              <Tooltip content={selectedLayout?.id === 'free-layout' ? `Generate interpretation for ${selectedCards.length} cards` : "Generate reading interpretation"} position="bottom">
+                <button 
+                  onClick={() => generateInterpretation()}
+                  className="btn btn-secondary bg-accent/80 backdrop-blur-sm border border-accent p-2 text-sm flex items-center text-white dark:text-black"
+                >
+                  <Wand className="h-4 w-4" />
+                  {!isTablet && (
+                    <span className="ml-1 text-xs">
+                      {selectedLayout?.id === 'free-layout' 
+                        ? `Interpret (${selectedCards.length})` 
+                        : 'See Interpretation'
+                      }
+                    </span>
+                  )}
+                </button>
+              </Tooltip>
+            )}
+            
             {/* Desktop: Reveal All / View Cards Button - show when cards are placed - moved to front */}
             {!isMobile && selectedCards.some((card: any) => card) && (
               <>
@@ -2937,7 +3308,7 @@ const ReadingRoom = () => {
                       className="btn btn-secondary bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center"
                     >
                       <EyeOff className="h-4 w-4" />
-                      <span className="ml-1 text-xs">Reveal All</span>
+                      {!isTablet && <span className="ml-1 text-xs">Reveal All</span>}
                     </button>
                   </Tooltip>
                 )}
@@ -2954,8 +3325,8 @@ const ReadingRoom = () => {
                       }}
                       className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center"
                     >
-                      <Eye className="h-4 w-4" />
-                      <span className="ml-1 text-xs">View Detail</span>
+                      <ScanSearch className="h-4 w-4" />
+                      {!isTablet && <span className="ml-1 text-xs">View Detail</span>}
                     </button>
                   </Tooltip>
                 )}
@@ -2999,7 +3370,7 @@ const ReadingRoom = () => {
                   ) : (
                     <Zap className="h-4 w-4" />
                   )}
-                  {!isMobile && (
+                  {!isMobile && !isTablet && (
                     <span className="text-xs">
                       {recentlySynced ? 'Synced' : 'Offline'}
                     </span>
@@ -3013,7 +3384,7 @@ const ReadingRoom = () => {
               <Tooltip content="Synchronizing session state..." position="bottom" disabled={isMobile}>
                 <div className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} animate-pulse`}>
                   <LoadingSpinner size="sm" />
-                  {!isMobile && <span className="text-xs">Syncing</span>}
+                  {!isMobile && !isTablet && <span className="text-xs">Syncing</span>}
                 </div>
               </Tooltip>
             )}
@@ -3033,30 +3404,44 @@ const ReadingRoom = () => {
                 className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} ${!deck ? 'hidden' : ''}`}
               >
                 <Package className="h-4 w-4" />
-                {!isMobile && <span className="text-xs">Deck</span>}
+                {!isMobile && !isTablet && <span className="text-xs">Deck</span>}
               </button>
             </Tooltip>
             
             <Tooltip content="Add people to session" position="bottom" disabled={isMobile}>
               <button 
                 onClick={() => handleShare()}
-                className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center`}
+                className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''}`}
                 disabled={!sessionId}
               >
                 <UserPlus className="h-4 w-4" />
+                {!isMobile && !isTablet && <span className="text-xs">Invite</span>}
               </button>
             </Tooltip>
             
+            <Tooltip content="Toggle theme" position="bottom" disabled={isMobile}>
+              <button 
+                onClick={toggleTheme}
+                className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''}`}
+              >
+                {darkMode ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+                {!isMobile && !isTablet && <span className="text-xs">Theme</span>}
+              </button>
+            </Tooltip>
 
             
-            {/* Guest upgrade button - moved to end */}
+            {/* Guest sign in button - moved to end */}
             <Tooltip content="Create account to save your progress" position="bottom" disabled={isMobile}>
               <button 
                 onClick={() => setShowGuestUpgrade(true)}
-                className={`btn btn-accent bg-accent/80 backdrop-blur-sm border border-accent/50 ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} ${!isGuest ? 'hidden' : ''}`}
+                className={`btn btn-primary ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} ${!isGuest ? 'hidden' : ''}`}
               >
-                <Sparkles className="h-4 w-4" />
-                {!isMobile && <span className="text-xs">Upgrade</span>}
+                <LogIn className="h-4 w-4" />
+                {!isMobile && !isTablet && <span className="text-xs">Sign In</span>}
               </button>
             </Tooltip>
 
@@ -3066,7 +3451,7 @@ const ReadingRoom = () => {
         {/* Reading table */}
         <div className="h-full relative bg-gradient-to-b from-slate-900 to-slate-800 dark:from-background dark:to-background/80">
           {/* Step 0: Deck Selection Screen */}
-          {!deck && !deckSelectionLoading && (
+          {(!deck && !deckSelectionLoading) && (
             <div className={`absolute inset-0 z-[100] bg-black/50 flex items-center justify-center ${mobileLayoutClasses.mainPadding}`}>
               <div className={`w-full ${isMobile ? 'max-w-4xl max-h-full overflow-y-auto' : 'max-w-5xl'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
                 {/* Header with title and Create Deck button */}
@@ -3526,10 +3911,12 @@ const ReadingRoom = () => {
                 <h2 className={`${isMobile ? 'text-lg' : 'text-lg md:text-xl'} font-serif font-bold ${isMobile ? 'mb-3' : 'mb-4'}`}>Select a Layout</h2>
                 
                 <div className={`space-y-2 ${isMobile ? 'mb-3' : 'mb-4'}`}>
-                  {readingLayouts.map((layout) => (
+                  {readingLayouts.map((layout, index) => (
                     <div 
                       key={layout.id}
-                      className={`border rounded-lg ${isMobile ? 'p-2' : 'p-3'} cursor-pointer transition-colors hover:border-primary/50 active:bg-primary/5`}
+                      className={`border rounded-lg ${isMobile ? 'p-2' : 'p-3'} cursor-pointer transition-colors hover:border-primary/50 active:bg-primary/5 ${
+                        index === highlightedSetupLayoutIndex ? 'bg-accent/20 ring-2 ring-accent border-accent' : ''
+                      }`}
                       onClick={() => handleLayoutSelect(layout)}
                     >
                       <div className="flex items-center justify-between mb-1">
@@ -3569,18 +3956,15 @@ const ReadingRoom = () => {
                 {/* Life Areas Categories */}
                 {!selectedCategory && (
                   <div className="grid grid-cols-2 gap-3 mb-6">
-                    {[
-                      { id: 'love', name: 'Love', icon: '💕', desc: 'Romance, relationships, soulmates' },
-                      { id: 'career', name: 'Career', icon: '🎯', desc: 'Work, business, professional growth' },
-                      { id: 'finance', name: 'Finance', icon: '💰', desc: 'Money, wealth, investments' },
-                      { id: 'relationships', name: 'Relationships', icon: '👥', desc: 'Family, friends, social connections' },
-                      { id: 'spiritual-growth', name: 'Spiritual Growth', icon: '⭐', desc: 'Soul purpose, enlightenment' },
-                      { id: 'past-lives', name: 'Past Lives', icon: '♾️', desc: 'Karma, soul history, past influences' }
-                    ].map((category) => (
+                    {questionCategories.map((category, index) => (
                       <button
                         key={category.id}
                         onClick={() => handleCategorySelect(category.id)}
-                        className="p-3 text-left border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                        className={`p-3 text-left border rounded-lg transition-colors ${
+                          highlightedCategoryIndex === index 
+                            ? 'border-accent bg-accent/10 ring-2 ring-accent' 
+                            : 'border-border hover:border-primary/50 hover:bg-primary/5'
+                        }`}
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-lg">{category.icon}</span>
@@ -3876,7 +4260,7 @@ const ReadingRoom = () => {
                       }}
                     >
                       <motion.div 
-                        className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${
+                        className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} shadow-lg cursor-pointer transition-shadow p-0.5 ${
                           activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
                         }`}
                         animate={{ 
@@ -3901,7 +4285,7 @@ const ReadingRoom = () => {
                           <img 
                             src={selectedCard.image_url} 
                             alt={selectedCard.name} 
-                            className={`w-full h-full object-cover ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
+                            className={`w-full h-full object-cover rounded-md ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
                           />
                         ) : (
                           <TarotCardBack />
@@ -4011,7 +4395,7 @@ const ReadingRoom = () => {
                             whileHover={{ scale: 1.05 }}
                           >
                             <motion.div 
-                              className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`}
+                              className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} shadow-lg cursor-pointer p-0.5`}
                               style={{ 
                                 transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none' 
                               }}
@@ -4037,7 +4421,7 @@ const ReadingRoom = () => {
                                 <img 
                                   src={selectedCard.image_url} 
                                   alt={selectedCard.name} 
-                                  className={`w-full h-full object-cover ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
+                                  className={`w-full h-full object-cover rounded-md ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
                                 />
                               ) : (
                                 <TarotCardBack />
@@ -4131,46 +4515,14 @@ const ReadingRoom = () => {
                                   }
                                 }}
                               >
-                                <div className="w-full h-full relative overflow-hidden rounded-md shadow-lg hover:shadow-xl transition-shadow border border-violet-400/40">
-                                  {/* Bohemian mystical card back design - whitish with violet */}
-                                  <div className="absolute inset-0 bg-gradient-to-b from-slate-50 via-gray-100 to-slate-200">
-                                    {/* Simple border */}
-                                    <div className="absolute inset-0.5 border border-violet-400/50 rounded-sm">
-                                      {/* Central moon phases */}
-                                      <div className="w-full h-full flex flex-col items-center justify-center relative">
-                                        <div className="flex flex-col items-center space-y-0.5">
-                                          {/* Waxing crescent */}
-                                          <div className="w-1.5 h-1.5 border border-violet-600/70 rounded-full relative">
-                                            <div className="absolute left-0 top-0 w-0.5 h-1.5 bg-violet-500/50 rounded-l-full"></div>
-                                          </div>
-                                          
-                                          {/* Full moon */}
-                                          <div className="w-2 h-2 bg-violet-500/60 rounded-full border border-violet-600/70"></div>
-                                          
-                                          {/* Waning crescent */}
-                                          <div className="w-1.5 h-1.5 border border-violet-600/70 rounded-full relative">
-                                            <div className="absolute right-0 top-0 w-0.5 h-1.5 bg-violet-500/50 rounded-r-full"></div>
-                                          </div>
-                                        </div>
-                                        
-                                        {/* Drag text */}
-                                        <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2">
-                                          <span className="text-xs text-violet-600/70 font-serif tracking-wider">
-                                            {index < 5 ? 'Drag' : ''}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Scattered mini stars */}
-                                    <div className="absolute inset-0 overflow-hidden">
-                                      <div className="absolute top-1 left-1 w-0.5 h-0.5 bg-violet-400/40 rounded-full"></div>
-                                      <div className="absolute top-2 right-1 w-0.5 h-0.5 bg-violet-500/35 rounded-full"></div>
-                                      <div className="absolute bottom-1 left-2 w-0.5 h-0.5 bg-violet-400/30 rounded-full"></div>
-                                      <div className="absolute bottom-2 right-1.5 w-0.5 h-0.5 bg-violet-500/40 rounded-full"></div>
-                                    </div>
-                                  </div>
+                                                              <TarotCardBack className="w-full h-full rounded-md shadow-lg hover:shadow-xl transition-shadow">
+                                {/* Drag text overlay */}
+                                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 z-10">
+                                  <span className="text-xs font-serif tracking-wider" style={{ color: 'rgb(139 92 246 / 0.7)' }}>
+                                    {index < 5 ? 'Drag' : ''}
+                                  </span>
                                 </div>
+                              </TarotCardBack>
                                 {index === Math.floor(totalCards / 2) && (
                                   <div className="absolute -top-2 -right-1 bg-accent text-accent-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center shadow-md z-[300]">
                                     {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length}
@@ -4233,49 +4585,14 @@ const ReadingRoom = () => {
                                 }
                               }}
                             >
-                              <div className="w-full h-full relative overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-shadow border border-violet-400/40">
-                                {/* Bohemian mystical card back design - whitish with violet */}
-                                <div className="absolute inset-0 bg-gradient-to-b from-slate-50 via-gray-100 to-slate-200">
-                                  {/* Simple border */}
-                                  <div className="absolute inset-1 border border-violet-400/50 rounded-sm">
-                                    {/* Central design */}
-                                    <div className="w-full h-full flex flex-col items-center justify-center relative">
-                                      {/* Central moon phases */}
-                                      <div className="flex flex-col items-center space-y-1">
-                                        {/* Waxing crescent */}
-                                        <div className="w-2 h-2 border border-violet-600/70 rounded-full relative">
-                                          <div className="absolute left-0 top-0 w-1 h-2 bg-violet-500/50 rounded-l-full"></div>
-                                        </div>
-                                        
-                                        {/* Full moon */}
-                                        <div className="w-3 h-3 bg-violet-500/60 rounded-full border border-violet-600/70"></div>
-                                        
-                                        {/* Waning crescent */}
-                                        <div className="w-2 h-2 border border-violet-600/70 rounded-full relative">
-                                          <div className="absolute right-0 top-0 w-1 h-2 bg-violet-500/50 rounded-r-full"></div>
-                                        </div>
-                                      </div>
-                                      
-                                      {/* Drag text */}
-                                      <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2">
-                                        <span className="text-xs text-violet-600/70 font-serif tracking-wider">
-                                          {index < 20 ? 'Drag' : ''}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Scattered mini stars */}
-                                  <div className="absolute inset-0 overflow-hidden">
-                                    <div className="absolute top-2 left-2 w-0.5 h-0.5 bg-violet-400/40 rounded-full"></div>
-                                    <div className="absolute top-3 right-2 w-0.5 h-0.5 bg-violet-500/35 rounded-full"></div>
-                                    <div className="absolute bottom-2 left-3 w-0.5 h-0.5 bg-violet-400/30 rounded-full"></div>
-                                    <div className="absolute bottom-3 right-2 w-0.5 h-0.5 bg-violet-500/40 rounded-full"></div>
-                                    <div className="absolute top-1/2 left-1 w-0.5 h-0.5 bg-violet-400/35 rounded-full"></div>
-                                    <div className="absolute top-1/3 right-1 w-0.5 h-0.5 bg-violet-500/30 rounded-full"></div>
-                                  </div>
-                                </div>
+                                                          <TarotCardBack className="w-full h-full rounded-lg shadow-lg hover:shadow-xl transition-shadow">
+                              {/* Drag text overlay */}
+                              <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 z-10">
+                                <span className="text-xs font-serif tracking-wider" style={{ color: 'rgb(139 92 246 / 0.7)' }}>
+                                  {index < 20 ? 'Drag' : ''}
+                                </span>
                               </div>
+                            </TarotCardBack>
                             </motion.div>
                           );
                         })}
@@ -4321,33 +4638,31 @@ const ReadingRoom = () => {
                   </div>
                 )}
 
-                {/* Generate interpretation button for free layout */}
-                {selectedLayout?.id === 'free-layout' && selectedCards.length > 0 && !isGeneratingInterpretation && readingStep === 'drawing' && (
-                  <div className={`interpretation-button absolute ${isMobile ? (isLandscape ? 'top-12 right-4' : 'top-20 right-4') : 'top-4 right-4'} z-50`}>
+                {/* Mobile: Generate interpretation button for free layout */}
+                {isMobile && selectedLayout?.id === 'free-layout' && selectedCards.length > 0 && !isGeneratingInterpretation && readingStep === 'drawing' && (
+                  <div className={`interpretation-button absolute ${isLandscape ? 'top-12 right-4' : 'top-20 right-4'} z-50`}>
                     <Tooltip content={`Generate interpretation for ${selectedCards.length} cards`} position="left" disabled={isMobile}>
                       <button 
                         onClick={() => generateInterpretation()}
-                        className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm bg-primary/90 backdrop-blur-sm border-primary shadow-lg"
+                        className="btn px-3 py-2 flex items-center text-sm bg-accent/90 backdrop-blur-sm border-accent shadow-lg text-white dark:text-black"
                       >
-                        <TarotLogo className="mr-1 md:mr-2 h-4 w-4" />
-                        <span className="hidden md:inline">Interpret ({selectedCards.length} cards)</span>
-                        <span className="md:hidden">Read ({selectedCards.length})</span>
+                        <Sparkles className="mr-1 h-4 w-4" />
+                        <span>Read ({selectedCards.length})</span>
                       </button>
                     </Tooltip>
                   </div>
                 )}
                 
-                {/* All cards placed - show interpretation button (predefined layouts) */}
-                {selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count && !isGeneratingInterpretation && readingStep === 'drawing' && (
-                  <div className={`interpretation-button absolute ${isMobile ? (isLandscape ? 'top-12 right-4' : 'top-20 right-4') : 'top-4 right-4'} z-50`}>
+                {/* Mobile: All cards placed - show interpretation button (predefined layouts) */}
+                {isMobile && selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count && !isGeneratingInterpretation && readingStep === 'drawing' && (
+                  <div className={`interpretation-button absolute ${isLandscape ? 'top-12 right-4' : 'top-20 right-4'} z-50`}>
                     <Tooltip content="Generate reading interpretation" position="left" disabled={isMobile}>
                       <button 
                         onClick={() => generateInterpretation()}
-                        className="btn btn-primary px-3 md:px-4 py-2 flex items-center text-sm bg-primary/90 backdrop-blur-sm border-primary shadow-lg"
+                        className="btn px-3 py-2 flex items-center text-sm bg-accent/90 backdrop-blur-sm border-accent shadow-lg text-white dark:text-black"
                       >
-                        <TarotLogo className="mr-1 md:mr-2 h-4 w-4" />
-                        <span className="hidden md:inline">See Interpretation</span>
-                        <span className="md:hidden">Read</span>
+                        <Sparkles className="mr-1 h-4 w-4" />
+                        <span>Read</span>
                       </button>
                     </Tooltip>
                   </div>
@@ -4684,7 +4999,7 @@ const ReadingRoom = () => {
                               <img 
                                 src={selectedCard.image_url} 
                                 alt={selectedCard.name} 
-                                className={`w-full h-full object-cover ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
+                                className={`w-full h-full object-contain p-0.5 ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
                               />
                             ) : (
                               <TarotCardBack />
@@ -4786,11 +5101,11 @@ const ReadingRoom = () => {
                   {activeCardIndex !== null && activeCardIndex !== undefined && selectedCards[activeCardIndex] && (
                     <div className={`${isMobile ? 'mb-3 p-2' : 'mb-4 md:mb-6 p-2 md:p-3'} bg-muted/30 border border-border rounded-lg`}>
                       <div className={`flex ${isMobile ? 'gap-1' : 'gap-2 md:gap-3'}`}>
-                        <div className={`shrink-0 ${isMobile ? 'w-8 h-12' : 'w-10 h-15 md:w-12 md:h-18'} rounded-md overflow-hidden`}>
+                        <div className={`shrink-0 ${isMobile ? 'w-8 h-12' : 'w-10 h-15 md:w-12 md:h-18'} p-0.5`}>
                           <img 
                             src={selectedCards[activeCardIndex].image_url} 
                             alt={selectedCards[activeCardIndex].name} 
-                            className={`w-full h-full object-cover ${selectedCards[activeCardIndex].isReversed ? 'rotate-180' : ''}`}
+                            className={`w-full h-full object-cover rounded-md ${selectedCards[activeCardIndex].isReversed ? 'rotate-180' : ''}`}
                           />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -5012,7 +5327,35 @@ const ReadingRoom = () => {
                         <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">→</kbd>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm">Zoom in/out</span>
+                        <span className="text-sm">Navigate categories</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">↑ ↓ ← →</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Select category/layout</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Enter</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Pan to center</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">C</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Shuffle deck</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Left Shift</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Zoom in</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">+ / =</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Zoom out</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">- / _</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Reset zoom</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Z</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Zoom (mouse)</span>
                         <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">{navigator.platform.toLowerCase().includes('mac') ? 'Cmd' : 'Ctrl'} + Scroll</kbd>
                       </div>
                       <div className="flex justify-between items-center">
@@ -5021,6 +5364,42 @@ const ReadingRoom = () => {
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm">Close gallery</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Esc</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Show help</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">{navigator.platform.toLowerCase().includes('mac') ? 'H' : 'F1'}</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Toggle theme</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">T</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Change deck</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">D</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Select layout</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">L</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Invite others</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">I</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Reveal all cards</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">R</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Reset cards</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">{navigator.platform.toLowerCase().includes('mac') ? 'Cmd' : 'Ctrl'} + R</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">View card details</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">V</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Exit / Close modals</span>
                         <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Esc</kbd>
                       </div>
                     </div>
@@ -5210,7 +5589,7 @@ const ReadingRoom = () => {
             >
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-destructive/10 rounded-full">
-                  <ArrowLeft className="h-5 w-5 text-destructive" />
+                  <DoorOpen className="h-5 w-5 text-destructive" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold">Exit Reading Room</h3>
