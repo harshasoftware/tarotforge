@@ -3863,19 +3863,6 @@ const ReadingRoom = () => {
                       onDragEnd={handlePlacedCardDragEnd}
                       whileHover={{ scale: 1.05 }}
                       whileDrag={{ scale: 1.1, zIndex: 50 }}
-                      onClick={() => {
-                        if ((selectedCard as any).revealed) {
-                          // Open card detail modal for revealed cards
-                          updateSharedModalState({
-                            isOpen: true,
-                            cardIndex: index,
-                            showDescription: false,
-                            triggeredBy: participantId || null
-                          });
-                        } else {
-                          handleCardFlip(index);
-                        }
-                      }}
                       onDoubleClick={(e) => {
                         if (!isMobile && (selectedCard as any).revealed) {
                           handleCardDoubleClick(index, e);
@@ -3896,6 +3883,19 @@ const ReadingRoom = () => {
                           rotateY: (selectedCard as any).revealed ? 0 : 180 
                         }}
                         transition={cardAnimationConfig}
+                        onClick={() => {
+                          if ((selectedCard as any).revealed) {
+                            // Open card detail modal for revealed cards
+                            updateSharedModalState({
+                              isOpen: true,
+                              cardIndex: index,
+                              showDescription: false,
+                              triggeredBy: participantId || null
+                            });
+                          } else {
+                            handleCardFlip(index);
+                          }
+                        }}
                       >
                         {(selectedCard as any).revealed ? (
                           <img 
@@ -3907,7 +3907,10 @@ const ReadingRoom = () => {
                           <TarotCardBack />
                         )}
                       </motion.div>
-                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
+                      <div 
+                        className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {selectedCard.position} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
                       </div>
                     </motion.div>
@@ -3999,19 +4002,6 @@ const ReadingRoom = () => {
                             transition={cardAnimationConfig}
                             className="relative"
                             data-card-element="true"
-                            onClick={() => {
-                              if ((selectedCard as any).revealed) {
-                                // Open card detail modal for revealed cards
-                                updateSharedModalState({
-                                  isOpen: true,
-                                  cardIndex: index,
-                                  showDescription: false,
-                                  triggeredBy: participantId || null
-                                });
-                              } else {
-                                handleCardFlip(index);
-                              }
-                            }}
                             onTouchEnd={(e) => {
                               if (isMobile) {
                                 e.preventDefault();
@@ -4029,6 +4019,19 @@ const ReadingRoom = () => {
                                 rotateY: (selectedCard as any).revealed ? 0 : 180 
                               }}
                               transition={cardAnimationConfig}
+                              onClick={() => {
+                                if ((selectedCard as any).revealed) {
+                                  // Open card detail modal for revealed cards
+                                  updateSharedModalState({
+                                    isOpen: true,
+                                    cardIndex: index,
+                                    showDescription: false,
+                                    triggeredBy: participantId || null
+                                  });
+                                } else {
+                                  handleCardFlip(index);
+                                }
+                              }}
                             >
                               {(selectedCard as any).revealed ? (
                                 <img 
@@ -4040,7 +4043,10 @@ const ReadingRoom = () => {
                                 <TarotCardBack />
                               )}
                             </motion.div>
-                            <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
+                            <div 
+                              className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
                             </div>
                           </motion.div>
@@ -4606,7 +4612,10 @@ const ReadingRoom = () => {
                           <TarotCardBack />
                         )}
                       </motion.div>
-                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
+                      <div 
+                        className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {selectedCard.position} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
                       </div>
                     </motion.div>
@@ -4639,19 +4648,6 @@ const ReadingRoom = () => {
                         <motion.div
                           className="relative"
                           data-card-element="true"
-                          onClick={() => {
-                            if ((selectedCard as any).revealed) {
-                              // Open card detail modal for revealed cards
-                              updateSharedModalState({
-                                isOpen: true,
-                                cardIndex: index,
-                                showDescription: false,
-                                triggeredBy: participantId || null
-                              });
-                            } else {
-                              handleCardFlip(index);
-                            }
-                          }}
                           onTouchEnd={(e) => {
                             if (isMobile) {
                               e.preventDefault();
@@ -4670,6 +4666,19 @@ const ReadingRoom = () => {
                               rotateY: (selectedCard as any).revealed ? 0 : 180 
                             }}
                             transition={cardAnimationConfig}
+                            onClick={() => {
+                              if ((selectedCard as any).revealed) {
+                                // Open card detail modal for revealed cards
+                                updateSharedModalState({
+                                  isOpen: true,
+                                  cardIndex: index,
+                                  showDescription: false,
+                                  triggeredBy: participantId || null
+                                });
+                              } else {
+                                handleCardFlip(index);
+                              }
+                            }}
                           >
                             {(selectedCard as any).revealed ? (
                               <img 
@@ -4681,7 +4690,10 @@ const ReadingRoom = () => {
                               <TarotCardBack />
                             )}
                           </motion.div>
-                          <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
+                          <div 
+                            className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
                           </div>
                         </motion.div>
