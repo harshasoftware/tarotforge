@@ -11,6 +11,7 @@ import { getReadingInterpretation, generateInspiredQuestions } from '../../lib/g
 import VideoChat from '../../components/video/VideoChat';
 import { useVideoCall } from '../../context/VideoCallContext';
 import TarotLogo from '../../components/ui/TarotLogo';
+import TarotCardBack from '../../components/ui/TarotCardBack';
 import GuestAccountUpgrade from '../../components/ui/GuestAccountUpgrade';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import SignInModal from '../../components/auth/SignInModal';
@@ -3900,17 +3901,7 @@ const ReadingRoom = () => {
                             className={`w-full h-full object-cover ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
                           />
                         ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
-                            <div 
-                              className="text-center"
-                            >
-                              <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
-                                <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
-                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
+                          <TarotCardBack />
                         )}
                       </motion.div>
                       <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
@@ -4043,17 +4034,7 @@ const ReadingRoom = () => {
                                   className={`w-full h-full object-cover ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
                                 />
                               ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
-                                  <div 
-                                    className="text-center"
-                                  >
-                                    <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
-                                      <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
-                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
-                                      </svg>
-                                    </div>
-                                  </div>
-                                </div>
+                                <TarotCardBack />
                               )}
                             </motion.div>
                             <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
@@ -4091,36 +4072,36 @@ const ReadingRoom = () => {
                   >
                     {isMobile ? (
                       /* Mobile: Full deck with horizontal panning - all 78 cards */
-                      <div className="relative w-full h-24 overflow-x-auto" style={{ width: '100vw', marginLeft: '-50vw', left: '50%' }}>
+                      <div className="relative w-full h-28 overflow-x-auto flex justify-center">
                         <div 
-                          className="relative h-24"
+                          className="relative h-28 flex items-end justify-center"
                           style={{ 
                             width: `${shuffledDeck.length * 8}px`,
-                            margin: '0 auto'
+                            minWidth: '100%'
                           }}
                         >
                           {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).map((card: Card, index: number) => {
                             const totalCards = (shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length;
                             const angle = (index - (totalCards - 1) / 2) * 1.2; // 1.2 degrees between cards for mobile shallow arc
                             const radius = 200; // Radius for mobile arc
-                            const x = Math.sin((angle * Math.PI) / 180) * radius + (totalCards * 4); // Center the arc properly
+                            const x = Math.sin((angle * Math.PI) / 180) * radius; // Remove the offset that was pushing right
                             const y = -Math.cos((angle * Math.PI) / 180) * radius * 0.12; // Very shallow curve for mobile
                             
                             return (
                               <motion.div
                                 key={`deck-mobile-${index}`}
-                                className="absolute w-10 h-15 cursor-grab active:cursor-grabbing"
+                                className="absolute w-10 h-16 cursor-grab active:cursor-grabbing"
                                 style={{
-                                  left: `${x}px`,
+                                  left: '50%',
                                   bottom: '0',
                                   transformOrigin: 'bottom center'
                                 }}
                                 initial={{
-                                  transform: `translateY(${y}px) rotate(${angle}deg)`,
+                                  transform: `translateX(-50%) translateX(${x}px) translateY(${y}px) rotate(${angle}deg)`,
                                   zIndex: totalCards - index,
                                 }}
                                 whileHover={{
-                                  transform: `translateY(${y - 12}px) rotate(${angle}deg) scale(1.15)`,
+                                  transform: `translateX(-50%) translateX(${x}px) translateY(${y - 12}px) rotate(${angle}deg) scale(1.15)`,
                                   zIndex: 100,
                                   transition: { duration: 0.2 }
                                 }}
@@ -4141,16 +4122,44 @@ const ReadingRoom = () => {
                                   }
                                 }}
                               >
-                                <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 rounded-md border border-primary-foreground flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
-                                  <div className="text-center">
-                                    <div className="w-3 h-3 mx-auto mb-0.5 opacity-60">
-                                      <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
-                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                                      </svg>
+                                <div className="w-full h-full relative overflow-hidden rounded-md shadow-lg hover:shadow-xl transition-shadow border border-violet-400/40">
+                                  {/* Bohemian mystical card back design - whitish with violet */}
+                                  <div className="absolute inset-0 bg-gradient-to-b from-slate-50 via-gray-100 to-slate-200">
+                                    {/* Simple border */}
+                                    <div className="absolute inset-0.5 border border-violet-400/50 rounded-sm">
+                                      {/* Central moon phases */}
+                                      <div className="w-full h-full flex flex-col items-center justify-center relative">
+                                        <div className="flex flex-col items-center space-y-0.5">
+                                          {/* Waxing crescent */}
+                                          <div className="w-1.5 h-1.5 border border-violet-600/70 rounded-full relative">
+                                            <div className="absolute left-0 top-0 w-0.5 h-1.5 bg-violet-500/50 rounded-l-full"></div>
+                                          </div>
+                                          
+                                          {/* Full moon */}
+                                          <div className="w-2 h-2 bg-violet-500/60 rounded-full border border-violet-600/70"></div>
+                                          
+                                          {/* Waning crescent */}
+                                          <div className="w-1.5 h-1.5 border border-violet-600/70 rounded-full relative">
+                                            <div className="absolute right-0 top-0 w-0.5 h-1.5 bg-violet-500/50 rounded-r-full"></div>
+                                          </div>
+                                        </div>
+                                        
+                                        {/* Drag text */}
+                                        <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2">
+                                          <span className="text-xs text-violet-600/70 font-serif tracking-wider">
+                                            {index < 5 ? 'Drag' : ''}
+                                          </span>
+                                        </div>
+                                      </div>
                                     </div>
-                                    <span className="text-xs text-primary-foreground opacity-75">
-                                      {index < 5 ? 'Drag' : ''}
-                                    </span>
+                                    
+                                    {/* Scattered mini stars */}
+                                    <div className="absolute inset-0 overflow-hidden">
+                                      <div className="absolute top-1 left-1 w-0.5 h-0.5 bg-violet-400/40 rounded-full"></div>
+                                      <div className="absolute top-2 right-1 w-0.5 h-0.5 bg-violet-500/35 rounded-full"></div>
+                                      <div className="absolute bottom-1 left-2 w-0.5 h-0.5 bg-violet-400/30 rounded-full"></div>
+                                      <div className="absolute bottom-2 right-1.5 w-0.5 h-0.5 bg-violet-500/40 rounded-full"></div>
+                                    </div>
                                   </div>
                                 </div>
                                 {index === Math.floor(totalCards / 2) && (
@@ -4168,9 +4177,7 @@ const ReadingRoom = () => {
                           ← Swipe to browse all {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length} cards →
                         </div>
                         
-                        {/* Left/Right gradient overlays to indicate more cards */}
-                        <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background/80 to-transparent pointer-events-none"></div>
-                        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background/80 to-transparent pointer-events-none"></div>
+
                       </div>
                     ) : (
                       /* Desktop: Wide fan spread showing all cards - larger and more readable */
@@ -4217,16 +4224,47 @@ const ReadingRoom = () => {
                                 }
                               }}
                             >
-                              <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 rounded-lg border border-primary-foreground flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow">
-                                <div className="text-center">
-                                  <div className="w-5 h-5 mx-auto mb-1 opacity-60">
-                                    <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
-                                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                                    </svg>
+                              <div className="w-full h-full relative overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-shadow border border-violet-400/40">
+                                {/* Bohemian mystical card back design - whitish with violet */}
+                                <div className="absolute inset-0 bg-gradient-to-b from-slate-50 via-gray-100 to-slate-200">
+                                  {/* Simple border */}
+                                  <div className="absolute inset-1 border border-violet-400/50 rounded-sm">
+                                    {/* Central design */}
+                                    <div className="w-full h-full flex flex-col items-center justify-center relative">
+                                      {/* Central moon phases */}
+                                      <div className="flex flex-col items-center space-y-1">
+                                        {/* Waxing crescent */}
+                                        <div className="w-2 h-2 border border-violet-600/70 rounded-full relative">
+                                          <div className="absolute left-0 top-0 w-1 h-2 bg-violet-500/50 rounded-l-full"></div>
+                                        </div>
+                                        
+                                        {/* Full moon */}
+                                        <div className="w-3 h-3 bg-violet-500/60 rounded-full border border-violet-600/70"></div>
+                                        
+                                        {/* Waning crescent */}
+                                        <div className="w-2 h-2 border border-violet-600/70 rounded-full relative">
+                                          <div className="absolute right-0 top-0 w-1 h-2 bg-violet-500/50 rounded-r-full"></div>
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Drag text */}
+                                      <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2">
+                                        <span className="text-xs text-violet-600/70 font-serif tracking-wider">
+                                          {index < 20 ? 'Drag' : ''}
+                                        </span>
+                                      </div>
+                                    </div>
                                   </div>
-                                  <span className="text-xs text-white font-medium">
-                                    {index < 20 ? 'Drag' : ''}
-                                  </span>
+                                  
+                                  {/* Scattered mini stars */}
+                                  <div className="absolute inset-0 overflow-hidden">
+                                    <div className="absolute top-2 left-2 w-0.5 h-0.5 bg-violet-400/40 rounded-full"></div>
+                                    <div className="absolute top-3 right-2 w-0.5 h-0.5 bg-violet-500/35 rounded-full"></div>
+                                    <div className="absolute bottom-2 left-3 w-0.5 h-0.5 bg-violet-400/30 rounded-full"></div>
+                                    <div className="absolute bottom-3 right-2 w-0.5 h-0.5 bg-violet-500/40 rounded-full"></div>
+                                    <div className="absolute top-1/2 left-1 w-0.5 h-0.5 bg-violet-400/35 rounded-full"></div>
+                                    <div className="absolute top-1/3 right-1 w-0.5 h-0.5 bg-violet-500/30 rounded-full"></div>
+                                  </div>
                                 </div>
                               </div>
                             </motion.div>
@@ -4562,17 +4600,7 @@ const ReadingRoom = () => {
                             className={`w-full h-full object-cover ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
                           />
                         ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
-                            <div 
-                              className="text-center"
-                            >
-                              <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
-                                <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
-                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
+                          <TarotCardBack />
                         )}
                       </motion.div>
                       <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
@@ -4647,17 +4675,7 @@ const ReadingRoom = () => {
                                 className={`w-full h-full object-cover ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
                               />
                             ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center border border-primary-foreground">
-                                <div 
-                                  className="text-center"
-                                >
-                                  <div className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 opacity-50">
-                                    <svg viewBox="0 0 24 24" fill="currentColor" className="text-primary-foreground">
-                                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm1-8c.83 0 1.5-.67 1.5-1.5S12.83 6 12 6s-1.5.67-1.5 1.5S11.17 9 12 9z"/>
-                                    </svg>
-                                  </div>
-                                </div>
-                              </div>
+                              <TarotCardBack />
                             )}
                           </motion.div>
                           <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs">
