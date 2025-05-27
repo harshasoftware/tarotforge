@@ -4382,17 +4382,27 @@ const ReadingRoom = () => {
                     const presentCard = isCelticCross ? selectedCards[0] : null;
                     const challengeCard = isCelticCross ? selectedCards[1] : null;
                     
-                    // For Celtic Cross, adjust positioning when both cards are present
+                    // For Celtic Cross, adjust positioning for drop zones only
                     let adjustedPosition = { ...position };
                     if (isCelticCross && (isPresentPosition || isChallengePosition)) {
-                      if (presentCard && challengeCard) {
-                        // Both cards are present - perfect cross formation
-                        adjustedPosition = { ...position }; // Keep original positions for perfect overlap
-                      } else if (!selectedCard) {
-                        // No card in this position - offset slightly for separate drop zones
-                        if (isChallengePosition) {
-                          adjustedPosition = { ...position, x: position.x + 0.5, y: position.y + 0.5 };
+                      // For drop zones: offset Challenge position slightly when both positions are empty
+                      // or when only Present card is placed, so users can distinguish between the two drop areas
+                      if (isChallengePosition && !challengeCard) {
+                        adjustedPosition = { ...position, x: position.x + 5, y: position.y + 5 };
+                      }
+                      // When both cards are placed, adjust positioning for proper cross formation
+                      else if (presentCard && challengeCard) {
+                        if (isPresentPosition) {
+                          // Present card: no offset, stays in center (horizontal)
+                          adjustedPosition = { ...position };
+                        } else if (isChallengePosition) {
+                          // Challenge card: no offset, stays in center (vertical due to 90° rotation)
+                          adjustedPosition = { ...position };
                         }
+                      }
+                      // When only one card is placed, use original position
+                      else if (selectedCard) {
+                        adjustedPosition = { ...position };
                       }
                     }
                     
@@ -4403,7 +4413,7 @@ const ReadingRoom = () => {
                         style={{ 
                           left: `${adjustedPosition.x}%`, 
                           top: `${adjustedPosition.y}%`,
-                          zIndex: selectedCard ? (isChallengePosition ? 12 : 10 + index) : (index === 1 ? 2 : 1) // Challenge card always on top when both present
+                          zIndex: selectedCard ? (10 + index) : (index === 1 ? 2 : 1) // Equal z-index for both cards when placed
                         }}
                         onDragOver={(e) => {
                           e.preventDefault();
@@ -4434,7 +4444,10 @@ const ReadingRoom = () => {
                             className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} border-2 border-dashed ${
                               isHovered ? 'border-primary bg-primary/10' : 'border-muted-foreground/30'
                             } rounded-md flex flex-col items-center justify-center transition-colors`}
-                            style={{ transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none' }}
+                            style={{ 
+                              transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none',
+                              transformOrigin: 'center center'
+                            }}
                           >
                             <span className={`text-xs text-center px-1 ${isHovered ? 'text-primary' : 'text-muted-foreground'}`}>
                               {position.name}
@@ -4454,7 +4467,11 @@ const ReadingRoom = () => {
                               scale: activeCardIndex === index ? 1.1 : 1 
                             }}
                             transition={cardAnimationConfig}
-                            className="relative"
+                            className={`relative ${
+                              position.rotation === 90 
+                                ? (isMobile ? 'w-24 h-16' : 'w-30 h-20 md:h-24 md:w-36') // Swap dimensions for rotated cards
+                                : (isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36') // Normal dimensions
+                            }`}
                             data-card-element="true"
                             onTouchEnd={(e) => {
                               if (isMobile) {
@@ -4467,10 +4484,11 @@ const ReadingRoom = () => {
                             <motion.div 
                               className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} shadow-lg cursor-pointer p-0.5`}
                               style={{ 
-                                transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none' 
+                                transformOrigin: 'center center'
                               }}
                               animate={{ 
-                                rotateY: (selectedCard as any).revealed ? 0 : 180 
+                                rotateY: (selectedCard as any).revealed ? 0 : 180,
+                                rotateZ: position.rotation || 0
                               }}
                               transition={cardAnimationConfig}
                               onClick={() => {
@@ -4498,7 +4516,11 @@ const ReadingRoom = () => {
                               )}
                             </motion.div>
                             <div 
-                              className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move"
+                              className={`absolute whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move ${
+                                position.rotation === 90 
+                                  ? '-right-16 top-1/2 transform -translate-y-1/2' // Position to the right for rotated cards
+                                  : '-bottom-6 left-1/2 transform -translate-x-1/2' // Position below for normal cards
+                              }`}
                               onClick={(e) => e.stopPropagation()}
                             >
                               {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}

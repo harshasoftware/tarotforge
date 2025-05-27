@@ -712,12 +712,35 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
             const currentState = get().sessionState;
             
             if (currentState) {
+              // Check if local state was recently updated (within last 2 seconds)
+              // AND if this update would reduce the number of cards (which indicates a potential race condition)
+              const localStateAge = Date.now() - new Date(currentState.updatedAt).getTime();
+              const isRecentLocalUpdate = localStateAge < 2000; // 2 seconds
+              const incomingCards = newSession.selected_cards || [];
+              const currentCards = currentState.selectedCards || [];
+              const wouldReduceCards = incomingCards.length < currentCards.length;
+              
+              // Only preserve local cards if:
+              // 1. Local state was very recently updated (within 2 seconds) AND
+              // 2. The incoming update would reduce the card count (suggests race condition)
+              const shouldPreserveLocalCards = isRecentLocalUpdate && wouldReduceCards && currentCards.length > 0;
+              
+              console.log('Real-time update analysis:', {
+                localStateAge,
+                isRecentLocalUpdate,
+                currentSelectedCards: currentCards.length,
+                incomingSelectedCards: incomingCards.length,
+                wouldReduceCards,
+                shouldPreserveLocalCards
+              });
+              
               const updatedState = {
                 ...currentState,
                 selectedLayout: newSession.selected_layout,
                 question: newSession.question || '',
                 readingStep: newSession.reading_step,
-                selectedCards: newSession.selected_cards || [],
+                // Preserve local selectedCards only if it would prevent card loss from race conditions
+                selectedCards: shouldPreserveLocalCards ? currentCards : incomingCards,
                 shuffledDeck: newSession.shuffled_deck ?? [],
                 interpretation: newSession.interpretation || '',
                 zoomLevel: newSession.zoom_level || 1.0,
@@ -730,7 +753,11 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
                 updatedAt: newSession.updated_at
               };
               
-              console.log('Updating local state with:', updatedState);
+              console.log('Updating local state with:', {
+                selectedCardsCount: updatedState.selectedCards.length,
+                preservedLocalCards: shouldPreserveLocalCards,
+                reasoning: shouldPreserveLocalCards ? 'Prevented card loss from race condition' : 'Using incoming data'
+              });
               set({ sessionState: updatedState });
             }
           }
