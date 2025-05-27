@@ -3,11 +3,23 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.16.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "npm run lint && npm run build",
+    "deploy": "npx netlify deploy --prod",
+    "deploy:preview": "npm run build && npx netlify deploy",
+    "netlify:dev": "npx netlify dev",
+    "netlify:init": "npx netlify init",
+    "netlify:status": "npx netlify status",
+    "netlify:login": "npx netlify login",
+    "setup": "npx netlify init"
   },
   "dependencies": {
     "@google/generative-ai": "^0.2.0",
@@ -40,6 +52,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
+    "netlify-cli": "^21.5.0",
     "@types/google-one-tap": "^1.2.6",
     "@types/react": "^18.3.22",
     "@types/react-dom": "^18.3.7",
