@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { Mail, Save, Shield, AlertCircle, Check, Camera } from 'lucide-react';
+import { showSuccessToast, showErrorToast } from '../../utils/toast';
 import { useAuthStore } from '../../stores/authStore';
 import ProfileImageUpload from '../../components/profile/ProfileImageUpload';
 import { getUserProfile, updateUserProfile } from '../../lib/user-profile';
@@ -25,8 +26,7 @@ const Profile = () => {
   
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+
   const [profileData, setProfileData] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [deckStats, setDeckStats] = useState({ created: 0, purchased: 0 });
@@ -45,7 +45,6 @@ const Profile = () => {
       
       try {
         setLoading(true);
-        setSaveError(null);
         
         // Fetch profile data
         const profile = await getUserProfile(user.id);
@@ -89,7 +88,6 @@ const Profile = () => {
     
     try {
       setSaving(true);
-      setSaveError(null);
       
       // Prepare data for update
       const updateData: Partial<User> = {
@@ -111,20 +109,15 @@ const Profile = () => {
       setProfileData(prev => prev ? { ...prev, ...updateData } : null);
       
       // Show success message
-      setSaveSuccess(true);
+      showSuccessToast('Profile updated successfully!');
       setIsEditing(false);
       
       // Refresh auth context
       await checkAuth();
       
-      // Reset success message after delay
-      setTimeout(() => {
-        setSaveSuccess(false);
-      }, 3000);
-      
     } catch (error: any) {
       console.error('Error updating profile:', error);
-      setSaveError(error.message || 'Failed to update profile. Please try again.');
+      showErrorToast(error.message || 'Failed to update profile. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -248,19 +241,7 @@ const Profile = () => {
             >
               {/* Profile Details */}
               <div className="bg-card rounded-xl border border-border p-6">
-                {saveSuccess && (
-                  <div className="mb-6 p-4 border border-success/30 bg-success/10 rounded-lg flex items-start gap-3">
-                    <Check className="h-5 w-5 text-success shrink-0 mt-0.5" />
-                    <p className="text-sm text-success">Your profile has been updated successfully.</p>
-                  </div>
-                )}
-                
-                {saveError && (
-                  <div className="mb-6 p-4 border border-destructive/30 bg-destructive/10 rounded-lg flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                    <p className="text-sm text-destructive">{saveError}</p>
-                  </div>
-                )}
+
                 
                 <form onSubmit={handleSubmit(onSubmit)}>
                   <div className="space-y-6">

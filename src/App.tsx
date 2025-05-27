@@ -1,5 +1,6 @@
 import { useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './stores/authStore';
 import Layout from './components/layout/Layout';
 import LoadingScreen from './components/ui/LoadingScreen';
@@ -201,6 +202,31 @@ function App() {
             </Route>
           </Route>
         </Routes>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: 'hsl(var(--card))',
+              color: 'hsl(var(--foreground))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '0.5rem',
+              fontSize: '0.875rem',
+            },
+            success: {
+              iconTheme: {
+                primary: 'hsl(var(--primary))',
+                secondary: 'hsl(var(--primary-foreground))',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: 'hsl(var(--destructive))',
+                secondary: 'hsl(var(--destructive-foreground))',
+              },
+            },
+          }}
+        />
       </Suspense>
     </SentryErrorBoundary>
   );

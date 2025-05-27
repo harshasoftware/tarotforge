@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
-import { Award, Calendar, Clock, MessageSquare, UserCheck, Users, BarChart4, BookOpen, ChevronRight, Star, ArrowUp, Sparkles, Flame, Heart, Crown, Sun, DollarSign, Edit, Save, XCircle } from 'lucide-react';
+import { Award, Calendar, Clock, MessageSquare, UserCheck, Users, BarChart4, BookOpen, ChevronRight, Star, ArrowUp, Sparkles, Flame, Heart, Crown, Sun, DollarSign, Edit, Save, XCircle, Check } from 'lucide-react';
+import { showSuccessToast, showErrorToast } from '../../utils/toast';
 import { useAuthStore } from '../../stores/authStore';
 import { getReaderDetails, getReaderReviews } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
@@ -43,8 +44,7 @@ const ReaderDashboard: React.FC = () => {
   const [isFreeReading, setIsFreeReading] = useState<boolean>(false);
   const [maxRate, setMaxRate] = useState<number>(0);
   const [isSavingRate, setIsSavingRate] = useState(false);
-  const [rateError, setRateError] = useState<string | null>(null);
-  const [rateSuccess, setRateSuccess] = useState(false);
+
   
   // Format date to get reader since date in readable format
   const formattedReaderSince = () => {
@@ -193,7 +193,7 @@ const ReaderDashboard: React.FC = () => {
     
     try {
       setIsSavingRate(true);
-      setRateError(null);
+  
       
       // Validate rate
       // If offering free readings, set rate to 0
@@ -202,13 +202,13 @@ const ReaderDashboard: React.FC = () => {
       // If not free, validate against max and min
       if (!isFreeReading) {
         if (rateToSave > maxRate) {
-          setRateError(`Rate cannot exceed $${maxRate.toFixed(2)} per minute for your current level`);
+          showErrorToast(`Rate cannot exceed $${maxRate.toFixed(2)} per minute for your current level`);
           setIsSavingRate(false);
           return;
         }
         
         if (rateToSave < 0) {
-          setRateError("Rate cannot be negative");
+          showErrorToast("Rate cannot be negative");
           setIsSavingRate(false);
           return;
         }
@@ -234,17 +234,12 @@ const ReaderDashboard: React.FC = () => {
         });
       }
       
-      setRateSuccess(true);
+      showSuccessToast('Your rate has been updated successfully!');
       setIsEditingRate(false);
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setRateSuccess(false);
-      }, 3000);
       
     } catch (error) {
       console.error('Error saving rate:', error);
-      setRateError('Failed to save rate. Please try again.');
+      showErrorToast('Failed to save rate. Please try again.');
     } finally {
       setIsSavingRate(false);
     }
@@ -385,23 +380,7 @@ const ReaderDashboard: React.FC = () => {
               </h2>
             </div>
             <div className="p-6">
-              {rateSuccess && (
-                <div className="mb-4 p-3 bg-success/10 border border-success/30 rounded-lg">
-                  <p className="text-success flex items-center">
-                    <Check className="h-4 w-4 mr-2" />
-                    Your rate has been updated successfully!
-                  </p>
-                </div>
-              )}
-              
-              {rateError && (
-                <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
-                  <p className="text-destructive flex items-center">
-                    <XCircle className="h-4 w-4 mr-2" />
-                    {rateError}
-                  </p>
-                </div>
-              )}
+
               
               {isEditingRate ? (
                 <div className="space-y-4">

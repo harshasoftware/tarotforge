@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AlertCircle, ArrowLeft, Award, CheckCircle, XCircle, Clock, Star, Moon, Sun, Sparkles, Crown, Flame, Heart } from 'lucide-react';
+import { showErrorToast } from '../../utils/toast';
 import { useAuthStore } from '../../stores/authStore';
 import QuizQuestion from '../../components/quiz/QuizQuestion';
 import QuizTimer from '../../components/quiz/QuizTimer';
@@ -103,7 +104,7 @@ const TarotQuiz: React.FC = () => {
   // Handle quiz start
   const startQuiz = () => {
     if (!agreedToHonesty) {
-      alert('Please certify that you will not cheat during the quiz.');
+      showErrorToast('Please certify that you will not cheat during the quiz.');
       return;
     }
     

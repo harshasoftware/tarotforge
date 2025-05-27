@@ -16,7 +16,7 @@ import GuestAccountUpgrade from '../../components/ui/GuestAccountUpgrade';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import SignInModal from '../../components/auth/SignInModal';
 import Tooltip from '../../components/ui/Tooltip';
-import ParticipantNotificationManager from '../../components/ui/ParticipantNotificationManager';
+import { showParticipantNotification, showErrorToast, showSuccessToast } from '../../utils/toast';
 import { v4 as uuidv4 } from 'uuid';
 
 import Div100vh from 'react-div-100vh';
@@ -483,14 +483,11 @@ const ReadingRoom = () => {
               
               // Show deck cleared notification
               if (data.participantName) {
-                const notification = {
-                  id: `deck-cleared-${senderParticipantId}-${Date.now()}`,
-                  type: 'deck-cleared' as const,
+                showParticipantNotification({
+                  type: 'deck-cleared',
                   participantName: data.participantName,
-                  isAnonymous: data.isAnonymous || false,
-                  timestamp: Date.now()
-                };
-                setNotifications(prev => [...prev, notification]);
+                  isAnonymous: data.isAnonymous || false
+                });
               }
             }
             break;
@@ -538,14 +535,7 @@ const ReadingRoom = () => {
   const [showVideoChat, setShowVideoChat] = useState(false);
   const [isVideoConnecting, setIsVideoConnecting] = useState(false);
   
-  // Participant notification state
-  const [notifications, setNotifications] = useState<Array<{
-    id: string;
-    type: 'join' | 'leave' | 'deck-cleared';
-    participantName: string;
-    isAnonymous: boolean;
-    timestamp: number;
-  }>>([]);
+  // Track previous participants for notifications
   const [previousParticipants, setPreviousParticipants] = useState<typeof participants>([]);
   
   // Dragged placed card state (for moving cards in free layout)
@@ -626,7 +616,7 @@ const ReadingRoom = () => {
   }, [selectedMarketplaceDeckId, marketplaceDecks, selectedMarketplaceDeck]);
 
   const [addingToCollection, setAddingToCollection] = useState(false);
-  const [addToCollectionSuccess, setAddToCollectionSuccess] = useState(false);
+
   const [showSubscriptionRequired, setShowSubscriptionRequired] = useState(false);
   
   // Ask Question step state
@@ -1121,28 +1111,20 @@ const ReadingRoom = () => {
           }
         }
 
-        const notification = {
-          id: `join-${participant.id}-${Date.now()}`,
-          type: 'join' as const,
+        showParticipantNotification({
+          type: 'join',
           participantName: participant.name || 'Anonymous User',
-          isAnonymous: !participant.userId, // Anonymous if no userId
-          timestamp: Date.now()
-        };
-
-        setNotifications(prev => [...prev, notification]);
+          isAnonymous: !participant.userId // Anonymous if no userId
+        });
       });
 
       // Create notifications for participants who left (using filtered list)
       filteredLeftParticipants.forEach(participant => {
-        const notification = {
-          id: `leave-${participant.id}-${Date.now()}`,
-          type: 'leave' as const,
+        showParticipantNotification({
+          type: 'leave',
           participantName: participant.name || 'Anonymous User',
-          isAnonymous: !participant.userId, // Anonymous if no userId
-          timestamp: Date.now()
-        };
-
-        setNotifications(prev => [...prev, notification]);
+          isAnonymous: !participant.userId // Anonymous if no userId
+        });
       });
 
       // Update previous participants
@@ -1170,10 +1152,7 @@ const ReadingRoom = () => {
     }
   }, [isInVideoCall, showVideoChat, isVideoConnecting, connectionStatus]);
 
-  // Function to remove notifications
-  const removeNotification = useCallback((notificationId: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== notificationId));
-  }, []);
+
 
   // Fisher-Yates shuffle algorithm (Durstenfeld modern implementation)
   const fisherYatesShuffle = useCallback((array: Card[]) => {
@@ -2979,15 +2958,14 @@ const ReadingRoom = () => {
       });
       
       // Show success feedback
-      setAddToCollectionSuccess(true);
+      showSuccessToast('Deck added to your collection successfully!');
       setTimeout(() => {
-        setAddToCollectionSuccess(false);
         selectMarketplaceDeck(null); // Close details view
       }, 2000);
       
     } catch (error) {
       console.error('Error adding deck to collection:', error);
-      alert('Failed to add deck to collection. Please try again.');
+              showErrorToast('Failed to add deck to collection. Please try again.');
     } finally {
       setAddingToCollection(false);
     }
@@ -3830,11 +3808,6 @@ const ReadingRoom = () => {
                                 <button className="btn btn-secondary flex-1 py-3" disabled>
                                   <Check className="h-4 w-4 mr-2" />
                                   Already in Collection
-                                </button>
-                              ) : addToCollectionSuccess ? (
-                                <button className="btn btn-success flex-1 py-3" disabled>
-                                  <Check className="h-4 w-4 mr-2" />
-                                  Added Successfully!
                                 </button>
                               ) : (
                                 <button
@@ -6027,11 +6000,7 @@ const ReadingRoom = () => {
         onSuccess={handleSignInSuccess}
       />
 
-      {/* Participant Notifications */}
-      <ParticipantNotificationManager
-        notifications={notifications}
-        onRemoveNotification={removeNotification}
-      />
+
     </Div100vh>
   );
 };
