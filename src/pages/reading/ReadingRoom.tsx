@@ -1185,22 +1185,26 @@ const ReadingRoom = () => {
       // If user is already in a reading session (past setup), skip question step
       const targetReadingStep = (readingStep && readingStep !== 'setup') ? 'drawing' : 'ask-question';
       
-      updateSession({
+      // Prepare the base update object
+      const updateData: any = {
         selectedLayout: layout,
         selectedCards: [],
         readingStep: targetReadingStep,
         interpretation: '',
         activeCardIndex: null,
         zoomLevel: isMobile ? (isLandscape ? (layout.id === 'celtic-cross' ? 0.8 : 1) : (layout.id === 'celtic-cross' ? 0.6 : 0.8)) : (layout.id === 'celtic-cross' ? 1.0 : 1.6)
-      });
+      };
       
       // Only shuffle if cards are loaded and not already in session state
       if (cards && cards.length > 0 && !shouldUseSessionDeck) {
         const newShuffledDeck = fisherYatesShuffle(cards);
         setShuffledDeck(newShuffledDeck);
-        // Update session state with shuffled deck
-        updateSession({ shuffledDeck: newShuffledDeck });
+        // Include shuffled deck in the same update to prevent multiple database calls
+        updateData.shuffledDeck = newShuffledDeck;
       }
+      
+      // Single update session call to prevent flickering
+      updateSession(updateData);
       
       // Trigger deck visual refresh animation
       setDeckRefreshKey(prev => prev + 1);
@@ -1208,7 +1212,7 @@ const ReadingRoom = () => {
       console.error('Error selecting layout:', error);
       setError('Failed to select layout. Please try again.');
     }
-  }, [updateSession, cards, isMobile, isLandscape, fisherYatesShuffle, readingStep]);
+  }, [updateSession, cards, isMobile, isLandscape, fisherYatesShuffle, readingStep, shouldUseSessionDeck]);
 
   const handleQuestionChange = useCallback((newQuestion: string) => {
     updateSession({ question: newQuestion });
