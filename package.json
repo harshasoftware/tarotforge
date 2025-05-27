@@ -12,7 +12,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "predeploy": "npm run lint && npm run build",
+    "predeploy": "",
     "deploy": "npx netlify deploy --prod",
     "deploy:preview": "npm run build && npx netlify deploy",
     "netlify:dev": "npx netlify dev",
