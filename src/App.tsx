@@ -46,6 +46,7 @@ const DeckDetails = lazy(() => import('./pages/marketplace/DeckDetails'));
 const Collection = lazy(() => import('./pages/user/Collection')); 
 const ReadingRoom = lazy(() => import('./pages/reading/ReadingRoom'));
 const InvitePage = lazy(() => import('./pages/InvitePage'));
+const InviteHandler = lazy(() => import('./pages/InviteHandler'));
 const Profile = lazy(() => import('./pages/user/Profile'));
 const Checkout = lazy(() => import('./pages/marketplace/Checkout'));
 const AuthCallback = lazy(() => import('./pages/auth/AuthCallback'));
@@ -169,6 +170,9 @@ function App() {
           
           {/* Invite page for processing invite links */}
           <Route path="invite/:inviteId" element={<InvitePage />} />
+          
+          {/* Smart invite handler for role-based invites */}
+          <Route path="invite/:type/:inviteId" element={<InviteHandler />} />
           
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
