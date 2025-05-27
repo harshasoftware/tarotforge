@@ -3505,8 +3505,18 @@ const ReadingRoom = () => {
         <div className="h-full relative bg-gradient-to-b from-slate-900 to-slate-800 dark:from-background dark:to-background/80">
           {/* Step 0: Deck Selection Screen */}
           {(!deck && !deckSelectionLoading) && (
-            <div className={`absolute inset-0 z-[100] bg-black/50 flex items-center justify-center ${mobileLayoutClasses.mainPadding}`}>
-              <div className={`w-full ${isMobile ? 'max-w-4xl max-h-full overflow-y-auto' : 'max-w-5xl'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
+            <div 
+              className={`absolute inset-0 z-[100] bg-black/50 flex items-center justify-center ${mobileLayoutClasses.mainPadding}`}
+              onClick={isChangingDeckMidSession ? () => {
+                // Cancel deck change and restore previous deck when clicking outside
+                setIsChangingDeckMidSession(false);
+                fetchAndSetDeck(deckId || 'rider-waite-classic');
+              } : undefined}
+            >
+              <div 
+                className={`w-full ${isMobile ? 'max-w-4xl max-h-full overflow-y-auto' : 'max-w-5xl'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}
+                onClick={(e) => e.stopPropagation()}
+              >
                 {/* Header with title and Create Deck button */}
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
@@ -5305,13 +5315,17 @@ const ReadingRoom = () => {
       {/* Share Room Modal - mobile responsive */}
       <AnimatePresence>
         {showShareModal && sessionId && (
-          <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div 
+            className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+            onClick={() => setShowShareModal(false)}
+          >
             <motion.div 
               className="relative bg-card max-w-md w-full rounded-xl overflow-hidden"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.3 }}
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
                 <h3 className="font-serif font-bold">Share Reading Room</h3>
@@ -5375,13 +5389,17 @@ const ReadingRoom = () => {
       {/* Help Modal - Desktop */}
       <AnimatePresence>
         {showHelpModal && (
-          <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div 
+            className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+            onClick={() => setShowHelpModal(false)}
+          >
             <motion.div 
               className="relative bg-card max-w-4xl w-full max-h-[90vh] rounded-xl overflow-hidden"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.3 }}
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
                 <h3 className="font-serif font-bold text-xl">TarotForge Reading Room Guide</h3>
@@ -5734,7 +5752,10 @@ const ReadingRoom = () => {
       {/* Card Gallery - Full Screen on Mobile, Modal on Desktop */}
       <AnimatePresence>
         {showCardGallery && galleryCardIndex !== null && selectedCards[galleryCardIndex] && (
-          <div className={`fixed inset-0 z-[100] ${isMobile ? 'bg-black' : 'bg-black/80'} flex items-center justify-center`}>
+          <div 
+            className={`fixed inset-0 z-[100] ${isMobile ? 'bg-black' : 'bg-black/80'} flex items-center justify-center`}
+            onClick={!isMobile ? closeCardGallery : undefined}
+          >
             <motion.div 
               className={`relative ${isMobile ? 'w-full h-full' : 'max-w-4xl max-h-[90vh] w-full mx-4'} ${!isMobile ? 'bg-card rounded-xl overflow-hidden shadow-2xl' : ''}`}
               initial={{ opacity: 0, scale: isMobile ? 1 : 0.9 }}
@@ -5743,6 +5764,7 @@ const ReadingRoom = () => {
               transition={{ duration: 0.3 }}
               onTouchStart={handleGalleryTouchStart}
               onTouchEnd={handleGalleryTouchEnd}
+              onClick={(e) => e.stopPropagation()}
             >
               {/* Gallery Header */}
               <div className={`${isMobile ? 'absolute top-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm' : 'bg-primary/10 border-b border-border'} p-4 flex items-center justify-between`}>

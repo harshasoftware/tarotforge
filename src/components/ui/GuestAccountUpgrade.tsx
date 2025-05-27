@@ -317,13 +317,17 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
 
   if (showAsModal) {
     return (
-      <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-2 md:p-4">
+      <div 
+        className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-2 md:p-4"
+        onClick={onClose}
+      >
         <motion.div
           initial={{ scale: 0.95, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 20 }}
           transition={{ duration: 0.2 }}
           className="w-full max-w-sm md:max-w-md max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
         >
           {content}
         </motion.div>

@@ -82,13 +82,17 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+    <div 
+      className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
       <motion.div 
         className="bg-card rounded-xl overflow-hidden max-w-md w-full"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
         transition={{ duration: 0.3 }}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
           <h3 className="font-serif font-bold">{isSignUp ? 'Create Account' : 'Sign In'}</h3>

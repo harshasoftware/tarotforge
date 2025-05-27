@@ -19,6 +19,7 @@ This directory contains comprehensive documentation for the TarotForge applicati
 
 ### Bug Fixes
 - [Celtic Cross Layout Selection Flickering Fix](./bug-fixes/celtic-cross-flickering-fix.md) - Fixed UI flickering when selecting Celtic Cross layout due to multiple sequential database updates
+- [Modal Click-Outside Implementation](./bug-fixes/modal-click-outside-implementation.md) - Added click-outside functionality to close all modals in the drawing step for improved user experience
 
 ### Features
 - Reading room functionality
