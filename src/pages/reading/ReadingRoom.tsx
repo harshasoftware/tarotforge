@@ -161,6 +161,20 @@ const cleanMarkdownText = (text: string): { content: string; isHeader: boolean; 
   }).filter(line => line.content.length > 0); // Remove empty lines
 };
 
+// Helper function to get platform-specific shortcut text
+const getPlatformShortcut = (key: string, withModifier = false): string => {
+  const isMac = navigator.platform.toLowerCase().includes('mac');
+  
+  switch (key) {
+    case 'help':
+      return isMac ? 'H' : 'F1';
+    case 'reset':
+      return withModifier ? (isMac ? 'Cmd+R' : 'Ctrl+R') : 'R';
+    default:
+      return key;
+  }
+};
+
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
   const { user, setShowSignInModal, showSignInModal } = useAuthStore();
@@ -3153,7 +3167,7 @@ const ReadingRoom = () => {
                 ? "Back to setup"
                 : isMobile && readingStep === 'interpretation'
                 ? "Back to cards"
-                : (user ? "Back to Collection" : "Back to Home")
+                : (user ? "Back to Collection (Esc)" : "Back to Home (Esc)")
             } position="bottom" disabled={isMobile}>
               {isMobile && showMobileInterpretation ? (
                 <button 
@@ -3188,7 +3202,7 @@ const ReadingRoom = () => {
             </Tooltip>
             
             {/* Mobile title display */}
-            <Tooltip content="Change reading layout" position="bottom" disabled={isMobile}>
+            <Tooltip content="Change reading layout (L)" position="bottom" disabled={isMobile}>
               <div className={`bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-1 relative layout-dropdown-container ${!(isMobile && selectedLayout) ? 'hidden' : ''}`}>
                 <button
                   onClick={() => setShowLayoutDropdown(!showLayoutDropdown)}
@@ -3245,7 +3259,7 @@ const ReadingRoom = () => {
             {/* Desktop session info with layout selector */}
             <div className={`flex items-center gap-2 ${isMobile ? 'hidden' : ''}`}>
               {/* Layout selector for desktop */}
-              <Tooltip content="Change reading layout" position="bottom" disabled={isMobile}>
+              <Tooltip content="Change reading layout (L)" position="bottom" disabled={isMobile}>
                 <div className={`bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2 relative layout-dropdown-container ${!selectedLayout ? 'hidden' : ''}`}>
                   <button
                     onClick={() => setShowLayoutDropdown(!showLayoutDropdown)}
@@ -3355,20 +3369,20 @@ const ReadingRoom = () => {
               <>
                 {/* Show Reveal All button if there are unrevealed cards */}
                 {selectedCards.some((card: any) => card && !card.revealed) && (
-                  <Tooltip content="Reveal all cards" position="bottom">
-                    <button 
-                      onClick={revealAllCards}
-                      className="btn btn-secondary bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center"
-                    >
-                      <EyeOff className="h-4 w-4" />
-                      {!isTablet && <span className="ml-1 text-xs">Reveal All</span>}
-                    </button>
-                  </Tooltip>
+                                <Tooltip content="Reveal all cards (R)" position="bottom">
+                <button 
+                  onClick={revealAllCards}
+                  className="btn btn-secondary bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center"
+                >
+                  <EyeOff className="h-4 w-4" />
+                  {!isTablet && <span className="ml-1 text-xs">Reveal All</span>}
+                </button>
+              </Tooltip>
                 )}
                 
                 {/* Show View Cards button if all cards are revealed */}
                 {selectedCards.every((card: any) => !card || card.revealed) && selectedCards.some((card: any) => card?.revealed) && (
-                  <Tooltip content="View cards in detail" position="bottom">
+                  <Tooltip content="View cards in detail (V)" position="bottom">
                     <button 
                       onClick={() => {
                         const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
@@ -3443,7 +3457,7 @@ const ReadingRoom = () => {
             )}
             
             {/* Deck change button - show when deck is selected */}
-            <Tooltip content="Change deck" position="bottom" disabled={isMobile}>
+            <Tooltip content="Change deck (D)" position="bottom" disabled={isMobile}>
               <button 
                 onClick={() => {
                   // Enter deck change mode while preserving session state
@@ -3472,7 +3486,7 @@ const ReadingRoom = () => {
               </button>
             </Tooltip>
             
-            <Tooltip content="Toggle theme" position="bottom" disabled={isMobile}>
+            <Tooltip content="Toggle theme (T)" position="bottom" disabled={isMobile}>
               <button 
                 onClick={toggleTheme}
                 className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''}`}
@@ -4201,17 +4215,17 @@ const ReadingRoom = () => {
                     ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
                     : 'top-4 left-4 flex-col'
                 } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-2 rounded-md z-40 items-center`}>
-                  <Tooltip content="Zoom in" position="right" disabled={isMobile}>
+                  <Tooltip content="Zoom in (+ / =)" position="right" disabled={isMobile}>
                     <button onClick={zoomIn} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <ZoomIn className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Reset zoom" position="right" disabled={isMobile}>
+                  <Tooltip content="Reset zoom (Z)" position="right" disabled={isMobile}>
                     <button onClick={resetZoom} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <RotateCcw className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Zoom out" position="right" disabled={isMobile}>
+                  <Tooltip content="Zoom out (- / _)" position="right" disabled={isMobile}>
                     <button onClick={zoomOut} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <ZoomOut className="h-4 w-4" />
                     </button>
@@ -4243,7 +4257,7 @@ const ReadingRoom = () => {
                         </Tooltip>
                         
                         {/* Center button */}
-                        <Tooltip content="Reset pan to center" position="right" wrapperClassName="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                        <Tooltip content="Reset pan to center (C / Enter)" position="right" wrapperClassName="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
                           <button 
                             onClick={resetPan}
                             className="w-5 h-5 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
@@ -4276,17 +4290,17 @@ const ReadingRoom = () => {
                     </>
                   )}
                   
-                  <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
+                  <Tooltip content="Shuffle deck (Left Shift)" position="right" disabled={isMobile}>
                     <button onClick={shuffleDeck} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <Shuffle className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Show help" position="right" disabled={isMobile}>
+                  <Tooltip content={`Show help (${getPlatformShortcut('help')})`} position="right" disabled={isMobile}>
                     <button onClick={showHint} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <HelpCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Reset cards" position="right" disabled={isMobile}>
+                  <Tooltip content={`Reset cards (${getPlatformShortcut('reset', true)})`} position="right" disabled={isMobile}>
                     <button onClick={resetCards} className="p-1.5 hover:bg-muted rounded-sm text-red-500 hover:text-red-600 flex items-center justify-center">
                       <XCircle className="h-4 w-4" />
                     </button>
@@ -4844,17 +4858,17 @@ const ReadingRoom = () => {
                     ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
                     : 'top-4 left-4 flex-col'
                 } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-2 rounded-md z-40 items-center`}>
-                  <Tooltip content="Zoom out" position="right" disabled={isMobile}>
+                  <Tooltip content="Zoom out (- / _)" position="right" disabled={isMobile}>
                     <button onClick={zoomOut} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <ZoomOut className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Reset zoom" position="right" disabled={isMobile}>
+                  <Tooltip content="Reset zoom (Z)" position="right" disabled={isMobile}>
                     <button onClick={resetZoom} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <RotateCcw className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Zoom in" position="right" disabled={isMobile}>
+                  <Tooltip content="Zoom in (+ / =)" position="right" disabled={isMobile}>
                     <button onClick={zoomIn} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <ZoomIn className="h-4 w-4" />
                     </button>
@@ -4886,7 +4900,7 @@ const ReadingRoom = () => {
                         </Tooltip>
                         
                         {/* Center button */}
-                        <Tooltip content="Reset pan to center" position="right" wrapperClassName="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                        <Tooltip content="Reset pan to center (C / Enter)" position="right" wrapperClassName="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
                           <button 
                             onClick={resetPan}
                             className="w-5 h-5 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
@@ -4919,17 +4933,17 @@ const ReadingRoom = () => {
                     </>
                   )}
                   
-                  <Tooltip content="Shuffle deck" position="right" disabled={isMobile}>
+                  <Tooltip content="Shuffle deck (Left Shift)" position="right" disabled={isMobile}>
                     <button onClick={shuffleDeck} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <Shuffle className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Show help" position="right" disabled={isMobile}>
+                  <Tooltip content={`Show help (${getPlatformShortcut('help')})`} position="right" disabled={isMobile}>
                     <button onClick={showHint} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <HelpCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content="Reset cards" position="right" disabled={isMobile}>
+                  <Tooltip content={`Reset cards (${getPlatformShortcut('reset', true)})`} position="right" disabled={isMobile}>
                     <button onClick={resetCards} className="p-1.5 hover:bg-muted rounded-sm text-red-500 hover:text-red-600 flex items-center justify-center">
                       <XCircle className="h-4 w-4" />
                     </button>
