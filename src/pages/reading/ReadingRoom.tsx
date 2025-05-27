@@ -621,6 +621,9 @@ const ReadingRoom = () => {
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
   const [showCustomQuestionInput, setShowCustomQuestionInput] = useState(false);
   const [highlightedCategoryIndex, setHighlightedCategoryIndex] = useState(0);
+  const [highlightedQuestionIndex, setHighlightedQuestionIndex] = useState(0);
+  const [isQuestionHighlightingActive, setIsQuestionHighlightingActive] = useState(true);
+  const [isCategoryHighlightingActive, setIsCategoryHighlightingActive] = useState(true);
   
   // Question categories for keyboard navigation
   const questionCategories = [
@@ -1214,6 +1217,7 @@ const ReadingRoom = () => {
   // Ask Question handlers
   const handleCategorySelect = useCallback(async (category: string) => {
     setSelectedCategory(category);
+    setHighlightedQuestionIndex(0); // Reset question highlighting when selecting new category
     
     // Check if we have valid cached questions for this category
     if (isCacheValid(category)) {
@@ -2332,47 +2336,90 @@ const ReadingRoom = () => {
         // Don't return here - allow other shortcuts like theme toggle to work
       }
 
-      // Question step category navigation (2-column grid)
-      if (readingStep === 'ask-question' && !selectedCategory) {
-        switch (event.key) {
-          case 'ArrowUp':
-            event.preventDefault();
-            setHighlightedCategoryIndex(prev => {
-              // Move up by 2 positions (previous row), wrap to bottom if needed
-              const newIndex = prev - 2;
-              return newIndex >= 0 ? newIndex : questionCategories.length + newIndex;
-            });
-            return; // Prevent other handlers
-          case 'ArrowDown':
-            event.preventDefault();
-            setHighlightedCategoryIndex(prev => {
-              // Move down by 2 positions (next row), wrap to top if needed
-              const newIndex = prev + 2;
-              return newIndex < questionCategories.length ? newIndex : newIndex - questionCategories.length;
-            });
-            return; // Prevent other handlers
-          case 'ArrowLeft':
-            event.preventDefault();
-            setHighlightedCategoryIndex(prev => 
-              prev > 0 ? prev - 1 : questionCategories.length - 1
-            );
-            return; // Prevent other handlers
-          case 'ArrowRight':
-            event.preventDefault();
-            setHighlightedCategoryIndex(prev => 
-              prev < questionCategories.length - 1 ? prev + 1 : 0
-            );
-            return; // Prevent other handlers
-          case 'Enter':
-            event.preventDefault();
-            const selectedCategoryFromKeyboard = questionCategories[highlightedCategoryIndex];
-            handleCategorySelect(selectedCategoryFromKeyboard.id);
-            return; // Prevent other handlers
-          case 'Escape':
-            // Show exit confirmation dialog like in other screens
-            event.preventDefault();
-            setShowExitModal(true);
-            return; // Prevent other handlers
+      // Question step navigation
+      if (readingStep === 'ask-question') {
+        // Category navigation (when no category is selected)
+        if (!selectedCategory && !showCustomQuestionInput) {
+          switch (event.key) {
+            case 'ArrowUp':
+              event.preventDefault();
+              setIsCategoryHighlightingActive(true); // Re-enable highlighting on keyboard use
+              setHighlightedCategoryIndex(prev => {
+                // Move up by 2 positions (previous row), wrap to bottom if needed
+                const newIndex = prev - 2;
+                return newIndex >= 0 ? newIndex : questionCategories.length + newIndex;
+              });
+              return; // Prevent other handlers
+            case 'ArrowDown':
+              event.preventDefault();
+              setIsCategoryHighlightingActive(true); // Re-enable highlighting on keyboard use
+              setHighlightedCategoryIndex(prev => {
+                // Move down by 2 positions (next row), wrap to top if needed
+                const newIndex = prev + 2;
+                return newIndex < questionCategories.length ? newIndex : newIndex - questionCategories.length;
+              });
+              return; // Prevent other handlers
+            case 'ArrowLeft':
+              event.preventDefault();
+              setIsCategoryHighlightingActive(true); // Re-enable highlighting on keyboard use
+              setHighlightedCategoryIndex(prev => 
+                prev > 0 ? prev - 1 : questionCategories.length - 1
+              );
+              return; // Prevent other handlers
+            case 'ArrowRight':
+              event.preventDefault();
+              setIsCategoryHighlightingActive(true); // Re-enable highlighting on keyboard use
+              setHighlightedCategoryIndex(prev => 
+                prev < questionCategories.length - 1 ? prev + 1 : 0
+              );
+              return; // Prevent other handlers
+            case 'Enter':
+              event.preventDefault();
+              if (isCategoryHighlightingActive) {
+                const selectedCategoryFromKeyboard = questionCategories[highlightedCategoryIndex];
+                handleCategorySelect(selectedCategoryFromKeyboard.id);
+              }
+              return; // Prevent other handlers
+            case 'Escape':
+              // Show exit confirmation dialog like in other screens
+              event.preventDefault();
+              setShowExitModal(true);
+              return; // Prevent other handlers
+          }
+        }
+        // Generated questions navigation (when category is selected and questions are loaded)
+        else if (selectedCategory && generatedQuestions.length > 0 && !isLoadingQuestions && !showCustomQuestionInput) {
+          switch (event.key) {
+            case 'ArrowUp':
+              event.preventDefault();
+              setIsQuestionHighlightingActive(true); // Re-enable highlighting on keyboard use
+              setHighlightedQuestionIndex(prev => 
+                prev > 0 ? prev - 1 : generatedQuestions.length - 1
+              );
+              return; // Prevent other handlers
+            case 'ArrowDown':
+              event.preventDefault();
+              setIsQuestionHighlightingActive(true); // Re-enable highlighting on keyboard use
+              setHighlightedQuestionIndex(prev => 
+                prev < generatedQuestions.length - 1 ? prev + 1 : 0
+              );
+              return; // Prevent other handlers
+            case 'Enter':
+              event.preventDefault();
+              if (isQuestionHighlightingActive) {
+                const selectedQuestionFromKeyboard = generatedQuestions[highlightedQuestionIndex];
+                handleQuestionSelect(selectedQuestionFromKeyboard);
+              }
+              return; // Prevent other handlers
+            case 'Escape':
+              // Go back to category selection
+              event.preventDefault();
+              setSelectedCategory(null);
+              setGeneratedQuestions([]);
+              setHighlightedQuestionIndex(0);
+              setIsQuestionHighlightingActive(true);
+              return; // Prevent other handlers
+          }
         }
         // Don't return here - allow other shortcuts like theme toggle to work
       }
@@ -2561,7 +2608,7 @@ const ReadingRoom = () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
     };
-  }, [showCardGallery, showCardDescription, closeCardGallery, navigateGallery, isMobile, readingStep, panDirection, resetPan, shuffleDeck, showHint, toggleTheme, setZoomLevelWrapped, zoomLevel, getDefaultZoomLevel, selectedLayout, setZoomFocusWrapped, openDeckSelection, showShareModal, setShowShareModal, showHelpModal, setShowHelpModal, showExitModal, setShowExitModal, showSignInModal, setShowSignInModal, showGuestUpgrade, setShowGuestUpgrade, isChangingDeckMidSession, setIsChangingDeckMidSession, fetchAndSetDeck, deckId, user, selectedCards, revealAllCards, resetCards, openCardGallery, showLayoutDropdown, setShowLayoutDropdown, highlightedLayoutIndex, setHighlightedLayoutIndex, highlightedSetupLayoutIndex, setHighlightedSetupLayoutIndex, handleLayoutSelect, readingLayouts, selectedCategory, highlightedCategoryIndex, setHighlightedCategoryIndex, handleCategorySelect, questionCategories]);
+  }, [showCardGallery, showCardDescription, closeCardGallery, navigateGallery, isMobile, readingStep, panDirection, resetPan, shuffleDeck, showHint, toggleTheme, setZoomLevelWrapped, zoomLevel, getDefaultZoomLevel, selectedLayout, setZoomFocusWrapped, openDeckSelection, showShareModal, setShowShareModal, showHelpModal, setShowHelpModal, showExitModal, setShowExitModal, showSignInModal, setShowSignInModal, showGuestUpgrade, setShowGuestUpgrade, isChangingDeckMidSession, setIsChangingDeckMidSession, fetchAndSetDeck, deckId, user, selectedCards, revealAllCards, resetCards, openCardGallery, showLayoutDropdown, setShowLayoutDropdown, highlightedLayoutIndex, setHighlightedLayoutIndex, highlightedSetupLayoutIndex, setHighlightedSetupLayoutIndex, handleLayoutSelect, readingLayouts, selectedCategory, highlightedCategoryIndex, setHighlightedCategoryIndex, handleCategorySelect, questionCategories, generatedQuestions, isLoadingQuestions, highlightedQuestionIndex, setHighlightedQuestionIndex, handleQuestionSelect, setGeneratedQuestions, showCustomQuestionInput, isQuestionHighlightingActive, isCategoryHighlightingActive]);
   
   // Handle gallery swipe gestures
   const handleGalleryTouchStart = useCallback((e: React.TouchEvent) => {
@@ -3169,6 +3216,7 @@ const ReadingRoom = () => {
                             handleLayoutSelect(layout);
                             setShowLayoutDropdown(false);
                           }}
+                          onMouseEnter={() => setHighlightedLayoutIndex(index)}
                           className={`w-full text-left p-2 hover:bg-muted transition-colors ${
                             selectedLayout?.id === layout.id ? 'bg-primary/10 text-primary' : ''
                           } ${
@@ -3225,6 +3273,7 @@ const ReadingRoom = () => {
                               handleLayoutSelect(layout);
                               setShowLayoutDropdown(false);
                             }}
+                            onMouseEnter={() => setHighlightedLayoutIndex(index)}
                             className={`w-full text-left p-3 hover:bg-muted transition-colors ${
                               selectedLayout?.id === layout.id ? 'bg-primary/10 text-primary' : ''
                             } ${
@@ -3914,10 +3963,11 @@ const ReadingRoom = () => {
                   {readingLayouts.map((layout, index) => (
                     <div 
                       key={layout.id}
-                      className={`border rounded-lg ${isMobile ? 'p-2' : 'p-3'} cursor-pointer transition-colors hover:border-primary/50 active:bg-primary/5 ${
+                      className={`border rounded-lg ${isMobile ? 'p-2' : 'p-3'} cursor-pointer transition-colors hover:border-accent/50 active:bg-accent/5 ${
                         index === highlightedSetupLayoutIndex ? 'bg-accent/20 ring-2 ring-accent border-accent' : ''
                       }`}
                       onClick={() => handleLayoutSelect(layout)}
+                      onMouseEnter={() => setHighlightedSetupLayoutIndex(index)}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <h4 className={`font-medium ${isMobile ? 'text-sm' : 'text-sm md:text-base'}`}>{layout.name}</h4>
@@ -3960,10 +4010,14 @@ const ReadingRoom = () => {
                       <button
                         key={category.id}
                         onClick={() => handleCategorySelect(category.id)}
+                        onMouseEnter={() => {
+                          setHighlightedCategoryIndex(index);
+                          setIsCategoryHighlightingActive(true); // Re-enable highlighting on hover
+                        }}
                         className={`p-3 text-left border rounded-lg transition-colors ${
-                          highlightedCategoryIndex === index 
+                          isCategoryHighlightingActive && highlightedCategoryIndex === index 
                             ? 'border-accent bg-accent/10 ring-2 ring-accent' 
-                            : 'border-border hover:border-primary/50 hover:bg-primary/5'
+                            : 'border-border hover:border-accent/50 hover:bg-accent/5'
                         }`}
                       >
                         <div className="flex items-center gap-2 mb-1">
@@ -4010,7 +4064,15 @@ const ReadingRoom = () => {
                           <button
                             key={index}
                             onClick={() => handleQuestionSelect(q)}
-                            className="w-full p-3 text-left border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                            onMouseEnter={() => {
+                              setHighlightedQuestionIndex(index);
+                              setIsQuestionHighlightingActive(true); // Re-enable highlighting on hover
+                            }}
+                            className={`w-full p-3 text-left border rounded-lg transition-colors ${
+                              isQuestionHighlightingActive && highlightedQuestionIndex === index 
+                                ? 'border-accent bg-accent/10 ring-2 ring-accent' 
+                                : 'border-border hover:border-accent/50 hover:bg-accent/5'
+                            }`}
                           >
                             <p className="text-sm">{q}</p>
                           </button>
@@ -4040,7 +4102,11 @@ const ReadingRoom = () => {
                         autoFocus
                       />
                       <button
-                        onClick={() => setShowCustomQuestionInput(false)}
+                        onClick={() => {
+                          setShowCustomQuestionInput(false);
+                          setIsQuestionHighlightingActive(true); // Re-enable question highlighting when closing custom input
+                          setIsCategoryHighlightingActive(true); // Re-enable category highlighting when closing custom input
+                        }}
                         className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
                       >
                         Cancel
@@ -4053,7 +4119,11 @@ const ReadingRoom = () => {
                 <div className="flex flex-wrap gap-2 justify-center">
                   {!showCustomQuestionInput && (
                     <button
-                      onClick={() => setShowCustomQuestionInput(true)}
+                      onClick={() => {
+                        setShowCustomQuestionInput(true);
+                        setIsQuestionHighlightingActive(false); // Disable question highlighting when typing
+                        setIsCategoryHighlightingActive(false); // Disable category highlighting when typing
+                      }}
                       className="btn btn-secondary px-4 py-2 text-sm"
                     >
                       ✍️ Write Your Own
@@ -5331,7 +5401,11 @@ const ReadingRoom = () => {
                         <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">↑ ↓ ← →</kbd>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm">Select category/layout</span>
+                        <span className="text-sm">Navigate questions</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">↑ ↓</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Select category/layout/question</span>
                         <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Enter</kbd>
                       </div>
                       <div className="flex justify-between items-center">
