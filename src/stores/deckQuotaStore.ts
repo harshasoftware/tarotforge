@@ -95,10 +95,10 @@ export const useDeckQuotaStore = create<DeckQuotaStore>()(
             console.log("No deck quota record found, using default values");
             
             // Get subscription plan type from subscription if available
-            let planType = 'free'; 
-            let majorArcanaQuota = 1; // Free users start with 1 Major Arcana deck per month
-            let completeDeckQuota = 0; // Free users can't create complete decks
-            let maxRolloverQuota = 0; // No rollover for free users
+            let planType = 'development'; 
+            let majorArcanaQuota = Infinity; // Unlimited Major Arcana decks
+            let completeDeckQuota = Infinity; // Unlimited complete decks
+            let maxRolloverQuota = Infinity; // Unlimited rollover
             
             if (isSubscribed && subscription?.price_id) {
               // Find the product that matches this price ID
@@ -225,10 +225,10 @@ export const useDeckQuotaStore = create<DeckQuotaStore>()(
         await ensureDeckQuotas(user.id);
         
         // Determine quota allocations based on subscription
-        let planType = 'free';
-        let majorArcanaQuota = 1; // Free users start with 1 Major Arcana deck per month
-        let completeDeckQuota = 0; // Free users can't create complete decks
-        let maxRolloverQuota = 0; // No rollover for free users
+        let planType = 'development'; 
+        let majorArcanaQuota = Infinity; // Unlimited Major Arcana decks
+        let completeDeckQuota = Infinity; // Unlimited complete decks
+        let maxRolloverQuota = Infinity; // Unlimited rollover
         
         if (isSubscribed && subscription?.price_id) {
           // Find the product that matches this price ID
