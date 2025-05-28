@@ -453,7 +453,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
     },
 
     updateSession: async (updates: Partial<ReadingSessionState>) => {
-      const { sessionState, isOfflineMode, isHost } = get();
+      const { sessionState, isOfflineMode, isHost, participantId, anonymousId } = get();
       const { user } = useAuthStore.getState();
       
       if (!sessionState?.id) {
@@ -467,9 +467,9 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         return;
       }
 
-      // If user is a guest (not authenticated and not host), use broadcast instead of direct DB update
+      // If user is a guest (not authenticated) and not the host, use broadcast
       if (!user && !isHost) {
-        console.log('Guest user broadcasting action instead of direct DB update');
+        console.log('Guest user (non-host) broadcasting action instead of direct DB update');
         await get().broadcastGuestAction('updateSession', updates);
         
         // Update local state immediately for better UX
@@ -523,9 +523,9 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         if (updates.videoCallState !== undefined) {
           updateData.video_call_state = updates.videoCallState;
         }
-              if (updates.loadingStates !== undefined) {
-        updateData.loading_states = updates.loadingStates;
-      }
+        if (updates.loadingStates !== undefined) {
+          updateData.loading_states = updates.loadingStates;
+        }
         if (updates.deckSelectionState !== undefined) {
           updateData.deck_selection_state = updates.deckSelectionState;
         }
@@ -533,13 +533,38 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         console.log('Updating session with data:', updateData);
         console.log('Session ID:', sessionState.id);
         console.log('User info:', { 
-          userId: useAuthStore.getState().user?.id, 
-          participantId: get().participantId,
-          anonymousId: get().anonymousId,
-          isHost: get().isHost 
+          userId: user?.id, 
+          participantId,
+          anonymousId,
+          isHost,
+          isAnonymous: !user
         });
 
-        const { error } = await supabase
+        let supabaseClient = supabase;
+
+        // For anonymous hosts, we need to ensure the RLS context includes our participant info
+        // This is a workaround since Supabase RLS doesn't have direct access to anonymous session data
+        if (!user && isHost && anonymousId) {
+          console.log('Anonymous host update - using participant context');
+          
+          // First verify this anonymous user is indeed the host
+          const { data: hostCheck } = await supabase
+            .from('session_participants')
+            .select('id, joined_at')
+            .eq('session_id', sessionState.id)
+            .eq('anonymous_id', anonymousId)
+            .order('joined_at', { ascending: true })
+            .limit(1)
+            .single();
+            
+          if (!hostCheck) {
+            throw new Error('Anonymous host verification failed');
+          }
+          
+          console.log('Anonymous host verified:', hostCheck);
+        }
+
+        const { error } = await supabaseClient
           .from('reading_sessions')
           .update(updateData)
           .eq('id', sessionState.id);
@@ -567,14 +592,33 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
       } catch (err: any) {
         console.error('Error updating session:', err);
         
-        // For development/guest users, update local state even if DB update fails
-        if (err.message?.includes('permission') || 
-            err.message?.includes('policy') || 
-            err.message?.includes('insufficient_privilege') ||
-            err.code === '42501' || // insufficient_privilege
-            err.code === 'PGRST301') { // permission denied
-          console.warn('Database update failed due to permissions, updating local state only');
-          console.warn('This is expected for guests - they can see updates but cannot modify the database');
+        // For anonymous hosts who can't update due to RLS, fall back to broadcast
+        if (!user && isHost && (
+          err.message?.includes('permission') || 
+          err.message?.includes('policy') || 
+          err.message?.includes('insufficient_privilege') ||
+          err.code === '42501' || // insufficient_privilege
+          err.code === 'PGRST301' // permission denied
+        )) {
+          console.warn('Anonymous host cannot update directly, falling back to broadcast mechanism');
+          
+          // Broadcast the update for other participants to apply
+          await get().broadcastGuestAction('hostUpdate', updates);
+          
+          // Update local state
+          set({
+            sessionState: sessionState ? {
+              ...sessionState,
+              ...updates,
+              updatedAt: new Date().toISOString()
+            } : null
+          });
+        } else if (!user && !isHost && (
+          err.message?.includes('permission') || 
+          err.message?.includes('policy')
+        )) {
+          // Expected for non-host guests
+          console.warn('Guest cannot update database - this is expected behavior');
           set({
             sessionState: sessionState ? {
               ...sessionState,
@@ -583,7 +627,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
             } : null
           });
         } else {
-          console.error('Unexpected database error, setting error state');
+          console.error('Unexpected database error:', err);
           set({ error: err.message });
         }
       }
@@ -782,22 +826,42 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           const { action, data, participantId: senderParticipantId } = payload.payload;
           const currentState = get();
           
-          // Only process if we're the host and this isn't from ourselves
-          if (currentState.isHost && senderParticipantId !== currentState.participantId) {
-            console.log('Processing guest action as host:', { action, data });
+          // Process different types of actions
+          if (senderParticipantId !== currentState.participantId) {
+            console.log('Processing action:', { action, data, fromHost: action === 'hostUpdate' });
             
-            // Handle different guest actions
             switch (action) {
               case 'updateSession':
-                // Apply the guest's session updates
-                get().updateSession(data);
+                // Guest update - only process if we're the host
+                if (currentState.isHost) {
+                  console.log('Processing guest update as host');
+                  get().updateSession(data);
+                }
                 break;
+                
+              case 'hostUpdate':
+                // Host update - all participants should apply this
+                console.log('Processing host update as participant');
+                // Directly update local state since this comes from the host
+                const sessionState = currentState.sessionState;
+                if (sessionState) {
+                  set({
+                    sessionState: {
+                      ...sessionState,
+                      ...data,
+                      updatedAt: new Date().toISOString()
+                    }
+                  });
+                }
+                break;
+                
               case 'cardSelection':
                 // Handle card selection from guest
-                if (data.selectedCards) {
+                if (currentState.isHost && data.selectedCards) {
                   get().updateSession({ selectedCards: data.selectedCards });
                 }
                 break;
+                
               default:
                 console.log('Unknown guest action:', action);
             }

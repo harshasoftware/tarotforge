@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './components/providers/AuthProvider';
-import { VideoCallProvider } from './context/VideoCallContext';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 import { 
@@ -79,9 +78,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <VideoCallProvider>
-          <App />
-        </VideoCallProvider>
+        <App />
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>

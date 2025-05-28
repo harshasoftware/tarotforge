@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { XCircle, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useVideoCall } from '../../context/VideoCallContext';
+import { useNavigate } from 'react-router-dom';
 
 interface JoinByLinkModalProps {
   onClose: () => void;
@@ -12,7 +12,7 @@ const JoinByLinkModal = ({ onClose, onJoinSuccess }: JoinByLinkModalProps) => {
   const [inviteLink, setInviteLink] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
-  const { joinWithLink } = useVideoCall();
+  const navigate = useNavigate();
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,14 +26,27 @@ const JoinByLinkModal = ({ onClose, onJoinSuccess }: JoinByLinkModalProps) => {
       setLoading(true);
       setError('');
       
-      const success = await joinWithLink(inviteLink.trim());
-      if (success) {
-        onJoinSuccess();
-      } else {
-        setError('Failed to join session. Please check the invitation link and try again.');
+      // Parse the invitation link to extract session ID
+      const url = new URL(inviteLink.trim());
+      const sessionId = url.searchParams.get('join');
+      
+      if (!sessionId) {
+        setError('Invalid invitation link. Please check the link and try again.');
+        return;
       }
+      
+      // Navigate to reading room with the session ID
+      const deckId = url.pathname.split('/reading-room/')[1]?.split('?')[0];
+      const targetPath = deckId 
+        ? `/reading-room/${deckId}?join=${sessionId}`
+        : `/reading-room?join=${sessionId}`;
+      
+      navigate(targetPath);
+      onJoinSuccess();
+      
     } catch (err: any) {
-      setError(err.message || 'Failed to join session');
+      console.error('Error parsing invitation link:', err);
+      setError('Invalid invitation link format. Please check the link and try again.');
     } finally {
       setLoading(false);
     }
@@ -60,7 +73,7 @@ const JoinByLinkModal = ({ onClose, onJoinSuccess }: JoinByLinkModalProps) => {
         
         <div className="p-6">
           <p className="mb-4">
-            Enter the invitation link provided by your tarot reader to join the video reading session.
+            Enter the invitation link provided by your tarot reader to join their reading session with video chat.
           </p>
           
           <form onSubmit={handleSubmit}>
@@ -73,13 +86,16 @@ const JoinByLinkModal = ({ onClose, onJoinSuccess }: JoinByLinkModalProps) => {
                 type="text"
                 value={inviteLink}
                 onChange={(e) => setInviteLink(e.target.value)}
-                placeholder="https://example.com/reading-room?join=..."
+                placeholder="https://tarotforge.com/reading-room?join=..."
                 className={`w-full p-2 rounded-md border ${error ? 'border-destructive' : 'border-input'} 
                   bg-background focus:outline-none focus:ring-2 focus:ring-primary`}
               />
               {error && (
                 <p className="text-sm text-destructive">{error}</p>
               )}
+              <p className="text-xs text-muted-foreground">
+                The link should look like: https://tarotforge.com/reading-room?join=session-id
+              </p>
             </div>
             
             <div className="mt-6 flex justify-end space-x-3">

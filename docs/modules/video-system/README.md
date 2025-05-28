@@ -2,124 +2,257 @@
 
 ## Overview
 
-The Video System module provides multi-party video calling capabilities integrated with TarotForge's collaborative reading sessions. This system enables real-time video communication between hosts and participants during tarot readings.
+The Video System module provides multi-party video calling capabilities integrated with TarotForge's collaborative reading sessions. This system uses **Supabase Realtime** for signaling and **Zustand** for state management, enabling real-time video communication between hosts and participants during tarot readings.
 
 ## Key Features
 
-- **Multi-party Video Calls**: Support for multiple participants in video sessions
-- **Session Integration**: Seamless integration with reading sessions
-- **Auto-synchronization**: Automatic video call initiation when sharing sessions
-- **UI Controls**: Comprehensive video call interface and controls
-- **Real-time Communication**: WebRTC-based video and audio streaming
+- **Multi-party Video Calls**: Support for multiple participants with WebRTC peer-to-peer connections
+- **Session Integration**: Seamless integration with reading sessions using session-scoped channels
+- **Host-Controlled Initiation**: Video calls start only when explicitly requested by hosts
+- **Mobile Optimization**: Audio-only mode for 3+ participants on mobile devices
+- **Draggable Video Bubbles**: Individual draggable video elements with viewport constraints
+- **Individual Controls**: Per-participant audio/video controls and volume management
+- **Twitter Spaces UI**: Compact audio interface for mobile multi-participant calls
+
+## Architecture
+
+### Core Components
+
+1. **Video Call Store** (`src/stores/videoCallStore.ts`)
+   - Zustand-based state management
+   - Supabase Realtime channel handling
+   - WebRTC peer connection management
+   - Automatic presence tracking
+
+2. **VideoBubbles Component** (`src/components/video/VideoBubbles.tsx`)
+   - Draggable video interface
+   - Mobile-responsive design
+   - Individual participant controls
+   - Viewport constraint system
+
+3. **Video Call Hook** (`src/hooks/useVideoCall.ts`)
+   - Simple interface to Zustand store
+   - Consistent API across components
+
+## Current Implementation Features
+
+### 🎯 Host-Controlled Video Calls
+- **Invite Dropdown Modal**: Integrated in ReadingRoom with video call options
+- **No Auto-Start**: Removed automatic video call prompts to prevent unwanted calls
+- **Guest Join Prompts**: Clear participant information and permission explanations
+- **Step-Based Availability**: Video calls only available during drawing and interpretation steps
+
+### 📱 Mobile Optimization
+- **Audio-Only Mode**: Automatically switches to audio-only for 3+ participants on mobile
+- **Twitter Spaces Interface**: Compact right-side panel for mobile audio calls
+- **Touch Controls**: Touch-friendly interactions with auto-hide controls (3 seconds)
+- **Viewport Constraints**: Video bubbles stay within screen bounds with proper margins
+
+### 🎮 Individual Bubble Controls
+- **Local User Controls**: Mute/unmute, video on/off, exit call
+- **Remote Participant Controls**: Individual mute, video hide/show, volume control
+- **Draggable Elements**: Each video bubble is independently draggable
+- **Expandable Views**: Switch between minimized bubbles and expanded grid view
+
+### 🔧 Technical Improvements
+- **Viewport Constraint System**: Dynamic calculation with real-time position clamping
+- **Enhanced Touch Handling**: Mobile-optimized with proper event handling
+- **Comprehensive Logging**: Detailed console logging for debugging
+- **Error Recovery**: Robust error handling and automatic reconnection
 
 ## Module Documentation
 
-### 📋 [Multi-party Video Implementation](./multi-party-video-implementation.md)
-**Core video calling system architecture and implementation**
-- WebRTC integration patterns
-- Multi-participant management
-- Video stream handling
-- Connection management
+### 📋 [Supabase Video Implementation](../../SUPABASE_VIDEO_IMPLEMENTATION.md)
+**Complete technical documentation of the current video system**
+- Zustand store architecture
+- Supabase Realtime integration
+- WebRTC peer connection handling
+- Mobile optimization features
 
-### 🔄 [Video Call Auto-synchronization](./video-call-auto-synchronization.md)
-**Automatic video call initiation and session linking**
-- Auto-start video when sharing sessions
-- Auto-show video UI for participants
-- Session-video call synchronization
-- Participant management during calls
+### 🔄 [Video Call State Management](./video-call-state-management.md)
+**Zustand-based state management patterns**
+- Store structure and actions
+- State synchronization
+- Error handling strategies
+- Performance optimizations
 
-### 🎯 [Video Call Interaction Flows](./video-call-interaction-flows.md)
+### 🎯 [Video Call User Experience](./video-call-user-experience.md)
 **User interaction patterns and workflows**
-- Call initiation flows
-- Participant joining processes
-- Call management workflows
-- Error handling scenarios
+- Host-controlled initiation flows
+- Guest joining experience
+- Mobile audio-only mode
+- Individual participant controls
 
 ### 🧪 [Video Call Testing Guide](./video-call-testing-guide.md)
 **Comprehensive testing strategies for video functionality**
-- Unit testing approaches
+- Unit testing with Zustand
 - Integration testing scenarios
-- Manual testing procedures
+- Mobile testing procedures
 - Performance testing guidelines
 
-### 🎨 [Video Call UI Interactions](./video-call-ui-interactions.md)
-**User interface design and interaction patterns**
-- Video call controls and layout
-- Responsive design considerations
+### 🎨 [Video Call UI Components](./video-call-ui-components.md)
+**User interface design and component architecture**
+- VideoBubbles component structure
+- Mobile responsive design
 - Accessibility features
-- Mobile optimization
+- Touch interaction patterns
 
 ## Quick Start
 
-### 1. Video Call Integration
+### 1. Initialize Video Call
 ```typescript
-// Start video call when sharing session
-const handleShare = async () => {
-  if (!showVideoChat && !isVideoConnecting) {
-    setIsVideoConnecting(true);
-    setTimeout(() => {
-      setIsVideoConnecting(false);
-      setShowVideoChat(true);
-    }, 500);
+// In ReadingRoom component
+const { 
+  isInCall, 
+  participants,
+  startCall, 
+  endCall,
+  initializeVideoCall 
+} = useVideoCall();
+
+// Initialize for session
+useEffect(() => {
+  if (sessionState?.id && user?.id) {
+    initializeVideoCall(sessionState.id, user.id);
+  }
+}, [sessionState?.id, user?.id]);
+```
+
+### 2. Host-Controlled Video Start
+```typescript
+// Invite dropdown integration
+const handleStartVideoCall = async () => {
+  try {
+    await startCall();
+    // Video bubbles will automatically appear
+  } catch (error) {
+    console.error('Failed to start video call:', error);
   }
 };
 ```
 
-### 2. Video State Management
+### 3. Video Bubbles Integration
 ```typescript
-// Video call state in session store
-videoCallState: {
-  isActive: boolean;
-  sessionId: string | null;
-  hostParticipantId: string | null;
+// Show during drawing and interpretation steps
+{(readingStep === 'drawing' || readingStep === 'interpretation') && (
+  <VideoBubbles 
+    onClose={() => endCall()}
+    readingStep={readingStep}
+  />
+)}
+```
+
+## State Management
+
+### Video Call Store Structure
+```typescript
+interface VideoCallState {
+  // Call state
+  isInCall: boolean;
+  localStream: MediaStream | null;
+  remoteStreams: Map<string, MediaStream>;
+  isVideoEnabled: boolean;
+  isAudioEnabled: boolean;
   participants: string[];
+  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'failed';
+  error: string | null;
+  
+  // Internal state
+  channel: RealtimeChannel | null;
+  peerConnections: Map<string, RTCPeerConnection>;
+  sessionId: string | null;
+  participantId: string | null;
 }
+```
+
+## Mobile Features
+
+### Audio-Only Mode
+- **Trigger**: 3+ participants on mobile devices
+- **Benefits**: Better performance, battery life, bandwidth usage
+- **UI**: Twitter Spaces-style compact interface
+- **Automatic**: Seamlessly switches without user intervention
+
+### Touch Optimizations
+- **Enhanced Touch Events**: `onTouchStart` for better mobile responsiveness
+- **Auto-Hide Controls**: Controls disappear after 3 seconds on mobile
+- **Touch-Friendly Sizing**: Optimized bubble sizes for touch interaction
+- **Gesture Support**: Proper drag and touch gesture handling
+
+## Testing
+
+### Manual Testing Checklist
+- [ ] Video calls start only when host initiates
+- [ ] Mobile audio-only mode activates for 3+ participants
+- [ ] Video bubbles stay within viewport bounds
+- [ ] Individual participant controls work correctly
+- [ ] Touch interactions work on mobile devices
+- [ ] Guest join experience is clear and functional
+
+### Performance Testing
+- [ ] Video quality adapts to connection
+- [ ] Mobile battery usage is optimized
+- [ ] Memory usage is efficient with cleanup
+- [ ] Multiple participant calls are stable
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Video bubbles outside viewport**
+   - ✅ Fixed with enhanced viewport constraint system
+   - Real-time position clamping during drag
+   - Automatic adjustment on window resize
+
+2. **Mobile video performance issues**
+   - ✅ Audio-only mode for 3+ participants
+   - Optimized bubble sizes and positioning
+   - Touch-friendly controls with auto-hide
+
+3. **Guest can't see video UI**
+   - Check session synchronization
+   - Verify participant presence tracking
+   - Review console logs for connection issues
+
+4. **Touch controls not working on mobile**
+   - ✅ Enhanced touch handling implemented
+   - Touch-specific CSS applied
+   - Event propagation properly managed
+
+### Debug Mode
+```typescript
+// Enable detailed logging
+localStorage.setItem('VIDEO_DEBUG', 'true');
 ```
 
 ## Related Code Files
 
 ### Core Implementation
-- Video call components and hooks
-- WebRTC integration utilities
-- Video session management
-- Stream handling logic
+- `src/stores/videoCallStore.ts` - Zustand store with Supabase integration
+- `src/hooks/useVideoCall.ts` - Hook interface to store
+- `src/components/video/VideoBubbles.tsx` - Main video UI component
+- `src/components/video/GuestVideoJoinModal.tsx` - Guest onboarding
 
-### UI Components
-- Video call interface components
-- Control panels and buttons
-- Participant video grids
-- Mobile-responsive layouts
+### Integration Points
+- `src/pages/reading/ReadingRoom.tsx` - Video call integration
+- `src/components/reading/InviteDropdownModal.tsx` - Host controls
+- `src/components/reading/DeckDetails.tsx` - Session sharing
 
-## Testing
+## Performance Considerations
 
-### Manual Testing Checklist
-- [ ] Video calls start automatically when sharing
-- [ ] Multiple participants can join video calls
-- [ ] Video and audio quality is acceptable
-- [ ] UI controls work correctly
-- [ ] Mobile video calling functions properly
+### Optimization Strategies
+- **Zustand State Management**: Efficient re-renders and state updates
+- **WebRTC Direct Connections**: Peer-to-peer media without server relay
+- **Mobile Audio-Only**: Automatic fallback for better performance
+- **Viewport Constraints**: Optimized positioning calculations
+- **Stream Cleanup**: Proper resource management and cleanup
 
-### Performance Considerations
-- Video stream quality optimization
-- Bandwidth usage monitoring
-- Connection stability testing
-- Multi-participant scalability
-
-## Troubleshooting
-
-### 🔧 [Video Call UI Troubleshooting Guide](../../troubleshooting/video-call-ui-issues.md)
-**Comprehensive troubleshooting for video call UI issues**
-- Guest video UI visibility problems
-- Auto-join and auto-show debugging
-- Permission and stream issues
-- UI state synchronization problems
-
-### Common Issues
-1. **Video not starting** → Check WebRTC permissions and setup
-2. **Poor video quality** → Verify bandwidth and connection
-3. **Participants can't join** → Check session synchronization
-4. **Guest can't see video UI** → See troubleshooting guide above
+### Scalability
+- **Session-Scoped Channels**: Efficient participant management
+- **Supabase Infrastructure**: Leverages existing reliable infrastructure
+- **Direct Peer Connections**: No server bandwidth usage for media
+- **Presence Tracking**: Automatic participant join/leave handling
 
 ---
 
-This module enables rich video communication experiences within TarotForge's collaborative reading environment. 
+This module provides a comprehensive video calling system that enhances TarotForge's collaborative reading experience with robust, mobile-optimized video communication capabilities. 

@@ -83,7 +83,7 @@ const DeckDetails = () => {
   // Handle successful join
   const handleJoinSuccess = () => {
     setShowJoinModal(false);
-    navigate('/reading-room');
+    // Navigation is handled by the modal itself
   };
   
   // Loading state

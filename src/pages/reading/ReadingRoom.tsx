@@ -8,8 +8,8 @@ import { useSubscription } from '../../stores/subscriptionStore';
 import { useReadingSessionStore, getIsGuest } from '../../stores/readingSessionStore';
 import { fetchDeckById, fetchCardsByDeckId, fetchUserOwnedDecks } from '../../lib/deck-utils';
 import { getReadingInterpretation, generateInspiredQuestions } from '../../lib/gemini-ai';
-import VideoChat from '../../components/video/VideoChat';
-import { useVideoCall } from '../../context/VideoCallContext';
+import VideoBubbles from '../../components/video/VideoBubbles';
+import { useVideoCall } from '../../hooks/useVideoCall';
 import TarotLogo from '../../components/ui/TarotLogo';
 import TarotCardBack from '../../components/ui/TarotCardBack';
 import GuestAccountUpgrade from '../../components/ui/GuestAccountUpgrade';
@@ -211,8 +211,16 @@ const ReadingRoom = () => {
     broadcastGuestAction
   } = useReadingSessionStore();
   
-  // Initialize video call context
-  const { isInVideoCall, connectionStatus } = useVideoCall();
+  // Initialize video call store
+  const { 
+    isInCall, 
+    connectionStatus, 
+    initializeVideoCall, 
+    cleanup: cleanupVideoCall, 
+    endCall, 
+    startCall,
+    participants: videoParticipants 
+  } = useVideoCall();
   
   // Get isGuest from computed selector - also consider non-authenticated users as guests
   const isGuest = !user;
@@ -306,12 +314,41 @@ const ReadingRoom = () => {
       localStorage.removeItem('tarot_question_cache');
     }
     
+    // Handle browser navigation away from reading room
+    const handleBeforeUnload = () => {
+      if (isInCall) {
+        console.log('Ending video call before page unload...');
+        endCall();
+      }
+    };
+
+    // Add event listener for page unload
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     // Cleanup on unmount
     return () => {
+      // End video call if user is in one before leaving
+      if (isInCall) {
+        console.log('Ending video call before leaving reading room...');
+        endCall();
+      }
+      
+      // Remove event listener
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      
       cleanup();
+      cleanupVideoCall();
       clearInterval(syncInterval);
     };
-  }, [joinSessionId, deckId, setInitialSessionId, setDeckId, initializeSession, cleanup, syncCompleteSessionState, isHost]);
+  }, [joinSessionId, deckId, setInitialSessionId, setDeckId, initializeSession, cleanup, cleanupVideoCall, syncCompleteSessionState, isHost]);
+
+  // Initialize video call when session is ready
+  useEffect(() => {
+    if (sessionState?.id && participantId) {
+      console.log('Initializing video call for session:', sessionState.id, 'participant:', participantId);
+      initializeVideoCall(sessionState.id, participantId);
+    }
+  }, [sessionState?.id, participantId, initializeVideoCall]);
 
   // Ensure complete state sync when joining via shared link
   useEffect(() => {
@@ -1134,23 +1171,27 @@ const ReadingRoom = () => {
     return () => clearTimeout(timeoutId);
   }, [participants, previousParticipants, participantId, sessionState?.id, sessionLoading, user?.id]);
 
-  // Auto-show video chat when user is in a video call
+  // Auto-show video chat when user is in a video call or when participants are detected
   useEffect(() => {
-    // Show video chat UI when:
-    // 1. User is in a video call (isInVideoCall is true)
-    // 2. Video chat UI is not already shown
-    // 3. Not currently connecting (to avoid double-showing)
-    if (isInVideoCall && !showVideoChat && !isVideoConnecting) {
-      console.log('Auto-showing video chat UI - user is in video call');
+    // Only show video chat UI when user is actively in a video call
+    // Remove auto-show when participants are detected - video should only start when explicitly requested
+    if (isInCall && !showVideoChat && (readingStep === 'drawing' || readingStep === 'interpretation')) {
+      console.log('Showing video chat UI - user is in video call:', {
+        isInCall,
+        readingStep
+      });
       setShowVideoChat(true);
     }
     
-    // Hide video chat UI when user leaves video call
-    if (!isInVideoCall && showVideoChat && connectionStatus === 'disconnected') {
-      console.log('Auto-hiding video chat UI - user left video call');
+    // Hide video chat UI when user leaves video call or exits drawing/interpretation steps
+    if (showVideoChat && (!isInCall || (readingStep !== 'drawing' && readingStep !== 'interpretation'))) {
+      console.log('Hiding video chat UI - user left video call or exited drawing/interpretation step:', {
+        isInCall,
+        readingStep
+      });
       setShowVideoChat(false);
     }
-  }, [isInVideoCall, showVideoChat, isVideoConnecting, connectionStatus]);
+  }, [isInCall, showVideoChat, readingStep]);
 
 
 
@@ -1941,6 +1982,12 @@ const ReadingRoom = () => {
   };
   
   const initiateVideoChat = async () => {
+    // Check if we're in the drawing or interpretation step
+    if (readingStep !== 'drawing' && readingStep !== 'interpretation') {
+      setError('Video chat is only available during the drawing and interpretation steps of your reading.');
+      return;
+    }
+
     // Check if user is authenticated
     if (!user) {
       // Store current reading room path for post-auth redirect with session ID
@@ -1958,15 +2005,9 @@ const ReadingRoom = () => {
     try {
       // Start video call in the session store first
       console.log('Auto-starting video call for sharing...');
-      const videoSessionId = await startVideoCall();
-      
-      if (videoSessionId) {
-        console.log('Video call started in session state');
-        setShowVideoChat(true);
-      } else {
-        console.error('Failed to start video call in session');
-        setError('Failed to start video call. Please try again.');
-      }
+      await startCall();
+      console.log('Video call started successfully');
+      setShowVideoChat(true);
     } catch (err) {
       console.error('Error starting video call:', err);
       setError('Failed to start video call. Please try again.');
@@ -2696,6 +2737,9 @@ const ReadingRoom = () => {
     }
   }, [sessionId]);
   
+  // State for invite dropdown modal
+  const [showInviteDropdown, setShowInviteDropdown] = useState(false);
+
   // Handle sharing with native share API on mobile or modal on desktop
   const handleShare = async () => {
     if (!sessionId) return;
@@ -2732,67 +2776,8 @@ const ReadingRoom = () => {
       });
     }
 
-    // Automatically start video call when sharing
-    if (!showVideoChat && !isVideoConnecting) {
-      console.log('Auto-starting video call for sharing...');
-      setIsVideoConnecting(true);
-      
-      // Start the video call in the session state so other participants can auto-join
-      try {
-        await startVideoCall();
-        console.log('Video call started in session state');
-      } catch (error) {
-        console.error('Failed to start video call in session:', error);
-      }
-      
-      setTimeout(() => {
-        setIsVideoConnecting(false);
-        setShowVideoChat(true);
-      }, 500);
-    }
-    
-    // Generate proper invite link using the new system
-    let shareableLink: string;
-    try {
-      const { generateSessionInviteLink } = await import('../../utils/inviteLinks');
-      
-      const inviteUrl = await generateSessionInviteLink(
-        sessionId,
-        user?.id || null,
-        useReadingSessionStore.getState().anonymousId
-      );
-      
-      shareableLink = inviteUrl || generateShareableLink(sessionId); // Fallback to direct link
-    } catch (error) {
-      console.error('Failed to generate invite link, using direct link:', error);
-      shareableLink = generateShareableLink(sessionId);
-    }
-    
-    const shareData = {
-      title: 'TarotForge Reading Room',
-      text: `Join my tarot reading session with video chat! ${deck ? `Using ${deck.title} deck` : 'Interactive tarot reading'} - `,
-      url: shareableLink
-    };
-    
-    // Use native share API on mobile if available
-    if (isMobile && navigator.share) {
-      try {
-        // Check if data can be shared (fallback for browsers without canShare)
-        if (!navigator.canShare || navigator.canShare(shareData)) {
-          await navigator.share(shareData);
-          // Successfully shared via native sharing
-          return;
-        }
-      } catch (error) {
-        // User cancelled sharing or error occurred
-        if (error instanceof Error && error.name !== 'AbortError') {
-          console.warn('Native sharing failed:', error);
-        }
-      }
-    }
-    
-    // Fall back to modal for desktop or if native sharing not available
-    setShowShareModal(true);
+    // Show invite dropdown instead of auto-starting video
+    setShowInviteDropdown(true);
   };
 
   // Handle guest account upgrade
@@ -3319,6 +3304,78 @@ const ReadingRoom = () => {
           
           {/* Right side - Action buttons - horizontal for both mobile and desktop */}
           <div className={`flex ${isMobile ? 'items-center gap-1' : 'items-center gap-1 md:gap-2'}`}>
+            {/* Mobile: Reveal All / View Cards Button - integrated into top bar */}
+            {isMobile && readingStep === 'drawing' && selectedCards.some((card: any) => card) && (
+              <>
+                {/* Show Reveal All button if there are unrevealed cards */}
+                {selectedCards.some((card: any) => card && !card.revealed) && (
+                  <Tooltip content="Reveal all cards" position="bottom" disabled={isMobile}>
+                    <button 
+                      onClick={revealAllCards}
+                      className="btn btn-secondary bg-blue-600/90 backdrop-blur-sm border border-blue-500 p-2 text-sm flex items-center text-white touch-manipulation"
+                      style={{ touchAction: 'manipulation' }}
+                    >
+                      <EyeOff className="h-4 w-4" />
+                      <span className="ml-1 text-xs">Reveal</span>
+                    </button>
+                  </Tooltip>
+                )}
+                
+                {/* Show View Cards button if all cards are revealed */}
+                {selectedCards.every((card: any) => !card || card.revealed) && selectedCards.some((card: any) => card?.revealed) && (
+                  <Tooltip content="View cards in detail" position="bottom" disabled={isMobile}>
+                    <button 
+                      onClick={() => {
+                        const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
+                        if (firstRevealedIndex !== -1) {
+                          openCardGallery(firstRevealedIndex);
+                        }
+                      }}
+                      className="btn btn-ghost bg-card/90 backdrop-blur-sm border border-border p-2 text-sm flex items-center touch-manipulation"
+                      style={{ touchAction: 'manipulation' }}
+                    >
+                      <ScanSearch className="h-4 w-4" />
+                      <span className="ml-1 text-xs">Detail</span>
+                    </button>
+                  </Tooltip>
+                )}
+              </>
+            )}
+
+            {/* Mobile: Generate Interpretation Button - integrated into top bar */}
+            {isMobile && readingStep === 'drawing' && !isGeneratingInterpretation && (
+              (selectedLayout?.id === 'free-layout' && selectedCards.length > 0) ||
+              (selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count)
+            ) && (
+              <Tooltip content={selectedLayout?.id === 'free-layout' ? `Generate interpretation for ${selectedCards.length} cards` : "Generate reading interpretation"} position="bottom" disabled={isMobile}>
+                <button 
+                  onClick={() => {
+                    console.log('Mobile Read button clicked (top bar):', {
+                      selectedCards: selectedCards.length,
+                      isGeneratingInterpretation,
+                      readingStep,
+                      isMobile
+                    });
+                    generateInterpretation();
+                  }}
+                  onTouchStart={(e) => {
+                    console.log('Mobile Read button touch start (top bar)');
+                    e.stopPropagation();
+                  }}
+                  className="btn btn-primary bg-accent/90 backdrop-blur-sm border border-accent p-2 text-sm flex items-center text-white dark:text-black touch-manipulation"
+                  style={{ touchAction: 'manipulation' }}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  <span className="ml-1 text-xs">
+                    {selectedLayout?.id === 'free-layout' 
+                      ? `Read (${selectedCards.length})` 
+                      : 'Read'
+                    }
+                  </span>
+                </button>
+              </Tooltip>
+            )}
+
             {/* Desktop: Generate Interpretation Button - show when ready */}
             {!isMobile && readingStep === 'drawing' && !isGeneratingInterpretation && (
               (selectedLayout?.id === 'free-layout' && selectedCards.length > 0) ||
@@ -3395,7 +3452,7 @@ const ReadingRoom = () => {
                       const synced = await syncLocalSessionToDatabase();
                       if (synced) {
                         setRecentlySynced(true);
-                        setTimeout(() => setRecentlySynced(false), 5000);
+                        setTimeout(() => setRecentlySynced(false), 5000); // Show synced state for 5 seconds
                       } else {
                         console.log('Sync failed, will retry later');
                       }
@@ -4699,67 +4756,7 @@ const ReadingRoom = () => {
                   </motion.div>
                 )}
                 
-                {/* Mobile: Floating Reveal/View Button */}
-                {isMobile && selectedCards.some((card: any) => card) && (
-                  <div className={`absolute ${isLandscape ? 'top-12 left-4' : 'top-20 left-4'} z-50`}>
-                    {/* Show Reveal All button if there are unrevealed cards */}
-                    {selectedCards.some((card: any) => card && !card.revealed) && (
-                      <button 
-                        onClick={revealAllCards}
-                        className="btn btn-secondary px-3 py-2 flex items-center text-sm bg-secondary/90 backdrop-blur-sm border-secondary shadow-lg rounded-full"
-                      >
-                        <EyeOff className="h-4 w-4 mr-2" />
-                        <span className="text-xs">Reveal All</span>
-                      </button>
-                    )}
-                    
-                    {/* Show View Cards button if all cards are revealed */}
-                    {selectedCards.every((card: any) => !card || card.revealed) && selectedCards.some((card: any) => card?.revealed) && (
-                      <button 
-                        onClick={() => {
-                          const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
-                          if (firstRevealedIndex !== -1) {
-                            openCardGallery(firstRevealedIndex);
-                          }
-                        }}
-                        className="btn btn-primary px-3 py-2 flex items-center text-sm bg-primary/90 backdrop-blur-sm border-primary shadow-lg rounded-full"
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        <span className="text-xs">View Detail</span>
-                      </button>
-                    )}
-                  </div>
-                )}
 
-                {/* Mobile: Generate interpretation button for free layout */}
-                {isMobile && selectedLayout?.id === 'free-layout' && selectedCards.length > 0 && !isGeneratingInterpretation && readingStep === 'drawing' && (
-                  <div className={`interpretation-button absolute ${isLandscape ? 'top-12 right-4' : 'top-20 right-4'} z-50`}>
-                    <Tooltip content={`Generate interpretation for ${selectedCards.length} cards`} position="left" disabled={isMobile}>
-                      <button 
-                        onClick={() => generateInterpretation()}
-                        className="btn px-3 py-2 flex items-center text-sm bg-accent/90 backdrop-blur-sm border-accent shadow-lg text-white dark:text-black"
-                      >
-                        <Sparkles className="mr-1 h-4 w-4" />
-                        <span>Read ({selectedCards.length})</span>
-                      </button>
-                    </Tooltip>
-                  </div>
-                )}
-                
-                {/* Mobile: All cards placed - show interpretation button (predefined layouts) */}
-                {isMobile && selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count && !isGeneratingInterpretation && readingStep === 'drawing' && (
-                  <div className={`interpretation-button absolute ${isLandscape ? 'top-12 right-4' : 'top-20 right-4'} z-50`}>
-                    <Tooltip content="Generate reading interpretation" position="left" disabled={isMobile}>
-                      <button 
-                        onClick={() => generateInterpretation()}
-                        className="btn px-3 py-2 flex items-center text-sm bg-accent/90 backdrop-blur-sm border-accent shadow-lg text-white dark:text-black"
-                      >
-                        <Sparkles className="mr-1 h-4 w-4" />
-                        <span>Read</span>
-                      </button>
-                    </Tooltip>
-                  </div>
-                )}
                 
                 {/* Loading indicator for interpretation */}
                 {(isGeneratingInterpretation || sessionIsGeneratingInterpretation) && (
@@ -4976,7 +4973,7 @@ const ReadingRoom = () => {
                       onDragEnd={handlePlacedCardDragEnd}
                       whileHover={{ scale: 1.05 }}
                       whileDrag={{ scale: 1.1, zIndex: 50 }}
-                      onClick={() => {
+                        onClick={() => {
                         if ((selectedCard as any).revealed) {
                           // Open card detail modal for revealed cards
                           updateSharedModalState({
@@ -5110,37 +5107,7 @@ const ReadingRoom = () => {
                   })}
                 </div>
                 
-                {/* Mobile: Floating Reveal/View Button for Interpretation */}
-                {isMobile && selectedCards.some((card: any) => card) && (
-                  <div className={`absolute ${isLandscape ? 'top-12 left-4' : 'top-20 left-4'} z-50`}>
-                    {/* Show Reveal All button if there are unrevealed cards */}
-                    {selectedCards.some((card: any) => card && !card.revealed) && (
-                      <button 
-                        onClick={revealAllCards}
-                        className="btn btn-secondary px-3 py-2 flex items-center text-sm bg-secondary/90 backdrop-blur-sm border-secondary shadow-lg rounded-full"
-                      >
-                        <EyeOff className="h-4 w-4 mr-2" />
-                        <span className="text-xs">Reveal All</span>
-                      </button>
-                    )}
-                    
-                    {/* Show View Cards button if all cards are revealed */}
-                    {selectedCards.every((card: any) => !card || card.revealed) && selectedCards.some((card: any) => card?.revealed) && (
-                      <button 
-                        onClick={() => {
-                          const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
-                          if (firstRevealedIndex !== -1) {
-                            openCardGallery(firstRevealedIndex);
-                          }
-                        }}
-                        className="btn btn-primary px-3 py-2 flex items-center text-sm bg-primary/90 backdrop-blur-sm border-primary shadow-lg rounded-full"
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        <span className="text-xs">View Detail</span>
-                      </button>
-                    )}
-                  </div>
-                )}
+
 
                 {/* Reading controls */}
                 <div className={`absolute ${isMobile ? 'top-2 right-2' : 'bottom-6 right-6'} flex gap-1 md:gap-3`}>
@@ -5291,11 +5258,11 @@ const ReadingRoom = () => {
         </div>
       )}
       
-      {/* Video Chat - Mobile Optimized Draggable Bubbles */}
+      {/* Video Chat - Floating Bubbles Interface */}
       {showVideoChat && (
-        <VideoChat 
+        <VideoBubbles 
           onClose={() => setShowVideoChat(false)}
-          sessionId={sessionId}
+          readingStep={readingStep}
         />
       )}
       
@@ -5727,6 +5694,13 @@ const ReadingRoom = () => {
                 <Link
                   to={user ? "/collection" : "/"}
                   className="flex-1 px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors text-center"
+                  onClick={() => {
+                    // End video call if user is in one before leaving
+                    if (isInCall) {
+                      console.log('Ending video call before exiting reading room...');
+                      endCall();
+                    }
+                  }}
                 >
                   Exit Reading Room
                 </Link>
@@ -5770,7 +5744,7 @@ const ReadingRoom = () => {
                     onClick={() => fetchCardDescription(selectedCards[galleryCardIndex])}
                     disabled={loadingDescription}
                     className={`p-2 rounded-full transition-colors ${
-                      isMobile 
+                            isMobile
                         ? 'text-white hover:bg-white/20 disabled:opacity-50' 
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50'
                     }`}
@@ -6000,9 +5974,156 @@ const ReadingRoom = () => {
         onSuccess={handleSignInSuccess}
       />
 
+      {/* Invite Dropdown Modal */}
+      <AnimatePresence>
+        {showInviteDropdown && (
+          <motion.div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setShowInviteDropdown(false)}
+          >
+            <motion.div
+              className={`bg-card border border-border rounded-lg shadow-lg ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md'} p-6`}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-primary/10 rounded-full">
+                  <UserPlus className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Invite Others</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Choose how to invite people to your reading
+                  </p>
+                </div>
+              </div>
+              
+              {/* Current session info */}
+              <div className="bg-muted/30 rounded-lg p-3 mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className="text-sm font-medium">Active Session</span>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <div>Layout: {selectedLayout?.name || 'Custom'}</div>
+                  {question && <div>Question: "{question}"</div>}
+                  <div>Step: {readingStep}</div>
+                  {participants.length > 0 && (
+                    <div>Participants: {participants.length + 1} people</div>
+                  )}
+                  {showVideoChat && (
+                    <div className="text-green-600">✓ Video chat active</div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="space-y-3 mb-6">
+                {/* Video call option - only show during drawing/interpretation */}
+                {(readingStep === 'drawing' || readingStep === 'interpretation') && (
+                  <button
+                    onClick={async () => {
+                      // Start video call first if not already active
+                      if (!showVideoChat && !isVideoConnecting) {
+                        console.log('Starting video call for sharing...');
+                        setIsVideoConnecting(true);
+                        
+                        try {
+                          await startCall();
+                          console.log('Video call started successfully');
+                          setTimeout(() => {
+                            setIsVideoConnecting(false);
+                            setShowVideoChat(true);
+                          }, 500);
+                        } catch (error) {
+                          console.error('Failed to start video call:', error);
+                          setIsVideoConnecting(false);
+                        }
+                      }
+                      
+                      // Then proceed with sharing
+                      setShowInviteDropdown(false);
+                      setShowShareModal(true);
+                    }}
+                    disabled={isVideoConnecting}
+                    className="w-full p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
+                        <Video className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium">
+                          {showVideoChat ? 'Share with Video Chat' : 'Start Video Chat & Share'}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {showVideoChat 
+                            ? 'Video chat is active. Share link with video enabled.'
+                            : 'Start video call and share invitation link'
+                          }
+                        </div>
+                      </div>
+                      {isVideoConnecting && (
+                        <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                      )}
+                    </div>
+                      </button>
+                )}
+                
+                {/* Regular share option */}
+                <button
+                  onClick={() => {
+                    setShowInviteDropdown(false);
+                    setShowShareModal(true);
+                  }}
+                  className="w-full p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                      <Share2 className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium">Share Reading Room</div>
+                      <div className="text-sm text-muted-foreground">
+                        Share invitation link without video chat
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowInviteDropdown(false)}
+                  className="flex-1 px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    // Handle invitee submission
+                    setShowInviteDropdown(false);
+                  }}
+                  className="flex-1 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  Send Invitations
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </Div100vh>
   );
 };
+
+
 
 export default memo(ReadingRoom);
