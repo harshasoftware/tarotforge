@@ -236,6 +236,29 @@ const ReadingRoom = () => {
   // Initialize session on mount
   useEffect(() => {
     const initSession = async () => {
+      // First, ensure user has anonymous auth if they're not authenticated
+      if (!user) {
+        console.log('🎭 No authenticated user found, creating anonymous session...');
+        try {
+          const { signInAnonymously } = useAuthStore.getState();
+          const result = await signInAnonymously();
+          
+          if (result.error) {
+            console.error('❌ Failed to create anonymous user:', result.error);
+            setError('Failed to authenticate. Please refresh the page and try again.');
+            return;
+          }
+          
+          console.log('✅ Anonymous user created successfully');
+          // Small delay to ensure auth state is updated
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (error) {
+          console.error('❌ Error creating anonymous user:', error);
+          setError('Authentication failed. Please refresh the page and try again.');
+          return;
+        }
+      }
+      
       if (shouldCreateSession) {
         // Create a new session and update URL
         try {

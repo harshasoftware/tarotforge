@@ -25,10 +25,16 @@ interface AuthStore {
   signUp: (email: string, username?: string, fullName?: string) => Promise<{ error: any }>;
   signIn: (email: string) => Promise<{ error: any }>;
   signInWithGoogle: (returnToHome?: boolean) => Promise<{ error: any }>;
+  signInAnonymously: () => Promise<{ error: any }>;
+  isAnonymous: () => boolean;
+  linkWithEmail: (email: string, password: string) => Promise<{ error: any }>;
+  linkWithGoogle: () => Promise<{ error: any }>;
   handleGoogleRedirect: () => Promise<{ data?: any, error: any }>;
   signOut: () => Promise<void>;
   checkAuth: () => Promise<void>;
   initializeAuth: () => void;
+  migrateAnonymousUserData: (fromUserId: string, toUserId: string) => Promise<{ error: any }>;
+  linkToExistingAccount: (email: string, anonymousUserId: string) => Promise<{ error: any }>;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -369,6 +375,192 @@ export const useAuthStore = create<AuthStore>()(
       }
     },
 
+    signInAnonymously: async () => {
+      try {
+        console.log('🎭 Signing in anonymously with Supabase');
+        
+        // Use Supabase's built-in anonymous authentication
+        const { data, error } = await supabase.auth.signInAnonymously();
+        
+        if (error) throw error;
+        
+        if (data.user) {
+          console.log('✅ Anonymous sign-in successful:', data.user.id);
+          
+          // Create basic anonymous user record in the anonymous_users table
+          try {
+            const { error: profileError } = await supabase
+              .from('anonymous_users')
+              .insert({
+                id: data.user.id,
+                created_at: new Date().toISOString(),
+                last_active_at: new Date().toISOString()
+              });
+            
+            if (profileError) {
+              console.warn('Could not create anonymous user record:', profileError);
+              // Continue anyway - the auth user exists
+            }
+          } catch (profileCreateError) {
+            console.warn('Error creating anonymous user record:', profileCreateError);
+            // Continue anyway - the auth user exists
+          }
+          
+          // Set user state with anonymous user data
+          const userObj: User = {
+            id: data.user.id,
+            email: undefined, // Anonymous users don't have email
+            username: `Guest_${data.user.id.slice(-8)}`,
+            full_name: `Anonymous User`,
+            created_at: new Date().toISOString()
+          };
+          
+          set({ user: userObj });
+          setUserContext(userObj);
+          identifyUser(userObj);
+        }
+        
+        return { error: null };
+      } catch (error) {
+        console.error('❌ Error signing in anonymously:', error);
+        return { error };
+      }
+    },
+
+    isAnonymous: () => {
+      const user = get().user;
+      // User is anonymous if they exist but don't have an email
+      // (indicating they're from the anonymous_users table)
+      return !!(user && !user.email);
+    },
+
+    linkWithEmail: async (email: string, password: string) => {
+      try {
+        console.log('🔗 Linking anonymous user with email');
+        
+        const { user } = get();
+        if (!user || !get().isAnonymous()) {
+          throw new Error('No anonymous user to link');
+        }
+        
+        // Store anonymous user ID for potential data migration
+        const anonymousUserId = user.id;
+        
+        // Attempt to link email to anonymous user
+        const { data: emailData, error: emailError } = await supabase.auth.updateUser({
+          email: email
+        });
+        
+        if (emailError) {
+          // Check if this is because the email already exists
+          if (emailError.message?.includes('Email already registered') || 
+              emailError.message?.includes('already exists') ||
+              emailError.message?.includes('already taken')) {
+            // Email belongs to existing user - return special error for handling
+            throw new Error(`EXISTING_ACCOUNT:${email}:${anonymousUserId}`);
+          }
+          throw emailError;
+        }
+        
+        // Email linking successful - now create proper user profile
+        console.log('📧 Email update successful, creating user profile');
+        
+        // Create user profile in users table (transition from anonymous_users)
+        try {
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert({
+              id: user.id, // Same ID as auth user
+              email: email,
+              username: email.split('@')[0], // Use email prefix as username
+              full_name: `User ${email.split('@')[0]}`,
+              created_at: new Date().toISOString()
+            });
+            
+          if (insertError) {
+            console.warn('Could not create user profile:', insertError);
+          } else {
+            console.log('✅ Created user profile successfully');
+          }
+        } catch (createProfileError) {
+          console.warn('Error creating user profile:', createProfileError);
+        }
+        
+        // Clean up anonymous user record
+        try {
+          const { error: cleanupError } = await supabase
+            .from('anonymous_users')
+            .delete()
+            .eq('id', user.id);
+            
+          if (cleanupError) {
+            console.warn('Could not clean up anonymous user record:', cleanupError);
+          } else {
+            console.log('✅ Cleaned up anonymous user record');
+          }
+        } catch (cleanupError) {
+          console.warn('Error cleaning up anonymous user record:', cleanupError);
+        }
+        
+        // Update local user state
+        const updatedUser: User = {
+          ...user,
+          email: email,
+          username: email.split('@')[0]
+        };
+        
+        set({ user: updatedUser });
+        setUserContext(updatedUser);
+        identifyUser(updatedUser);
+        
+        console.log('✅ Email linking and profile creation successful');
+        return { error: null };
+      } catch (error: any) {
+        console.error('❌ Error linking with email:', error);
+        return { error };
+      }
+    },
+
+    linkWithGoogle: async () => {
+      try {
+        console.log('🔗 Linking anonymous user with Google');
+        
+        const { user } = get();
+        if (!user || !get().isAnonymous()) {
+          throw new Error('No anonymous user to link');
+        }
+        
+        // Store the anonymous user ID for post-auth handling
+        localStorage.setItem('pending_google_link', user.id);
+        console.log('📍 Storing pending_google_link:', user.id);
+        
+        // Store the current path for post-auth redirect
+        localStorage.setItem('auth_return_path', window.location.pathname + window.location.search);
+        
+        // Use manual linking to connect Google identity to anonymous account
+        const { data, error } = await supabase.auth.linkIdentity({ 
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`
+          }
+        });
+        
+        if (error) {
+          // Clean up the pending flag if linking fails
+          localStorage.removeItem('pending_google_link');
+          throw error;
+        }
+        
+        console.log('✅ Google linking initiated');
+        return { error: null };
+      } catch (error) {
+        console.error('❌ Error linking Google account:', error);
+        // Make sure to clean up if something went wrong
+        localStorage.removeItem('pending_google_link');
+        return { error };
+      }
+    },
+
     handleGoogleRedirect: async () => {
       console.log('Processing authentication callback');
       
@@ -461,6 +653,103 @@ export const useAuthStore = create<AuthStore>()(
           }
         }
       );
+    },
+
+    migrateAnonymousUserData: async (fromUserId: string, toUserId: string) => {
+      try {
+        console.log('🔄 Migrating data from anonymous user to existing user');
+        console.log('From:', fromUserId, 'To:', toUserId);
+        
+        // Step 1: Migrate reading sessions hosted by the anonymous user
+        const { error: sessionsError } = await supabase
+          .from('reading_sessions')
+          .update({ 
+            host_user_id: toUserId,
+            original_host_user_id: fromUserId // Keep track of original host
+          })
+          .eq('host_user_id', fromUserId);
+          
+        if (sessionsError) {
+          console.warn('Could not migrate reading sessions:', sessionsError);
+        } else {
+          console.log('✅ Migrated reading sessions');
+        }
+        
+        // Step 2: Migrate session participants (anonymous users in sessions)
+        const { error: participantsError } = await supabase
+          .from('session_participants')
+          .update({ user_id: toUserId })
+          .eq('user_id', fromUserId);
+          
+        if (participantsError) {
+          console.warn('Could not migrate session participants:', participantsError);
+        } else {
+          console.log('✅ Migrated session participants');
+        }
+        
+        // Step 3: Migrate any decks created by anonymous user (if applicable)
+        const { error: decksError } = await supabase
+          .from('decks')
+          .update({ creator_id: toUserId })
+          .eq('creator_id', fromUserId);
+          
+        if (decksError) {
+          console.warn('Could not migrate decks:', decksError);
+        } else {
+          console.log('✅ Migrated created decks');
+        }
+        
+        // Step 4: Clean up - remove the anonymous user record
+        const { error: cleanupError } = await supabase
+          .from('anonymous_users')
+          .delete()
+          .eq('id', fromUserId);
+          
+        if (cleanupError) {
+          console.warn('Could not clean up anonymous user record:', cleanupError);
+        } else {
+          console.log('✅ Cleaned up anonymous user record');
+        }
+        
+        console.log('✅ Data migration completed successfully');
+        return { error: null };
+      } catch (error) {
+        console.error('❌ Error migrating user data:', error);
+        return { error };
+      }
+    },
+
+    linkToExistingAccount: async (email: string, anonymousUserId: string) => {
+      try {
+        console.log('🔗 Sending magic link to existing account for data migration');
+        
+        // Store current path for post-auth redirect
+        const currentPath = window.location.pathname + window.location.search;
+        localStorage.setItem('auth_return_path', currentPath);
+        console.log('📍 Storing auth_return_path for existing account linking:', currentPath);
+        
+        // Store migration info for when user signs in via magic link
+        localStorage.setItem('pending_migration', JSON.stringify({
+          fromUserId: anonymousUserId,
+          email: email
+        }));
+        
+        // Send magic link to existing account
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithOtp({
+          email: email,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`
+          }
+        });
+        
+        if (signInError) throw signInError;
+        
+        console.log('✅ Magic link sent to existing account');
+        return { error: null };
+      } catch (error) {
+        console.error('❌ Error sending magic link for account linking:', error);
+        return { error };
+      }
     }
   }))
 );

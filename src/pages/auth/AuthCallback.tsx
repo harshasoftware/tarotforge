@@ -7,100 +7,128 @@ import { AlertCircle } from 'lucide-react';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
-  const { checkAuth, handleGoogleRedirect } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
   const [processingStep, setProcessingStep] = useState<string>('Initializing authentication...');
+  const [loading, setLoading] = useState(false);
   
   // Handle auth callback
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        console.log('Auth callback triggered');
-        setProcessingStep('Processing authentication...');
+        setLoading(true);
+        const { handleGoogleRedirect } = useAuthStore.getState();
+        const result = await handleGoogleRedirect();
         
-        if (window.location.hash || window.location.search) {
+        if (result.error) {
+          console.error('Auth callback error:', result.error);
+          setError('Authentication failed. Please try again.');
+          return;
+        }
+        
+        // Check for pending migration from anonymous user
+        const pendingMigration = localStorage.getItem('pending_migration');
+        if (pendingMigration) {
           try {
-            // Process authentication callback data
-            if (window.location.search && window.location.search.includes('code=')) {
-              console.log('Processing code exchange from query parameters');
-              await handleGoogleRedirect();
+            const { fromUserId, email } = JSON.parse(pendingMigration);
+            const { user } = useAuthStore.getState();
+            
+            if (user && user.email === email) {
+              console.log('🔄 Performing pending data migration');
+              const { migrateAnonymousUserData } = useAuthStore.getState();
+              await migrateAnonymousUserData(fromUserId, user.id);
+              
+              localStorage.removeItem('pending_migration');
+              console.log('✅ Data migration completed successfully');
+            }
+          } catch (migrationError) {
+            console.error('❌ Error during data migration:', migrationError);
+            // Don't block the auth flow even if migration fails
+          }
+        }
+        
+        // Check if this is an anonymous user who just linked with Google
+        const { user } = useAuthStore.getState();
+        const pendingGoogleLink = localStorage.getItem('pending_google_link');
+        if (pendingGoogleLink && user?.email) {
+          try {
+            const anonymousUserId = pendingGoogleLink;
+            console.log('🔗 Completing Google link for anonymous user:', anonymousUserId);
+            
+            setProcessingStep('Creating your account...');
+            
+            // Create user profile in users table (transition from anonymous_users)
+            const { error: insertError } = await supabase
+              .from('users')
+              .insert({
+                id: user.id, // Same ID as auth user
+                email: user.email,
+                username: user.email.split('@')[0], // Use email prefix as username
+                full_name: user.full_name || `User ${user.email.split('@')[0]}`,
+                avatar_url: user.avatar_url,
+                created_at: new Date().toISOString()
+              });
+              
+            if (insertError) {
+              console.warn('Could not create user profile:', insertError);
+            } else {
+              console.log('✅ Created user profile successfully');
             }
             
-            // Force refresh the auth state
-            setProcessingStep('Syncing your profile...');
-            await checkAuth();
+            // Migrate anonymous user data (reading sessions, decks, etc.)
+            setProcessingStep('Migrating your reading sessions...');
+            try {
+              const { migrateAnonymousUserData } = useAuthStore.getState();
+              await migrateAnonymousUserData(anonymousUserId, user.id);
+              console.log('✅ Anonymous user data migrated successfully');
+            } catch (migrationError) {
+              console.error('❌ Error migrating anonymous user data:', migrationError);
+              // Don't block the auth flow even if migration fails
+            }
             
-            setProcessingStep('Authentication successful! Redirecting...');
+            // Clean up anonymous user record
+            const { error: cleanupError } = await supabase
+              .from('anonymous_users')
+              .delete()
+              .eq('id', anonymousUserId);
+              
+            if (cleanupError) {
+              console.warn('Could not clean up anonymous user record:', cleanupError);
+            } else {
+              console.log('✅ Cleaned up anonymous user record');
+            }
             
-            // Clear URL parameters for security
-            window.history.replaceState(null, '', '/');
-            
-            // Check for stored return preferences
-            const returnToHome = localStorage.getItem('auth_return_to_home');
-            const withDeckCreation = localStorage.getItem('auth_with_deck_creation');
-            const returnPath = localStorage.getItem('auth_return_path');
-            
-            console.log('Auth callback - stored preferences:', {
-              returnToHome,
-              withDeckCreation,
-              returnPath
-            });
-            
-            // Clear stored preferences
-            localStorage.removeItem('auth_return_to_home');
-            localStorage.removeItem('auth_with_deck_creation');
-            localStorage.removeItem('auth_return_path');
-            
-            // Navigate based on stored preferences
-            setTimeout(() => {
-              if (returnToHome === 'true') {
-                console.log('Redirecting to home with deck creation intent');
-                if (withDeckCreation === 'true') {
-                  // Navigate to home with intent to create a deck
-                  navigate('/?createDeck=true');
-                } else {
-                  navigate('/');
-                }
-              } else if (returnPath) {
-                console.log('Redirecting to previously stored path:', returnPath);
-                navigate(returnPath);
-              } else {
-                console.log('No specific redirect found, going to home');
-                navigate('/');
-              }
-            }, 500);
-          } catch (authError) {
-            console.error('Error processing authentication:', authError);
-            setError(authError instanceof Error ? authError.message : 'Authentication failed. Please try again.');
-            
-            // Wait a moment before redirecting to login
-            setTimeout(() => {
-              navigate('/login?error=auth');
-            }, 3000);
+            localStorage.removeItem('pending_google_link');
+            console.log('✅ Google linking completed successfully');
+            setProcessingStep('Account setup complete! Redirecting...');
+          } catch (linkError) {
+            console.error('❌ Error completing Google link:', linkError);
+            // Don't block the auth flow even if linking completion fails
           }
+        }
+        
+        // Get the return path
+        const returnPath = localStorage.getItem('auth_return_path');
+        if (returnPath) {
+          localStorage.removeItem('auth_return_path');
+          navigate(returnPath);
         } else {
-          // No authentication data found
-          console.error('Auth callback reached but no valid tokens or code found');
-          setError('No authentication data found. Please try signing in again.');
-          
-          // Wait a moment before redirecting
-          setTimeout(() => {
-            navigate('/login?error=auth');
-          }, 3000);
+          // Default redirect based on user type
+          if (user?.is_creator) {
+            navigate('/create-deck');
+          } else {
+            navigate('/');
+          }
         }
       } catch (error) {
-        console.error('Error handling auth callback:', error);
-        setError('An unexpected error occurred during authentication.');
-        
-        // Redirect after a delay
-        setTimeout(() => {
-          navigate('/login?error=auth');
-        }, 3000);
+        console.error('Callback error:', error);
+        setError('Authentication failed. Please try again.');
+      } finally {
+        setLoading(false);
       }
     };
-    
+
     handleAuthCallback();
-  }, [navigate, checkAuth, handleGoogleRedirect]);
+  }, [navigate]);
   
   if (error) {
     return (

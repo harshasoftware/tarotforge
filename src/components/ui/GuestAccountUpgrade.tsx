@@ -34,11 +34,22 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
     hasOnGuestNameSet: !!onGuestNameSet
   });
 
-  const { signIn, signUp, signInWithGoogle, magicLinkSent, setMagicLinkSent } = useAuthStore();
+  const { 
+    linkWithEmail, 
+    linkWithGoogle, 
+    linkToExistingAccount,
+    isAnonymous,
+    magicLinkSent, 
+    setMagicLinkSent 
+  } = useAuthStore();
   const [isSignUp, setIsSignUp] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showExistingAccountPrompt, setShowExistingAccountPrompt] = useState<{email: string, anonymousUserId: string} | null>(null);
+  
+  // Check if current user is anonymous
+  const isCurrentlyAnonymous = isAnonymous();
 
   const { 
     register, 
@@ -47,20 +58,53 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
   } = useForm<SignInFormData>();
 
   const onSubmit = async (data: SignInFormData) => {
+    setIsLoading(true);
+    setError(null);
+
+    // Store current reading room path for post-auth redirect
+    const currentPath = window.location.pathname + window.location.search;
+    localStorage.setItem('auth_return_path', currentPath);
+    console.log('GuestAccountUpgrade: Storing auth_return_path:', currentPath);
+
+    const { isAnonymous, linkWithEmail, linkToExistingAccount } = useAuthStore.getState();
+
     try {
-      setIsLoading(true);
-      setError(null);
-      
       let result;
-      if (isSignUp) {
-        // Sign up with auto-generated username
-        result = await signUp(data.email, undefined, data.fullName);
-      } else {
-        // Sign in
-        result = await signIn(data.email);
+      
+      // Handle linking to existing account flow
+      if (showExistingAccountPrompt) {
+        // User confirmed they want to link to existing account via magic link
+        result = await linkToExistingAccount(showExistingAccountPrompt.email, showExistingAccountPrompt.anonymousUserId);
+        
+        if (!result.error) {
+          console.log('✅ Magic link sent to existing account');
+          setShowExistingAccountPrompt(null);
+          setMagicLinkSent(true); // Show magic link sent message
+          setIsLoading(false);
+          return;
+        }
+      } else if (isCurrentlyAnonymous) {
+        // Anonymous user creating account - use linking
+        if (isSignUp) {
+          console.log('🔗 Using account linking flow for new account');
+          result = await linkWithEmail(data.email, 'temp-password-123');
+        } else {
+          // Anonymous user trying to sign in - try linking and handle existing account error
+          console.log('🔗 Anonymous user attempting sign in - will handle existing account if needed');
+          result = await linkWithEmail(data.email, 'temp-password-123');
+        }
       }
       
-      if (result.error) {
+      if (result?.error) {
+        // Handle special case where email belongs to existing account
+        if (result.error.message?.startsWith('EXISTING_ACCOUNT:')) {
+          const [, email, anonymousUserId] = result.error.message.split(':');
+          setShowExistingAccountPrompt({ email, anonymousUserId });
+          setError(null); // Clear the error since we'll show the existing account prompt
+          setIsLoading(false);
+          return;
+        }
+        
         throw new Error(result.error.message || 'Authentication failed');
       }
       
@@ -86,7 +130,7 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
       // Add a small delay to ensure no concurrent credential requests
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      const { error } = await signInWithGoogle();
+      const { error } = await linkWithGoogle();
       
       if (error) {
         throw new Error(error.message || 'Failed to sign in with Google');
@@ -112,7 +156,7 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-            <h3 className="font-serif font-bold text-base md:text-lg">Upgrade Your Experience</h3>
+            <h3 className="font-serif font-bold text-base md:text-lg">Create Your Account</h3>
           </div>
           <button 
             onClick={onClose}
@@ -127,8 +171,8 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
         <div className="mb-4 md:mb-6">
           <p className="text-xs md:text-sm text-muted-foreground mb-3 leading-relaxed">
             {isInviteJoin 
-              ? `Welcome! You've been invited to join this reading room${participantCount > 1 ? ` with ${participantCount - 1} other participant${participantCount > 2 ? 's' : ''}` : ''}. Create an account to unlock more features.`
-              : `You're currently in the reading room as a guest${participantCount > 1 ? ` with ${participantCount - 1} other participant${participantCount > 2 ? 's' : ''}` : ''}. Create an account to unlock more features!`
+              ? `Welcome! You've been invited to join this reading room${participantCount > 1 ? ` with ${participantCount - 1} other participant${participantCount > 2 ? 's' : ''}` : ''}. Create an account to unlock all features and save your progress.`
+              : `Create an account to unlock all features and save your reading sessions${participantCount > 1 ? `. You're currently in this room with ${participantCount - 1} other participant${participantCount > 2 ? 's' : ''}` : ''}!`
             }
           </p>
           
@@ -157,6 +201,42 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
             >
               Back to Sign In
             </button>
+          </div>
+        ) : showExistingAccountPrompt ? (
+          <div className="text-center mt-6">
+            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4">
+              <Mail className="h-8 w-8 text-blue-600" />
+            </div>
+            <h2 className="text-xl font-medium mb-2">Account Already Exists</h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              We found an existing account with <strong>{showExistingAccountPrompt.email}</strong>. 
+              We'll send you a magic link to sign in and merge your current session data.
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowExistingAccountPrompt(null)}
+                className="btn btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  const data = { email: showExistingAccountPrompt.email };
+                  onSubmit(data as SignInFormData);
+                }}
+                disabled={isLoading}
+                className="btn btn-primary flex-1"
+              >
+                {isLoading ? (
+                  <span className="flex items-center justify-center">
+                    <LoadingSpinner size="sm" className="mr-2" />
+                    Sending...
+                  </span>
+                ) : (
+                  'Send Magic Link'
+                )}
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -309,7 +389,7 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
         )}
 
         <p className="text-xs text-muted-foreground text-center mt-4">
-          You'll remain in this reading room after {isSignUp ? 'creating your account' : 'signing in'}.
+          You'll remain in this reading room after creating your account.
         </p>
       </div>
     </div>

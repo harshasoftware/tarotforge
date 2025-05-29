@@ -16,11 +16,25 @@ interface SignInFormData {
 }
 
 const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
-  const { signIn, signUp, signInWithGoogle, magicLinkSent, setMagicLinkSent } = useAuthStore();
+  const { 
+    signIn, 
+    signUp, 
+    signInWithGoogle, 
+    linkWithEmail, 
+    linkWithGoogle, 
+    linkToExistingAccount,
+    isAnonymous,
+    magicLinkSent, 
+    setMagicLinkSent 
+  } = useAuthStore();
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showExistingAccountPrompt, setShowExistingAccountPrompt] = useState<{email: string, anonymousUserId: string} | null>(null);
+  
+  // Check if current user is anonymous
+  const isCurrentlyAnonymous = isAnonymous();
   
   const { 
     register, 
@@ -34,15 +48,57 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
       setError(null);
       
       let result;
-      if (isSignUp) {
-        // Sign up with auto-generated username
-        result = await signUp(data.email, undefined, data.fullName);
+      
+      // Handle linking to existing account flow
+      if (showExistingAccountPrompt) {
+        // User confirmed they want to link to existing account via magic link
+        result = await linkToExistingAccount(showExistingAccountPrompt.email, showExistingAccountPrompt.anonymousUserId);
+        
+        if (!result.error) {
+          console.log('✅ Magic link sent to existing account');
+          setShowExistingAccountPrompt(null);
+          setMagicLinkSent(true); // Show magic link sent message
+          setLoading(false);
+          return;
+        }
+      } else if (isCurrentlyAnonymous) {
+        // User is anonymous - handle differently based on sign up vs sign in
+        if (isSignUp) {
+          // Anonymous user creating new account - use linking
+          console.log('🔗 Using account linking flow for new account');
+          result = await linkWithEmail(data.email, 'temp-password-123');
+        } else {
+          // Anonymous user trying to sign in to existing account
+          // Try regular sign in - if account exists we'll get EXISTING_ACCOUNT error and handle it
+          console.log('🔗 Anonymous user attempting sign in - will handle existing account if needed');
+          result = await signIn(data.email);
+        }
       } else {
-        // Sign in
-        result = await signIn(data.email);
+        // Regular authentication flow
+        if (isSignUp) {
+          // Sign up with auto-generated username
+          result = await signUp(data.email, undefined, data.fullName);
+        } else {
+          // Sign in
+          result = await signIn(data.email);
+        }
       }
       
       if (result.error) {
+        // Handle special case where email belongs to existing account
+        if (result.error.message?.startsWith('EXISTING_ACCOUNT:')) {
+          const [, email, anonymousUserId] = result.error.message.split(':');
+          setShowExistingAccountPrompt({ email, anonymousUserId });
+          setError(null); // Clear the error since we'll show the password prompt
+          setLoading(false);
+          return;
+        }
+        
+        // Handle specific linking errors
+        if (result.error.message?.includes('Identity is already linked to another user')) {
+          setError('This email is already associated with another account. Please sign in to that account instead.');
+          return;
+        }
         throw new Error(result.error.message || 'Authentication failed');
       }
       
@@ -66,10 +122,25 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
       // Add a small delay to ensure no concurrent credential requests
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      const { error } = await signInWithGoogle();
+      let result;
       
-      if (error) {
-        throw new Error(error.message || 'Failed to sign in with Google');
+      if (isCurrentlyAnonymous) {
+        // User is anonymous - use linking
+        console.log('🔗 Using Google account linking flow');
+        result = await linkWithGoogle();
+      } else {
+        // Regular Google sign in
+        result = await signInWithGoogle();
+      }
+      
+      if (result.error) {
+        // Handle specific linking errors
+        if (result.error.message?.includes('Identity is already linked to another user')) {
+          setError('This Google account is already associated with another user. Please sign in to that account instead.');
+          setIsGoogleLoading(false);
+          return;
+        }
+        throw new Error(result.error.message || 'Failed to sign in with Google');
       }
       
       // The Google flow will redirect to Google's auth page
@@ -95,7 +166,9 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
-          <h3 className="font-serif font-bold">{isSignUp ? 'Create Account' : 'Sign In'}</h3>
+          <h3 className="font-serif font-bold">
+            {isSignUp ? 'Create Account' : 'Sign In'}
+          </h3>
           <button 
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground"
@@ -105,7 +178,43 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
         </div>
         
         <div className="p-6">
-          {magicLinkSent ? (
+          {showExistingAccountPrompt ? (
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4">
+                <Mail className="h-8 w-8 text-blue-600" />
+              </div>
+              <h2 className="text-xl font-medium mb-2">Account Already Exists</h2>
+              <p className="mb-4 text-muted-foreground">
+                We found an existing account with <strong>{showExistingAccountPrompt.email}</strong>. 
+                We'll send you a magic link to sign in and merge your current session data.
+              </p>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowExistingAccountPrompt(null)}
+                  className="btn btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    const data = { email: showExistingAccountPrompt.email };
+                    onSubmit(data as SignInFormData);
+                  }}
+                  disabled={loading}
+                  className="btn btn-primary flex-1"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center">
+                      <span className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
+                      Sending...
+                    </span>
+                  ) : (
+                    'Send Magic Link'
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : magicLinkSent ? (
             <div className="text-center">
               <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-4">
                 <Check className="h-8 w-8 text-success" />
@@ -214,8 +323,12 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
                   )}
                   
                   <p className="text-sm text-muted-foreground">
-                    We'll send you a magic link to {isSignUp ? 'create your account' : 'sign in'}. 
-                    {isSignUp && " A mystical username will be automatically generated for you, which you can change later."}
+                    {isCurrentlyAnonymous ? (
+                      "Create an account to save your progress and access all features!"
+                    ) : (
+                      `We'll send you a magic link to ${isSignUp ? 'create your account' : 'sign in'}. 
+                      ${isSignUp ? " A mystical username will be automatically generated for you, which you can change later." : ""}`
+                    )}
                   </p>
                   
                   <button

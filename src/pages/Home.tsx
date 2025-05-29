@@ -276,23 +276,58 @@ const Home = () => {
     }
   };
   
-  const handleThemeSubmit = (e: React.FormEvent) => {
+  const handleThemeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (themePrompt.trim()) {
       if (user) {
-        // User is authenticated, proceed directly to deck creation
+        // User is authenticated (real or anonymous), proceed directly to deck creation
         navigate('/create-deck', { 
           state: {
             initialTheme: themePrompt,
             autoGenerate: true,
-            startGenerating: true // Add flag to start generation immediately
+            startGenerating: true
           }
         });
       } else {
-        // Store deck creation intent in localStorage
-        localStorage.setItem('pending_deck_theme', themePrompt);
-        // Show the sign-in modal
-        setShowSignInModal(true);
+        // No user - create anonymous account and proceed
+        try {
+          console.log('🎭 Creating user session for deck creation');
+          const { signInAnonymously } = useAuthStore.getState();
+          const result = await signInAnonymously();
+          
+          if (!result.error) {
+            console.log('✅ User session created, proceeding to deck creation');
+            navigate('/create-deck', { 
+              state: {
+                initialTheme: themePrompt,
+                autoGenerate: true,
+                startGenerating: true
+              }
+            });
+          } else {
+            console.error('❌ Failed to create user session:', result.error);
+            // Show error to user or proceed anyway
+            alert('Unable to create user session. You can still browse without saving progress.');
+            navigate('/create-deck', { 
+              state: {
+                initialTheme: themePrompt,
+                autoGenerate: true,
+                startGenerating: true
+              }
+            });
+          }
+        } catch (error) {
+          console.error('❌ Error in user session creation:', error);
+          // Fallback: navigate anyway but show warning
+          alert('Unable to create user session. You can still browse without saving progress.');
+          navigate('/create-deck', { 
+            state: {
+              initialTheme: themePrompt,
+              autoGenerate: true,
+              startGenerating: true
+            }
+          });
+        }
       }
       
       // Update the used credits flag after navigating
