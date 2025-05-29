@@ -44,7 +44,7 @@ const Signup = lazy(() => import('./pages/auth/Signup'));
 const Marketplace = lazy(() => import('./pages/marketplace/Marketplace'));
 const DeckDetails = lazy(() => import('./pages/marketplace/DeckDetails'));
 const Collection = lazy(() => import('./pages/user/Collection')); 
-//const ReadingRoom = lazy(() => import('./pages/reading/ReadingRoom'));
+const ReadingRoom = lazy(() => import('./pages/reading/ReadingRoom'));
 const InvitePage = lazy(() => import('./pages/InvitePage'));
 const InviteHandler = lazy(() => import('./pages/InviteHandler'));
 const Profile = lazy(() => import('./pages/user/Profile'));
@@ -164,9 +164,9 @@ function App() {
     <SentryErrorBoundary>
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
-          {/* Reading room outside Layout for full-screen experience 
+          {/* Reading room outside Layout for full-screen experience */}
           <Route path="reading-room/:deckId?" element={<ReadingRoom />} />
-          <Route path="reading/:deckId?" element={<ReadingRoom />} /> */}
+          <Route path="reading/:deckId?" element={<ReadingRoom />} /> 
           
           {/* Invite page for processing invite links */}
           <Route path="invite/:inviteId" element={<InvitePage />} />
