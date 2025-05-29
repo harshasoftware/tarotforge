@@ -75,6 +75,29 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
 
       if (error) throw error;
 
+      // Add the session creator as a participant
+      try {
+        const { data: participant, error: participantError } = await supabase
+          .from('session_participants')
+          .insert({
+            session_id: data.id,
+            user_id: user?.id || null,
+            anonymous_id: user ? null : (anonymousIdRef.current || null),
+            is_active: true
+          })
+          .select()
+          .single();
+
+        if (participantError) {
+          console.warn('Failed to add creator as participant:', participantError);
+        } else {
+          participantIdRef.current = participant.id;
+        }
+      } catch (participantErr) {
+        console.warn('Error adding creator as participant:', participantErr);
+        // Don't fail the session creation for this
+      }
+
       return data.id;
     } catch (err: any) {
       console.error('Error creating session:', err);

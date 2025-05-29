@@ -13,6 +13,7 @@ import { useVideoCall } from '../../hooks/useVideoCall';
 import TarotLogo from '../../components/ui/TarotLogo';
 import TarotCardBack from '../../components/ui/TarotCardBack';
 import GuestAccountUpgrade from '../../components/ui/GuestAccountUpgrade';
+import ParticipantsDropdown from '../../components/ui/ParticipantsDropdown';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import SignInModal from '../../components/auth/SignInModal';
 import Tooltip from '../../components/ui/Tooltip';
@@ -207,6 +208,7 @@ const ReadingRoom = () => {
     syncCompleteSessionState,
     cleanup,
     participantId,
+    anonymousId,
     startVideoCall,
     broadcastGuestAction
   } = useReadingSessionStore();
@@ -370,7 +372,8 @@ const ReadingRoom = () => {
       console.log('Initializing video call for session:', sessionState.id, 'participant:', participantId);
       initializeVideoCall(sessionState.id, participantId);
     }
-  }, [sessionState?.id, participantId, initializeVideoCall]);
+  }, [sessionState?.id, participantId,
+    anonymousId, initializeVideoCall]);
 
   // Ensure complete state sync when joining via shared link
   useEffect(() => {
@@ -593,6 +596,8 @@ const ReadingRoom = () => {
   // Video chat state
   const [showVideoChat, setShowVideoChat] = useState(false);
   const [isVideoConnecting, setIsVideoConnecting] = useState(false);
+  
+  // Participants dropdown state
   
   // Track previous participants for notifications
   const [previousParticipants, setPreviousParticipants] = useState<typeof participants>([]);
@@ -937,7 +942,8 @@ const ReadingRoom = () => {
       selectedMarketplaceDeck: selectedMarketplaceDeckId || null,
       triggeredBy: participantId || null
     });
-  }, [updateDeckSelectionState, deckSelectionTab, selectedMarketplaceDeckId, participantId, deck, setDeck, setCards, setShuffledDeck, setSelectedDeckId, setIsChangingDeckMidSession]);
+  }, [updateDeckSelectionState, deckSelectionTab, selectedMarketplaceDeckId, participantId,
+    anonymousId, deck, setDeck, setCards, setShuffledDeck, setSelectedDeckId, setIsChangingDeckMidSession]);
 
   // Helper function to close deck selection modal
   const closeDeckSelection = useCallback(() => {
@@ -1191,7 +1197,8 @@ const ReadingRoom = () => {
     }, 500); // 500ms debounce to prevent rapid notifications during state changes
 
     return () => clearTimeout(timeoutId);
-  }, [participants, previousParticipants, participantId, sessionState?.id, sessionLoading, user?.id]);
+  }, [participants, previousParticipants, participantId,
+    anonymousId, sessionState?.id, sessionLoading, user?.id]);
 
   // Auto-show video chat when user is in a video call or when participants are detected
   useEffect(() => {
@@ -1791,7 +1798,8 @@ const ReadingRoom = () => {
       participantName: user?.email?.split('@')[0] || participants.find(p => p.id === participantId)?.name || 'Anonymous',
       isAnonymous: !user
     });
-  }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId, getDefaultZoomLevel, selectedLayout]);
+  }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId,
+    anonymousId, getDefaultZoomLevel, selectedLayout]);
   
   // Drag and Drop Functions
   const handleDragStart = (card: Card, index: number, e: any) => {
@@ -2828,6 +2836,11 @@ const ReadingRoom = () => {
       }
     }
   };
+
+  // Handle Guest badge click - show options to set name or sign in
+  const handleGuestBadgeClick = () => {
+    setShowGuestUpgrade(true);
+  };
   
   // Handle invite keyboard shortcut (I key)
   useEffect(() => {
@@ -3302,18 +3315,10 @@ const ReadingRoom = () => {
               <div className="bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2">
                 <div className="flex items-center gap-2">
                   <h1 className="text-sm font-serif font-bold">Reading Room</h1>
-                  {participants.length > 0 && (
-                    <div 
-                      className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full cursor-pointer"
-                      title={participantNames}
-                    >
-                      <Users className="h-3 w-3" />
-                      <span className="text-xs">{participants.length}</span>
-                    </div>
-                  )}
                   {isGuest && (
-                    <span className="text-xs bg-accent px-2 py-0.5 rounded-full">Guest</span>
+                    <button onClick={handleGuestBadgeClick} className="text-xs bg-accent px-2 py-0.5 rounded-full hover:bg-accent/80 transition-colors cursor-pointer flex items-center gap-1" ><UserCheck className="h-3 w-3" />Guest</button>
                   )}
+                  <ParticipantsDropdown participants={participants.map(p => ({ id: p.id, name: p.name, userId: p.user_id, anonymousId: p.anonymous_id, isHost: (p.user_id && p.user_id === sessionState?.hostUserId) || (!sessionState?.hostUserId && p.anonymous_id && isHost && !p.user_id) }))} currentUserId={user?.id || null} currentAnonymousId={anonymousId} disabled={isOfflineMode} />
                 </div>
                 {deck && (
                   <p className="text-xs text-muted-foreground truncate max-w-48">
