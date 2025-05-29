@@ -64,8 +64,7 @@ export default defineConfig({
           'ui-vendor': ['framer-motion', 'lucide-react'],
           'analytics': ['logrocket', 'logrocket-react', 'mixpanel-browser', '@sentry/react', '@sentry/tracing'],
           'crypto': ['crypto-js'],
-          'pdf': ['html2canvas', 'jspdf'],
-          'peer': ['simple-peer'],
+          'pdf': ['html2canvas', 'jspdf']
         }
       }
     },
