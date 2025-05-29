@@ -8,7 +8,6 @@ import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { deleteDeckImages } from '../../lib/storage-utils';
 import { fetchFreeDecks, fetchUserCreatedDecks } from '../../lib/deck-utils';
-import { riderWaiteDeck } from '../data/riderWaiteDeck';
 
 const Collection = () => {
   const { user } = useAuthStore();

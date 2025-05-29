@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { Deck, Card } from '../types';
-import riderWaiteDeck, { riderWaiteDeck as rwDeck, riderWaiteCards } from '../data/riderWaiteDeck';
+import { riderWaiteDeck as rwDeck, riderWaiteCards } from '../data/riderWaiteDeck';
 
 /**
  * Fetches all decks from the marketplace including system-provided RiderWaite deck
