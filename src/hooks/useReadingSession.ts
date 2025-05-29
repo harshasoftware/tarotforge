@@ -121,7 +121,31 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
         throw new Error('Session not found or inactive');
       }
 
-      // Add participant
+      // Check if user is already a participant in this session
+      const { data: existingParticipant, error: checkError } = await supabase
+        .from('session_participants')
+        .select('id')
+        .eq('session_id', sessionId)
+        .eq('is_active', true)
+        .or(
+          user?.id 
+            ? `user_id.eq.${user.id}` 
+            : `anonymous_id.eq.${anonymousIdRef.current}`
+        )
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        // PGRST116 is "not found" which is expected if no participant exists
+        console.error('Error checking existing participant:', checkError);
+      }
+
+      if (existingParticipant) {
+        console.log('User is already a participant in this session');
+        participantIdRef.current = existingParticipant.id;
+        return sessionId;
+      }
+
+      // Add participant only if they're not already in the session
       const { data: participant, error: participantError } = await supabase
         .from('session_participants')
         .insert({
