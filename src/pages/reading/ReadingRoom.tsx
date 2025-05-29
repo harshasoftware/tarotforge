@@ -177,7 +177,7 @@ const getPlatformShortcut = (key: string, withModifier = false): string => {
 
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
-  const { user, setShowSignInModal, showSignInModal } = useAuthStore();
+  const { user, setShowSignInModal, showSignInModal, isAnonymous } = useAuthStore();
   const { isSubscribed } = useSubscription();
   const navigate = useNavigate();
   const location = useLocation();
@@ -222,8 +222,8 @@ const ReadingRoom = () => {
     participants: videoParticipants 
   } = useVideoCall();
   
-  // Get isGuest from computed selector - also consider non-authenticated users as guests
-  const isGuest = !user;
+  // Properly detect guest users - anonymous users should be treated as guests
+  const isGuest = !user || isAnonymous();
   
   // Handle successful authentication from SignInModal - moved before early returns to fix hooks order
   const handleSignInSuccess = useCallback(() => {

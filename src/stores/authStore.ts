@@ -379,7 +379,45 @@ export const useAuthStore = create<AuthStore>()(
       try {
         console.log('🎭 Signing in anonymously with Supabase');
         
-        // Use Supabase's built-in anonymous authentication
+        // First check if we already have an active session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.warn('Error checking existing session:', sessionError);
+        }
+        
+        // If we already have an anonymous session, use it
+        if (session?.user && session.user.is_anonymous) {
+          console.log('✅ Found existing anonymous session:', session.user.id);
+          
+          // Set user state with existing anonymous user data
+          const userObj: User = {
+            id: session.user.id,
+            email: undefined, // Anonymous users don't have email
+            username: `Guest_${session.user.id.slice(-8)}`,
+            full_name: `Anonymous User`,
+            created_at: session.user.created_at || new Date().toISOString()
+          };
+          
+          set({ user: userObj });
+          setUserContext(userObj);
+          identifyUser(userObj);
+          
+          // Update last active time in database
+          try {
+            await supabase
+              .from('anonymous_users')
+              .update({ last_active_at: new Date().toISOString() })
+              .eq('id', session.user.id);
+          } catch (updateError) {
+            console.warn('Could not update anonymous user last_active_at:', updateError);
+          }
+          
+          return { error: null };
+        }
+        
+        // No existing session, create a new anonymous user
+        console.log('No existing anonymous session, creating new one...');
         const { data, error } = await supabase.auth.signInAnonymously();
         
         if (error) throw error;
@@ -387,7 +425,8 @@ export const useAuthStore = create<AuthStore>()(
         if (data.user) {
           console.log('✅ Anonymous sign-in successful:', data.user.id);
           
-          // Create basic anonymous user record in the anonymous_users table
+          // Create anonymous user record directly in anonymous_users table
+          // (bypassing users table RLS issues)
           try {
             const { error: profileError } = await supabase
               .from('anonymous_users')
@@ -400,6 +439,8 @@ export const useAuthStore = create<AuthStore>()(
             if (profileError) {
               console.warn('Could not create anonymous user record:', profileError);
               // Continue anyway - the auth user exists
+            } else {
+              console.log('✅ Created anonymous user record successfully');
             }
           } catch (profileCreateError) {
             console.warn('Error creating anonymous user record:', profileCreateError);

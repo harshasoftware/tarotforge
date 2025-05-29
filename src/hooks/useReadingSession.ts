@@ -38,7 +38,7 @@ interface UseReadingSessionProps {
 }
 
 export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessionProps) => {
-  const { user } = useAuthStore();
+  const { user, isAnonymous } = useAuthStore();
   const [sessionState, setSessionState] = useState<ReadingSessionState | null>(null);
   const [participants, setParticipants] = useState<SessionParticipant[]>([]);
   const [isHost, setIsHost] = useState(false);
@@ -259,8 +259,8 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
     }
   }, []);
 
-  // Check if current user is a guest
-  const isGuest = !user && !!anonymousIdRef.current;
+  // Check if current user is a guest - properly detect anonymous users
+  const isGuest = !user || isAnonymous();
 
   // Setup realtime subscriptions
   useEffect(() => {
@@ -375,8 +375,9 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
         } else {
           // Join existing session
           console.log('Joining existing session:', sessionId);
-          sessionId = await joinSession(sessionId);
-          if (!sessionId) return;
+          const joinedSessionId = await joinSession(sessionId);
+          if (!joinedSessionId) return;
+          sessionId = joinedSessionId;
           setIsHost(false);
         }
 

@@ -15,12 +15,15 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const { user, signOut, showSignInModal, setShowSignInModal } = useAuthStore();
+  const { user, signOut, showSignInModal, setShowSignInModal, isAnonymous } = useAuthStore();
   const { isSubscribed } = useSubscription();
   const location = useLocation();
   const navigate = useNavigate();
   const isMobile = useMediaQuery('(max-width: 767px)');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Check if user is authenticated (not anonymous)
+  const isAuthenticated = user && !isAnonymous();
   
   // Handle reading room navigation - navigate immediately and create session in reading room
   const handleReadingRoomClick = (e: React.MouseEvent) => {
@@ -104,21 +107,18 @@ const Navbar = () => {
             >
               Reading Room
             </button>
-            {user ? (
-              <>
-                <NavLink to="/collection">My Collection</NavLink>
-              </>
-            ) : (
-              <>
-                <NavLink to="/pricing">Pricing</NavLink>
-              </>
+            {user && !isMobile && (
+              <NavLink to="/collection">My Collection</NavLink>
+            )}
+            {!isAuthenticated && (
+              <NavLink to="/pricing">Pricing</NavLink>
             )}
           </div>
 
           {/* Right side - Auth & Theme */}
           <div className="flex items-center space-x-2">
             {/* Deck Badge (Only show for authenticated users) */}
-            {user && !isMobile && (
+            {isAuthenticated && !isMobile && (
               <div className="relative mr-1">
                 <DeckQuotaBadge showIcon={true} className="py-1" absolute={false} />
               </div>
@@ -138,16 +138,16 @@ const Navbar = () => {
             </button>
 
             {/* Auth links */}
-            {user ? (
+            {isAuthenticated ? (
               <div className="relative group" ref={dropdownRef}>
                 <button 
                   onClick={toggleDropdown}
                   className="flex items-center space-x-2 p-2 rounded-full hover:bg-secondary/50"
                 >
-                  {user.avatar_url ? (
+                  {user!.avatar_url ? (
                     <img 
-                      src={user.avatar_url} 
-                      alt={user.username || 'User'} 
+                      src={user!.avatar_url} 
+                      alt={user!.username || 'User'} 
                       className="w-8 h-8 rounded-full object-cover border-2 border-accent"
                     />
                   ) : (
@@ -156,7 +156,7 @@ const Navbar = () => {
                     </div>
                   )}
                   <span className="hidden md:block text-sm font-medium">
-                    {user.username || user.email.split('@')[0]}
+                    {user!.username || (user!.email ? user!.email.split('@')[0] : 'User')}
                   </span>
                   {isSubscribed && (
                     <Crown className="h-4 w-4 text-primary hidden md:block" />
@@ -188,7 +188,7 @@ const Navbar = () => {
                       </>
                     )}
                   </Link>
-                  {user.is_reader ? (
+                  {user!.is_reader ? (
                     <Link to="/reader-dashboard" className="block px-4 py-2 text-sm hover:bg-secondary/50 flex items-center">
                       <UserCheck className="h-4 w-4 mr-2 text-accent" />
                       Reader Dashboard
@@ -211,7 +211,7 @@ const Navbar = () => {
                 onClick={() => setShowSignInModal(true)}
                 className="btn btn-primary py-1.5 px-4 text-sm"
               >
-                Sign In
+                {user && isAnonymous() ? 'Create Account' : 'Sign In'}
               </button>
             )}
 
@@ -255,7 +255,7 @@ const Navbar = () => {
               >
                 Reading Room
               </button>
-              {user ? (
+              {isAuthenticated ? (
                 <>
                   <Link to="/collection" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                     My Collection
@@ -263,7 +263,7 @@ const Navbar = () => {
                   <Link to="/profile" className="block py-2 px-4 rounded-md hover:bg-secondary/50">
                     Profile
                   </Link>
-                  {user.is_reader ? (
+                  {user!.is_reader ? (
                     <Link to="/reader-dashboard" className="block py-2 px-4 rounded-md hover:bg-secondary/50 flex items-center">
                       <UserCheck className="h-4 w-4 mr-2 text-accent" />
                       Reader Dashboard
@@ -292,7 +292,7 @@ const Navbar = () => {
                     }}
                     className="block w-full text-left py-2 px-4 rounded-md bg-primary text-primary-foreground"
                   >
-                    Sign In
+                    {user && isAnonymous() ? 'Create Account' : 'Sign In'}
                   </button>
                 </>
               )}

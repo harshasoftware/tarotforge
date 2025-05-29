@@ -408,27 +408,54 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
 
         set({ isHost: shouldBeHost });
 
-        // Add participant
+        // Add participant - check for existing participant first
         const currentState = get(); // Get updated state after potential anonymousId setting
-        const { data: participant, error: participantError } = await supabase
+        
+        // Check if participant already exists for this session
+        const { data: existingParticipant } = await supabase
           .from('session_participants')
-          .insert({
-            session_id: sessionId,
-            user_id: user?.id || null,
-            anonymous_id: user ? null : currentState.anonymousId,
-            is_active: true
-          })
-          .select()
+          .select('*')
+          .eq('session_id', sessionId)
+          .eq('is_active', true)
+          .or(
+            user ? 
+            `user_id.eq.${user.id}` : 
+            `anonymous_id.eq.${currentState.anonymousId}`
+          )
           .single();
           
-        console.log('Creating participant with:', {
-          session_id: sessionId,
-          user_id: user?.id || null,
-          anonymous_id: user ? null : currentState.anonymousId,
-          is_active: true
-        });
+        let participant = existingParticipant;
+        
+        if (existingParticipant) {
+          console.log('Found existing participant, reusing:', existingParticipant.id);
+          // Update last seen time for existing participant
+          await supabase
+            .from('session_participants')
+            .update({ last_seen_at: new Date().toISOString() })
+            .eq('id', existingParticipant.id);
+        } else {
+          console.log('Creating new participant...');
+          const { data: newParticipant, error: participantError } = await supabase
+            .from('session_participants')
+            .insert({
+              session_id: sessionId,
+              user_id: user?.id || null,
+              anonymous_id: user ? null : currentState.anonymousId,
+              is_active: true
+            })
+            .select()
+            .single();
+            
+            console.log('Creating participant with:', {
+              session_id: sessionId,
+              user_id: user?.id || null,
+              anonymous_id: user ? null : currentState.anonymousId,
+              is_active: true
+            });
 
-        if (participantError) throw participantError;
+            if (participantError) throw participantError;
+            participant = newParticipant;
+        }
 
         set({ participantId: participant.id });
         
@@ -1053,37 +1080,63 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           }
           set({ isHost: true });
 
-          // Create participant record for the host
+          // Create participant record for the host - check for existing first
           try {
             const currentState = get(); // Get updated state after potential anonymousId setting
-            const { data: participant, error: participantError } = await supabase
+            
+            // Check if host participant already exists
+            const { data: existingHostParticipant } = await supabase
               .from('session_participants')
-              .insert({
+              .select('*')
+              .eq('session_id', sessionId)
+              .eq('is_active', true)
+              .or(
+                user ? 
+                `user_id.eq.${user.id}` : 
+                `anonymous_id.eq.${currentState.anonymousId}`
+              )
+              .single();
+              
+            if (existingHostParticipant) {
+              console.log('Found existing host participant, reusing:', existingHostParticipant.id);
+              set({ participantId: existingHostParticipant.id });
+              
+              // Update last seen time
+              await supabase
+                .from('session_participants')
+                .update({ last_seen_at: new Date().toISOString() })
+                .eq('id', existingHostParticipant.id);
+            } else {
+              console.log('Creating new host participant...');
+              const { data: participant, error: participantError } = await supabase
+                .from('session_participants')
+                .insert({
+                  session_id: sessionId,
+                  user_id: user?.id || null,
+                  anonymous_id: user ? null : currentState.anonymousId,
+                  is_active: true
+                })
+                .select()
+                .single();
+                
+              console.log('Creating host participant with:', {
                 session_id: sessionId,
                 user_id: user?.id || null,
                 anonymous_id: user ? null : currentState.anonymousId,
                 is_active: true
-              })
-              .select()
-              .single();
-              
-            console.log('Creating host participant with:', {
-              session_id: sessionId,
-              user_id: user?.id || null,
-              anonymous_id: user ? null : currentState.anonymousId,
-              is_active: true
-            });
+              });
 
-            if (participantError) {
-              console.error('Error creating host participant:', participantError);
-              // Don't fail session creation if participant creation fails
-            } else {
-              set({ participantId: participant.id });
-              console.log('Host participant created successfully:', participant.id);
-              console.log('participantId set in store:', get().participantId);
+              if (participantError) {
+                console.error('Error creating host participant:', participantError);
+                // Don't fail session creation if participant creation fails
+              } else {
+                set({ participantId: participant.id });
+                console.log('Host participant created successfully:', participant.id);
+                console.log('participantId set in store:', get().participantId);
+              }
             }
           } catch (participantErr) {
-            console.error('Error creating host participant:', participantErr);
+            console.error('Error with host participant:', participantErr);
             // Don't fail session creation if participant creation fails
           }
         } else {
@@ -1242,6 +1295,12 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
               set({ participantId: currentUserParticipant.id });
               console.log('Found existing participant record:', currentUserParticipant.id);
               console.log('participantId set in store:', get().participantId);
+              
+              // Update last seen time for existing participant
+              await supabase
+                .from('session_participants')
+                .update({ last_seen_at: new Date().toISOString() })
+                .eq('id', currentUserParticipant.id);
             } else {
               // Create participant record if it doesn't exist
               console.log('No participant record found, creating one...');
@@ -1611,7 +1670,8 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
 
 // Computed selectors
 export const getIsGuest = () => {
-  const { user } = useAuthStore.getState();
+  const { user, isAnonymous } = useAuthStore.getState();
   const { anonymousId } = useReadingSessionStore.getState();
-  return !user && !!anonymousId;
+  // User is a guest if they don't exist OR if they're anonymous (have user object but no email)
+  return (!user && !!anonymousId) || (user && isAnonymous());
 }; 
