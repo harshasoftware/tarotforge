@@ -135,6 +135,7 @@ const Home = () => {
   const location = useLocation();
   const { user, setShowSignInModal } = useAuthStore();
   const { credits } = useCredits();
+  const { signInAnonymously } = useAuthStore();
   
   // Function to navigate to reading room and create session there
   const navigateToReadingRoom = () => {
@@ -292,7 +293,6 @@ const Home = () => {
         // No user - create anonymous account and proceed
         try {
           console.log('🎭 Creating user session for deck creation');
-          const { signInAnonymously } = useAuthStore.getState();
           const result = await signInAnonymously();
           
           if (!result.error) {

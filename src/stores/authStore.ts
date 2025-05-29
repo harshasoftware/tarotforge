@@ -377,93 +377,26 @@ export const useAuthStore = create<AuthStore>()(
 
     signInAnonymously: async () => {
       try {
-        console.log('🎭 Signing in anonymously with Supabase');
+        const { ensureAnonymousUserSingleton } = await import('../utils/anonymousAuth');
+        const { user, isAnonymous } = get();
         
-        // First check if we already have an active session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        console.log('🎭 Using singleton anonymous auth from authStore');
+        const result = await ensureAnonymousUserSingleton(
+          user, 
+          isAnonymous, 
+          (newUser) => set({ user: newUser }),
+          (loading) => set({ loading })
+        );
         
-        if (sessionError) {
-          console.warn('Error checking existing session:', sessionError);
+        // For additional authStore-specific logic (analytics, etc.)
+        if (result.user && !result.error) {
+          setUserContext(result.user);
+          identifyUser(result.user);
         }
         
-        // If we already have an anonymous session, use it
-        if (session?.user && session.user.is_anonymous) {
-          console.log('✅ Found existing anonymous session:', session.user.id);
-          
-          // Set user state with existing anonymous user data
-          const userObj: User = {
-            id: session.user.id,
-            email: undefined, // Anonymous users don't have email
-            username: `Guest_${session.user.id.slice(-8)}`,
-            full_name: `Anonymous User`,
-            created_at: session.user.created_at || new Date().toISOString()
-          };
-          
-          set({ user: userObj });
-          setUserContext(userObj);
-          identifyUser(userObj);
-          
-          // Update last active time in database
-          try {
-            await supabase
-              .from('anonymous_users')
-              .update({ last_active_at: new Date().toISOString() })
-              .eq('id', session.user.id);
-          } catch (updateError) {
-            console.warn('Could not update anonymous user last_active_at:', updateError);
-          }
-          
-          return { error: null };
-        }
-        
-        // No existing session, create a new anonymous user
-        console.log('No existing anonymous session, creating new one...');
-        const { data, error } = await supabase.auth.signInAnonymously();
-        
-        if (error) throw error;
-        
-        if (data.user) {
-          console.log('✅ Anonymous sign-in successful:', data.user.id);
-          
-          // Create anonymous user record directly in anonymous_users table
-          // (bypassing users table RLS issues)
-          try {
-            const { error: profileError } = await supabase
-              .from('anonymous_users')
-              .insert({
-                id: data.user.id,
-                created_at: new Date().toISOString(),
-                last_active_at: new Date().toISOString()
-              });
-            
-            if (profileError) {
-              console.warn('Could not create anonymous user record:', profileError);
-              // Continue anyway - the auth user exists
-            } else {
-              console.log('✅ Created anonymous user record successfully');
-            }
-          } catch (profileCreateError) {
-            console.warn('Error creating anonymous user record:', profileCreateError);
-            // Continue anyway - the auth user exists
-          }
-          
-          // Set user state with anonymous user data
-          const userObj: User = {
-            id: data.user.id,
-            email: undefined, // Anonymous users don't have email
-            username: `Guest_${data.user.id.slice(-8)}`,
-            full_name: `Anonymous User`,
-            created_at: new Date().toISOString()
-          };
-          
-          set({ user: userObj });
-          setUserContext(userObj);
-          identifyUser(userObj);
-        }
-        
-        return { error: null };
+        return { error: result.error };
       } catch (error) {
-        console.error('❌ Error signing in anonymously:', error);
+        console.error('❌ Error in authStore signInAnonymously:', error);
         return { error };
       }
     },

@@ -177,7 +177,7 @@ const getPlatformShortcut = (key: string, withModifier = false): string => {
 
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
-  const { user, setShowSignInModal, showSignInModal, isAnonymous } = useAuthStore();
+  const { user, setShowSignInModal, showSignInModal, isAnonymous, signInAnonymously } = useAuthStore();
   const { isSubscribed } = useSubscription();
   const navigate = useNavigate();
   const location = useLocation();
@@ -240,7 +240,6 @@ const ReadingRoom = () => {
       if (!user) {
         console.log('🎭 No authenticated user found, creating anonymous session...');
         try {
-          const { signInAnonymously } = useAuthStore.getState();
           const result = await signInAnonymously();
           
           if (result.error) {
@@ -3312,7 +3311,7 @@ const ReadingRoom = () => {
                       <span className="text-xs">{participants.length}</span>
                     </div>
                   )}
-                  {!isHost && (
+                  {isGuest && (
                     <span className="text-xs bg-accent px-2 py-0.5 rounded-full">Guest</span>
                   )}
                 </div>
