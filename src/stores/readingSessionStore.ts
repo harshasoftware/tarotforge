@@ -729,6 +729,27 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           }
         }
 
+        // Clear the anonymous ID from store since user is now authenticated
+        set({ anonymousId: null });
+
+        // Refresh participants list to show updated user info
+        if (sessionState?.id) {
+          try {
+            const { data: updatedParticipants } = await supabase
+              .from('session_participants')
+              .select('*')
+              .eq('session_id', sessionState.id)
+              .eq('is_active', true);
+            
+            if (updatedParticipants) {
+              set({ participants: updatedParticipants });
+            }
+          } catch (participantsError) {
+            console.warn('Could not refresh participants after upgrade:', participantsError);
+          }
+        }
+
+        console.log('✅ Guest account upgraded successfully in session store');
         return true;
       } catch (err: any) {
         console.error('Error upgrading guest account:', err);

@@ -46,24 +46,194 @@ const AuthCallback = () => {
           }
         }
         
+        // Check for pending email upgrade confirmation
+        const pendingEmailUpgrade = localStorage.getItem('pending_email_upgrade');
+        if (pendingEmailUpgrade) {
+          try {
+            const { anonymousUserId, newUserId, email } = JSON.parse(pendingEmailUpgrade);
+            const { user } = useAuthStore.getState();
+            
+            console.log('🔗 Completing email upgrade confirmation');
+            console.log('📧 Upgrading from anonymous user:', anonymousUserId, 'to email user:', newUserId);
+            
+            if (user && user.email === email && user.id === newUserId) {
+              setProcessingStep('Setting up your account...');
+              
+              // Create user profile in users table (transition from anonymous_users)
+              const { error: insertError } = await supabase
+                .from('users')
+                .insert({
+                  id: user.id,
+                  email: email,
+                  username: email.split('@')[0],
+                  created_at: new Date().toISOString()
+                });
+                
+              if (insertError) {
+                console.warn('Could not create user profile:', insertError);
+              } else {
+                console.log('✅ Created user profile successfully');
+              }
+              
+              // Migrate anonymous user data
+              setProcessingStep('Migrating your reading sessions...');
+              try {
+                const { migrateAnonymousUserData } = useAuthStore.getState();
+                await migrateAnonymousUserData(anonymousUserId, user.id);
+                console.log('✅ Anonymous user data migrated successfully');
+              } catch (migrationError) {
+                console.error('❌ Error migrating anonymous user data:', migrationError);
+                // Don't block the auth flow even if migration fails
+              }
+              
+              // Clean up anonymous user record
+              const { error: cleanupError } = await supabase
+                .from('anonymous_users')
+                .delete()
+                .eq('id', anonymousUserId);
+                
+              if (cleanupError) {
+                console.warn('Could not clean up anonymous user record:', cleanupError);
+              } else {
+                console.log('✅ Cleaned up anonymous user record');
+              }
+              
+              // Clean up backup session since upgrade was successful
+              localStorage.removeItem('backup_anonymous_session');
+              localStorage.removeItem('pending_email_upgrade');
+              
+              console.log('✅ Email upgrade completed successfully');
+              setProcessingStep('Account setup complete!');
+            
+            // Force refresh the auth state
+              const { checkAuth } = useAuthStore.getState();
+            await checkAuth();
+              
+              // Restore session context if it was preserved
+              const sessionContext = localStorage.getItem('auth_session_context');
+              if (sessionContext) {
+                try {
+                  const { sessionId, participantId, isHost, sessionState: preservedSessionState } = JSON.parse(sessionContext);
+                  console.log('🔄 Restoring session context after email upgrade:', { sessionId, participantId, isHost, hasPreservedState: !!preservedSessionState });
+                  
+                  // Import and update the session store with preserved context
+                  const { useReadingSessionStore } = await import('../../stores/readingSessionStore');
+                  const sessionStore = useReadingSessionStore.getState();
+                  
+                  // Update session store with preserved participant ID and context
+                  sessionStore.setInitialSessionId(sessionId);
+                  
+                  // IMPORTANT: Wait for participant migration to complete in database
+                  // This prevents race conditions where ReadingRoom tries to join before migration is done
+                  console.log('⏳ Waiting for participant migration to sync in database...');
+                  
+                  // Add a delay to ensure database has time to process the migration
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  
+                  // Verify the participant migration is complete by checking if we can find the migrated participant
+                  let verifiedParticipantId = participantId;
+                  try {
+                    const { supabase } = await import('../../lib/supabase');
+                    const { data: migratedParticipant } = await supabase
+                      .from('session_participants')
+                      .select('*')
+                      .eq('session_id', sessionId)
+                      .eq('user_id', user.id)
+                      .eq('is_active', true)
+                      .single();
+                      
+                    if (migratedParticipant) {
+                      console.log('✅ Participant migration verified in database:', migratedParticipant.id);
+                      verifiedParticipantId = migratedParticipant.id;
+                    } else {
+                      console.log('⚠️ Migrated participant not found yet, session restoration may create duplicates');
+                    }
+                  } catch (verifyError) {
+                    console.warn('Could not verify participant migration:', verifyError);
+                  }
+                  
+                  // If we have preserved session state, restore it
+                  if (preservedSessionState) {
+                    console.log('🔄 Restoring complete session state:', {
+                      readingStep: preservedSessionState.readingStep,
+                      selectedCardsCount: preservedSessionState.selectedCards?.length || 0,
+                      hasQuestion: !!preservedSessionState.question,
+                      hasSelectedLayout: !!preservedSessionState.selectedLayout
+                    });
+                    
+                    // Store the preserved state for restoration after session initialization
+                    localStorage.setItem('preserved_session_state', JSON.stringify(preservedSessionState));
+                  }
+                  
+                  // Mark session as restored with a flag indicating it's ready
+                  localStorage.setItem('session_context_restored', JSON.stringify({
+                    sessionId,
+                    participantId: verifiedParticipantId,
+                    isHost,
+                    preserveState: true,
+                    migrationComplete: true, // Add flag to indicate migration is done
+                    timestamp: Date.now()
+                  }));
+                  
+                  // Update the URL to reflect the restored session if we're going back to reading room
+                  const returnPath = localStorage.getItem('auth_return_path');
+                  if (returnPath && returnPath.includes('/reading-room')) {
+                    // Extract deck ID from return path if present
+                    const deckMatch = returnPath.match(/\/reading-room\/([^?]+)/);
+                    const deckId = deckMatch ? deckMatch[1] : '';
+                    
+                    // Construct the correct URL with the restored session
+                    const newPath = deckId ? `/reading-room/${deckId}?join=${sessionId}` : `/reading-room?join=${sessionId}`;
+                    
+                    // Update the return path to use the restored session
+                    localStorage.setItem('auth_return_path', newPath);
+                    console.log('📍 Updated return path to use restored session:', newPath);
+                  }
+                  
+                  localStorage.removeItem('auth_session_context');
+                  console.log('✅ Session context restored with migration complete flag');
+                } catch (contextError) {
+                  console.warn('Could not restore session context:', contextError);
+                  localStorage.removeItem('auth_session_context');
+                }
+              }
+            }
+          } catch (emailUpgradeError) {
+            console.error('❌ Error completing email upgrade:', emailUpgradeError);
+            
+            // Attempt to restore anonymous session if upgrade failed
+            console.log('🔄 Attempting to restore anonymous session...');
+            try {
+              const { restoreAnonymousSession } = useAuthStore.getState();
+              const restoreResult = await restoreAnonymousSession();
+              
+              if (!restoreResult.error) {
+                console.log('✅ Anonymous session restored after failed email upgrade');
+                setError('Email confirmation failed, but your anonymous session has been restored.');
+              } else {
+                console.error('❌ Could not restore anonymous session:', restoreResult.error);
+                setError('Email confirmation failed. Please try again or continue as a guest.');
+              }
+            } catch (restoreError) {
+              console.error('❌ Error during session restoration:', restoreError);
+              setError('Email confirmation failed. Please try again or continue as a guest.');
+            }
+            
+            // Clean up
+            localStorage.removeItem('pending_email_upgrade');
+            return;
+          }
+        }
+        
         // Check if this is an anonymous user who just linked with Google
-        const { user } = useAuthStore.getState();
         const pendingGoogleLink = localStorage.getItem('pending_google_link');
         
-        console.log('🔍 Checking Google link status:', {
-          pendingGoogleLink: !!pendingGoogleLink,
-          userExists: !!user,
-          userEmail: user?.email,
-          userId: user?.id
-        });
-        
-        if (pendingGoogleLink && user) {
+        if (pendingGoogleLink) {
           try {
             const anonymousUserId = pendingGoogleLink;
-            console.log('🔗 Completing Google link for anonymous user:', anonymousUserId);
-            console.log('🔍 Current user after OAuth:', user);
+            console.log('🔗 Completing Google upgrade for anonymous user:', anonymousUserId);
             
-            setProcessingStep('Creating your account...');
+            setProcessingStep('Verifying Google authentication...');
             
             // Get the actual session to check if we have updated user info
             const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -73,29 +243,36 @@ const AuthCallback = () => {
               throw sessionError;
             }
             
+            if (!session?.user) {
+              console.error('❌ No session user found after OAuth');
+              throw new Error('OAuth session not found');
+            }
+            
             console.log('🔍 Session user info:', {
-              email: session?.user?.email,
-              userMetadata: session?.user?.user_metadata,
-              identities: session?.user?.identities?.length
+              email: session.user.email,
+              userMetadata: session.user.user_metadata,
+              identities: session.user.identities?.length,
+              userId: session.user.id
             });
             
-            const userEmail = session?.user?.email || user.email;
-            const userMetadata = session?.user?.user_metadata || {};
+            const userEmail = session.user.email;
+            const userMetadata = session.user.user_metadata || {};
             
             if (!userEmail) {
-              console.error('❌ No email found after Google linking');
-              throw new Error('Google linking failed - no email found');
+              console.error('❌ No email found after Google authentication');
+              throw new Error('Google authentication failed - no email found');
             }
+            
+            // ✅ Google auth successful - now safe to proceed with upgrade
+            setProcessingStep('Creating your account...');
             
             // Create user profile in users table (transition from anonymous_users)
             const { error: insertError } = await supabase
               .from('users')
               .insert({
-                id: user.id, // Same ID as auth user
+                id: session.user.id, // Use session user ID
                 email: userEmail,
                 username: userMetadata.preferred_username || userEmail.split('@')[0],
-                full_name: userMetadata.full_name || userMetadata.name || `User ${userEmail.split('@')[0]}`,
-                avatar_url: userMetadata.avatar_url || userMetadata.picture,
                 created_at: new Date().toISOString()
               });
               
@@ -109,7 +286,7 @@ const AuthCallback = () => {
             setProcessingStep('Migrating your reading sessions...');
             try {
               const { migrateAnonymousUserData } = useAuthStore.getState();
-              await migrateAnonymousUserData(anonymousUserId, user.id);
+              await migrateAnonymousUserData(anonymousUserId, session.user.id);
               console.log('✅ Anonymous user data migrated successfully');
             } catch (migrationError) {
               console.error('❌ Error migrating anonymous user data:', migrationError);
@@ -124,20 +301,139 @@ const AuthCallback = () => {
               
             if (cleanupError) {
               console.warn('Could not clean up anonymous user record:', cleanupError);
-            } else {
+                } else {
               console.log('✅ Cleaned up anonymous user record');
             }
             
+            // Clean up backup session since upgrade was successful
+            localStorage.removeItem('backup_anonymous_session');
             localStorage.removeItem('pending_google_link');
-            console.log('✅ Google linking completed successfully');
+            
+            console.log('✅ Google upgrade completed successfully');
             setProcessingStep('Account setup complete! Redirecting...');
+            
+            // Force refresh the auth state to pick up the new user profile
+            const { checkAuth } = useAuthStore.getState();
+            await checkAuth();
+            
+            // Restore session context if it was preserved
+            const sessionContext = localStorage.getItem('auth_session_context');
+            if (sessionContext) {
+              try {
+                const { sessionId, participantId, isHost, sessionState: preservedSessionState } = JSON.parse(sessionContext);
+                console.log('🔄 Restoring session context after Google upgrade:', { sessionId, participantId, isHost, hasPreservedState: !!preservedSessionState });
+                
+                // Import and update the session store with preserved context
+                const { useReadingSessionStore } = await import('../../stores/readingSessionStore');
+                const sessionStore = useReadingSessionStore.getState();
+                
+                // Update session store with preserved participant ID and context
+                sessionStore.setInitialSessionId(sessionId);
+                
+                // IMPORTANT: Wait for participant migration to complete in database
+                // This prevents race conditions where ReadingRoom tries to join before migration is done
+                console.log('⏳ Waiting for participant migration to sync in database...');
+                
+                // Add a delay to ensure database has time to process the migration
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Verify the participant migration is complete by checking if we can find the migrated participant
+                let verifiedParticipantId = participantId;
+                try {
+                  const { supabase } = await import('../../lib/supabase');
+                  const { data: migratedParticipant } = await supabase
+                    .from('session_participants')
+                    .select('*')
+                    .eq('session_id', sessionId)
+                    .eq('user_id', session.user.id)
+                    .eq('is_active', true)
+                    .single();
+                    
+                  if (migratedParticipant) {
+                    console.log('✅ Participant migration verified in database:', migratedParticipant.id);
+                    verifiedParticipantId = migratedParticipant.id;
+                  } else {
+                    console.log('⚠️ Migrated participant not found yet, session restoration may create duplicates');
+                  }
+                } catch (verifyError) {
+                  console.warn('Could not verify participant migration:', verifyError);
+                }
+                
+                // If we have preserved session state, restore it
+                if (preservedSessionState) {
+                  console.log('🔄 Restoring complete session state:', {
+                    readingStep: preservedSessionState.readingStep,
+                    selectedCardsCount: preservedSessionState.selectedCards?.length || 0,
+                    hasQuestion: !!preservedSessionState.question,
+                    hasSelectedLayout: !!preservedSessionState.selectedLayout
+                  });
+                  
+                  // Store the preserved state for restoration after session initialization
+                  localStorage.setItem('preserved_session_state', JSON.stringify(preservedSessionState));
+                }
+                
+                // Mark session as restored with a flag indicating it's ready
+                localStorage.setItem('session_context_restored', JSON.stringify({
+                  sessionId,
+                  participantId: verifiedParticipantId,
+                  isHost,
+                  preserveState: true,
+                  migrationComplete: true, // Add flag to indicate migration is done
+                  timestamp: Date.now()
+                }));
+                
+                // Update the URL to reflect the restored session if we're going back to reading room
+                const returnPath = localStorage.getItem('auth_return_path');
+                if (returnPath && returnPath.includes('/reading-room')) {
+                  // Extract deck ID from return path if present
+                  const deckMatch = returnPath.match(/\/reading-room\/([^?]+)/);
+                  const deckId = deckMatch ? deckMatch[1] : '';
+                  
+                  // Construct the correct URL with the restored session
+                  const newPath = deckId ? `/reading-room/${deckId}?join=${sessionId}` : `/reading-room?join=${sessionId}`;
+                  
+                  // Update the return path to use the restored session
+                  localStorage.setItem('auth_return_path', newPath);
+                  console.log('📍 Updated return path to use restored session:', newPath);
+                }
+                
+                localStorage.removeItem('auth_session_context');
+                console.log('✅ Session context restored with migration complete flag');
+              } catch (contextError) {
+                console.warn('Could not restore session context:', contextError);
+                localStorage.removeItem('auth_session_context');
+              }
+            }
+            
           } catch (linkError) {
-            console.error('❌ Error completing Google link:', linkError);
-            // Don't block the auth flow even if linking completion fails
+            console.error('❌ Error completing Google upgrade:', linkError);
+            
+            // Attempt to restore anonymous session if upgrade failed
+            console.log('🔄 Attempting to restore anonymous session...');
+            try {
+              const { restoreAnonymousSession } = useAuthStore.getState();
+              const restoreResult = await restoreAnonymousSession();
+              
+              if (!restoreResult.error) {
+                console.log('✅ Anonymous session restored after failed Google upgrade');
+                setError('Google sign-in failed, but your anonymous session has been restored.');
+              } else {
+                console.error('❌ Could not restore anonymous session:', restoreResult.error);
+                setError('Google sign-in failed. Please try again or continue as a guest.');
+              }
+            } catch (restoreError) {
+              console.error('❌ Error during session restoration:', restoreError);
+              setError('Google sign-in failed. Please try again or continue as a guest.');
+            }
+            
+            // Clean up
+            localStorage.removeItem('pending_google_link');
+            return;
           }
         }
         
         // Get the return path
+        const { user } = useAuthStore.getState();
         const returnPath = localStorage.getItem('auth_return_path');
         if (returnPath) {
           localStorage.removeItem('auth_return_path');
@@ -157,7 +453,7 @@ const AuthCallback = () => {
         setLoading(false);
       }
     };
-
+    
     handleAuthCallback();
   }, [navigate]);
   
