@@ -49,22 +49,53 @@ const AuthCallback = () => {
         // Check if this is an anonymous user who just linked with Google
         const { user } = useAuthStore.getState();
         const pendingGoogleLink = localStorage.getItem('pending_google_link');
-        if (pendingGoogleLink && user?.email) {
+        
+        console.log('🔍 Checking Google link status:', {
+          pendingGoogleLink: !!pendingGoogleLink,
+          userExists: !!user,
+          userEmail: user?.email,
+          userId: user?.id
+        });
+        
+        if (pendingGoogleLink && user) {
           try {
             const anonymousUserId = pendingGoogleLink;
             console.log('🔗 Completing Google link for anonymous user:', anonymousUserId);
+            console.log('🔍 Current user after OAuth:', user);
             
             setProcessingStep('Creating your account...');
+            
+            // Get the actual session to check if we have updated user info
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            
+            if (sessionError) {
+              console.error('❌ Error getting session:', sessionError);
+              throw sessionError;
+            }
+            
+            console.log('🔍 Session user info:', {
+              email: session?.user?.email,
+              userMetadata: session?.user?.user_metadata,
+              identities: session?.user?.identities?.length
+            });
+            
+            const userEmail = session?.user?.email || user.email;
+            const userMetadata = session?.user?.user_metadata || {};
+            
+            if (!userEmail) {
+              console.error('❌ No email found after Google linking');
+              throw new Error('Google linking failed - no email found');
+            }
             
             // Create user profile in users table (transition from anonymous_users)
             const { error: insertError } = await supabase
               .from('users')
               .insert({
                 id: user.id, // Same ID as auth user
-                email: user.email,
-                username: user.email.split('@')[0], // Use email prefix as username
-                full_name: user.full_name || `User ${user.email.split('@')[0]}`,
-                avatar_url: user.avatar_url,
+                email: userEmail,
+                username: userMetadata.preferred_username || userEmail.split('@')[0],
+                full_name: userMetadata.full_name || userMetadata.name || `User ${userEmail.split('@')[0]}`,
+                avatar_url: userMetadata.avatar_url || userMetadata.picture,
                 created_at: new Date().toISOString()
               });
               
