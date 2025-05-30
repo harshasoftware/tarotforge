@@ -539,29 +539,23 @@ export const useAuthStore = create<AuthStore>()(
       console.log('Processing authentication callback');
       
       try {
-        // This method works for all providers including Google
-        if (window.location.hash || window.location.search) {
-          console.log('Authentication data found in URL');
-          
-          if (window.location.search) {
-            // Handle code exchange if we have a code parameter
-            const { data, error } = await supabase.auth.exchangeCodeForSession(window.location.search);
-            
-            if (error) {
-              throw error;
-            }
-            
-            if (data.session) {
-              console.log('Successfully authenticated via code exchange');
-            }
-          }
-          
-          // Let Supabase handle the callback
+        // Use getSession() which handles the callback automatically
+        // This is more reliable than manual exchangeCodeForSession
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          throw error;
+        }
+        
+        if (session) {
+          console.log('✅ Successfully authenticated via callback');
+          // Update auth state
           await get().checkAuth();
           return { error: null };
         } else {
-          console.log('No authentication data found in URL');
-          return { error: 'No authentication data received' };
+          console.log('No session found in callback');
+          return { error: 'No session found' };
         }
       } catch (error) {
         console.error('Error handling authentication callback:', error);
