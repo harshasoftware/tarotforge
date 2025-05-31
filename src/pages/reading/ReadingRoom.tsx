@@ -24,6 +24,9 @@ import { readingLayouts } from './constants/layouts';
 import { questionCategories } from './constants/questionCategories';
 import { cardAnimationConfig, zoomAnimationConfig, cardFlipConfig } from './utils/animationConfigs';
 import { getPlatformShortcut, KEY_CODES, KEY_VALUES } from './constants/shortcuts'; 
+import { fisherYatesShuffle, cleanMarkdownText, getTransform, getTouchDistance } from './utils/cardHelpers'; // Added import
+import { getDefaultZoomLevel } from './utils/layoutHelpers'; // Added import
+import { generateShareableLink, getTodayDateString, isCacheValid } from './utils/sessionHelpers'; // Added import
 
 import Div100vh from 'react-div-100vh';
 
@@ -37,68 +40,8 @@ const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): T =
   }) as T;
 };
 
-// Performance-optimized transform utility with memoization
-const getTransform = (zoomLevel: number, zoomFocus: { x: number; y: number } | null, panOffset: { x: number; y: number }) => {
-  // Cache transform calculations to avoid recalculation
-  const scale = `scale(${zoomLevel})`;
-  const translate = zoomFocus 
-    ? `translate(${50 - zoomFocus.x}%, ${50 - zoomFocus.y}%) translate(${panOffset.x}px, ${panOffset.y}px)`
-    : `translate(${panOffset.x}px, ${panOffset.y}px)`;
-  
-  const transform = `${scale} ${translate}`;
-  const transformOrigin = zoomFocus ? `${zoomFocus.x}% ${zoomFocus.y}%` : 'center center';
-  
-  return {
-    transform,
-    transformOrigin,
-    willChange: 'transform', // Optimize for transforms
-    // Add hardware acceleration hint
-    backfaceVisibility: 'hidden' as const,
-    perspective: 1000,
-  };
-};
-
 // Function to clean markdown formatting and convert to plain text
-const cleanMarkdownText = (text: string): { content: string; isHeader: boolean; isBullet: boolean }[] => {
-  const lines = text.split('\n');
-  return lines.map(line => {
-    let cleanLine = line.trim();
-    let isHeader = false;
-    let isBullet = false;
-    
-    // Remove markdown headers
-    if (cleanLine.startsWith('**') && cleanLine.endsWith('**')) {
-      cleanLine = cleanLine.slice(2, -2);
-      isHeader = true;
-    } else if (cleanLine.startsWith('# ')) {
-      cleanLine = cleanLine.slice(2);
-      isHeader = true;
-    } else if (cleanLine.startsWith('## ')) {
-      cleanLine = cleanLine.slice(3);
-      isHeader = true;
-    } else if (cleanLine.startsWith('### ')) {
-      cleanLine = cleanLine.slice(4);
-      isHeader = true;
-    }
-    
-    // Handle bullet points
-    if (cleanLine.startsWith('* ') || cleanLine.startsWith('- ')) {
-      cleanLine = cleanLine.slice(2);
-      isBullet = true;
-    }
-    
-    // Remove inline markdown formatting
-    cleanLine = cleanLine.replace(/\*\*(.*?)\*\*/g, '$1'); // Remove bold
-    cleanLine = cleanLine.replace(/\*(.*?)\*/g, '$1'); // Remove italic
-    cleanLine = cleanLine.replace(/`(.*?)`/g, '$1'); // Remove code
-    
-    return {
-      content: cleanLine,
-      isHeader,
-      isBullet
-    };
-  }).filter(line => line.content.length > 0); // Remove empty lines
-};
+
 
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
@@ -640,17 +583,6 @@ const ReadingRoom = () => {
   const [cardDescription, setCardDescription] = useState<string>('');
   const [loadingDescription, setLoadingDescription] = useState(false);
   
-  // Helper function to get today's date string
-  const getTodayDateString = () => {
-    return new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-  };
-  
-  // Helper function to check if cached questions are still valid (same day)
-  const isCacheValid = (category: string) => {
-    const cached = questionCache[category];
-    if (!cached) return false;
-    return cached.date === getTodayDateString();
-  };
   
   // Memoized computed values to prevent unnecessary recalculations
   const cardCounts = useMemo(() => {
@@ -1140,20 +1072,6 @@ const ReadingRoom = () => {
 
 
   // Fisher-Yates shuffle algorithm (Durstenfeld modern implementation)
-  const fisherYatesShuffle = useCallback((array: Card[]) => {
-    const shuffled = [...array]; // Create a copy to avoid mutating the original
-    
-    // Start from the last element and work backwards
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      // Pick a random index from 0 to i (inclusive)
-      const j = Math.floor(Math.random() * (i + 1));
-      
-      // Swap elements at positions i and j
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    
-    return shuffled;
-  }, []);
 
   const handleLayoutSelect = useCallback((layout: ReadingLayout) => {
     try {
@@ -1335,16 +1253,6 @@ const ReadingRoom = () => {
     }
   }, [updateSession, selectedLayout, question, readingStep, zoomLevel, selectedCards, location.search]);
   
-  // Pinch to Zoom functionality
-  const getTouchDistance = (touches: TouchList) => {
-    if (touches.length < 2) return 0;
-    const touch1 = touches[0];
-    const touch2 = touches[1];
-    return Math.sqrt(
-      Math.pow(touch2.clientX - touch1.clientX, 2) + 
-      Math.pow(touch2.clientY - touch1.clientY, 2)
-    );
-  };
   
   // Debounced pan and zoom handlers for better performance
   const debouncedPanMove = useMemo(
@@ -1611,12 +1519,6 @@ const ReadingRoom = () => {
     setZoomFocusWrapped(null);
     setPanOffsetWrapped({ x: 0, y: 0 });
   }, [setZoomLevelWrapped, setZoomFocusWrapped, setPanOffsetWrapped]);
-  
-  // Helper function to get default zoom level based on layout
-  const getDefaultZoomLevel = useCallback((layout: any) => {
-    if (!layout) return 1;
-    return layout.id === 'celtic-cross' ? 1.0 : 1.6;
-  }, []);
   
   // Reset pan to center
   const resetPan = useCallback(() => {
@@ -2657,23 +2559,7 @@ const ReadingRoom = () => {
     };
   }, [isDragging, isPanning, isDraggingPlacedCard]);
   
-  // Generate shareable link using session ID
-  const generateShareableLink = useCallback((id: string): string => {
-    const baseUrl = window.location.origin;
-    const currentPath = window.location.pathname;
-    return `${baseUrl}${currentPath}?join=${id}`;
-  }, []);
 
-  // Function to copy room link to clipboard
-  const copyRoomLink = useCallback(() => {
-    if (sessionId) {
-      const shareableLink = generateShareableLink(sessionId);
-      navigator.clipboard.writeText(shareableLink);
-      setShowCopied(true);
-      setTimeout(() => setShowCopied(false), 3000);
-    }
-  }, [sessionId]);
-  
   // State for invite dropdown modal
   const [showInviteDropdown, setShowInviteDropdown] = useState(false);
 
