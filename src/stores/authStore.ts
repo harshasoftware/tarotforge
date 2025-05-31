@@ -6,6 +6,7 @@ import { processGoogleProfileImage } from '../lib/user-profile';
 import { generateMysticalUsername } from '../lib/gemini-ai';
 import { setUserContext, clearUserContext } from '../utils/errorTracking';
 import { identifyUser } from '../utils/analytics';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 interface AuthStore {
   user: User | null;
@@ -53,7 +54,29 @@ export const useAuthStore = create<AuthStore>()(
     setUser: (user) => set({ user }),
     setLoading: (loading) => set({ loading }),
     setMagicLinkSent: (magicLinkSent) => set({ magicLinkSent }),
-    setShowSignInModal: (showSignInModal) => set({ showSignInModal }),
+    setShowSignInModal: async (show) => {
+      if (show) {
+        // Log reading session state specifically when the modal is being opened
+        try {
+          const readingSessionStore = (await import('./readingSessionStore')).useReadingSessionStore.getState();
+          if (readingSessionStore.sessionState) {
+            console.log(
+              '🕵️‍♂️ authStore.setShowSignInModal(true): Pre-modal open check: shuffledDeck length:',
+              readingSessionStore.sessionState.shuffledDeck?.length,
+              'selectedCards length:',
+              readingSessionStore.sessionState.selectedCards?.length,
+              'readingStep:',
+              readingSessionStore.sessionState.readingStep
+            );
+          } else {
+            console.log('🕵️‍♂️ authStore.setShowSignInModal(true): Pre-modal open check: No active reading session state.');
+          }
+        } catch (e) {
+          console.warn('Error accessing readingSessionStore in authStore.setShowSignInModal:', e);
+        }
+      }
+      set({ showSignInModal: show });
+    },
 
     checkAuth: async () => {
       const state = get();
@@ -105,138 +128,152 @@ export const useAuthStore = create<AuthStore>()(
               console.log('User profile not found, creating it...');
               
               try {
-                // Extract information from Google provider if available
-                const userMetadata = session.user.user_metadata || {};
+                const sessionUser = session.user; // Cache for easier access
+                const userMetadata = sessionUser.user_metadata || {};
+                const authProviderFullName = userMetadata.full_name || userMetadata.name || '';
                 const avatarUrl = userMetadata.avatar_url || userMetadata.picture;
-                const fullName = userMetadata.full_name || userMetadata.name || '';
                 
-                // Generate a mystical username if none provided
-                let username = userMetadata.username;
-                if (!username) {
+                let usernameFromMeta = userMetadata.username;
+                let generatedUsername = '';
+                if (!usernameFromMeta) {
                   try {
-                    const nameSource = fullName || session.user.email || '';
-                    username = await generateMysticalUsername(nameSource);
-                    console.log('Generated mystical username:', username);
+                    const nameSource = authProviderFullName || sessionUser.email || '';
+                    generatedUsername = await generateMysticalUsername(nameSource);
                   } catch (usernameError) {
                     console.error('Error generating username:', usernameError);
-                    username = session.user.email?.split('@')[0] || 'User';
+                    generatedUsername = sessionUser.email?.split('@')[0] || 'User';
                   }
                 }
+                const finalUsernameForTable = usernameFromMeta || generatedUsername;
                 
-                // Prepare user data for insertion
-                const userData = {
-                  id: session.user.id,
-                  email: session.user.email || '',
-                  username: username,
-                  full_name: fullName,
-                  avatar_url: undefined as string | undefined,
+                const userDataToInsert = {
+                  id: sessionUser.id,
+                  email: sessionUser.email || '',
+                  username: finalUsernameForTable,
                   created_at: new Date().toISOString()
                 };
                 
-                // Insert the user profile
-                await supabase.from('users').insert([userData]);
+                await supabase.from('users').insert([userDataToInsert]);
+                console.log('User profile (core) created successfully in public.users');
                 
-                console.log('User profile created successfully');
-                
-                // If we have an avatar from Google, process and upload it
+                let finalAvatarUrl = undefined;
                 if (avatarUrl) {
-                  console.log('Processing Google profile image...');
-                  const newAvatarUrl = await processGoogleProfileImage(session.user.id, avatarUrl);
-                  if (newAvatarUrl) {
-                    userData.avatar_url = newAvatarUrl;
-                  }
+                  finalAvatarUrl = await processGoogleProfileImage(sessionUser.id, avatarUrl);
                 }
                 
-                // Retry profile fetch
-                const { data: newProfile } = await supabase
+                const { data: newProfile, error: refetchError } = await supabase
                   .from('users')
-                  .select('*')
-                  .eq('id', session.user.id)
+                  .select('username, created_at, is_creator, is_reader, bio, custom_price_per_minute')
+                  .eq('id', sessionUser.id)
                   .single();
                   
-                if (newProfile) {
-                  const userObj = {
-                    id: session.user.id,
-                    email: session.user.email || '',
-                    username: newProfile?.username || session.user.email?.split('@')[0] || 'User',
-                    full_name: newProfile?.full_name || undefined,
-                    avatar_url: newProfile?.avatar_url || undefined,
-                    created_at: newProfile?.created_at || new Date().toISOString(),
+                if (refetchError) {
+                   console.warn("Error re-fetching profile after insert:", refetchError);
+                }
+                  
+                const userObj: User = {
+                  id: sessionUser.id,
+                  email: sessionUser.email || '',
+                  username: newProfile?.username || finalUsernameForTable,
+                  full_name: authProviderFullName || newProfile?.username || finalUsernameForTable,
+                  avatar_url: finalAvatarUrl === null ? undefined : finalAvatarUrl,
+                  created_at: newProfile?.created_at || userDataToInsert.created_at,
                     is_creator: newProfile?.is_creator || false,
                     is_reader: newProfile?.is_reader || false,
                     bio: newProfile?.bio || '',
-                    custom_price_per_minute: newProfile?.custom_price_per_minute || undefined,
+                  custom_price_per_minute: newProfile?.custom_price_per_minute,
                   };
                   set({ user: userObj });
                   setUserContext(userObj);
                   identifyUser(userObj);
+
+              } catch (insertError: any) {
+                console.error('Error creating user profile (in catch block):', insertError);
+                const sessionUser = session.user; 
+                const userMetadata = sessionUser.user_metadata || {};
+                const authProviderFullName = userMetadata.full_name || userMetadata.name || '';
+                const defaultUsername = userMetadata.username || sessionUser.email?.split('@')[0] || 'User';
+
+                if (insertError && insertError.code === '23505') {
+                  console.log('User profile already exists (23505 conflict), attempting to re-fetch for store...');
+                  try {
+                    const { data: existingProfile, error: conflictRefetchError } = await supabase
+                      .from('users')
+                      .select('username, created_at, avatar_url, is_creator, is_reader, bio, custom_price_per_minute')
+                      .eq('id', sessionUser.id)
+                      .single();
+
+                    if (conflictRefetchError) {
+                        console.warn("Error re-fetching profile after 23505 conflict:", conflictRefetchError);
+                    }
+                    
+                    const userObj: User = {
+                      id: sessionUser.id,
+                      email: sessionUser.email || '',
+                      username: existingProfile?.username || defaultUsername,
+                      full_name: authProviderFullName || existingProfile?.username || defaultUsername,
+                      avatar_url: existingProfile?.avatar_url || userMetadata.avatar_url || userMetadata.picture,
+                      created_at: existingProfile?.created_at || new Date().toISOString(),
+                      is_creator: existingProfile?.is_creator || false,
+                      is_reader: existingProfile?.is_reader || false,
+                      bio: existingProfile?.bio || '',
+                      custom_price_per_minute: existingProfile?.custom_price_per_minute,
+                  };
+                  set({ user: userObj });
+                  setUserContext(userObj);
+                  identifyUser(userObj);
+                  } catch (refetchCatchError) {
+                    console.error('Catch block: Error re-fetching profile after 23505 conflict:', refetchCatchError);
+                    const fallbackUserObj: User = {
+                      id: sessionUser.id, email: sessionUser.email || '', username: defaultUsername,
+                      full_name: authProviderFullName, avatar_url: userMetadata.avatar_url || userMetadata.picture,
+                      created_at: new Date().toISOString(), is_creator: false, is_reader: false, bio: '',
+                    };
+                    set({ user: fallbackUserObj }); setUserContext(fallbackUserObj); identifyUser(fallbackUserObj);
+                  }
                 } else {
-                  // Fallback if profile fetch fails after creation
-                  const userObj = {
-                    id: session.user.id,
-                    email: session.user.email || '',
-                    username: username || undefined,
-                    full_name: fullName || undefined,
-                    avatar_url: userData?.avatar_url || undefined,
-                    created_at: new Date().toISOString(),
-                    is_creator: false,
-                    is_reader: false,
-                    bio: '',
-                    custom_price_per_minute: undefined,
-                  };
-                  set({ user: userObj });
-                  setUserContext(userObj);
-                  identifyUser(userObj);
-                }
-              } catch (insertError) {
-                console.error('Error creating user profile:', insertError);
-                // Fallback if profile creation fails
-                const userObj = {
-                  id: session.user.id,
-                  email: session.user.email || '',
-                  username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
-                  full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
-                  avatar_url: session.user.user_metadata?.avatar_url || undefined,
-                  created_at: new Date().toISOString(),
-                  is_creator: false,
-                  is_reader: false,
-                  bio: '',
-                  custom_price_per_minute: undefined,
+                  const fallbackUserObj: User = {
+                    id: sessionUser.id, email: sessionUser.email || '', username: defaultUsername,
+                    full_name: authProviderFullName, avatar_url: userMetadata.avatar_url || userMetadata.picture,
+                    created_at: new Date().toISOString(), is_creator: false, is_reader: false, bio: '',
                 };
-                set({ user: userObj });
-                setUserContext(userObj);
-                identifyUser(userObj);
+                  set({ user: fallbackUserObj }); setUserContext(fallbackUserObj); identifyUser(fallbackUserObj);
+                }
               }
             } else {
-              // Other profile fetch error, use fallback user data
-              const userObj = {
-                id: session.user.id,
-                email: session.user.email || '',
-                username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
-                full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+              // Other profile fetch error (not PGRST116)
+              const sessionUser = session.user;
+              const userMetadata = sessionUser.user_metadata || {};
+              const authProviderFullName = userMetadata.full_name || userMetadata.name || '';
+              const defaultUsername = userMetadata.username || sessionUser.email?.split('@')[0] || 'User';
+              const fallbackUserObj: User = {
+                id: sessionUser.id,
+                email: sessionUser.email || '',
+                username: defaultUsername,
+                full_name: authProviderFullName,
+                avatar_url: userMetadata.avatar_url || userMetadata.picture,
                 created_at: new Date().toISOString(),
-                is_creator: false,
-                is_reader: false,
-                bio: '',
-                custom_price_per_minute: undefined,
+                is_creator: false, is_reader: false, bio: '',
               };
-              set({ user: userObj });
-              setUserContext(userObj);
-              identifyUser(userObj);
+              set({ user: fallbackUserObj }); setUserContext(fallbackUserObj); identifyUser(fallbackUserObj);
             }
           } else if (profile) {
-            // Profile found, set user data
-            const userObj = {
-              id: session.user.id,
-              email: session.user.email || '',
-              username: profile?.username,
-              full_name: profile?.full_name,
-              avatar_url: profile?.avatar_url,
-              created_at: profile?.created_at || new Date().toISOString(),
-              is_creator: profile?.is_creator || false,
-              is_reader: profile?.is_reader || false,
-              bio: profile?.bio || '',
-              custom_price_per_minute: profile?.custom_price_per_minute,
+            // Profile found in public.users, construct userObj for store
+            const sessionUser = session.user;
+            const userMetadata = sessionUser.user_metadata || {};
+            const authProviderFullName = userMetadata.full_name || userMetadata.name || '';
+
+            const userObj: User = {
+              id: sessionUser.id,
+              email: sessionUser.email || '',
+              username: profile.username, // From public.users
+              full_name: authProviderFullName || profile.username, // Prioritize auth metadata, then table username
+              avatar_url: profile.avatar_url || userMetadata.avatar_url || userMetadata.picture, // Prefer table, then auth meta
+              created_at: profile.created_at || new Date().toISOString(),
+              is_creator: profile.is_creator || false,
+              is_reader: profile.is_reader || false,
+              bio: profile.bio || '',
+              custom_price_per_minute: profile.custom_price_per_minute,
             };
             set({ user: userObj });
             setUserContext(userObj);
@@ -340,6 +377,17 @@ export const useAuthStore = create<AuthStore>()(
     },
 
     signInWithGoogle: async (returnToHome = false) => {
+      console.log('🚀 authStore.signInWithGoogle CALLED');
+      try {
+        const readingSessionStoreState = (await import('./readingSessionStore')).useReadingSessionStore.getState().sessionState;
+        console.log('  ➡️ readingSessionStore state:', 
+          'shuffledDeck:', readingSessionStoreState?.shuffledDeck?.length,
+          'readingStep:', readingSessionStoreState?.readingStep
+        );
+        const storedAuthContext = localStorage.getItem('auth_session_context');
+        console.log('  ➡️ localStorage.auth_session_context:', storedAuthContext ? JSON.parse(storedAuthContext) : null);
+      } catch (e) { console.warn('Error logging pre-signInWithGoogle state:', e); }
+
       try {
         console.log('Starting Google sign-in flow');
         
@@ -437,11 +485,19 @@ export const useAuthStore = create<AuthStore>()(
           console.log('💾 Backed up anonymous session for safety');
         }
         
+        // Introduce a small delay to allow ReadingRoom updates to propagate
+        await new Promise(resolve => setTimeout(resolve, 200));
+
         // Store current session context for post-auth restoration
         const sessionStore = (await import('./readingSessionStore')).useReadingSessionStore.getState();
         if (sessionStore.sessionState) {
-          // Capture complete session state for restoration
-          const sessionContext = {
+          console.log(
+            '💾🔍 authStore.initiateLoginOrSignupWithContext: Pre-localStorage save: shuffledDeck length:',
+            sessionStore.sessionState.shuffledDeck?.length,
+            'readingStep:',
+            sessionStore.sessionState.readingStep
+          );
+          localStorage.setItem('auth_session_context', JSON.stringify({
             sessionId: sessionStore.sessionState.id,
             participantId: sessionStore.participantId,
             isHost: sessionStore.isHost,
@@ -464,9 +520,7 @@ export const useAuthStore = create<AuthStore>()(
               deckSelectionState: sessionStore.sessionState.deckSelectionState
             },
             timestamp: Date.now()
-          };
-          
-          localStorage.setItem('auth_session_context', JSON.stringify(sessionContext));
+          }));
           console.log('💾 Preserved complete session context including state for post-auth restoration');
         }
         
@@ -533,32 +587,63 @@ export const useAuthStore = create<AuthStore>()(
     },
 
     linkWithGoogle: async () => {
+      console.log('🔗🚀 authStore.linkWithGoogle CALLED');
+      try {
+        const readingSessionStoreState = (await import('./readingSessionStore')).useReadingSessionStore.getState().sessionState;
+        console.log('  ➡️ readingSessionStore state:', 
+          'shuffledDeck:', readingSessionStoreState?.shuffledDeck?.length,
+          'readingStep:', readingSessionStoreState?.readingStep
+        );
+        const storedAuthContext = localStorage.getItem('auth_session_context');
+        console.log('  ➡️ localStorage.auth_session_context:', storedAuthContext ? JSON.parse(storedAuthContext) : null);
+      } catch (e) { console.warn('Error logging pre-linkWithGoogle state:', e); }
+
       let backupUser: User | null = null;
-      
       try {
         console.log('🔗 Upgrading anonymous user to Google account (session-safe)');
-        
+
         const { user } = get();
         if (!user || !get().isAnonymous()) {
-          throw new Error('No anonymous user to upgrade');
+          throw new Error('No anonymous user to upgrade with Google');
         }
-        
-        // Store user for potential restoration
+
         backupUser = user;
-        
+        const anonymousUserId = user.id; // Ensure this is declared
+
         // Store the anonymous user ID for post-auth data migration
-        localStorage.setItem('pending_google_link', user.id);
-        console.log('📍 Storing pending_google_link for migration:', user.id);
+        localStorage.setItem('pending_google_link', anonymousUserId);
+        console.log('📍 Storing pending_google_link for migration:', anonymousUserId);
         
+        // IMPORTANT: Store current anonymous session for potential restoration
+        // Use different variable names if currentSession/sessionError are declared later in the same scope
+        const { data: { session: anonSessionBackup }, error: anonSessionBackupError } = await supabase.auth.getSession();
+        if (anonSessionBackup && !anonSessionBackupError) {
+          localStorage.setItem('backup_anonymous_session', JSON.stringify({
+            access_token: anonSessionBackup.access_token,
+            refresh_token: anonSessionBackup.refresh_token,
+            user: user, // The anonymous user object being backed up
+            timestamp: Date.now()
+          }));
+          console.log('💾 Backed up anonymous session for safety');
+        }
+
+        // Introduce a small delay to allow ReadingRoom updates to propagate
+        await new Promise(resolve => setTimeout(resolve, 200));
+
         // Store current session context for post-auth restoration
         const sessionStore = (await import('./readingSessionStore')).useReadingSessionStore.getState();
         if (sessionStore.sessionState) {
+          console.log(
+            '💾🔍 authStore.linkWithGoogle: Pre-localStorage save: shuffledDeck length:',
+            sessionStore.sessionState.shuffledDeck?.length,
+            'readingStep:',
+            sessionStore.sessionState.readingStep
+          );
           localStorage.setItem('auth_session_context', JSON.stringify({
             sessionId: sessionStore.sessionState.id,
             participantId: sessionStore.participantId,
             isHost: sessionStore.isHost,
-            anonymousId: sessionStore.anonymousId,
-            // Preserve the actual session state content
+            anonymousId: sessionStore.anonymousId, // Preserve the anonymousId from reading session store
             sessionState: {
               readingStep: sessionStore.sessionState.readingStep,
               selectedLayout: sessionStore.sessionState.selectedLayout,
@@ -577,23 +662,11 @@ export const useAuthStore = create<AuthStore>()(
             },
             timestamp: Date.now()
           }));
-          console.log('💾 Preserved session context for post-auth restoration');
+          console.log('💾 Preserved complete session context including state for post-auth restoration (Google)');
         }
-        
+
         // Store the current path for post-auth redirect
         localStorage.setItem('auth_return_path', window.location.pathname + window.location.search);
-        
-        // IMPORTANT: Store current anonymous session for potential restoration
-        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-        if (currentSession && !sessionError) {
-          localStorage.setItem('backup_anonymous_session', JSON.stringify({
-            access_token: currentSession.access_token,
-            refresh_token: currentSession.refresh_token,
-            user: user,
-            timestamp: Date.now()
-          }));
-          console.log('💾 Backed up anonymous session for safety');
-        }
         
         // Try Google OAuth without signing out first
         // This allows us to fall back to anonymous session if it fails
@@ -607,16 +680,16 @@ export const useAuthStore = create<AuthStore>()(
             }
           }
         });
-        
-        if (error) {
+            
+            if (error) {
           // Clean up on failure but keep anonymous session intact
           localStorage.removeItem('pending_google_link');
           localStorage.removeItem('backup_anonymous_session');
           localStorage.removeItem('auth_session_context');
           console.log('❌ Google OAuth failed, keeping anonymous session intact');
-          throw error;
-        }
-        
+              throw error;
+            }
+            
         console.log('✅ Google OAuth upgrade initiated - will redirect to Google');
         console.log('🛡️ Anonymous session preserved - will only be replaced on success');
         return { error: null };
@@ -797,24 +870,78 @@ export const useAuthStore = create<AuthStore>()(
         } else {
           console.log('✅ Migrated reading sessions');
         }
+
+        // ---- START: Update reading_sessions with preserved state ----
+        try {
+          const authSessionContextRaw = localStorage.getItem('auth_session_context');
+          if (authSessionContextRaw) {
+            const authSessionContext = JSON.parse(authSessionContextRaw);
+            if (authSessionContext && authSessionContext.sessionState && authSessionContext.sessionId) {
+              const { sessionState, sessionId: preservedSessionId, participantId: preservedParticipantId } = authSessionContext;
+              
+              // Construct the payload carefully, ensuring all fields are compatible with the ReadingSessionState type
+              // and the actual database schema.
+              const updatePayload: any = {
+                // Fields confirmed or assumed to be part of ReadingSessionState and DB schema
+                reading_step: sessionState.readingStep,
+                shuffled_deck: sessionState.shuffledDeck,
+                selected_layout: sessionState.selectedLayout,
+                question: sessionState.question,
+                selected_cards: sessionState.selectedCards,
+                interpretation: sessionState.interpretation,
+                zoom_level: sessionState.zoomLevel,
+                // Ensure other potentially relevant fields from sessionState are included if they exist on the type
+                // and are meant to be preserved directly on the reading_sessions table.
+                // Example:
+                // active_card_index: sessionState.activeCardIndex, 
+                // shared_modal_state: sessionState.sharedModalState,
+                // video_call_state: sessionState.videoCallState,
+                // loading_states: sessionState.loadingStates,
+                // deck_selection_state: sessionState.deckSelectionState,
+              };
+
+              // Filter out undefined values to prevent errors during DB update
+              const cleanedUpdatePayload = Object.fromEntries(
+                Object.entries(updatePayload).filter(([, value]) => value !== undefined)
+              );
+
+              console.log('Deep dive into payload for reading_sessions update:', JSON.stringify(cleanedUpdatePayload, null, 2));
+
+              const { error: preservedStateUpdateError } = await supabase
+                .from('reading_sessions')
+                .update(cleanedUpdatePayload) // Use the cleaned payload
+                .eq('id', preservedSessionId);
+
+              if (preservedStateUpdateError) {
+                console.warn(`⚠️ Failed to update reading_sessions table (${preservedSessionId}) with preserved state:`, preservedStateUpdateError);
+              } else {
+                console.log(`✅ Successfully updated reading_sessions table (${preservedSessionId}) with preserved state.`);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error processing auth_session_context for DB update:', e);
+        }
+        // ---- END: Update reading_sessions with preserved state ----
         
         // Step 2: Migrate session participants (anonymous users in sessions)
         // First, find all sessions where the anonymous user is participating
         const { data: anonymousParticipants, error: findError } = await supabase
           .from('session_participants')
           .select('*')
-          .eq('user_id', fromUserId)
+          .eq('anonymous_id', fromUserId)
           .eq('is_active', true);
           
         if (findError) {
-          console.warn('Could not find anonymous participants:', findError);
+          console.warn('Could not find anonymous participants to migrate. Error:', findError);
         } else if (anonymousParticipants && anonymousParticipants.length > 0) {
-          console.log(`Found ${anonymousParticipants.length} anonymous participant records to migrate`);
+          console.log(`Found ${anonymousParticipants.length} anonymous participant records to potentially migrate for fromUserId: ${fromUserId}`);
           
-          // For each session, ensure we don't create duplicates
           for (const participant of anonymousParticipants) {
+            console.log('Processing participant record:', JSON.stringify(participant)); // Log current participant details
+
             // Check if target user already has a participant in this session
-            const { data: existingParticipant } = await supabase
+            const { data: existingParticipant, error: selectError } = await supabase
               .from('session_participants')
               .select('id')
               .eq('session_id', participant.session_id)
@@ -822,22 +949,80 @@ export const useAuthStore = create<AuthStore>()(
               .eq('is_active', true)
               .single();
               
+            if (selectError && selectError.code !== 'PGRST116') { // PGRST116 (0 rows) is not an error here
+              console.error(`Error checking for existing authenticated participant in session ${participant.session_id} for user ${toUserId}:`, selectError);
+              continue; // Skip to next participant if this check fails
+            }
+              
             if (existingParticipant) {
-              // Target user already has a participant in this session - remove the anonymous one
-              console.log(`Removing duplicate anonymous participant in session ${participant.session_id}`);
-              await supabase
+              // Target user already has a participant in this session - deactivate the anonymous one being processed
+              console.log(`Target user ${toUserId} already in session ${participant.session_id}. Deactivating current anonymous participant record ${participant.id} (originally linked to ${fromUserId})`);
+              const { error: deactivateError } = await supabase
                 .from('session_participants')
                 .update({ is_active: false })
                 .eq('id', participant.id);
+              if (deactivateError) {
+                console.error(`Error deactivating duplicate anonymous participant ${participant.id}:`, deactivateError);
+              }
             } else {
               // Migrate the anonymous participant to the target user
-              console.log(`Migrating participant ${participant.id} to user ${toUserId}`);
-              await supabase
+              console.log(`Migrating participant ${participant.id} (current user_id: ${participant.user_id}, anon_id: ${participant.anonymous_id}) to user ${toUserId} in session ${participant.session_id}`);
+              
+              let newName = 'User'; // Ultimate fallback
+              const originalParticipantName = participant.name;
+
+              try {
+                // Fetch username from the public.users table for the toUserId
+                const { data: userTableProfile, error: profileError } = await supabase
+                  .from('users')
+                  .select('username') // Select only username
+                  .eq('id', toUserId)
+                  .single();
+
+                if (profileError && profileError.code !== 'PGRST116') {
+                  console.warn(`Could not fetch username from public.users for user ${toUserId} during participant migration:`, profileError);
+                }
+                
+                const tableUsername = userTableProfile?.username;
+                const storeUserFullName = get().user?.full_name; // Might be populated from auth metadata by checkAuth
+
+                if (tableUsername) {
+                  newName = tableUsername;
+                  console.log(`Using tableUsername for participant: ${newName}`);
+                } else if (storeUserFullName) {
+                  newName = storeUserFullName;
+                  console.log(`Using storeUserFullName for participant: ${newName}`);
+                } else if (originalParticipantName) {
+                  newName = originalParticipantName;
+                  console.log(`Using originalParticipantName for participant: ${newName}`);
+                }
+                // If all else fails, newName remains 'User'
+
+              } catch (e) {
+                console.error('Error determining new name for participant, falling back:', e);
+                if (originalParticipantName) {
+                  newName = originalParticipantName; // Fallback to original guest name on error
+                }
+              }
+              
+              const updatePayloadForParticipant: any = { 
+                user_id: toUserId, 
+                anonymous_id: null, // Explicitly set anonymous_id to null
+                name: newName, // Update the name
+                is_host: participant.is_host // Explicitly carry over host status
+              };
+
+              const { error: updateError } = await supabase
                 .from('session_participants')
-                .update({ user_id: toUserId })
+                .update(updatePayloadForParticipant)
                 .eq('id', participant.id);
+              if (updateError) {
+                console.error(`Error migrating participant ${participant.id} to user ${toUserId}:`, updateError);
+              }
             }
           }
+        } else {
+          console.log(`No active anonymous participant records found for fromUserId: ${fromUserId} to migrate.`);
         }
         
         // Additional cleanup: deactivate any remaining duplicate participants for the target user

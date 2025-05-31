@@ -65,7 +65,7 @@ const Login = () => {
     try {
       setIsGoogleLoading(true);
       setError(null);
-      
+
       const { error } = await signInWithGoogle();
       
       if (error) {

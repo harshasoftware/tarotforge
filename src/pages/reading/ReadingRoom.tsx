@@ -19,6 +19,7 @@ import SignInModal from '../../components/auth/SignInModal';
 import Tooltip from '../../components/ui/Tooltip';
 import { showParticipantNotification, showErrorToast, showSuccessToast } from '../../utils/toast';
 import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '../../lib/supabase';
 
 import Div100vh from 'react-div-100vh';
 
@@ -3318,8 +3319,7 @@ const ReadingRoom = () => {
                   {isGuest && (
                     <button onClick={handleGuestBadgeClick} className="text-xs bg-accent px-2 py-0.5 rounded-full hover:bg-accent/80 transition-colors cursor-pointer flex items-center gap-1" ><UserCheck className="h-3 w-3" />Guest</button>
                   )}
-                  <ParticipantsDropdown participants={participants.map(p => ({ id: p.id, name: p.name, userId: p.user_id, anonymousId: p.anonymous_id, isHost: (p.user_id && p.user_id === sessionState?.hostUserId) || (!sessionState?.hostUserId && p.anonymous_id && isHost && !p.user_id) }))} currentUserId={user?.id || null} currentAnonymousId={anonymousId} disabled={isOfflineMode} />
-                </div>
+                  <ParticipantsDropdown participants={participants.map(p => ({ id: p.id, name: p.name ?? undefined, userId: p.userId, anonymousId: p.anonymousId, isHost: (p.userId && p.userId === sessionState?.hostUserId) || (!sessionState?.hostUserId && p.anonymousId && isHost && !p.userId) }))} currentUserId={user?.id || null} currentAnonymousId={anonymousId} disabled={isOfflineMode} />                </div>
                 {deck && (
                   <p className="text-xs text-muted-foreground truncate max-w-48">
                     {deck.title} by {deck.creator_name}

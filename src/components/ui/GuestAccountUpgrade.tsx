@@ -123,6 +123,7 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
   };
 
   const handleGoogleSignIn = async () => {
+    console.log('🚦 GuestAccountUpgrade.handleGoogleSignIn --- TOP LEVEL --- CLICKED! 🚦');
     try {
       setIsGoogleLoading(true);
       setError(null);
@@ -130,6 +131,7 @@ const GuestAccountUpgrade: React.FC<GuestAccountUpgradeProps> = ({
       // Add a small delay to ensure no concurrent credential requests
       await new Promise(resolve => setTimeout(resolve, 100));
       
+      console.log('🔗 GuestAccountUpgrade.handleGoogleSignIn --- CALLING linkWithGoogle --- NOW! 🔗');
       const { error } = await linkWithGoogle();
       
       if (error) {

@@ -134,14 +134,18 @@ const AuthCallback = () => {
                   let verifiedParticipantId = participantId;
                   try {
                     const { supabase } = await import('../../lib/supabase');
-                    const { data: migratedParticipant } = await supabase
+                    const { data: migratedParticipant, error: selectError } = await supabase
                       .from('session_participants')
-                      .select('*')
+                      .select('id')
                       .eq('session_id', sessionId)
                       .eq('user_id', user.id)
                       .eq('is_active', true)
                       .single();
                       
+                    if (selectError) {
+                      console.error('Error selecting participant during verification:', selectError);
+                    }
+                    
                     if (migratedParticipant) {
                       console.log('✅ Participant migration verified in database:', migratedParticipant.id);
                       verifiedParticipantId = migratedParticipant.id;
@@ -341,13 +345,17 @@ const AuthCallback = () => {
                 let verifiedParticipantId = participantId;
                 try {
                   const { supabase } = await import('../../lib/supabase');
-                  const { data: migratedParticipant } = await supabase
+                  const { data: migratedParticipant, error: selectError } = await supabase
                     .from('session_participants')
-                    .select('*')
+                    .select('id')
                     .eq('session_id', sessionId)
                     .eq('user_id', session.user.id)
                     .eq('is_active', true)
                     .single();
+                    
+                  if (selectError) {
+                    console.error('Error selecting participant during verification:', selectError);
+                  }
                     
                   if (migratedParticipant) {
                     console.log('✅ Participant migration verified in database:', migratedParticipant.id);

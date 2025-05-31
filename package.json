@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "",
-    "deploy": "npx netlify deploy --prod",
+    "deploy": "bash ./scripts/deploy.sh",
     "deploy:preview": "npm run build && npx netlify deploy",
     "netlify:dev": "npx netlify dev",
     "netlify:init": "npx netlify init",

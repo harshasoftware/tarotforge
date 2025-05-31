@@ -123,13 +123,33 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       let result;
-      
-      if (isCurrentlyAnonymous) {
+
+      // Get the LATEST anonymous status AT THE MOMENT OF CLICK
+      const stillAnonymousOnClick = useAuthStore.getState().isAnonymous(); 
+
+      if (stillAnonymousOnClick) { // Use the fresh value for the condition
         // User is anonymous - use linking
         console.log('🔗 Using Google account linking flow');
+        
+        // Log current reading session state from readingSessionStore
+        const readingSessionStore = (await import('../../stores/readingSessionStore')).useReadingSessionStore.getState();
+        if (readingSessionStore.sessionState) {
+          console.log(
+            '🕵️‍♂️ SignInModal: Pre-linkWithGoogle check: shuffledDeck length:',
+            readingSessionStore.sessionState.shuffledDeck?.length,
+            'selectedCards length:',
+            readingSessionStore.sessionState.selectedCards?.length,
+            'readingStep:',
+            readingSessionStore.sessionState.readingStep
+          );
+        } else {
+          console.log('🕵️‍♂️ SignInModal: Pre-linkWithGoogle check: No active reading session state.');
+        }
+
         result = await linkWithGoogle();
       } else {
-        // Regular Google sign in
+        // Regular Google sign in OR anonymous user who is no longer anonymous in the store
+        console.log('🔗 NOT using Google linking flow. stillAnonymousOnClick was false. User may have changed or was never anonymous here.');
         result = await signInWithGoogle();
       }
       
