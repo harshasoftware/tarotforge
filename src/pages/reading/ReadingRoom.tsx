@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Wand, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX, LogIn, Keyboard, Navigation, BookOpen, Lightbulb, Sun, Moon, DoorOpen, ScanSearch } from 'lucide-react';
@@ -33,16 +33,22 @@ import { useTheme } from './hooks/useTheme';
 import { useGuestUpgrade } from './hooks/useGuestUpgrade';
 import { useHelpModal } from './hooks/useHelpModal';
 import Div100vh from 'react-div-100vh';
-import { useReadingRoomKeyboardShortcuts } from './hooks/useReadingRoomKeyboardShortcuts'; // Added import
-import { useBroadcastHandler } from './hooks/useBroadcastHandler'; // Added import
-import { useParticipantNotificationHandler } from './hooks/useParticipantNotificationHandler'; // <<< ADD THIS LINE
+import { useReadingRoomKeyboardShortcuts } from './hooks/useReadingRoomKeyboardShortcuts';
+import { useBroadcastHandler } from './hooks/useBroadcastHandler';
+import { useParticipantNotificationHandler } from './hooks/useParticipantNotificationHandler';
 import { useTouchInteractions } from './hooks/useTouchInteractions'; 
-import { useDocumentMouseListeners } from './hooks/useDocumentMouseListeners'; // <<< ADD THIS LINE
+import { useDocumentMouseListeners } from './hooks/useDocumentMouseListeners';
 import { useAnonymousAuth } from './hooks/useAnonymousAuth';
 import { useSessionManagement } from './hooks/useSessionManagement';
 import { usePeriodicSessionSync } from './hooks/usePeriodicSessionSync';
 import { useQuestionCacheHandler } from './hooks/useQuestionCacheHandler';
 import { useBeforeUnloadVideoCleanup } from './hooks/useBeforeUnloadVideoCleanup';
+import { useModalState } from './hooks/useModalState';
+import DeckSelectionScreen from './components/DeckSelectionScreen';
+import SetupScreen from './components/SetupScreen';
+import AskQuestionScreen from './components/AskQuestionScreen';
+import DrawingScreen from './components/DrawingScreen';
+import InterpretationScreen from './components/InterpretationScreen'; // Import the new component
 
 // Coordinate transformation helper
 const viewportToPercentage = (
@@ -82,9 +88,6 @@ const viewportToPercentage = (
   
   let percX = (originalContentX / originalContainerWidth) * 100;
   let percY = (originalContentY / originalContainerHeight) * 100;
-
-  // Logging before constraint
-  // console.log('[vTP] Before constraint PercX/Y:', { percX, percY });
 
   percX = Math.max(5, Math.min(95, percX));
   percY = Math.max(5, Math.min(95, percY));
@@ -252,10 +255,12 @@ const ReadingRoom = () => {
   const [shuffledDeck, setShuffledDeck] = useState<Card[]>([]);
   const [isGeneratingInterpretation, setIsGeneratingInterpretation] = useState(false);
   
-  // UI State
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [showCopied, setShowCopied] = useState(false);
-  const [showMobileInterpretation, setShowMobileInterpretation] = useState(false);
+  // UI State - Refactoring with useModalState
+  // const [showShareModal, setShowShareModal] = useState(false);
+  const shareModal = useModalState();
+  const [showCopied, setShowCopied] = useState(false); // Specific to share modal content, keep separate
+  // const [showMobileInterpretation, setShowMobileInterpretation] = useState(false);
+  const mobileInterpretationModal = useModalState();
   
   // Pinch zoom hint state
   const [showPinchHint, setShowPinchHint] = useState(false);
@@ -291,8 +296,9 @@ const ReadingRoom = () => {
   const [panStartOffset, setPanStartOffset] = useState({ x: 0, y: 0 });
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   
-  // Exit modal state
-  const [showExitModal, setShowExitModal] = useState(false);
+  // Exit modal state - Refactoring with useModalState
+  // const [showExitModal, setShowExitModal] = useState(false);
+  const exitModal = useModalState();
   
   // Follow functionality state
   const [isFollowing, setIsFollowing] = useState(false);
@@ -381,8 +387,9 @@ const ReadingRoom = () => {
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const [deckSelectionLoading, setDeckSelectionLoading] = useState(false);
   
-  // Add state to track if we're changing decks mid-session
-  const [isChangingDeckMidSession, setIsChangingDeckMidSession] = useState(false);
+  // Add state to track if we're changing decks mid-session - Refactoring with useModalState
+  // const [isChangingDeckMidSession, setIsChangingDeckMidSession] = useState(false);
+  const deckChangeMode = useModalState(); 
   
   // Use synchronized deck selection state from session
   const sessionDeckSelectionState = sessionState?.deckSelectionState;
@@ -554,7 +561,7 @@ const ReadingRoom = () => {
       setIsGeneratingInterpretation,
       setPanOffsetWrapped,
       setDeckRefreshKey,
-      setShowMobileInterpretation,
+      setShowMobileInterpretation: (show: boolean) => mobileInterpretationModal.setModal(show),
       setInterpretationCards,
     });
   
@@ -602,7 +609,7 @@ const ReadingRoom = () => {
   const openDeckSelection = useCallback(() => {
     // If there's already a deck selected, enter deck change mode (don't use session state)
     if (deck) {
-      setIsChangingDeckMidSession(true);
+      deckChangeMode.openModal();
       setDeck(null);
       setCards([]);
       setShuffledDeck([]);
@@ -618,7 +625,7 @@ const ReadingRoom = () => {
       triggeredBy: participantId || null
     });
   }, [updateDeckSelectionState, deckSelectionTab, selectedMarketplaceDeckId, participantId,
-    anonymousId, deck, setDeck, setCards, setShuffledDeck, setSelectedDeckId, setIsChangingDeckMidSession]);
+    anonymousId, deck, setDeck, setCards, setShuffledDeck, setSelectedDeckId, deckChangeMode]);
 
   // Helper function to close deck selection modal
   const closeDeckSelection = useCallback(() => {
@@ -920,12 +927,12 @@ const ReadingRoom = () => {
       setDeckRefreshKey(prev => prev + 1);
       
       // Close deck selection and return to current state
-      setIsChangingDeckMidSession(false);
+      deckChangeMode.closeModal();
     } catch (error) {
       console.error('Error changing deck:', error);
       setError('Failed to change deck. Please try again.');
     }
-  }, [updateSession, selectedLayout, question, readingStep, zoomLevel, selectedCards, location.search]);
+  }, [updateSession, selectedLayout, question, readingStep, zoomLevel, selectedCards, location.search, deckChangeMode]);
   
   
   // Debounced pan and zoom handlers for better performance
@@ -1027,7 +1034,7 @@ const ReadingRoom = () => {
         }
         
         // Move to setup step if not already in a reading or changing decks mid-session
-        if ((!readingStep || readingStep === 'setup') && !isChangingDeckMidSession) {
+        if ((!readingStep || readingStep === 'setup') && !deckChangeMode.isOpen) {
           setReadingStepWrapped('setup');
         }
       } else {
@@ -1165,7 +1172,8 @@ const ReadingRoom = () => {
       shuffledDeck: newShuffledDeck
     });
     
-    setShowMobileInterpretation(false);
+    // setShowMobileInterpretation(false);
+    mobileInterpretationModal.closeModal();
     setInterpretationCards([]); // Clear interpretation cards tracking
     
     // Broadcast reset reading action to other participants
@@ -1174,7 +1182,7 @@ const ReadingRoom = () => {
       resetType: 'full'
     });
   }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId,
-    anonymousId, getDefaultZoomLevel, selectedLayout]);
+    anonymousId, getDefaultZoomLevel, selectedLayout, mobileInterpretationModal, setInterpretationCards]);
   
   const resetCards = useCallback(() => {
     // Shuffle and restore all cards to create a fresh deck
@@ -1195,7 +1203,8 @@ const ReadingRoom = () => {
       shuffledDeck: freshlyShuffled
     });
     
-    setShowMobileInterpretation(false);
+    // setShowMobileInterpretation(false);
+    mobileInterpretationModal.closeModal();
     setZoomFocusWrapped(null);
     setPanOffsetWrapped({ x: 0, y: 0 });
     setInterpretationCards([]); // Clear interpretation cards tracking
@@ -1209,7 +1218,7 @@ const ReadingRoom = () => {
       isAnonymous: !user
     });
   }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId,
-    anonymousId, getDefaultZoomLevel, selectedLayout]);
+    anonymousId, getDefaultZoomLevel, selectedLayout, mobileInterpretationModal, setInterpretationCards]);
   
   // Drag and Drop Functions
   const handleDragStart = (card: Card, index: number, e: any) => {
@@ -1335,7 +1344,8 @@ const ReadingRoom = () => {
       
       // Auto-show mobile interpretation on mobile portrait mode
       if (isMobile && !isLandscape) {
-        setShowMobileInterpretation(true);
+        // setShowMobileInterpretation(true);
+        mobileInterpretationModal.openModal();
       }
       return;
     }
@@ -1402,7 +1412,8 @@ const ReadingRoom = () => {
       
       // Auto-show mobile interpretation on mobile portrait mode
       if (isMobile && !isLandscape) {
-        setShowMobileInterpretation(true);
+        // setShowMobileInterpretation(true);
+        mobileInterpretationModal.openModal();
       }
     } catch (error) {
       console.error('Error generating interpretation:', error);
@@ -1414,7 +1425,8 @@ const ReadingRoom = () => {
       
       // Auto-show mobile interpretation even for errors on mobile portrait mode
       if (isMobile && !isLandscape) {
-        setShowMobileInterpretation(true);
+        // setShowMobileInterpretation(true);
+        mobileInterpretationModal.openModal();
       }
     } finally {
       setIsGeneratingInterpretation(false);
@@ -1722,12 +1734,12 @@ const ReadingRoom = () => {
     deckId: deckIdFromParams, // Corrected prop name
     user,
     selectedCards,
-    showShareModal,
+    showShareModal: shareModal.isOpen, // Use a local variable for clarity if preferred in hook args
     showHelpModal,
-    showExitModal,
+    showExitModal: exitModal.isOpen, // Use a local variable for clarity if preferred in hook args
     showSignInModal,
     showGuestUpgrade,
-    isChangingDeckMidSession,
+    isChangingDeckMidSession: deckChangeMode.isOpen,
     showLayoutDropdown,
     highlightedLayoutIndex,
     highlightedSetupLayoutIndex,
@@ -1752,12 +1764,12 @@ const ReadingRoom = () => {
     getDefaultZoomLevel,
     setZoomFocusWrapped,
     openDeckSelection,
-    setShowShareModal,
-    setShowHelpModal,
-    setShowExitModal,
-    setShowSignInModal,
-    setShowGuestUpgrade,
-    setIsChangingDeckMidSession,
+    setShowShareModal: shareModal.setModal, // Corrected
+    setShowHelpModal, // Remains from useHelpModal
+    setShowExitModal: exitModal.setModal,   // Corrected
+    setShowSignInModal, // Remains from useAuthStore
+    setShowGuestUpgrade, // Remains from useGuestUpgrade
+    setIsChangingDeckMidSession: deckChangeMode.setModal, // Corrected
     fetchAndSetDeck,
     revealAllCards,
     resetCards,
@@ -1804,8 +1816,9 @@ const ReadingRoom = () => {
     setGallerySwipeStart(null);
   }, [isMobile, showCardGallery, gallerySwipeStart, navigateGallery]);
 
-  // State for invite dropdown modal
-  const [showInviteDropdown, setShowInviteDropdown] = useState(false);
+  // State for invite dropdown modal - Refactoring with useModalState
+  // const [showInviteDropdown, setShowInviteDropdown] = useState(false);
+  const inviteDropdown = useModalState();
 
   // Handle sharing with native share API on mobile or modal on desktop
   const handleShare = async () => {
@@ -1825,7 +1838,7 @@ const ReadingRoom = () => {
         windowSearch: window.location.search
       });
       localStorage.setItem('auth_return_path', fullPath);
-      setShowGuestUpgrade(true);
+      setShowGuestUpgrade(true); // This uses its own hook, so direct setShow is fine
       return;
     }
 
@@ -1843,8 +1856,8 @@ const ReadingRoom = () => {
       });
     }
 
-    // Show invite dropdown instead of auto-starting video
-    setShowInviteDropdown(true);
+    // Toggle invite dropdown instead of just opening
+    inviteDropdown.toggleModal(); 
   };
 
   // Handle guest account upgrade
@@ -2196,7 +2209,7 @@ const ReadingRoom = () => {
           {/* Left side - Back button and title for mobile, back button and session info for desktop */}
           <div className={`flex ${isMobile ? 'items-center gap-2' : 'items-center gap-1 md:gap-2'}`}>
             <Tooltip content={
-              isMobile && showMobileInterpretation 
+              isMobile && mobileInterpretationModal.isOpen 
                 ? "Close interpretation" 
                 : isMobile && readingStep === 'ask-question'
                 ? "Back to setup"
@@ -2204,9 +2217,9 @@ const ReadingRoom = () => {
                 ? "Back to cards"
                 : (user ? "Back to Collection (Esc)" : "Back to Home (Esc)")
             } position="bottom" disabled={isMobile}>
-              {isMobile && showMobileInterpretation ? (
+              {isMobile && mobileInterpretationModal.isOpen ? (
                 <button 
-                  onClick={() => setShowMobileInterpretation(false)}
+                  onClick={() => mobileInterpretationModal.closeModal()}
                   className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
                 >
                   <ArrowLeft className="h-4 w-4" />
@@ -2227,7 +2240,7 @@ const ReadingRoom = () => {
                 </button>
               ) : (
                 <button 
-                  onClick={() => setShowExitModal(true)}
+                  onClick={() => exitModal.openModal()}
                   className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} flex items-center text-muted-foreground hover:text-foreground`}
                 >
                   <ArrowLeft className="h-4 w-4" />
@@ -2559,7 +2572,7 @@ const ReadingRoom = () => {
               <button 
                 onClick={() => {
                   // Enter deck change mode while preserving session state
-                  setIsChangingDeckMidSession(true);
+                  deckChangeMode.openModal();
                   setDeck(null);
                   setCards([]);
                   setShuffledDeck([]);
@@ -2617,428 +2630,30 @@ const ReadingRoom = () => {
         <div className="h-full relative bg-gradient-to-b from-slate-900 to-slate-800 dark:from-background dark:to-background/80">
           {/* Step 0: Deck Selection Screen */}
           {(!deck && !deckSelectionLoading) && (
-            <div 
-              className={`absolute inset-0 z-[100] bg-black/50 flex items-center justify-center ${mobileLayoutClasses.mainPadding}`}
-              onClick={isChangingDeckMidSession ? () => {
-                // Cancel deck change and restore previous deck when clicking outside
-                setIsChangingDeckMidSession(false);
-                fetchAndSetDeck(deckIdFromParams || 'rider-waite-classic');
-              } : undefined}
-            >
-              <div 
-                className={`w-full ${isMobile ? 'max-w-4xl max-h-full overflow-y-auto' : 'max-w-5xl'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Header with title and Create Deck button */}
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <h2 className={`${isMobile ? 'text-lg' : 'text-xl md:text-2xl'} font-serif font-bold`}>
-                      {isChangingDeckMidSession ? 'Change Your Deck' : 'Choose Your Deck'}
-                    </h2>
-                    {isChangingDeckMidSession && (
-                      <button
-                        onClick={() => {
-                          // Cancel deck change and restore previous deck
-                          setIsChangingDeckMidSession(false);
-                          fetchAndSetDeck(deckIdFromParams || 'rider-waite-classic');
-                        }}
-                        className="btn btn-ghost p-2 text-muted-foreground hover:text-foreground"
-                      >
-                        <XCircle className="h-5 w-5" />
-                      </button>
-                    )}
-                  </div>
-                  {/* Create Deck button in top right */}
-                  <Link 
-                    to="/" 
-                    className="btn btn-primary px-4 py-2 text-sm flex items-center gap-2 hover:scale-105 transition-transform"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span className={isMobile ? 'hidden sm:inline' : ''}>Create Deck</span>
-                  </Link>
-                </div>
-
-                {/* Subtitle */}
-                <div className="text-center mb-6">
-                  <p className="text-muted-foreground text-sm md:text-base">
-                    {isChangingDeckMidSession 
-                      ? `Select a different deck to continue your ${selectedLayout?.name || 'reading'}`
-                      : 'Select a tarot deck to begin your reading'
-                    }
-                  </p>
-                  {isChangingDeckMidSession && selectedLayout && (
-                    <div className="mt-2 p-2 bg-muted/30 rounded-lg text-sm">
-                      <span className="text-accent">Current layout:</span> {selectedLayout.name}
-                      {question && <div className="text-xs text-muted-foreground mt-1">"{question}"</div>}
-                    </div>
-                  )}
-                </div>
-                
-                {/* Tab Navigation */}
-                <div className="flex flex-col sm:flex-row gap-1 mb-6 bg-muted/30 p-1 rounded-lg">
-                  <button
-                    onClick={() => setDeckSelectionTab('collection')}
-                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
-                      deckSelectionTab === 'collection'
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-                    }`}
-                  >
-                    <Package className="h-4 w-4" />
-                    {collectionTabLabel}
-                    {userOwnedDecks.length > 0 && (
-                      <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full">
-                        {userOwnedDecks.length}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setDeckSelectionTab('marketplace')}
-                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
-                      deckSelectionTab === 'marketplace'
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-                    }`}
-                  >
-                    <ShoppingBag className="h-4 w-4" />
-                    Marketplace
-                    {loadingMarketplace && (
-                      <LoadingSpinner size="sm" />
-                    )}
-                  </button>
-                </div>
-
-                {/* Tab Content */}
-                <div className="min-h-[400px]">
-                  {/* My Collection Tab */}
-                  {deckSelectionTab === 'collection' && (
-                    <div>
-                      {/* Collection contributors info for shared collections */}
-                      {collectionTabLabel === 'Our Collection' && collectionContributors.length > 1 && (
-                        <div className="mb-4 p-3 bg-muted/30 rounded-lg text-sm">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Users className="h-4 w-4" />
-                            <span>
-                              Combined collection from: {collectionContributors.join(', ')}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                {userOwnedDecks.length === 0 ? (
-                        <div className="text-center py-12">
-                    <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                          <h3 className="text-lg font-medium mb-2">No Decks in Collection</h3>
-                          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                            {collectionTabLabel === 'Our Collection' 
-                              ? "Your group doesn't have any decks in the collection yet. Browse the marketplace or create your own deck to get started."
-                              : "You don't have any decks in your collection yet. Browse the marketplace or create your own deck to get started."
-                            }
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                            <button
-                              onClick={() => setDeckSelectionTab('marketplace')}
-                              className="btn btn-primary px-6 py-2 flex items-center gap-2"
-                            >
-                              <ShoppingBag className="h-4 w-4" />
-                        Browse Marketplace
-                            </button>
-                            <Link to="/" className="btn btn-secondary px-6 py-2 flex items-center gap-2">
-                              <Plus className="h-4 w-4" />
-                              Create Your Own
-                      </Link>
-                    </div>
-                  </div>
-                ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {userOwnedDecks.map((ownedDeck) => (
-                        <motion.div
-                          key={ownedDeck.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.3 }}
-                              className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg hover:border-primary/50 transition-all duration-200 cursor-pointer group"
-                          onClick={() => isChangingDeckMidSession ? handleDeckChange(ownedDeck) : handleDeckSelect(ownedDeck)}
-                        >
-                              <div className="aspect-[3/4] bg-primary/10 overflow-hidden relative">
-                            {ownedDeck.cover_image ? (
-                              <img 
-                                src={ownedDeck.cover_image} 
-                                alt={ownedDeck.title}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <TarotLogo className="h-12 w-12 text-primary/50" />
-                              </div>
-                            )}
-                                {ownedDeck.is_free && (
-                                  <div className="absolute top-2 right-2 bg-primary/90 text-primary-foreground px-2 py-1 rounded-full text-xs font-medium">
-                                    Free
-                                  </div>
-                                )}
-                          </div>
-                          <div className="p-3">
-                                <h3 className="font-medium text-sm mb-1 truncate group-hover:text-primary transition-colors">
-                                  {ownedDeck.title}
-                                </h3>
-                            <p className="text-xs text-muted-foreground mb-2">by {ownedDeck.creator_name}</p>
-                            <p className="text-xs text-muted-foreground line-clamp-2">{ownedDeck.description}</p>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Marketplace Tab */}
-                  {deckSelectionTab === 'marketplace' && (
-                    <div>
-                      {loadingMarketplace ? (
-                        <div className="text-center py-12">
-                          <LoadingSpinner size="lg" className="mx-auto mb-4" />
-                          <p className="text-muted-foreground">Loading marketplace decks...</p>
-                        </div>
-                      ) : marketplaceDecks.length === 0 ? (
-                        <div className="text-center py-12">
-                          <ShoppingBag className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                          <h3 className="text-lg font-medium mb-2">No Marketplace Decks</h3>
-                          <p className="text-muted-foreground mb-6">
-                            No decks available in the marketplace at the moment.
-                          </p>
-                      </div>
-                      ) : selectedMarketplaceDeck ? (
-                        /* Deck Details View */
-                        <div className="space-y-6">
-                          {/* Back button and title */}
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={() => selectMarketplaceDeck(null)}
-                              className="btn btn-ghost p-2 hover:bg-muted rounded-md"
-                            >
-                              <ArrowLeft className="h-4 w-4" />
-                            </button>
-                            <h3 className="text-lg font-medium">Deck Details</h3>
-                    </div>
-
-                          {/* Deck detailed information */}
-                          <div className="bg-muted/30 rounded-lg p-4 space-y-4">
-                            <div className="flex gap-4">
-                              {/* Large deck image */}
-                              <div className="flex-shrink-0">
-                                <div className="w-32 h-48 rounded-lg overflow-hidden bg-primary/10">
-                                  {selectedMarketplaceDeck.cover_image ? (
-                                    <img
-                                      src={selectedMarketplaceDeck.cover_image}
-                                      alt={selectedMarketplaceDeck.title}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                      <TarotLogo className="h-16 w-16 text-primary/50" />
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Deck info */}
-                              <div className="flex-1 space-y-3">
-                                <div>
-                                  <h2 className="text-xl font-bold mb-1">{selectedMarketplaceDeck.title}</h2>
-                                  <p className="text-muted-foreground">by {selectedMarketplaceDeck.creator_name}</p>
-                                </div>
-
-                                <div className="flex items-center gap-4">
-                                  <div className="flex items-center gap-2">
-                                    {selectedMarketplaceDeck.is_free ? (
-                                      <span className="bg-green-500/20 text-green-600 px-3 py-1 rounded-full text-sm font-medium">
-                                        Free
-                                      </span>
-                                    ) : (
-                                      <span className="bg-primary/20 text-primary px-3 py-1 rounded-full text-sm font-medium">
-                                        ${selectedMarketplaceDeck.price}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <span className="text-sm text-muted-foreground">
-                                    {selectedMarketplaceDeck.card_count} cards
-                                  </span>
-                                </div>
-
-                                <div>
-                                  <h4 className="font-medium mb-1">Theme & Style</h4>
-                                  <p className="text-sm text-muted-foreground">{selectedMarketplaceDeck.theme}</p>
-                                  <p className="text-sm text-muted-foreground">{selectedMarketplaceDeck.style}</p>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Description */}
-                            <div>
-                              <h4 className="font-medium mb-2">Description</h4>
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                {selectedMarketplaceDeck.description}
-                              </p>
-                            </div>
-
-                            {/* Sample images */}
-                            {selectedMarketplaceDeck.sample_images && selectedMarketplaceDeck.sample_images.length > 0 && (
-                              <div>
-                                <h4 className="font-medium mb-2">Sample Cards</h4>
-                                <div className="flex gap-2 overflow-x-auto">
-                                  {selectedMarketplaceDeck.sample_images.map((image, index) => (
-                                    <div key={index} className="flex-shrink-0 w-16 h-24 rounded-md overflow-hidden bg-primary/10">
-                                      <img
-                                        src={image}
-                                        alt={`Sample card ${index + 1}`}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Purchase count */}
-                            {selectedMarketplaceDeck.purchase_count > 0 && (
-                              <div className="text-sm text-muted-foreground">
-                                {selectedMarketplaceDeck.purchase_count} users have added this deck
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Action buttons */}
-                          <div className="space-y-4">
-                            {/* Subscription required notification */}
-                            {showSubscriptionRequired && (
-                              <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg">
-                                <div className="flex items-center gap-2 text-warning">
-                                  <Zap className="h-4 w-4" />
-                                  <span className="text-sm font-medium">Subscription Required</span>
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  A premium subscription is required to add paid decks to your collection. Please upgrade your account.
-                                </p>
-                              </div>
-                            )}
-                            
-                            <div className="flex gap-3">
-                              {/* Check if deck is already in collection */}
-                              {userOwnedDecks.find(d => d.id === selectedMarketplaceDeck.id) ? (
-                                <button className="btn btn-secondary flex-1 py-3" disabled>
-                                  <Check className="h-4 w-4 mr-2" />
-                                  Already in Collection
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleAddToCollection(selectedMarketplaceDeck)}
-                                  disabled={addingToCollection}
-                                  className="btn btn-primary flex-1 py-3"
-                                >
-                                  {addingToCollection ? (
-                                    <>
-                                      <LoadingSpinner size="sm" className="mr-2" />
-                                      Adding to Collection...
-                                    </>
-                                  ) : selectedMarketplaceDeck.is_free ? (
-                                    <>
-                                      <Plus className="h-4 w-4 mr-2" />
-                                      Add to Collection
-                                    </>
-                                  ) : (
-                                    <>
-                                      <ShoppingBag className="h-4 w-4 mr-2" />
-                                      Add for ${selectedMarketplaceDeck.price}
-                                    </>
-                                  )}
-                                </button>
-                              )}
-                              
-                              {/* Use this deck button if already in collection */}
-                              {userOwnedDecks.find(d => d.id === selectedMarketplaceDeck.id) && (
-                                <button
-                                  onClick={() => {
-                                    const ownedDeck = userOwnedDecks.find(d => d.id === selectedMarketplaceDeck.id);
-                                    if (ownedDeck) {
-                                      isChangingDeckMidSession ? handleDeckChange(ownedDeck) : handleDeckSelect(ownedDeck);
-                                    }
-                                  }}
-                                  className="btn btn-secondary px-6 py-3"
-                                >
-                                  Use This Deck
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-6">
-                          {/* Featured/Promoted section */}
-                          <div>
-                            <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                              <Sparkles className="h-4 w-4" />
-                              Featured Decks
-                            </h3>
-                            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                              {marketplaceDecks.map((marketplaceDeck) => (
-                                <motion.div
-                                  key={marketplaceDeck.id}
-                                  initial={{ opacity: 0, y: 20 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ duration: 0.3 }}
-                                  className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg hover:border-primary/50 transition-all duration-200 cursor-pointer group relative"
-                                  onClick={() => handleMarketplaceDeckSelect(marketplaceDeck)}
-                                >
-                                  <div className="aspect-[3/4] bg-primary/10 overflow-hidden relative">
-                                    {marketplaceDeck.cover_image ? (
-                                      <img 
-                                        src={marketplaceDeck.cover_image} 
-                                        alt={marketplaceDeck.title}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                                      />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center">
-                                        <TarotLogo className="h-12 w-12 text-primary/50" />
-                                      </div>
-                                    )}
-                                    {marketplaceDeck.is_free ? (
-                                      <div className="absolute top-2 right-2 bg-green-500/90 text-white px-2 py-1 rounded-full text-xs font-medium">
-                                        Free
-                                      </div>
-                                    ) : (
-                                      <div className="absolute top-2 right-2 bg-primary/90 text-primary-foreground px-2 py-1 rounded-full text-xs font-medium">
-                                        ${marketplaceDeck.price}
-                                      </div>
-                                    )}
-                                    
-                                    {/* Already owned indicator */}
-                                    {userOwnedDecks.find(d => d.id === marketplaceDeck.id) && (
-                                      <div className="absolute top-2 left-2 bg-green-500/90 text-white px-2 py-1 rounded-full text-xs font-medium">
-                                        <Check className="h-3 w-3" />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="p-3">
-                                    <h3 className="font-medium text-sm mb-1 truncate group-hover:text-primary transition-colors">
-                                      {marketplaceDeck.title}
-                                    </h3>
-                                    <p className="text-xs text-muted-foreground mb-2">by {marketplaceDeck.creator_name}</p>
-                                    <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{marketplaceDeck.description}</p>
-                                    <div className="text-xs text-muted-foreground">
-                                      Click to view details
-                                    </div>
-                                  </div>
-                                </motion.div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            <DeckSelectionScreen
+              isMobile={isMobile}
+              mobileLayoutClasses={mobileLayoutClasses}
+              deckChangeMode={deckChangeMode}
+              fetchAndSetDeck={fetchAndSetDeck}
+              deckIdFromParams={deckIdFromParams}
+              selectedLayout={selectedLayout || null} // Ensure null if undefined
+              question={question}
+              deckSelectionTab={deckSelectionTab} // from sessionState.deckSelectionState or local
+              setDeckSelectionTab={setDeckSelectionTab} // from useCallback wrapper
+              collectionTabLabel={collectionTabLabel}
+              collectionContributors={collectionContributors}
+              userOwnedDecks={userOwnedDecks}
+              handleDeckChange={handleDeckChange}
+              handleDeckSelect={handleDeckSelect}
+              loadingMarketplace={loadingMarketplace}
+              marketplaceDecks={marketplaceDecks}
+              selectedMarketplaceDeck={selectedMarketplaceDeck} // the Deck object from local state
+              selectMarketplaceDeck={selectMarketplaceDeck} // the function to update sessionState
+              showSubscriptionRequired={showSubscriptionRequired}
+              addingToCollection={addingToCollection}
+              handleAddToCollection={handleAddToCollection}
+              handleMarketplaceDeckSelect={handleMarketplaceDeckSelect} // the function to set local selectedMarketplaceDeck
+            />
           )}
           
           {/* Deck selection loading */}
@@ -3055,1257 +2670,137 @@ const ReadingRoom = () => {
           
           {/* Step 1: Setup Screen */}
           {readingStep === 'setup' && deck && (
-            <div className={`absolute inset-0 flex items-center justify-center ${mobileLayoutClasses.mainPadding}`}>
-              <div className={`w-full ${isMobile ? 'max-w-2xl max-h-full overflow-y-auto' : 'max-w-md'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
-                {/* Deck info */}
-                <div className="flex items-center gap-3 mb-4 p-3 bg-muted/30 rounded-lg">
-                  <div className="w-10 h-14 rounded-md overflow-hidden bg-primary/10 shrink-0">
-                    {deck.cover_image ? (
-                      <img 
-                        src={deck.cover_image} 
-                        alt={deck.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <TarotLogo className="h-4 w-4 text-primary/50" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-medium text-sm truncate">{deck.title}</h3>
-                    <p className="text-xs text-muted-foreground">by {deck.creator_name || 'Unknown Creator'}</p>
-                  </div>
-                </div>
-                
-                <h2 className={`${isMobile ? 'text-lg' : 'text-lg md:text-xl'} font-serif font-bold ${isMobile ? 'mb-3' : 'mb-4'}`}>Select a Layout</h2>
-                
-                <div className={`space-y-2 ${isMobile ? 'mb-3' : 'mb-4'}`}>
-                  {readingLayouts.map((layout, index) => (
-                    <div 
-                      key={layout.id}
-                      className={`border rounded-lg ${isMobile ? 'p-2' : 'p-3'} cursor-pointer transition-colors hover:border-accent/50 active:bg-accent/5 ${
-                        index === highlightedSetupLayoutIndex ? 'bg-accent/20 ring-2 ring-accent border-accent' : ''
-                      }`}
-                      onClick={() => handleLayoutSelect(layout)}
-                      onMouseEnter={() => setHighlightedSetupLayoutIndex(index)}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <h4 className={`font-medium ${isMobile ? 'text-sm' : 'text-sm md:text-base'}`}>{layout.name}</h4>
-                        <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
-                          {layout.card_count === 999 ? 'Free' : `${layout.card_count} ${layout.card_count === 1 ? 'card' : 'cards'}`}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{layout.description}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <SetupScreen
+              isMobile={isMobile}
+              mobileLayoutClasses={mobileLayoutClasses}
+              deck={deck} // Pass the deck object
+              readingLayouts={readingLayouts} // Pass the layouts constant
+              highlightedSetupLayoutIndex={highlightedSetupLayoutIndex}
+              setHighlightedSetupLayoutIndex={setHighlightedSetupLayoutIndex}
+              handleLayoutSelect={handleLayoutSelect}
+            />
           )}
           
           {/* Step 1.5: Ask a Question (Optional) */}
           {readingStep === 'ask-question' && deck && selectedLayout && (
-            <div className={`absolute inset-0 flex items-center justify-center ${mobileLayoutClasses.mainPadding}`}>
-              <div className={`w-full ${isMobile ? 'max-w-2xl max-h-full overflow-y-auto' : 'max-w-lg'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}>
-                {/* Header */}
-                <div className="text-center mb-6">
-                  <h2 className={`${isMobile ? 'text-lg' : 'text-xl'} font-serif font-bold mb-2`}>🔮 Inspired Questions</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Choose a life area for personalized questions, or skip to draw cards with your current question.
-                  </p>
-                </div>
-
-                {/* Current Question Display */}
-                {question && (
-                  <div className="mb-4 p-3 bg-muted/30 rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-1">Current question:</p>
-                    <p className="text-sm font-medium">"{question}"</p>
-                  </div>
-                )}
-
-                {/* Life Areas Categories */}
-                {!selectedCategory && (
-                  <div className="grid grid-cols-2 gap-3 mb-6">
-                    {questionCategories.map((category, index) => (
-                      <button
-                        key={category.id}
-                        onClick={() => handleCategorySelect(category.id)}
-                        onMouseEnter={() => {
-                          setHighlightedCategoryIndex(index);
-                          setIsCategoryHighlightingActive(true); // Re-enable highlighting on hover
-                        }}
-                        className={`p-3 text-left border rounded-lg transition-colors ${
-                          isCategoryHighlightingActive && highlightedCategoryIndex === index 
-                            ? 'border-accent bg-accent/10 ring-2 ring-accent' 
-                            : 'border-border hover:border-accent/50 hover:bg-accent/5'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-lg">{category.icon}</span>
-                          <h3 className="font-medium text-sm">{category.name}</h3>
-                        </div>
-                        <p className="text-xs text-muted-foreground">{category.desc}</p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Generated Questions */}
-                {selectedCategory && (
-                  <div className="mb-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-medium text-sm">
-                        {selectedCategory === 'love' && '💕 Love Questions'}
-                        {selectedCategory === 'career' && '🎯 Career Questions'}
-                        {selectedCategory === 'finance' && '💰 Finance Questions'}
-                        {selectedCategory === 'relationships' && '👥 Relationship Questions'}
-                        {selectedCategory === 'spiritual-growth' && '⭐ Spiritual Growth Questions'}
-                        {selectedCategory === 'past-lives' && '♾️ Past Lives Questions'}
-                      </h3>
-                      <button
-                        onClick={() => {
-                          setSelectedCategory(null);
-                          setGeneratedQuestions([]);
-                        }}
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        Back
-                      </button>
-                    </div>
-
-                    {isLoadingQuestions ? (
-                      <div className="text-center py-8">
-                        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                        <p className="text-sm text-muted-foreground">Generating personalized questions...</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {generatedQuestions.map((q, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleQuestionSelect(q)}
-                            onMouseEnter={() => {
-                              setHighlightedQuestionIndex(index);
-                              setIsQuestionHighlightingActive(true); // Re-enable highlighting on hover
-                            }}
-                            className={`w-full p-3 text-left border rounded-lg transition-colors ${
-                              isQuestionHighlightingActive && highlightedQuestionIndex === index 
-                                ? 'border-accent bg-accent/10 ring-2 ring-accent' 
-                                : 'border-border hover:border-accent/50 hover:bg-accent/5'
-                            }`}
-                          >
-                            <p className="text-sm">{q}</p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Custom Question Input */}
-                {showCustomQuestionInput && (
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium mb-2">Write your own question</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="What would you like guidance on?"
-                        className="flex-1 p-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const input = e.target as HTMLInputElement;
-                            if (input.value.trim()) {
-                              handleCustomQuestion(input.value.trim());
-                            }
-                          }
-                        }}
-                        autoFocus
-                      />
-                      <button
-                        onClick={() => {
-                          setShowCustomQuestionInput(false);
-                          setIsQuestionHighlightingActive(true); // Re-enable question highlighting when closing custom input
-                          setIsCategoryHighlightingActive(true); // Re-enable category highlighting when closing custom input
-                        }}
-                        className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {!showCustomQuestionInput && (
-                    <button
-                      onClick={() => {
-                        setShowCustomQuestionInput(true);
-                        setIsQuestionHighlightingActive(false); // Disable question highlighting when typing
-                        setIsCategoryHighlightingActive(false); // Disable category highlighting when typing
-                      }}
-                      className="btn btn-secondary px-4 py-2 text-sm"
-                    >
-                      ✍️ Write Your Own
-                    </button>
-                  )}
-                  
-                  <button
-                    onClick={handleSkipQuestion}
-                    className="btn btn-ghost px-4 py-2 text-sm border border-input"
-                  >
-                    Skip & Draw Cards
-                  </button>
-                </div>
-              </div>
-            </div>
+            <AskQuestionScreen
+              isMobile={isMobile}
+              mobileLayoutClasses={mobileLayoutClasses}
+              question={question} // from sessionState
+              questionCategories={questionCategories} // constant
+              selectedCategory={selectedCategory} // local state
+              setSelectedCategory={setSelectedCategory} // local state setter
+              isLoadingQuestions={isLoadingQuestions} // local state
+              generatedQuestions={generatedQuestions} // local state
+              handleCategorySelect={handleCategorySelect} // callback
+              handleQuestionSelect={handleQuestionSelect} // callback
+              handleSkipQuestion={handleSkipQuestion} // callback
+              handleCustomQuestion={handleCustomQuestion} // callback
+              showCustomQuestionInput={showCustomQuestionInput} // local state
+              setShowCustomQuestionInput={setShowCustomQuestionInput} // local state setter
+              highlightedCategoryIndex={highlightedCategoryIndex} // local state
+              setHighlightedCategoryIndex={setHighlightedCategoryIndex} // local state setter
+              highlightedQuestionIndex={highlightedQuestionIndex} // local state
+              setHighlightedQuestionIndex={setHighlightedQuestionIndex} // local state setter
+              isCategoryHighlightingActive={isCategoryHighlightingActive} // local state
+              setIsCategoryHighlightingActive={setIsCategoryHighlightingActive} // local state setter
+              isQuestionHighlightingActive={isQuestionHighlightingActive} // local state
+              setIsQuestionHighlightingActive={setIsQuestionHighlightingActive} // local state setter
+            />
           )}
           
           {/* Step 2: Drawing Cards */}
           {readingStep === 'drawing' && selectedLayout && (
-            <div className={`absolute inset-0 flex flex-col ${isMobile ? (isLandscape ? 'pt-8' : 'pt-12') : 'pt-20'}`}>
-              {/* Reading table with mobile-friendly zoom controls */}
-              <div 
-                className="flex-1 relative" 
-                ref={readingAreaRef}
-                onDrop={selectedLayout?.id === 'free-layout' ? handleFreeLayoutDrop : undefined}
-                onDragOver={(e) => {
-                  if (selectedLayout?.id === 'free-layout') {
-                    e.preventDefault();
-                  }
-                }}
-                onClick={(e) => {
-                  if (isDragging && draggedCard && selectedLayout?.id === 'free-layout') {
-                    handleFreeLayoutDrop(e);
-                  }
-                }}
-                onMouseDown={(e) => {
-                  // Only allow panning with space key to avoid conflicts with card dragging
-                  if (!isMobile && !isDragging && !isDraggingPlacedCard && isSpacePressed) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handlePanStart(e.clientX, e.clientY);
-                  }
-                }}
-                onWheel={(e) => {
-                  // Desktop scroll wheel zoom
-                  if (!isMobile && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault();
-                    const delta = e.deltaY;
-                    const zoomFactor = delta > 0 ? 0.9 : 1.1;
-                    const newZoom = Math.max(0.5, Math.min(2, zoomLevel * zoomFactor));
-                    setZoomLevelWrapped(newZoom);
-                  }
-                }}
-                style={{
-                  cursor: !isMobile && !isDragging && !isDraggingPlacedCard ? (isPanning ? 'grabbing' : (isSpacePressed ? 'grab' : 'default')) : 'default'
-                }}
-              >
-                {/* Zoom controls with shuffle button - repositioned for mobile */}
-                <div className={`zoom-controls absolute ${
-                  isMobile 
-                    ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
-                    : 'top-4 left-4 flex-col'
-                } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-2 rounded-md z-40 items-center`}>
-                  <Tooltip content="Zoom in (+ / =)" position="right" disabled={isMobile}>
-                    <button onClick={zoomIn} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <ZoomIn className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Reset zoom (Z)" position="right" disabled={isMobile}>
-                    <button onClick={resetZoom} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <RotateCcw className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Zoom out (- / _)" position="right" disabled={isMobile}>
-                    <button onClick={zoomOut} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <ZoomOut className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  
-                  {/* Desktop Directional Joypad */}
-                  {!isMobile && (
-                    <>
-                      <div className="w-full h-px bg-border my-2"></div>
-                      <div className="relative w-16 h-16 flex-shrink-0 mx-auto">
-                        {/* Up */}
-                        <Tooltip content="Pan up (↑)" position="right" wrapperClassName="absolute top-0 left-1/2 transform -translate-x-1/2">
-                          <button 
-                            onClick={() => panDirection('up')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ArrowUp className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Left */}
-                        <Tooltip content="Pan left (←)" position="right" wrapperClassName="absolute left-0 top-1/2 transform -translate-y-1/2">
-                          <button 
-                            onClick={() => panDirection('left')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ChevronLeft className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Center button */}
-                        <Tooltip content="Reset pan to center (C / Enter)" position="right" wrapperClassName="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                          <button 
-                            onClick={resetPan}
-                            className="w-5 h-5 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
-                          >
-                            <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full"></div>
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Right */}
-                        <Tooltip content="Pan right (→)" position="right" wrapperClassName="absolute right-0 top-1/2 transform -translate-y-1/2">
-                          <button 
-                            onClick={() => panDirection('right')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ChevronRight className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Down */}
-                        <Tooltip content="Pan down (↓)" position="right" wrapperClassName="absolute bottom-0 left-1/2 transform -translate-x-1/2">
-                          <button 
-                            onClick={() => panDirection('down')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ArrowDown className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                      </div>
-                      <div className="w-full h-px bg-border my-2"></div>
-                    </>
-                  )}
-                  
-                  <Tooltip content="Shuffle deck (Left Shift)" position="right" disabled={isMobile}>
-                    <button onClick={shuffleDeck} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <Shuffle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content={`Show help (${getPlatformShortcut('help')})`} position="right" disabled={isMobile}>
-                    <button onClick={toggleHelpModal} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <HelpCircle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content={`Reset cards (${getPlatformShortcut('reset', true)})`} position="right" disabled={isMobile}>
-                    <button onClick={resetCards} className="p-1.5 hover:bg-muted rounded-sm text-red-500 hover:text-red-600 flex items-center justify-center">
-                      <XCircle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                </div>
-
-                {/* Layout visualization with mobile-responsive card sizes */}
-                <div 
-                  className="reading-content absolute inset-0 transition-transform duration-300 ease-in-out"
-                  style={{
-                    ...getTransform(zoomLevel, zoomFocus, panOffset),
-                    // Additional optimizations for smooth performance
-                    contain: 'layout style paint',
-                  }}
-                >
-                  {/* TarotForge Watermark */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-                    <div className="flex items-center gap-3 opacity-15 transform scale-150">
-                      <TarotLogo className="w-12 h-12 text-foreground" />
-                      <span className="font-serif text-4xl font-bold tracking-wider text-foreground">TarotForge</span>
-                    </div>
-                  </div>
-                  {/* Free layout cards */}
-                  {selectedLayout?.id === 'free-layout' && selectedCards.map((selectedCard: any, index: number) => (
-                    <motion.div
-                      key={`free-${index}`}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.5 }}
-                      className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-move"
-                      data-card-element="true"
-                      style={draggedPlacedCardIndex === index ? {
-                        // When this card is being dragged, only set zIndex. 
-                        // Framer Motion will control its position via transform.
-                        zIndex: 50, // Higher zIndex while dragging
-                        position: 'absolute', // Explicitly keep absolute
-                      } : {
-                        // When not dragging, position using state-derived percentages.
-                        left: `${selectedCard.x}%`,
-                        top: `${selectedCard.y}%`,
-                        zIndex: activeCardIndex === index ? 20 : 10 + index,
-                        position: 'absolute',
-                      }}
-                      drag
-                      dragMomentum={false}
-                      dragElastic={0}
-                      onDragStart={(event, info) => handlePlacedCardDragStart(index)} 
-                      onDragEnd={(event, info) => handlePlacedCardDragEnd(event, info, index)}
-                      whileHover={{ scale: 1.05 }}
-                      onDoubleClick={(e) => {
-                        if (!isMobile && (selectedCard as any).revealed) {
-                          handleCardDoubleClick(index, e);
-                        }
-                      }}
-                      onTouchEnd={(e) => {
-                        if (isMobile) {
-                          e.preventDefault();
-                          handleCardDoubleTap(index, e);
-                        }
-                      }}
-                    >
-                      <motion.div 
-                        className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} shadow-lg cursor-pointer transition-shadow p-0.5 ${
-                          activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
-                        }`}
-                        animate={{ 
-                          rotateY: (selectedCard as any).revealed ? 0 : 180 
-                        }}
-                        transition={cardAnimationConfig}
-                        onClick={() => {
-                          if ((selectedCard as any).revealed) {
-                            // Open card detail modal for revealed cards
-                            updateSharedModalState({
-                              isOpen: true,
-                              cardIndex: index,
-                              showDescription: false,
-                              triggeredBy: participantId || null
-                            });
-                          } else {
-                            handleCardFlip(index);
-                          }
-                        }}
-                      >
-                        {(selectedCard as any).revealed ? (
-                          <img 
-                            src={selectedCard.image_url} 
-                            alt={selectedCard.name} 
-                            className={`w-full h-full object-cover rounded-md ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
-                          />
-                        ) : (
-                          <TarotCardBack />
-                        )}
-                      </motion.div>
-                      <div 
-                        className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {selectedCard.position} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
-                      </div>
-                    </motion.div>
-                  ))}
-
-                  {/* Predefined layout cards */}
-                  {selectedLayout?.id !== 'free-layout' && selectedLayout?.positions && selectedLayout.positions.map((position: any, index: number) => {
-                    const selectedCard = selectedCards[index];
-                    const isHovered = hoveredPosition === index && isDragging;
-                    
-                    // Special handling for Celtic Cross Present (0) and Challenge (1) positions
-                    const isCelticCross = selectedLayout?.id === 'celtic-cross';
-                    const isPresentPosition = isCelticCross && index === 0;
-                    const isChallengePosition = isCelticCross && index === 1;
-                    const presentCard = isCelticCross ? selectedCards[0] : null;
-                    const challengeCard = isCelticCross ? selectedCards[1] : null;
-                    
-                    // For Celtic Cross, adjust positioning for drop zones only
-                    let adjustedPosition = { ...position };
-                    if (isCelticCross && (isPresentPosition || isChallengePosition)) {
-                      // For drop zones: offset Challenge position slightly when both positions are empty
-                      // or when only Present card is placed, so users can distinguish between the two drop areas
-                      if (isChallengePosition && !challengeCard) {
-                        adjustedPosition = { ...position, x: position.x + 5, y: position.y + 5 };
-                      }
-                      // When both cards are placed, adjust positioning for proper cross formation
-                      else if (presentCard && challengeCard) {
-                        if (isPresentPosition) {
-                          // Present card: no offset, stays in center (horizontal)
-                          adjustedPosition = { ...position };
-                        } else if (isChallengePosition) {
-                          // Challenge card: no offset, stays in center (vertical due to 90° rotation)
-                          adjustedPosition = { ...position };
-                        }
-                      }
-                      // When only one card is placed, use original position
-                      else if (selectedCard) {
-                        adjustedPosition = { ...position };
-                      }
-                    }
-                    
-                    return (
-                      <div 
-                        key={position.id}
-                        className="absolute transform -translate-x-1/2 -translate-y-1/2"
-                        style={{ 
-                          left: `${adjustedPosition.x}%`, 
-                          top: `${adjustedPosition.y}%`,
-                          zIndex: selectedCard ? (10 + index) : (index === 1 ? 2 : 1) // Equal z-index for both cards when placed
-                        }}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          setHoveredPosition(index);
-                        }}
-                        onDragLeave={() => setHoveredPosition(null)}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          if (draggedCard && !selectedCard) {
-                            handleCardDrop(index);
-                          }
-                        }}
-                        onClick={() => {
-                          if (isDragging && draggedCard && !selectedCard) {
-                            handleCardDrop(index);
-                          }
-                        }}
-                        onTouchEnd={(e) => {
-                          if (isMobile && isDragging && draggedCard && !selectedCard) {
-                            e.preventDefault();
-                            handleCardDrop(index);
-                          }
-                        }}
-                      >
-                        {/* Card position indicator - responsive size */}
-                        {!selectedCard && (
-                          <div 
-                            className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} border-2 border-dashed ${
-                              isHovered ? 'border-primary bg-primary/10' : 'border-muted-foreground/30'
-                            } rounded-md flex flex-col items-center justify-center transition-colors`}
-                            style={{ 
-                              transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none',
-                              transformOrigin: 'center center'
-                            }}
-                          >
-                            <span className={`text-xs text-center px-1 ${isHovered ? 'text-primary' : 'text-muted-foreground'}`}>
-                              {position.name}
-                            </span>
-                            {isHovered && (
-                              <span className="text-xs text-primary mt-1">Drop here</span>
-                            )}
-                          </div>
-                        )}
-                        
-                        {/* Selected card - responsive size */}
-                        {selectedCard && (
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ 
-                              opacity: 1, 
-                              scale: activeCardIndex === index ? 1.1 : 1 
-                            }}
-                            transition={cardAnimationConfig}
-                            className={`relative ${
-                              position.rotation === 90 
-                                ? (isMobile ? 'w-24 h-16' : 'w-30 h-20 md:h-24 md:w-36') // Swap dimensions for rotated cards
-                                : (isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36') // Normal dimensions
-                            }`}
-                            data-card-element="true"
-                            onTouchEnd={(e) => {
-                              if (isMobile) {
-                                e.preventDefault();
-                                handleCardDoubleTap(index, e);
-                              }
-                            }}
-                            whileHover={{ scale: 1.05 }}
-                          >
-                            <motion.div 
-                              className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} shadow-lg cursor-pointer p-0.5`}
-                              style={{ 
-                                transformOrigin: 'center center'
-                              }}
-                              animate={{ 
-                                rotateY: (selectedCard as any).revealed ? 0 : 180,
-                                rotateZ: position.rotation || 0
-                              }}
-                              transition={cardAnimationConfig}
-                              onClick={() => {
-                                if ((selectedCard as any).revealed) {
-                                  // Open card detail modal for revealed cards
-                                  updateSharedModalState({
-                                    isOpen: true,
-                                    cardIndex: index,
-                                    showDescription: false,
-                                    triggeredBy: participantId || null
-                                  });
-                                } else {
-                                  handleCardFlip(index);
-                                }
-                              }}
-                            >
-                              {(selectedCard as any).revealed ? (
-                                <img 
-                                  src={selectedCard.image_url} 
-                                  alt={selectedCard.name} 
-                                  className={`w-full h-full object-cover rounded-md ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
-                                />
-                              ) : (
-                                <TarotCardBack />
-                              )}
-                            </motion.div>
-                            <div 
-                              className={`absolute whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move ${
-                                position.rotation === 90 
-                                  ? '-right-16 top-1/2 transform -translate-y-1/2' // Position to the right for rotated cards
-                                  : '-bottom-6 left-1/2 transform -translate-x-1/2' // Position below for normal cards
-                              }`}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
-                            </div>
-                          </motion.div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* Free layout drop zone indicator */}
-                  {selectedLayout?.id === 'free-layout' && isDragging && (
-                    <div className="absolute inset-0 border-2 border-dashed border-primary/30 bg-primary/5 rounded-lg flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="text-primary mb-2">
-                          <svg className="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                        </div>
-                        <p className="text-sm text-primary font-medium">Drop anywhere to place card</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Deck pile - show cards that can be dragged */}
-                {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length > 0 && (
-                  <motion.div 
-                    key={`deck-pile-${deckRefreshKey}`} 
-                    className={`deck-pile absolute ${isMobile ? 'bottom-4 left-0 right-0' : 'bottom-8 left-1/2 transform -translate-x-1/2'} z-20`}
-                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                  >
-                    {isMobile ? (
-                      /* Mobile: Full deck with horizontal panning - all 78 cards */
-                      <div className="relative w-full h-28 overflow-x-auto flex justify-center">
-                        <div 
-                          className="relative h-28 flex items-end justify-center"
-                          style={{ 
-                            width: `${shuffledDeck.length * 8}px`,
-                            minWidth: '100%'
-                          }}
-                        >
-                          {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).map((card: Card, index: number) => {
-                            const totalCards = (shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length;
-                            const angle = (index - (totalCards - 1) / 2) * 1.2; // 1.2 degrees between cards for mobile shallow arc
-                            const radius = 200; // Radius for mobile arc
-                            const x = Math.sin((angle * Math.PI) / 180) * radius; // Remove the offset that was pushing right
-                            const y = -Math.cos((angle * Math.PI) / 180) * radius * 0.12; // Very shallow curve for mobile
-                            
-                            return (
-                              <motion.div
-                                key={`deck-mobile-${index}`}
-                                className="absolute w-10 h-16 cursor-grab active:cursor-grabbing"
-                                style={{
-                                  left: '50%',
-                                  bottom: '0',
-                                  transformOrigin: 'bottom center'
-                                }}
-                                initial={{
-                                  transform: `translateX(-50%) translateX(${x}px) translateY(${y}px) rotate(${angle}deg)`,
-                                  zIndex: totalCards - index,
-                                }}
-                                whileHover={{
-                                  transform: `translateX(-50%) translateX(${x}px) translateY(${y - 12}px) rotate(${angle}deg) scale(1.15)`,
-                                  zIndex: 100,
-                                  transition: { duration: 0.2 }
-                                }}
-                                whileTap={{
-                                  scale: 0.9,
-                                  transition: { duration: 0.1 }
-                                }}
-                                draggable={true}
-                                onDragStart={(e) => handleDragStart(card, index, e)}
-                                onMouseDown={(e) => handleDragStart(card, index, e)}
-                                onTouchStart={(e) => handleDragStart(card, index, e)}
-                                onMouseMove={handleDragMove}
-                                onTouchMove={handleDragMove}
-                                onTouchEnd={(e) => {
-                                  if (isMobile && isDragging) {
-                                    e.preventDefault();
-                                    handleFreeLayoutDrop(e);
-                                  }
-                                }}
-                              >
-                                                              <TarotCardBack className="w-full h-full rounded-md shadow-lg hover:shadow-xl transition-shadow">
-                                {/* Drag text overlay */}
-                                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 z-10">
-                                  <span className="text-xs font-serif tracking-wider" style={{ color: 'rgb(139 92 246 / 0.7)' }}>
-                                    {index < 5 ? 'Drag' : ''}
-                                  </span>
-                                </div>
-                              </TarotCardBack>
-                                {index === Math.floor(totalCards / 2) && (
-                                  <div className="absolute -top-2 -right-1 bg-accent text-accent-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center shadow-md z-[300]">
-                                    {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length}
-                                  </div>
-                                )}
-                              </motion.div>
-                            );
-                          })}
-                        </div>
-                        
-                        {/* Mobile navigation hints */}
-                        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 bg-muted/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs text-muted-foreground">
-                          ← Swipe to browse all {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length} cards →
-                        </div>
-                        
-
-                      </div>
-                    ) : (
-                      /* Desktop: Wide fan spread showing all cards - larger and more readable */
-                      <div className="relative w-full h-36">
-                        {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).map((card: Card, index: number) => {
-                          const totalCards = (shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length;
-                          const angle = (index - (totalCards - 1) / 2) * 2.2; // 2.2 degrees between cards for wider spread
-                          const radius = 600; // Larger radius for gentler curve
-                          const x = Math.sin((angle * Math.PI) / 180) * radius;
-                          const y = -Math.cos((angle * Math.PI) / 180) * radius * 0.08; // Very gentle curve
-                          
-                          return (
-                            <motion.div
-                              key={`deck-desktop-${index}`}
-                              className="absolute w-16 h-24 cursor-grab active:cursor-grabbing"
-                              style={{
-                                left: '50%',
-                                bottom: '0',
-                                transformOrigin: 'bottom center'
-                              }}
-                              initial={{
-                                transform: `translateX(-50%) translateX(${x}px) translateY(${y}px) rotate(${angle}deg)`,
-                                zIndex: totalCards - index,
-                              }}
-                              whileHover={{
-                                transform: `translateX(-50%) translateX(${x}px) translateY(${y - 25}px) rotate(${angle}deg) scale(1.15)`,
-                                zIndex: 200,
-                                transition: { duration: 0.2, ease: "easeOut" }
-                              }}
-                              whileTap={{
-                                scale: 0.95,
-                                transition: { duration: 0.1 }
-                              }}
-                              draggable={true}
-                              onDragStart={(e) => handleDragStart(card, index, e)}
-                              onMouseDown={(e) => handleDragStart(card, index, e)}
-                              onTouchStart={(e) => handleDragStart(card, index, e)}
-                              onMouseMove={handleDragMove}
-                              onTouchMove={handleDragMove}
-                              onTouchEnd={(e) => {
-                                if (isDragging) {
-                                  e.preventDefault();
-                                  handleFreeLayoutDrop(e);
-                                }
-                              }}
-                            >
-                                                          <TarotCardBack className="w-full h-full rounded-lg shadow-lg hover:shadow-xl transition-shadow">
-                              {/* Drag text overlay */}
-                              <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 z-10">
-                                <span className="text-xs font-serif tracking-wider" style={{ color: 'rgb(139 92 246 / 0.7)' }}>
-                                  {index < 20 ? 'Drag' : ''}
-                                </span>
-                              </div>
-                            </TarotCardBack>
-                            </motion.div>
-                          );
-                        })}
-
-                        {/* Card count indicator */}
-                        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-accent text-accent-foreground rounded-full w-8 h-8 text-sm flex items-center justify-center shadow-lg z-[300]">
-                          {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length}
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-                
-
-                
-                {/* Loading indicator for interpretation */}
-                {(isGeneratingInterpretation || sessionIsGeneratingInterpretation) && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
-                    <div className="bg-card p-4 md:p-6 rounded-xl shadow-lg text-center mx-4">
-                      <LoadingSpinner size="lg" className="mx-auto mb-4" />
-                      <p className="text-muted-foreground text-sm md:text-base">
-                        {sessionLoadingStates?.triggeredBy && sessionLoadingStates.triggeredBy !== participantId
-                          ? 'Another participant is generating interpretation...'
-                          : 'Generating interpretation...'
-                        }
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Loading indicator for shuffling */}
-                {(isShuffling || sessionIsShuffling) && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
-                    <div className="bg-card p-4 md:p-6 rounded-xl shadow-lg text-center mx-4">
-                      <LoadingSpinner size="lg" className="mx-auto mb-4" />
-                      <p className="text-muted-foreground text-sm md:text-base">
-                        {sessionLoadingStates?.triggeredBy && sessionLoadingStates.triggeredBy !== participantId
-                          ? 'Another participant is shuffling cards...'
-                          : 'Shuffling cards...'
-                        }
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            <DrawingScreen
+              isMobile={isMobile}
+              isLandscape={isLandscape}
+              readingAreaRef={readingAreaRef}
+              zoomLevel={zoomLevel}
+              panOffset={panOffset}
+              zoomFocus={zoomFocus}
+              isSpacePressed={isSpacePressed}
+              selectedLayout={selectedLayout}
+              selectedCards={selectedCards}
+              shuffledDeck={shuffledDeck} // local state derived from cards or session
+              sessionShuffledDeck={sessionShuffledDeck} // from sessionState
+              shouldUseSessionDeck={shouldUseSessionDeck} // boolean flag
+              deckRefreshKey={deckRefreshKey}
+              draggedCard={draggedCard}
+              draggedCardIndex={draggedCardIndex}
+              isDragging={isDragging}
+              dragPosition={dragPosition}
+              hoveredPosition={hoveredPosition}
+              setHoveredPosition={setHoveredPosition} // Pass the setter down
+              draggedPlacedCardIndex={draggedPlacedCardIndex} // Revert to direct pass
+              activeCardIndex={activeCardIndex ?? null} // Ensure null if undefined for this one
+              participantId={participantId}
+              isGeneratingInterpretation={isGeneratingInterpretation} // local state
+              sessionIsGeneratingInterpretation={sessionIsGeneratingInterpretation} // from session loadingStates
+              isShuffling={isShuffling} // local state
+              sessionIsShuffling={sessionIsShuffling} // from session loadingStates
+              sessionLoadingStates={sessionLoadingStates} // from sessionState
+              cardAnimationConfig={cardAnimationConfig} // constant/util
+              zoomIn={zoomIn} // callback
+              zoomOut={zoomOut} // callback
+              resetZoom={resetZoom} // callback
+              panDirection={panDirection} // callback
+              resetPan={resetPan} // callback
+              shuffleDeck={shuffleDeck} // callback
+              toggleHelpModal={toggleHelpModal} // from useHelpModal
+              resetCards={resetCards} // callback
+              handlePanStart={handlePanStart} // callback
+              setZoomLevelWrapped={setZoomLevelWrapped} // callback wrapper for session update
+              handleDragStart={handleDragStart} // callback
+              handleDragMove={handleDragMove} // callback (used by useDocumentMouseListeners)
+              handleDragEnd={handleDragEnd} // callback
+              handleCardDrop={handleCardDrop} // callback
+              handleFreeLayoutDrop={handleFreeLayoutDrop} // callback
+              handlePlacedCardDragStart={handlePlacedCardDragStart} // callback
+              handlePlacedCardDragEnd={handlePlacedCardDragEnd} // callback
+              handleCardFlip={handleCardFlip} // callback
+              handleCardDoubleClick={handleCardDoubleClick} // callback
+              handleCardDoubleTap={handleCardDoubleTap} // callback
+              updateSharedModalState={updateSharedModalState} // callback wrapper for session update
+            />
           )}
           
           {/* Step 3: Interpretation - mobile responsive layout */}
           {readingStep === 'interpretation' && (
-            <div className={`absolute inset-0 ${isMobile ? (isLandscape && !showMobileInterpretation ? 'flex pt-8' : 'flex-col pt-12') : 'flex pt-20'}`}>
-              {/* Reading display */}
-              <div 
-                className={`${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-3/5' : (showMobileInterpretation ? 'hidden' : 'flex-1')) : 'w-3/5'} relative`}
-                onMouseDown={(e) => {
-                  // Only allow panning with space key to avoid conflicts with card dragging
-                  if (!isMobile && !isDragging && !isDraggingPlacedCard && isSpacePressed) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handlePanStart(e.clientX, e.clientY);
-                  }
-                }}
-                onWheel={(e) => {
-                  // Desktop scroll wheel zoom
-                  if (!isMobile && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault();
-                    const delta = e.deltaY;
-                    const zoomFactor = delta > 0 ? 0.9 : 1.1;
-                    const newZoom = Math.max(0.5, Math.min(2, zoomLevel * zoomFactor));
-                    setZoomLevelWrapped(newZoom);
-                  }
-                }}
-                style={{
-                  ...getTransform(zoomLevel, zoomFocus, panOffset),
-                  // Additional optimizations for smooth performance
-                  contain: 'layout style paint',
-                  cursor: !isMobile && !isDragging && !isDraggingPlacedCard ? (isPanning ? 'grabbing' : (isSpacePressed ? 'grab' : 'default')) : 'default'
-                }}
-              >
-                {/* Zoom controls */}
-                <div className={`zoom-controls absolute ${
-                  isMobile 
-                    ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
-                    : 'top-4 left-4 flex-col'
-                } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-2 rounded-md z-40 items-center`}>
-                  <Tooltip content="Zoom out (- / _)" position="right" disabled={isMobile}>
-                    <button onClick={zoomOut} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <ZoomOut className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Reset zoom (Z)" position="right" disabled={isMobile}>
-                    <button onClick={resetZoom} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <RotateCcw className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Zoom in (+ / =)" position="right" disabled={isMobile}>
-                    <button onClick={zoomIn} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <ZoomIn className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  
-                  {/* Desktop Directional Joypad */}
-                  {!isMobile && (
-                    <>
-                      <div className="w-full h-px bg-border my-2"></div>
-                      <div className="relative w-16 h-16 flex-shrink-0 mx-auto">
-                        {/* Up */}
-                        <Tooltip content="Pan up (↑)" position="right" wrapperClassName="absolute top-0 left-1/2 transform -translate-x-1/2">
-                          <button 
-                            onClick={() => panDirection('up')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ArrowUp className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Left */}
-                        <Tooltip content="Pan left (←)" position="right" wrapperClassName="absolute left-0 top-1/2 transform -translate-y-1/2">
-                          <button 
-                            onClick={() => panDirection('left')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ChevronLeft className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Center button */}
-                        <Tooltip content="Reset pan to center (C / Enter)" position="right" wrapperClassName="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                          <button 
-                            onClick={resetPan}
-                            className="w-5 h-5 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
-                          >
-                            <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full"></div>
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Right */}
-                        <Tooltip content="Pan right (→)" position="right" wrapperClassName="absolute right-0 top-1/2 transform -translate-y-1/2">
-                          <button 
-                            onClick={() => panDirection('right')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ChevronRight className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Down */}
-                        <Tooltip content="Pan down (↓)" position="right" wrapperClassName="absolute bottom-0 left-1/2 transform -translate-x-1/2">
-                          <button 
-                            onClick={() => panDirection('down')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ArrowDown className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                      </div>
-                      <div className="w-full h-px bg-border my-2"></div>
-                    </>
-                  )}
-                  
-                  <Tooltip content="Shuffle deck (Left Shift)" position="right" disabled={isMobile}>
-                    <button onClick={shuffleDeck} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <Shuffle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content={`Show help (${getPlatformShortcut('help')})`} position="right" disabled={isMobile}>
-                    <button onClick={toggleHelpModal} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <HelpCircle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content={`Reset cards (${getPlatformShortcut('reset', true)})`} position="right" disabled={isMobile}>
-                    <button onClick={resetCards} className="p-1.5 hover:bg-muted rounded-sm text-red-500 hover:text-red-600 flex items-center justify-center">
-                      <XCircle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                </div>
-                
-                {/* Card layout with zoom applied */}
-                <div 
-                  className="absolute inset-0 transition-transform duration-300 ease-in-out"
-                  onMouseDown={(e) => {
-                    // Only allow panning with space key to avoid conflicts with card dragging
-                    if (!isMobile && !isDragging && !isDraggingPlacedCard && isSpacePressed) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handlePanStart(e.clientX, e.clientY);
-                    }
-                  }}
-                  onWheel={(e) => {
-                    // Desktop scroll wheel zoom
-                    if (!isMobile && (e.ctrlKey || e.metaKey)) {
-                      e.preventDefault();
-                      const delta = e.deltaY;
-                      const zoomFactor = delta > 0 ? 0.9 : 1.1;
-                      const newZoom = Math.max(0.5, Math.min(2, zoomLevel * zoomFactor));
-                      setZoomLevelWrapped(newZoom);
-                    }
-                  }}
-                  style={{
-                    ...getTransform(zoomLevel, zoomFocus, panOffset),
-                    // Additional optimizations for smooth performance
-                    contain: 'layout style paint',
-                    cursor: !isMobile && !isDragging && !isDraggingPlacedCard ? (isPanning ? 'grabbing' : (isSpacePressed ? 'grab' : 'default')) : 'default'
-                  }}
-                >
-                  {/* Free layout cards in interpretation */}
-                  {selectedLayout?.id === 'free-layout' && selectedCards.map((selectedCard: any, index: number) => (
-                    <motion.div
-                      key={`free-interp-${index}`}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ 
-                        opacity: 1, 
-                        scale: activeCardIndex === index ? 1.1 : 1 
-                      }}
-                      transition={cardAnimationConfig}
-                      className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-move"
-                      data-card-element="true"
-                      style={draggedPlacedCardIndex === index ? {
-                        zIndex: 50, // Higher zIndex while dragging
-                        position: 'absolute',
-                      } : {
-                        left: `${selectedCard.x}%`,
-                        top: `${selectedCard.y}%`,
-                        zIndex: activeCardIndex === index ? 20 : 10 + index,
-                        position: 'absolute',
-                      }}
-                      drag
-                      dragMomentum={false}
-                      dragElastic={0}
-                      onDragStart={(event, info) => handlePlacedCardDragStart(index)} 
-                      onDragEnd={(event, info) => handlePlacedCardDragEnd(event, info, index)}
-                      whileHover={{ scale: 1.05 }}
-                        onClick={() => {
-                        if ((selectedCard as any).revealed) {
-                          // Open card detail modal for revealed cards
-                          updateSharedModalState({
-                            isOpen: true,
-                            cardIndex: index,
-                            showDescription: false,
-                            triggeredBy: participantId || null
-                          });
-                        } else {
-                          handleCardFlip(index);
-                        }
-                      }}
-                      onDoubleClick={(e) => {
-                        if (!isMobile && (selectedCard as any).revealed) {
-                          handleCardDoubleClick(index, e);
-                        }
-                      }}
-                      onTouchEnd={(e) => {
-                        if (isMobile) {
-                          e.preventDefault();
-                          handleCardDoubleTap(index, e);
-                        }
-                      }}
-                    >
-                      <motion.div 
-                        className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${
-                          activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
-                        }`}
-                        animate={{ 
-                          rotateY: (selectedCard as any).revealed ? 0 : 180 
-                        }}
-                        transition={cardAnimationConfig}
-                      >
-                        {(selectedCard as any).revealed ? (
-                          <img 
-                            src={selectedCard.image_url} 
-                            alt={selectedCard.name} 
-                            className={`w-full h-full object-cover ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
-                          />
-                        ) : (
-                          <TarotCardBack />
-                        )}
-                      </motion.div>
-                      <div 
-                        className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {selectedCard.position} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
-                      </div>
-                    </motion.div>
-                  ))}
-
-                  {/* Predefined layout cards in interpretation */}
-                  {selectedLayout?.id !== 'free-layout' && selectedLayout && selectedLayout.positions.map((position: any, index: number) => {
-                    const selectedCard = selectedCards[index];
-                    if (!selectedCard) return null;
-                    
-                    // Special handling for Celtic Cross Present (0) and Challenge (1) positions in interpretation
-                    const isCelticCross = selectedLayout?.id === 'celtic-cross';
-                    const isChallengePosition = isCelticCross && index === 1;
-                    const presentCard = isCelticCross ? selectedCards[0] : null;
-                    const challengeCard = isCelticCross ? selectedCards[1] : null;
-                    
-                    // For Celtic Cross interpretation, always use original positions for perfect cross
-                    const adjustedPosition = { ...position };
-                    
-                    return (
-                      <div 
-                        key={position.id}
-                        className="absolute transform -translate-x-1/2 -translate-y-1/2"
-                        style={{ 
-                          left: `${adjustedPosition.x}%`, 
-                          top: `${adjustedPosition.y}%`,
-                          zIndex: activeCardIndex === index ? 20 : (isChallengePosition ? 12 : 10 + index) // Challenge card always on top
-                        }}
-                      >
-                        <motion.div
-                          className="relative"
-                          data-card-element="true"
-                          onTouchEnd={(e) => {
-                            if (isMobile) {
-                              e.preventDefault();
-                              handleCardDoubleTap(index, e);
-                            }
-                          }}
-                          whileHover={{ scale: 1.05 }}
-                          animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
-                        >
-                          <motion.div 
-                            className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`}
-                            style={{ 
-                              transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none' 
-                            }}
-                            animate={{ 
-                              rotateY: (selectedCard as any).revealed ? 0 : 180 
-                            }}
-                            transition={cardAnimationConfig}
-                            onClick={() => {
-                              if ((selectedCard as any).revealed) {
-                                // Open card detail modal for revealed cards
-                                updateSharedModalState({
-                                  isOpen: true,
-                                  cardIndex: index,
-                                  showDescription: false,
-                                  triggeredBy: participantId || null
-                                });
-                              } else {
-                                handleCardFlip(index);
-                              }
-                            }}
-                          >
-                            {(selectedCard as any).revealed ? (
-                              <img 
-                                src={selectedCard.image_url} 
-                                alt={selectedCard.name} 
-                                className={`w-full h-full object-contain p-0.5 ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
-                              />
-                            ) : (
-                              <TarotCardBack />
-                            )}
-                          </motion.div>
-                          <div 
-                            className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
-                          </div>
-                        </motion.div>
-                      </div>
-                    );
-                  })}
-                </div>
-                
-
-
-                {/* Reading controls */}
-                <div className={`absolute ${isMobile ? 'top-2 right-2' : 'bottom-6 right-6'} flex gap-1 md:gap-3`}>
-                  <Tooltip content="View interpretation" position="left" disabled={isMobile}>
-                    <button 
-                      onClick={() => setShowMobileInterpretation(true)}
-                      className={`btn btn-primary px-2 py-1 text-xs mobile-interpretation-button ${!(isMobile && !isLandscape && !showMobileInterpretation) ? 'hidden' : ''}`}
-                    >
-                      <Info className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Return to card table" position="left" disabled={isMobile}>
-                    <button 
-                      onClick={() => setReadingStepWrapped('drawing')}
-                      className={`btn btn-secondary ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}
-                    >
-                      {isMobile ? 'Back' : 'Back to Table'}
-                    </button>
-                  </Tooltip>
-                  
-                  <Tooltip content="Start a new reading" position="left" disabled={isMobile}>
-                    <button 
-                      onClick={resetReading}
-                      className={`btn btn-ghost border border-input ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}
-                    >
-                      {isMobile ? 'New' : 'New Reading'}
-                    </button>
-                  </Tooltip>
-                </div>
-              </div>
-              
-              {/* Interpretation panel - responsive layout */}
-              <div className={`${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-2/5' : (showMobileInterpretation ? 'flex-1' : 'hidden')) : 'w-2/5'} bg-card ${isMobile ? (isLandscape && !showMobileInterpretation ? 'border-l' : '') : 'border-l'} border-border flex flex-col h-full`}>
-                <div className={`${isMobile ? 'p-2' : 'p-3 md:p-4'} border-b border-border bg-primary/5 flex justify-between items-center`}>
-                  <div className="flex items-center">
-                    <TarotLogo className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4 md:h-5 md:w-5'} text-primary mr-2`} />
-                    <h3 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm md:text-base'}`}>Reading Interpretation</h3>
-                  </div>
-                  <Tooltip content="Back to table" position="left" disabled={isMobile}>
-                    <button 
-                      onClick={() => setReadingStepWrapped('drawing')}
-                      className={`text-muted-foreground hover:text-foreground ${isMobile ? 'hidden' : ''}`}
-                    >
-                      <XCircle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                </div>
-                
-                <div className={`flex-1 ${isMobile ? 'p-2' : 'p-3 md:p-4'} overflow-y-auto`}>
-                  {/* Card information */}
-                  {activeCardIndex !== null && activeCardIndex !== undefined && selectedCards[activeCardIndex] && (
-                    <div className={`${isMobile ? 'mb-3 p-2' : 'mb-4 md:mb-6 p-2 md:p-3'} bg-muted/30 border border-border rounded-lg`}>
-                      <div className={`flex ${isMobile ? 'gap-1' : 'gap-2 md:gap-3'}`}>
-                        <div className={`shrink-0 ${isMobile ? 'w-8 h-12' : 'w-10 h-15 md:w-12 md:h-18'} p-0.5`}>
-                          <img 
-                            src={selectedCards[activeCardIndex].image_url} 
-                            alt={selectedCards[activeCardIndex].name} 
-                            className={`w-full h-full object-cover rounded-md ${selectedCards[activeCardIndex].isReversed ? 'rotate-180' : ''}`}
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm md:text-base'}`}>{selectedCards[activeCardIndex].name} {selectedCards[activeCardIndex].isReversed && '(Reversed)'}</h4>
-                          <p className="text-xs text-accent mb-1">{selectedCards[activeCardIndex].position}</p>
-                          <p className="text-xs text-muted-foreground">{selectedCards[activeCardIndex].description}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Interpretation text */}
-                  <div className="space-y-2">
-                    {cleanMarkdownText(interpretation).map((line, i: number) => (
-                      <div key={i}>
-                        {line.isHeader ? (
-                          <h4 className={`font-semibold text-primary ${isMobile ? 'text-sm' : 'text-base'} mb-2`}>
-                            {line.content}
-                          </h4>
-                        ) : line.isBullet ? (
-                          <div className={`flex items-start gap-2 ${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground ml-2`}>
-                            <span className="text-primary mt-1">•</span>
-                            <span>{line.content}</span>
-                          </div>
-                        ) : (
-                          <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-foreground leading-relaxed`}>
-                            {line.content}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Card navigation */}
-                {selectedCards.length > 1 && (
-                  <div className={`${isMobile ? 'p-1' : 'p-2 md:p-3'} border-t border-border flex justify-between items-center`}>
-                    <Tooltip content="Previous card" position="top" disabled={isMobile}>
-                      <button 
-                        onClick={() => {
-                          const currentIndex = activeCardIndex ?? 0;
-                          const newIndex = currentIndex > 0 ? currentIndex - 1 : selectedCards.length - 1;
-                          setActiveCardIndexWrapped(newIndex);
-                        }}
-                        className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'}`}
-                      >
-                        <ChevronLeft className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
-                      </button>
-                    </Tooltip>
-                    
-                    <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
-                      {(activeCardIndex ?? 0) + 1} of {selectedCards.length} cards
-                    </div>
-                    
-                    <Tooltip content="Next card" position="top" disabled={isMobile}>
-                      <button 
-                        onClick={() => {
-                          const currentIndex = activeCardIndex ?? 0;
-                          const newIndex = currentIndex < selectedCards.length - 1 ? currentIndex + 1 : 0;
-                          setActiveCardIndexWrapped(newIndex);
-                        }}
-                        className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'}`}
-                      >
-                        <ChevronRight className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
-                      </button>
-                    </Tooltip>
-                  </div>
-                )}
-              </div>
-            </div>
+            <InterpretationScreen
+              isMobile={isMobile}
+              isLandscape={isLandscape}
+              mobileInterpretationModal={mobileInterpretationModal} // from useModalState
+              readingAreaRef={readingAreaRef} // ref
+              zoomLevel={zoomLevel} // from sessionState
+              panOffset={panOffset} // from sessionState
+              zoomFocus={zoomFocus} // from sessionState
+              isSpacePressed={isSpacePressed} // local state
+              selectedLayout={selectedLayout || null} // from sessionState, ensure null
+              selectedCards={selectedCards} // from sessionState
+              activeCardIndex={activeCardIndex ?? null} // from sessionState, ensure null
+              interpretation={interpretation} // from sessionState
+              cardAnimationConfig={cardAnimationConfig} // constant
+              participantId={participantId} // from readingSessionStore
+              deck={deck} // local state, current deck object
+              zoomIn={zoomIn} // callback
+              zoomOut={zoomOut} // callback
+              resetZoom={resetZoom} // callback
+              panDirection={panDirection} // callback
+              resetPan={resetPan} // callback
+              shuffleDeck={shuffleDeck} // callback
+              toggleHelpModal={toggleHelpModal} // from useHelpModal
+              resetCards={resetCards} // callback
+              resetReading={resetReading} // callback
+              handlePanStart={handlePanStart} // callback
+              setZoomLevelWrapped={setZoomLevelWrapped} // callback wrapper for session
+              setActiveCardIndexWrapped={setActiveCardIndexWrapped} // callback wrapper for session
+              setReadingStepWrapped={setReadingStepWrapped} // callback wrapper for session
+              updateSharedModalState={updateSharedModalState} // callback wrapper for session
+              cleanMarkdownText={cleanMarkdownText} // utility
+              handleCardFlip={handleCardFlip} // callback
+              handleCardDoubleClick={handleCardDoubleClick} // callback
+              handleCardDoubleTap={handleCardDoubleTap} // callback
+            />
           )}
         </div>
       </main>
@@ -4338,10 +2833,10 @@ const ReadingRoom = () => {
       
       {/* Share Room Modal - mobile responsive */}
       <AnimatePresence>
-        {showShareModal && sessionId && (
+        {shareModal.isOpen && sessionId && (
           <div 
             className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
-            onClick={() => setShowShareModal(false)}
+            onClick={() => shareModal.closeModal()}
           >
             <motion.div 
               className="relative bg-card max-w-md w-full rounded-xl overflow-hidden"
@@ -4355,7 +2850,7 @@ const ReadingRoom = () => {
                 <h3 className="font-serif font-bold">Share Reading Room</h3>
                 <Tooltip content="Close share modal" position="left" disabled={isMobile}>
                   <button 
-                    onClick={() => setShowShareModal(false)}
+                    onClick={() => shareModal.closeModal()}
                     className="text-muted-foreground hover:text-foreground"
                   >
                     <XCircle className="h-5 w-5" />
@@ -4398,7 +2893,7 @@ const ReadingRoom = () => {
                 
                 <div className="flex justify-end">
                   <button
-                    onClick={() => setShowShareModal(false)}
+                    onClick={() => shareModal.closeModal()}
                     className="btn btn-primary px-4 py-2"
                   >
                     Done
@@ -4712,14 +3207,14 @@ const ReadingRoom = () => {
 
       {/* Exit Confirmation Modal */}
       <AnimatePresence>
-        {showExitModal && (
+        {exitModal.isOpen && (
           <motion.div
             className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            onClick={() => setShowExitModal(false)}
+            onClick={() => exitModal.closeModal()}
           >
             <motion.div
               className={`bg-card border border-border rounded-lg shadow-lg ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md'} p-6`}
@@ -4756,7 +3251,7 @@ const ReadingRoom = () => {
               
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowExitModal(false)}
+                  onClick={() => exitModal.closeModal()}
                   className="flex-1 px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors"
                 >
                   Stay in Session
@@ -5046,14 +3541,14 @@ const ReadingRoom = () => {
 
       {/* Invite Dropdown Modal */}
       <AnimatePresence>
-        {showInviteDropdown && (
+        {inviteDropdown.isOpen && (
           <motion.div
             className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            onClick={() => setShowInviteDropdown(false)}
+            onClick={() => inviteDropdown.closeModal()}
           >
             <motion.div
               className={`bg-card border border-border rounded-lg shadow-lg ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md'} p-6`}
@@ -5118,8 +3613,8 @@ const ReadingRoom = () => {
                       }
                       
                       // Then proceed with sharing
-                      setShowInviteDropdown(false);
-                      setShowShareModal(true);
+                      inviteDropdown.closeModal(); 
+                      shareModal.openModal(); 
                     }}
                     disabled={isVideoConnecting}
                     className="w-full p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors text-left"
@@ -5149,8 +3644,8 @@ const ReadingRoom = () => {
                 {/* Regular share option */}
                 <button
                   onClick={() => {
-                    setShowInviteDropdown(false);
-                    setShowShareModal(true);
+                    inviteDropdown.closeModal(); 
+                    shareModal.openModal(); 
                   }}
                   className="w-full p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors text-left"
                 >
@@ -5170,7 +3665,7 @@ const ReadingRoom = () => {
               
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowInviteDropdown(false)}
+                  onClick={() => inviteDropdown.closeModal()}
                   className="flex-1 px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors"
                 >
                   Cancel
@@ -5178,7 +3673,7 @@ const ReadingRoom = () => {
                 <button
                   onClick={() => {
                     // Handle invitee submission
-                    setShowInviteDropdown(false);
+                    inviteDropdown.closeModal();
                   }}
                   className="flex-1 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                 >

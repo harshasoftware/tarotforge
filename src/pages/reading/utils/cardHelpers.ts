@@ -38,7 +38,8 @@ export const getTransform = (zoomLevel: number, zoomFocus: { x: number; y: numbe
 };
 
 // Function to clean markdown formatting and convert to plain text
-export const cleanMarkdownText = (text: string): { content: string; isHeader: boolean; isBullet: boolean }[] => {
+export const cleanMarkdownText = (text: string): CleanedMarkdownLine[] => {
+  if (!text) return [];
   const lines = text.split('\n');
   return lines.map(line => {
     let cleanLine = line.trim();
@@ -88,4 +89,11 @@ export const getTouchDistance = (touches: TouchList) => {
     Math.pow(touch2.clientX - touch1.clientX, 2) + 
     Math.pow(touch2.clientY - touch1.clientY, 2)
   );
-}; 
+};
+
+// Assuming CleanedMarkdownLine is defined something like this, ensure it's exported:
+export interface CleanedMarkdownLine { 
+  content: string; 
+  isHeader?: boolean; 
+  isBullet?: boolean; 
+} 
