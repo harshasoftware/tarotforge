@@ -34,6 +34,7 @@ import { useGuestUpgrade } from './hooks/useGuestUpgrade';
 import { useHelpModal } from './hooks/useHelpModal';
 import Div100vh from 'react-div-100vh';
 import { useReadingRoomKeyboardShortcuts } from './hooks/useReadingRoomKeyboardShortcuts'; // Added import
+import { useBroadcastHandler } from './hooks/useBroadcastHandler'; // Added import
 
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
@@ -338,98 +339,6 @@ const ReadingRoom = () => {
       setTimeout(() => setShowFollowNotification(false), 3000);
     }
   }, [isFollowing]);
-  
-  
-  // Listen for shuffled deck updates from other participants
-  useEffect(() => {
-    if (!sessionState?.id) return;
-    
-    const handleBroadcast = (payload: any) => {
-      const { action, data, participantId: senderParticipantId } = payload.payload;
-      
-      // Only process if this isn't from ourselves
-      if (senderParticipantId !== participantId) {
-        console.log('Received broadcast action:', { action, data, from: senderParticipantId });
-        
-        switch (action) {
-          case 'updateShuffledDeck':
-            if (data.shuffledDeck) {
-              console.log('Updating shuffled deck from broadcast:', data.shuffledDeck.length, 'cards remaining');
-              setShuffledDeck(data.shuffledDeck);
-            }
-            break;
-          case 'shuffleDeck':
-            if (data.shuffledDeck) {
-              console.log('Shuffling deck from broadcast:', data.shuffledDeck.length, 'cards');
-              setShuffledDeck(data.shuffledDeck);
-              setDeckRefreshKey(prev => prev + 1); // Force deck visual refresh
-            }
-            break;
-          case 'startShuffling':
-            console.log('Starting shuffle animation from broadcast');
-            setIsShuffling(true);
-            break;
-          case 'stopShuffling':
-            console.log('Stopping shuffle animation from broadcast');
-            setIsShuffling(false);
-            break;
-          case 'startGeneratingInterpretation':
-            console.log('Starting interpretation generation from broadcast');
-            setIsGeneratingInterpretation(true);
-            break;
-          case 'stopGeneratingInterpretation':
-            console.log('Stopping interpretation generation from broadcast');
-            setIsGeneratingInterpretation(false);
-            break;
-          case 'resetReading':
-            if (data.shuffledDeck) {
-              console.log('Resetting reading from broadcast');
-              setShuffledDeck(data.shuffledDeck);
-              setShowMobileInterpretation(false);
-              setInterpretationCards([]);
-              setDeckRefreshKey(prev => prev + 1);
-            }
-            break;
-          case 'resetCards':
-            if (data.shuffledDeck) {
-              console.log('Resetting cards from broadcast');
-              setShuffledDeck(data.shuffledDeck);
-              setShowMobileInterpretation(false);
-              setInterpretationCards([]);
-              setDeckRefreshKey(prev => prev + 1);
-              
-              // Show deck cleared notification
-              if (data.participantName) {
-                showParticipantNotification({
-                  type: 'deck-cleared',
-                  participantName: data.participantName,
-                  isAnonymous: data.isAnonymous || false
-                });
-              }
-            }
-            break;
-          case 'resetPan':
-            if (data.panOffset) {
-              console.log('Resetting pan from broadcast');
-              setPanOffsetWrapped(data.panOffset);
-            }
-            break;
-        }
-      }
-    };
-    
-    // Subscribe to the existing channel if it exists
-    const channel = useReadingSessionStore.getState().channel;
-    if (channel) {
-      const subscription = channel.on('broadcast', { event: 'guest_action' }, handleBroadcast);
-      
-      return () => {
-        // Supabase channels don't have individual event removal, 
-        // but the cleanup happens when the component unmounts
-        // and the main store cleanup handles channel unsubscription
-      };
-    }
-  }, [sessionState?.id, participantId]);
 
   // Auto-follow host's view when following is enabled
   useEffect(() => {
@@ -669,6 +578,19 @@ const ReadingRoom = () => {
   const setReadingStepWrapped = useCallback((step: 'setup' | 'drawing' | 'interpretation') => {
     updateSession({ readingStep: step });
   }, [updateSession]);
+
+  // Listen for shuffled deck updates from other participants
+  useBroadcastHandler({
+      sessionId: sessionState?.id,
+      participantId,
+      setShuffledDeck,
+      setIsShuffling,
+      setIsGeneratingInterpretation,
+      setPanOffsetWrapped,
+      setDeckRefreshKey,
+      setShowMobileInterpretation,
+      setInterpretationCards,
+    });
 
   // Modal synchronization wrapper
   const updateSharedModalState = useCallback((modalState: {
@@ -1520,7 +1442,7 @@ const ReadingRoom = () => {
     });
   }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId,
     anonymousId, getDefaultZoomLevel, selectedLayout]);
-  
+
   const resetCards = useCallback(() => {
     // Shuffle and restore all cards to create a fresh deck
     let freshlyShuffled: Card[] = [];
