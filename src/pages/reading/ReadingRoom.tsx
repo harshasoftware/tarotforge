@@ -20,57 +20,13 @@ import Tooltip from '../../components/ui/Tooltip';
 import { showParticipantNotification, showErrorToast, showSuccessToast } from '../../utils/toast';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../../lib/supabase';
+import { readingLayouts } from './constants/layouts'; 
+import { questionCategories } from './constants/questionCategories';
+import { cardAnimationConfig, zoomAnimationConfig, cardFlipConfig } from './utils/animationConfigs';
+import { getPlatformShortcut, KEY_CODES, KEY_VALUES } from './constants/shortcuts'; 
 
 import Div100vh from 'react-div-100vh';
 
-// Mock reading layouts - moved outside component to prevent recreation
-const readingLayouts: ReadingLayout[] = [
-  {
-    id: 'single-card',
-    name: 'Single Card',
-    description: 'Quick guidance for your day or a specific question',
-    card_count: 1,
-    positions: [
-      { id: 0, name: 'Guidance', meaning: 'Offers insight or guidance for your question', x: 50, y: 50 }
-    ]
-  },
-  {
-    id: 'three-card',
-    name: 'Three Card Spread',
-    description: 'Past, Present, Future reading to understand your current situation',
-    card_count: 3,
-    positions: [
-      { id: 0, name: 'Past', meaning: 'Represents influences from the past that led to your current situation', x: 25, y: 50 },
-      { id: 1, name: 'Present', meaning: 'Shows the current situation and energies surrounding your question', x: 50, y: 50 },
-      { id: 2, name: 'Future', meaning: 'Potential outcome based on the current path you are on', x: 75, y: 50 }
-    ]
-  },
-  {
-    id: 'celtic-cross',
-    name: 'Celtic Cross',
-    description: 'Comprehensive reading that explores many aspects of your situation',
-    card_count: 10,
-    positions: [
-      { id: 0, name: 'Present', meaning: 'Represents your current situation', x: 40, y: 45 },
-      { id: 1, name: 'Challenge', meaning: 'What challenges or crosses your situation', x: 40, y: 45, rotation: 90 },
-      { id: 2, name: 'Foundation', meaning: 'The foundation of your situation', x: 40, y: 75 },
-      { id: 3, name: 'Recent Past', meaning: 'Events from the recent past', x: 25, y: 45 },
-      { id: 4, name: 'Potential', meaning: 'Possible outcome if nothing changes', x: 40, y: 15 },
-      { id: 5, name: 'Near Future', meaning: 'Events in the near future', x: 55, y: 45 },
-      { id: 6, name: 'Self', meaning: 'How you view yourself', x: 75, y: 80 },
-      { id: 7, name: 'Environment', meaning: 'How others view you or your environment', x: 75, y: 65 },
-      { id: 8, name: 'Hopes/Fears', meaning: 'Your hopes and fears', x: 75, y: 50 },
-      { id: 9, name: 'Outcome', meaning: 'The final outcome', x: 75, y: 35 }
-    ]
-  },
-  {
-    id: 'free-layout',
-    name: 'Freestyle Layout',
-    description: 'Create your own custom spread - drag cards anywhere on the table',
-    card_count: 999, // Unlimited
-    positions: [] // No predefined positions
-  }
-];
 
 // Optimized debounce utility for performance
 const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): T => {
@@ -100,25 +56,6 @@ const getTransform = (zoomLevel: number, zoomFocus: { x: number; y: number } | n
     backfaceVisibility: 'hidden' as const,
     perspective: 1000,
   };
-};
-
-// Performance-optimized animation configs
-const cardAnimationConfig = {
-  type: "tween",
-  duration: 0.3,
-  ease: "easeOut"
-};
-
-const zoomAnimationConfig = {
-  type: "tween", 
-  duration: 0.2,
-  ease: "easeInOut"
-};
-
-const cardFlipConfig = {
-  type: "tween",
-  duration: 0.6, 
-  ease: "easeInOut"
 };
 
 // Function to clean markdown formatting and convert to plain text
@@ -161,20 +98,6 @@ const cleanMarkdownText = (text: string): { content: string; isHeader: boolean; 
       isBullet
     };
   }).filter(line => line.content.length > 0); // Remove empty lines
-};
-
-// Helper function to get platform-specific shortcut text
-const getPlatformShortcut = (key: string, withModifier = false): string => {
-  const isMac = navigator.platform.toLowerCase().includes('mac');
-  
-  switch (key) {
-    case 'help':
-      return isMac ? 'H' : 'F1';
-    case 'reset':
-      return withModifier ? (isMac ? 'Cmd+R' : 'Ctrl+R') : 'R';
-    default:
-      return key;
-  }
 };
 
 const ReadingRoom = () => {
@@ -694,15 +617,6 @@ const ReadingRoom = () => {
   const [isQuestionHighlightingActive, setIsQuestionHighlightingActive] = useState(true);
   const [isCategoryHighlightingActive, setIsCategoryHighlightingActive] = useState(true);
   
-  // Question categories for keyboard navigation
-  const questionCategories = [
-    { id: 'love', name: 'Love', icon: '💕', desc: 'Romance, relationships, soulmates' },
-    { id: 'career', name: 'Career', icon: '🎯', desc: 'Work, business, professional growth' },
-    { id: 'finance', name: 'Finance', icon: '💰', desc: 'Money, wealth, investments' },
-    { id: 'relationships', name: 'Relationships', icon: '👥', desc: 'Family, friends, social connections' },
-    { id: 'spiritual-growth', name: 'Spiritual Growth', icon: '⭐', desc: 'Soul purpose, enlightenment' },
-    { id: 'past-lives', name: 'Past Lives', icon: '♾️', desc: 'Karma, soul history, past influences' }
-  ];
   
   // Track cards used for current interpretation to prevent regeneration
   const [interpretationCards, setInterpretationCards] = useState<any[]>([]);
@@ -2293,7 +2207,7 @@ const ReadingRoom = () => {
       }
       
       // Track space key for space+drag panning (like Figma)
-      if (event.code === 'Space' && !event.repeat && !isMobile) {
+      if (event.code === KEY_CODES.SPACE && !event.repeat && !isMobile) {
         setIsSpacePressed(true);
         event.preventDefault();
         return;
@@ -2302,7 +2216,7 @@ const ReadingRoom = () => {
       // Gallery navigation (takes priority when gallery is open)
       if (showCardGallery) {
         switch (event.key) {
-          case 'Escape':
+          case KEY_VALUES.ESCAPE:
             if (showCardDescription && sharedModalState) {
               updateSharedModalState({
                 ...sharedModalState,
@@ -2313,11 +2227,11 @@ const ReadingRoom = () => {
               closeCardGallery();
             }
             break;
-          case 'ArrowLeft':
+          case KEY_VALUES.ARROW_LEFT:
             event.preventDefault();
             navigateGallery('prev');
             break;
-          case 'ArrowRight':
+          case KEY_VALUES.ARROW_RIGHT:
             event.preventDefault();
             navigateGallery('next');
             break;
@@ -2326,7 +2240,7 @@ const ReadingRoom = () => {
       }
       
       // Enter key handling for exit confirmation modal
-      if (event.key === 'Enter' && showExitModal && (readingStep === 'setup' || readingStep === 'drawing' || readingStep === 'interpretation')) {
+      if (event.key === KEY_VALUES.ENTER && showExitModal && (readingStep === 'setup' || readingStep === 'drawing' || readingStep === 'interpretation')) {
         // Confirm exit - navigate away from reading room (same logic as exit button)
         event.preventDefault();
         window.location.href = user ? '/collection' : '/';
@@ -2334,7 +2248,7 @@ const ReadingRoom = () => {
       }
       
       // Global Escape key handling for all modals (during setup/drawing/interpretation steps)
-      if (event.key === 'Escape' && (readingStep === 'setup' || readingStep === 'drawing' || readingStep === 'interpretation')) {
+      if (event.key === KEY_VALUES.ESCAPE && (readingStep === 'setup' || readingStep === 'drawing' || readingStep === 'interpretation')) {
         // Close modals in priority order (most specific to least specific)
         if (showShareModal) {
           setShowShareModal(false);
@@ -2379,24 +2293,24 @@ const ReadingRoom = () => {
       // Setup screen layout navigation
       if (readingStep === 'setup') {
         switch (event.key) {
-          case 'ArrowUp':
+          case KEY_VALUES.ARROW_UP:
             event.preventDefault();
             setHighlightedSetupLayoutIndex(prev => 
               prev > 0 ? prev - 1 : readingLayouts.length - 1
             );
             return; // Prevent other handlers
-          case 'ArrowDown':
+          case KEY_VALUES.ARROW_DOWN:
             event.preventDefault();
             setHighlightedSetupLayoutIndex(prev => 
               prev < readingLayouts.length - 1 ? prev + 1 : 0
             );
             return; // Prevent other handlers
-          case 'Enter':
+          case KEY_VALUES.ENTER:
             event.preventDefault();
             const selectedLayoutFromSetup = readingLayouts[highlightedSetupLayoutIndex];
             handleLayoutSelect(selectedLayoutFromSetup);
             return; // Prevent other handlers
-          case 'Escape':
+          case KEY_VALUES.ESCAPE:
             // Show exit confirmation dialog like in drawing screen
             event.preventDefault();
             setShowExitModal(true);
@@ -2410,7 +2324,7 @@ const ReadingRoom = () => {
         // Category navigation (when no category is selected)
         if (!selectedCategory && !showCustomQuestionInput) {
           switch (event.key) {
-            case 'ArrowUp':
+            case KEY_VALUES.ARROW_UP:
               event.preventDefault();
               setIsCategoryHighlightingActive(true); // Re-enable highlighting on keyboard use
               setHighlightedCategoryIndex(prev => {
@@ -2419,7 +2333,7 @@ const ReadingRoom = () => {
                 return newIndex >= 0 ? newIndex : questionCategories.length + newIndex;
               });
               return; // Prevent other handlers
-            case 'ArrowDown':
+            case KEY_VALUES.ARROW_DOWN:
               event.preventDefault();
               setIsCategoryHighlightingActive(true); // Re-enable highlighting on keyboard use
               setHighlightedCategoryIndex(prev => {
@@ -2428,28 +2342,28 @@ const ReadingRoom = () => {
                 return newIndex < questionCategories.length ? newIndex : newIndex - questionCategories.length;
               });
               return; // Prevent other handlers
-            case 'ArrowLeft':
+            case KEY_VALUES.ARROW_LEFT:
               event.preventDefault();
               setIsCategoryHighlightingActive(true); // Re-enable highlighting on keyboard use
               setHighlightedCategoryIndex(prev => 
                 prev > 0 ? prev - 1 : questionCategories.length - 1
               );
               return; // Prevent other handlers
-            case 'ArrowRight':
+            case KEY_VALUES.ARROW_RIGHT:
               event.preventDefault();
               setIsCategoryHighlightingActive(true); // Re-enable highlighting on keyboard use
               setHighlightedCategoryIndex(prev => 
                 prev < questionCategories.length - 1 ? prev + 1 : 0
               );
               return; // Prevent other handlers
-            case 'Enter':
+            case KEY_VALUES.ENTER:
               event.preventDefault();
               if (isCategoryHighlightingActive) {
                 const selectedCategoryFromKeyboard = questionCategories[highlightedCategoryIndex];
                 handleCategorySelect(selectedCategoryFromKeyboard.id);
               }
               return; // Prevent other handlers
-            case 'Escape':
+            case KEY_VALUES.ESCAPE:
               // Show exit confirmation dialog like in other screens
               event.preventDefault();
               setShowExitModal(true);
@@ -2459,28 +2373,28 @@ const ReadingRoom = () => {
         // Generated questions navigation (when category is selected and questions are loaded)
         else if (selectedCategory && generatedQuestions.length > 0 && !isLoadingQuestions && !showCustomQuestionInput) {
           switch (event.key) {
-            case 'ArrowUp':
+            case KEY_VALUES.ARROW_UP:
               event.preventDefault();
               setIsQuestionHighlightingActive(true); // Re-enable highlighting on keyboard use
               setHighlightedQuestionIndex(prev => 
                 prev > 0 ? prev - 1 : generatedQuestions.length - 1
               );
               return; // Prevent other handlers
-            case 'ArrowDown':
+            case KEY_VALUES.ARROW_DOWN:
               event.preventDefault();
               setIsQuestionHighlightingActive(true); // Re-enable highlighting on keyboard use
               setHighlightedQuestionIndex(prev => 
                 prev < generatedQuestions.length - 1 ? prev + 1 : 0
               );
               return; // Prevent other handlers
-            case 'Enter':
+            case KEY_VALUES.ENTER:
               event.preventDefault();
               if (isQuestionHighlightingActive) {
                 const selectedQuestionFromKeyboard = generatedQuestions[highlightedQuestionIndex];
                 handleQuestionSelect(selectedQuestionFromKeyboard);
               }
               return; // Prevent other handlers
-            case 'Escape':
+            case KEY_VALUES.ESCAPE:
               // Go back to category selection
               event.preventDefault();
               setSelectedCategory(null);
@@ -2496,25 +2410,25 @@ const ReadingRoom = () => {
       // Layout dropdown navigation (takes priority when dropdown is open)
       if (showLayoutDropdown && readingStep === 'drawing') {
         switch (event.key) {
-          case 'ArrowUp':
+          case KEY_VALUES.ARROW_UP:
             event.preventDefault();
             setHighlightedLayoutIndex(prev => 
               prev > 0 ? prev - 1 : readingLayouts.length - 1
             );
             break;
-          case 'ArrowDown':
+          case KEY_VALUES.ARROW_DOWN:
             event.preventDefault();
             setHighlightedLayoutIndex(prev => 
               prev < readingLayouts.length - 1 ? prev + 1 : 0
             );
             break;
-          case 'Enter':
+          case KEY_VALUES.ENTER:
             event.preventDefault();
             const selectedLayoutFromDropdown = readingLayouts[highlightedLayoutIndex];
             handleLayoutSelect(selectedLayoutFromDropdown);
             setShowLayoutDropdown(false);
             break;
-          case 'Escape':
+          case KEY_VALUES.ESCAPE:
             event.preventDefault();
             setShowLayoutDropdown(false);
             break;
@@ -2525,40 +2439,38 @@ const ReadingRoom = () => {
       // Panning navigation (only on desktop and when not in gallery or layout dropdown)
       if (!isMobile && (readingStep === 'drawing' || readingStep === 'interpretation')) {
         switch (event.key) {
-          case 'ArrowUp':
+          case KEY_VALUES.ARROW_UP:
             event.preventDefault();
             panDirection('up');
             break;
-          case 'ArrowDown':
+          case KEY_VALUES.ARROW_DOWN:
             event.preventDefault();
             panDirection('down');
             break;
-          case 'ArrowLeft':
+          case KEY_VALUES.ARROW_LEFT:
             event.preventDefault();
             panDirection('left');
             break;
-          case 'ArrowRight':
+          case KEY_VALUES.ARROW_RIGHT:
             event.preventDefault();
             panDirection('right');
             break;
-          case 'Enter':
-          case 'c':
-          case 'C':
+          case KEY_VALUES.ENTER:
+          case KEY_VALUES.C_LOWER: // Handles 'c' and 'C' implicitly if KEY_VALUES.C_LOWER is 'c'
             event.preventDefault();
             resetPan();
             break;
-          case '+':
-          case '=':
+          case KEY_VALUES.PLUS:
+          case KEY_VALUES.EQUALS:
             event.preventDefault();
             setZoomLevelWrapped(Math.min(zoomLevel + 0.2, 3));
             break;
-          case '-':
-          case '_':
+          case KEY_VALUES.MINUS:
+          case KEY_VALUES.UNDERSCORE:
             event.preventDefault();
             setZoomLevelWrapped(Math.max(zoomLevel - 0.2, 0.5));
             break;
-          case 'z':
-          case 'Z':
+          case KEY_VALUES.Z_LOWER: // Handles 'z' and 'Z' implicitly if KEY_VALUES.Z_LOWER is 'z'
             event.preventDefault();
             setZoomLevelWrapped(getDefaultZoomLevel(selectedLayout));
             setZoomFocusWrapped(null);
@@ -2569,7 +2481,7 @@ const ReadingRoom = () => {
       // Global shortcuts (available in drawing and interpretation steps)
       if (!isMobile && (readingStep === 'drawing' || readingStep === 'interpretation')) {
         switch (event.code) {
-          case 'ShiftLeft':
+          case KEY_CODES.SHIFT_LEFT:
             event.preventDefault();
             shuffleDeck();
             break;
@@ -2579,8 +2491,7 @@ const ReadingRoom = () => {
       // Card action shortcuts (available in drawing/interpretation steps)
       if (!isMobile && (readingStep === 'drawing' || readingStep === 'interpretation')) {
         switch (event.key) {
-          case 'r':
-          case 'R':
+          case KEY_VALUES.R_LOWER: // Handles 'r' and 'R' implicitly
             // R for reveal all cards (only if cards are placed and some are unrevealed)
             if (!event.metaKey && !event.ctrlKey) {
               const hasPlacedCards = selectedCards.some((card: any) => card);
@@ -2604,35 +2515,31 @@ const ReadingRoom = () => {
       // Global shortcuts (available in all steps)
       if (!isMobile) {
         switch (event.key) {
-          case 'F1':
+          case KEY_VALUES.F1:
             // F1 for Windows/Linux
             if (!navigator.platform.toLowerCase().includes('mac')) {
               event.preventDefault();
               showHint();
             }
             break;
-          case 'h':
-          case 'H':
+          case KEY_VALUES.H_LOWER: // Handles 'h' and 'H' implicitly
             // H for Mac (and as fallback for other platforms)
             if (navigator.platform.toLowerCase().includes('mac') || event.metaKey || event.ctrlKey) {
               event.preventDefault();
               showHint();
             }
             break;
-          case 't':
-          case 'T':
+          case KEY_VALUES.T_LOWER: // Handles 't' and 'T' implicitly
             // T for theme toggle (works in all steps)
             event.preventDefault();
             toggleTheme();
             break;
-          case 'd':
-          case 'D':
+          case KEY_VALUES.D_LOWER: // Handles 'd' and 'D' implicitly
             // D for deck selection
             event.preventDefault();
             openDeckSelection();
             break;
-          case 'v':
-          case 'V':
+          case KEY_VALUES.V_LOWER: // Handles 'v' and 'V' implicitly
             // V for viewing card detail modal (only if all cards are revealed)
             const hasPlacedCards = selectedCards.some((card: any) => card);
             const allCardsRevealed = hasPlacedCards && selectedCards.every((card: any) => !card || card.revealed);
@@ -2645,8 +2552,7 @@ const ReadingRoom = () => {
               }
             }
             break;
-          case 'l':
-          case 'L':
+          case KEY_VALUES.L_LOWER: // Handles 'l' and 'L' implicitly
             // L for layout selection (only during drawing step)
             if (readingStep === 'drawing') {
               event.preventDefault();
@@ -2665,7 +2571,7 @@ const ReadingRoom = () => {
     
     const handleKeyUp = (event: KeyboardEvent) => {
       // Release space key
-      if (event.code === 'Space' && !isMobile) {
+      if (event.code === KEY_CODES.SPACE && !isMobile) {
         setIsSpacePressed(false);
         event.preventDefault();
       }
@@ -2846,7 +2752,7 @@ const ReadingRoom = () => {
   // Handle invite keyboard shortcut (I key)
   useEffect(() => {
     const handleInviteKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'i' || event.key === 'I') {
+      if (event.key === KEY_VALUES.I_LOWER) { // Handles 'i' and 'I' implicitly
         // Only trigger if not typing in an input/textarea
         if (event.target instanceof HTMLElement && 
             (event.target.tagName === 'INPUT' || 
