@@ -4,6 +4,7 @@ import { useAuthStore } from './authStore';
 import { getUserSubscription } from '../lib/stripe';
 import { updateSubscriptionData } from '../utils/analytics';
 import { getPlanNameFromPriceId } from '../utils/analytics';
+import { supabase } from '../lib/supabase';
 
 interface SubscriptionState {
   subscription: any | null;
@@ -64,27 +65,23 @@ export const useSubscriptionStore = create<SubscriptionStore>()(
         set({ loading: true, error: null });
         const subscriptionData = await getUserSubscription();
         
-        // Check if subscription has changed
-        const hasChanged = JSON.stringify(subscriptionData) !== JSON.stringify(currentSubscription);
+        // Always update the subscription data to ensure we have the latest
+        set({ subscription: subscriptionData });
+        console.log("Subscription data updated:", subscriptionData?.subscription_status);
         
-        if (hasChanged) {
-          set({ subscription: subscriptionData });
-          console.log("Subscription status changed:", subscriptionData?.subscription_status);
-          
-          // Update LogRocket with subscription info when it changes
-          if (subscriptionData) {
-            // Determine subscription type from price_id
-            const subscriptionType = subscriptionData.price_id 
-              ? getPlanNameFromPriceId(subscriptionData.price_id)
-              : 'free';
-              
-            // Update LogRocket with subscription info
-            updateSubscriptionData(user.id, {
-              status: subscriptionData.subscription_status || 'none',
-              type: subscriptionType,
-              price_id: subscriptionData.price_id
-            });
-          }
+        // Update LogRocket with subscription info
+        if (subscriptionData) {
+          // Determine subscription type from price_id
+          const subscriptionType = subscriptionData.price_id 
+            ? getPlanNameFromPriceId(subscriptionData.price_id)
+            : 'free';
+            
+          // Update LogRocket with subscription info
+          updateSubscriptionData(user.id, {
+            status: subscriptionData.subscription_status || 'none',
+            type: subscriptionType,
+            price_id: subscriptionData.price_id
+          });
         }
         
         // Mark that we've fetched the initial subscription data
@@ -102,6 +99,8 @@ export const useSubscriptionStore = create<SubscriptionStore>()(
     },
 
     refreshSubscription: async () => {
+      // Force a refresh by setting loading state
+      set({ loading: true });
       await get().fetchSubscription();
     },
 
@@ -149,19 +148,52 @@ export const useSubscriptionStore = create<SubscriptionStore>()(
   }))
 );
 
+let subscriptionRealtimeChannel: any = null;
+
+const subscribeToSubscriptionRealtime = (userId: string, fetchSubscription: () => Promise<void>) => {
+  // Clean up any previous channel
+  if (subscriptionRealtimeChannel) {
+    supabase.removeChannel(subscriptionRealtimeChannel);
+    subscriptionRealtimeChannel = null;
+  }
+  if (!userId) return;
+  // Subscribe to changes for this user's subscription row
+  subscriptionRealtimeChannel = supabase.channel(`realtime:stripe_user_subscriptions:${userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'stripe_user_subscriptions',
+        filter: `user_id=eq.${userId}`,
+      },
+      async () => {
+        // On any change, refresh subscription
+        await fetchSubscription();
+      }
+    )
+    .subscribe();
+};
+
 // Subscribe to auth state changes
 useAuthStore.subscribe(
   (state) => state.user,
   (user, prevUser) => {
     const subscriptionStore = useSubscriptionStore.getState();
-    
     if (user && user !== prevUser) {
       // User logged in, fetch subscription and start polling
       subscriptionStore.fetchSubscription();
       subscriptionStore.startPolling();
+      // Subscribe to realtime updates
+      subscribeToSubscriptionRealtime(user.id, subscriptionStore.fetchSubscription);
     } else if (!user && prevUser) {
       // User logged out, reset store
       subscriptionStore.reset();
+      // Clean up realtime channel
+      if (subscriptionRealtimeChannel) {
+        supabase.removeChannel(subscriptionRealtimeChannel);
+        subscriptionRealtimeChannel = null;
+      }
     }
   }
 );
