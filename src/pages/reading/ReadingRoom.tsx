@@ -27,6 +27,7 @@ import { getPlatformShortcut, KEY_CODES, KEY_VALUES } from './constants/shortcut
 import { fisherYatesShuffle, cleanMarkdownText, getTransform, getTouchDistance } from './utils/cardHelpers'; // Added import
 import { getDefaultZoomLevel } from './utils/layoutHelpers'; // Added import
 import { generateShareableLink, getTodayDateString, isCacheValid, copyRoomLink as copyRoomLinkHelper } from './utils/sessionHelpers'; // Updated import
+import { useDeviceAndOrientationDetection } from './hooks/useDeviceAndOrientationDetection';
 
 import Div100vh from 'react-div-100vh';
 
@@ -90,6 +91,9 @@ const ReadingRoom = () => {
     startCall,
     participants: videoParticipants 
   } = useVideoCall();
+  
+  // Use the new hook for device and orientation detection first
+  const { isMobile, isTablet, isLandscape } = useDeviceAndOrientationDetection(); // Changed from useMobileDetection
   
   // Properly detect guest users - anonymous users should be treated as guests
   const isGuest = !user || isAnonymous();
@@ -279,9 +283,6 @@ const ReadingRoom = () => {
   // UI State
   const [showShareModal, setShowShareModal] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(false);
   const [showMobileInterpretation, setShowMobileInterpretation] = useState(false);
   
   // Pinch zoom hint state
@@ -464,8 +465,6 @@ const ReadingRoom = () => {
   const [showVideoChat, setShowVideoChat] = useState(false);
   const [isVideoConnecting, setIsVideoConnecting] = useState(false);
   
-  // Participants dropdown state
-  
   // Track previous participants for notifications
   const [previousParticipants, setPreviousParticipants] = useState<typeof participants>([]);
   
@@ -636,46 +635,6 @@ const ReadingRoom = () => {
     cardSize: isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36',
     buttonSize: isMobile ? 'p-1.5' : 'p-2'
   }), [isMobile, isLandscape]);
-
-  // Check for mobile screen size and landscape orientation
-  useEffect(() => {
-    const checkMobileAndOrientation = () => {
-      const isMobileDevice = window.innerWidth < 768;
-      const isTabletDevice = window.innerWidth >= 768 && window.innerWidth < 1024;
-      const isLandscapeOrientation = window.innerWidth > window.innerHeight && isMobileDevice;
-      
-      setIsMobile(isMobileDevice);
-      setIsTablet(isTabletDevice);
-      setIsLandscape(isLandscapeOrientation);
-      
-      // Prevent scrolling on mobile for better UX
-      if (isMobileDevice) {
-        document.body.style.overflow = 'hidden';
-        document.body.style.touchAction = 'none'; // Prevent iOS Safari bounce
-      } else {
-        // Re-enable scrolling on desktop
-        document.body.style.overflow = '';
-        document.body.style.touchAction = '';
-      }
-    };
-    
-    checkMobileAndOrientation();
-    
-    window.addEventListener('resize', checkMobileAndOrientation);
-    window.addEventListener('orientationchange', () => {
-      // Delay for orientation change to complete
-      setTimeout(checkMobileAndOrientation, 300);
-    });
-    
-    return () => {
-      window.removeEventListener('resize', checkMobileAndOrientation);
-      window.removeEventListener('orientationchange', checkMobileAndOrientation);
-      
-      // Cleanup: restore normal scrolling when component unmounts
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
-    };
-  }, []);
 
   // Auto-show guest upgrade modal for invite link joiners
   useEffect(() => {
