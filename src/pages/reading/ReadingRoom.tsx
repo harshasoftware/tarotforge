@@ -24,7 +24,7 @@ import { readingLayouts } from './constants/layouts';
 import { questionCategories } from './constants/questionCategories';
 import { cardAnimationConfig, zoomAnimationConfig, cardFlipConfig } from './utils/animationConfigs';
 import { getPlatformShortcut, KEY_CODES, KEY_VALUES } from './constants/shortcuts'; 
-import { fisherYatesShuffle, cleanMarkdownText } from './utils/cardHelpers';
+import { fisherYatesShuffle, cleanMarkdownText, getTransform } from './utils/cardHelpers';
 import { getDefaultZoomLevel } from './utils/layoutHelpers'; 
 import { generateShareableLink, getTodayDateString, isCacheValid, copyRoomLink as copyRoomLinkHelper } from './utils/sessionHelpers'; // Updated import
 import { useDeviceAndOrientationDetection } from './hooks/useDeviceAndOrientationDetection';
@@ -989,59 +989,6 @@ const ReadingRoom = () => {
     [setZoomLevelWrapped]
   );
   
-  const handleTouchStart = useCallback((e: TouchEvent) => {
-    // Don't interfere with card dragging
-    const target = e.target as HTMLElement;
-    if (target.closest('[data-card-element="true"]') || target.closest('.deck-pile') || isDragging) {
-      return;
-    }
-    
-    if (e.touches.length === 2) {
-      // Two fingers - pinch to zoom
-      setIsZooming(true);
-      setLastTouchDistance(getTouchDistance(e.touches));
-      e.preventDefault();
-      e.stopPropagation();
-    } else if (e.touches.length === 1 && zoomLevel > 1) {
-      // One finger when zoomed - start panning
-      const touch = e.touches[0];
-      handlePanStart(touch.clientX, touch.clientY);
-      e.preventDefault();
-    }
-  }, [zoomLevel, isDragging]);
-  
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (isZooming && e.touches.length === 2) {
-      // Two fingers - continue pinch to zoom
-      const currentDistance = getTouchDistance(e.touches);
-      const scale = currentDistance / lastTouchDistance;
-      
-      if (Math.abs(scale - 1) > 0.01) { // Reduced threshold for smoother zooming
-        const newZoom = Math.max(0.5, Math.min(2, zoomLevel * scale));
-        setZoomLevelWrapped(newZoom);
-        setLastTouchDistance(currentDistance);
-      }
-      e.preventDefault();
-      e.stopPropagation();
-    } else if (isPanning && e.touches.length === 1 && !isDragging) {
-      // One finger - continue panning without debouncing for smoother movement
-      const touch = e.touches[0];
-      handlePanMove(touch.clientX, touch.clientY);
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  }, [isZooming, isPanning, lastTouchDistance, zoomLevel, setZoomLevelWrapped, isDragging]);
-  
-  const handleTouchEnd = useCallback((e: TouchEvent) => {
-    if (e.touches.length < 2) {
-      setIsZooming(false);
-      setLastTouchDistance(0);
-    }
-    if (e.touches.length === 0) {
-      handlePanEnd();
-    }
-  }, []);
-  
   // Close layout dropdown when clicking outside
   useEffect(() => {
     if (!showLayoutDropdown) return;
@@ -1271,7 +1218,7 @@ const ReadingRoom = () => {
     });
   }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId,
     anonymousId, getDefaultZoomLevel, selectedLayout]);
-
+  
   const resetCards = useCallback(() => {
     // Shuffle and restore all cards to create a fresh deck
     let freshlyShuffled: Card[] = [];
@@ -1306,7 +1253,7 @@ const ReadingRoom = () => {
     });
   }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId,
     anonymousId, getDefaultZoomLevel, selectedLayout]);
-
+  
   // Drag and Drop Functions
   const handleDragStart = (card: Card, index: number, e: any) => {
     setDraggedCard(card);
@@ -1785,7 +1732,7 @@ const ReadingRoom = () => {
       setLoadingDescription(false);
     }
   }, [deck, sharedModalState, updateSharedModalState, participantId]);
-
+  
   // Add touch event listeners for pinch-to-zoom - optimized
   useTouchInteractions({
     readingAreaRef,
