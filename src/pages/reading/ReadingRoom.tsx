@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Wand, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX, LogIn, Keyboard, Navigation, BookOpen, Lightbulb, Sun, Moon, DoorOpen, ScanSearch } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
@@ -38,6 +38,62 @@ import { useBroadcastHandler } from './hooks/useBroadcastHandler'; // Added impo
 import { useParticipantNotificationHandler } from './hooks/useParticipantNotificationHandler'; // <<< ADD THIS LINE
 import { useTouchInteractions } from './hooks/useTouchInteractions'; 
 import { useDocumentMouseListeners } from './hooks/useDocumentMouseListeners'; // <<< ADD THIS LINE
+
+// Coordinate transformation helper
+const viewportToPercentage = (
+  viewportX: number,
+  viewportY: number,
+  containerRect: DOMRect | undefined | null, 
+  currentZoomLevel: number,
+  currentPanOffset: { x: number; y: number },
+  currentZoomFocus: { x: number; y: number } | null 
+): { x: number; y: number } | null => {
+  if (!containerRect || currentZoomLevel === 0) { 
+    console.error('[viewportToPercentage] Invalid args:', { containerRect, currentZoomLevel });
+    return null; 
+  }
+
+  const relativeX = viewportX - containerRect.left;
+  const relativeY = viewportY - containerRect.top;
+  const xAfterZoomAndOriginOffset = relativeX - currentPanOffset.x;
+  const yAfterZoomAndOriginOffset = relativeY - currentPanOffset.y;
+  const originalContainerWidth = containerRect.width / currentZoomLevel;
+  const originalContainerHeight = containerRect.height / currentZoomLevel;
+
+  if (originalContainerWidth === 0 || originalContainerHeight === 0) {
+    console.error('[viewportToPercentage] Original container dimension is zero.');
+    return null; 
+  }
+
+  let originX_px = originalContainerWidth / 2;
+  let originY_px = originalContainerHeight / 2;
+  if (currentZoomFocus) {
+    originX_px = (currentZoomFocus.x / 100) * originalContainerWidth;
+    originY_px = (currentZoomFocus.y / 100) * originalContainerHeight;
+  }
+  
+  const originalContentX = originX_px + (xAfterZoomAndOriginOffset - originX_px) / currentZoomLevel;
+  const originalContentY = originY_px + (yAfterZoomAndOriginOffset - originY_px) / currentZoomLevel;
+  
+  let percX = (originalContentX / originalContainerWidth) * 100;
+  let percY = (originalContentY / originalContainerHeight) * 100;
+
+  // Logging before constraint
+  // console.log('[vTP] Before constraint PercX/Y:', { percX, percY });
+
+  percX = Math.max(5, Math.min(95, percX));
+  percY = Math.max(5, Math.min(95, percY));
+
+  console.log('[vTP] Inputs:', { viewportX, viewportY, cL:containerRect.left, cT:containerRect.top, cW:containerRect.width, cH:containerRect.height, zoom:currentZoomLevel, pan:currentPanOffset, focus:currentZoomFocus });
+  console.log('[vTP] relativeX/Y:', { relativeX, relativeY });
+  console.log('[vTP] xAfterZoomAndOriginOffset:', { xCoord: xAfterZoomAndOriginOffset, yCoord: yAfterZoomAndOriginOffset });
+  console.log('[vTP] originPx:', {originX_px, originY_px});
+  console.log('[vTP] originalContentX/Y:', { originalContentX, originalContentY });
+  console.log('[vTP] originalContainer W/H:', { originalContainerWidth, originalContainerHeight });
+  console.log('[vTP] Final PercX/Y (constrained):', { percX, percY });
+
+  return { x: percX, y: percY };
+};
 
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
@@ -1109,38 +1165,29 @@ const ReadingRoom = () => {
       });
     }, 1000); // 1 second delay for shuffling animation
   }, [fisherYatesShuffle, shuffledDeck, sessionShuffledDeck, shouldUseSessionDeck, updateSession, broadcastGuestAction, participantId]);
-  
-  // Handle moving placed cards in free layout
-  const handlePlacedCardDrag = useCallback((cardIndex: number, event: any, info: any) => {
-    if (selectedLayout?.id !== 'free-layout' || !readingAreaRef.current) return;
-    
-    const rect = readingAreaRef.current.getBoundingClientRect();
-    const x = ((info.point.x - rect.left) / rect.width) * 100;
-    const y = ((info.point.y - rect.top) / rect.height) * 100;
-    
-    // Ensure position is within bounds
-    if (x >= 0 && x <= 100 && y >= 0 && y <= 100) {
-      const newSelectedCards = [...selectedCards];
-      if (newSelectedCards[cardIndex]) {
-        newSelectedCards[cardIndex] = {
-          ...newSelectedCards[cardIndex],
-          x: Math.max(5, Math.min(95, x)), // Keep cards within bounds with margin
-          y: Math.max(5, Math.min(95, y))
-        };
-        updateSession({ selectedCards: newSelectedCards });
-      }
-    }
-  }, [selectedLayout?.id, selectedCards, updateSession]);
-  
+
   // Handle placed card drag start
-  const handlePlacedCardDragStart = useCallback(() => {
+  const handlePlacedCardDragStart = useCallback((cardIndex: number) => { // <<< MUST ACCEPT cardIndex
     setIsDraggingPlacedCard(true);
-  }, []);
+    setDraggedPlacedCardIndex(cardIndex); // Use the passed cardIndex
+  }, [setIsDraggingPlacedCard, setDraggedPlacedCardIndex]); // Dependencies are correct
   
   // Handle placed card drag end
-  const handlePlacedCardDragEnd = useCallback(() => {
-    setIsDraggingPlacedCard(false);
-  }, []);
+  const handlePlacedCardDragEnd = useCallback((event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo, cardIndex: number) => {
+    // ... (setIsDraggingPlacedCard, checks) ...
+    const finalViewportX = info.point.x;
+    const finalViewportY = info.point.y;
+    // ... (logs) ...
+    const percentagePos = viewportToPercentage(
+      finalViewportX,
+      finalViewportY,
+      readingAreaRef.current?.getBoundingClientRect(),
+      zoomLevel, 
+      panOffset, 
+      zoomFocus // Pass zoomFocus
+    );
+    // ... (rest of function) ...
+  }, [selectedLayout?.id, selectedCards, updateSession, zoomLevel, panOffset, zoomFocus]); // Added zoomFocus to dependencies
   
   const zoomIn = useCallback(() => {
     setZoomLevelWrapped(Math.min(zoomLevel + 0.2, 2));
@@ -3477,9 +3524,8 @@ const ReadingRoom = () => {
                       drag
                       dragMomentum={false}
                       dragElastic={0}
-                      onDragStart={handlePlacedCardDragStart}
-                      onDrag={(event, info) => handlePlacedCardDrag(index, event, info)}
-                      onDragEnd={handlePlacedCardDragEnd}
+                      onDragStart={(event, info) => handlePlacedCardDragStart(index)}
+                      onDragEnd={(event, info) => handlePlacedCardDragEnd(event, info, index)}
                       whileHover={{ scale: 1.05 }}
                       whileDrag={{ scale: 1.1, zIndex: 50 }}
                       onDoubleClick={(e) => {
@@ -4075,9 +4121,8 @@ const ReadingRoom = () => {
                       drag
                       dragMomentum={false}
                       dragElastic={0}
-                      onDragStart={handlePlacedCardDragStart}
-                      onDrag={(event, info) => handlePlacedCardDrag(index, event, info)}
-                      onDragEnd={handlePlacedCardDragEnd}
+                      onDragStart={(event, info) => handlePlacedCardDragStart(index)}
+                      onDragEnd={(event, info) => handlePlacedCardDragEnd(event, info, index)}
                       whileHover={{ scale: 1.05 }}
                       whileDrag={{ scale: 1.1, zIndex: 50 }}
                         onClick={() => {
