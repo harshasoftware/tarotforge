@@ -24,7 +24,7 @@ import { readingLayouts } from './constants/layouts';
 import { questionCategories } from './constants/questionCategories';
 import { cardAnimationConfig, zoomAnimationConfig, cardFlipConfig } from './utils/animationConfigs';
 import { getPlatformShortcut, KEY_CODES, KEY_VALUES } from './constants/shortcuts'; 
-import { fisherYatesShuffle, cleanMarkdownText, getTransform, getTouchDistance } from './utils/cardHelpers'; // Added import
+import { fisherYatesShuffle, cleanMarkdownText } from './utils/cardHelpers';
 import { getDefaultZoomLevel } from './utils/layoutHelpers'; 
 import { generateShareableLink, getTodayDateString, isCacheValid, copyRoomLink as copyRoomLinkHelper } from './utils/sessionHelpers'; // Updated import
 import { useDeviceAndOrientationDetection } from './hooks/useDeviceAndOrientationDetection';
@@ -36,6 +36,7 @@ import Div100vh from 'react-div-100vh';
 import { useReadingRoomKeyboardShortcuts } from './hooks/useReadingRoomKeyboardShortcuts'; // Added import
 import { useBroadcastHandler } from './hooks/useBroadcastHandler'; // Added import
 import { useParticipantNotificationHandler } from './hooks/useParticipantNotificationHandler'; // <<< ADD THIS LINE
+import { useTouchInteractions } from './hooks/useTouchInteractions'; 
 
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
@@ -310,8 +311,6 @@ const ReadingRoom = () => {
   const [freeDropPosition, setFreeDropPosition] = useState<{ x: number; y: number } | null>(null);
   
   // Pinch to Zoom State
-  const [isZooming, setIsZooming] = useState(false);
-  const [lastTouchDistance, setLastTouchDistance] = useState(0);
   const readingAreaRef = useRef<HTMLDivElement>(null);
   
   // Double tap zoom state
@@ -1042,26 +1041,6 @@ const ReadingRoom = () => {
       handlePanEnd();
     }
   }, []);
-  
-  // Add touch event listeners for pinch-to-zoom - optimized
-  useEffect(() => {
-    const readingArea = readingAreaRef.current;
-    if (!readingArea || !isMobile) return;
-    
-    // Use passive events where possible for better performance
-    const options = { passive: false };
-    const passiveOptions = { passive: true };
-    
-    readingArea.addEventListener('touchstart', handleTouchStart, options);
-    readingArea.addEventListener('touchmove', handleTouchMove, options);
-    readingArea.addEventListener('touchend', handleTouchEnd, passiveOptions);
-    
-    return () => {
-      readingArea.removeEventListener('touchstart', handleTouchStart);
-      readingArea.removeEventListener('touchmove', handleTouchMove);
-      readingArea.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [handleTouchStart, handleTouchMove, handleTouchEnd, isMobile]);
   
   // Close layout dropdown when clicking outside
   useEffect(() => {
@@ -1806,6 +1785,18 @@ const ReadingRoom = () => {
       setLoadingDescription(false);
     }
   }, [deck, sharedModalState, updateSharedModalState, participantId]);
+
+  // Add touch event listeners for pinch-to-zoom - optimized
+  useTouchInteractions({
+    readingAreaRef,
+    isMobile,
+    currentZoomLevel: zoomLevel, // Pass the zoomLevel state
+    isCardDragging: isDragging,  // Pass the isDragging state
+    onPanStart: handlePanStart,  // Pass the existing handlePanStart callback
+    onPanMove: handlePanMove,    // Pass the existing handlePanMove callback
+    onPanEnd: handlePanEnd,      // Pass the existing handlePanEnd callback
+    onZoomChange: setZoomLevelWrapped, // Pass the setZoomLevelWrapped callback
+  });
   
   // Keyboard navigation for gallery and panning
   useReadingRoomKeyboardShortcuts({
