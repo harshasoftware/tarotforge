@@ -1,13 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-
-// Debounce utility function
-const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): T => {
-  let timeout: NodeJS.Timeout;
-  return ((...args: any[]) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  }) as T;
-};
+import { useDebounce } from './useDebounce';
 
 export const useDeviceAndOrientationDetection = () => {
   const [isMobile, setIsMobile] = useState(false);
@@ -47,7 +39,7 @@ export const useDeviceAndOrientationDetection = () => {
       return;
     }
 
-    const debouncedCheck = debounce(checkDeviceAndOrientation, 250);
+    const debouncedCheck = useDebounce(checkDeviceAndOrientation, 250);
     
     // Initial check
     checkDeviceAndOrientation();

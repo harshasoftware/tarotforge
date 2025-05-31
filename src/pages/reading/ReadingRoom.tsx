@@ -28,23 +28,11 @@ import { fisherYatesShuffle, cleanMarkdownText, getTransform, getTouchDistance }
 import { getDefaultZoomLevel } from './utils/layoutHelpers'; 
 import { generateShareableLink, getTodayDateString, isCacheValid, copyRoomLink as copyRoomLinkHelper } from './utils/sessionHelpers'; // Updated import
 import { useDeviceAndOrientationDetection } from './hooks/useDeviceAndOrientationDetection';
+import { useDebounce } from './hooks/useDebounce';
 import { useTheme } from './hooks/useTheme'; 
 import { useGuestUpgrade } from './hooks/useGuestUpgrade';
 import { useHelpModal } from './hooks/useHelpModal';
 import Div100vh from 'react-div-100vh';
-
-
-// Optimized debounce utility for performance
-const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): T => {
-  let timeout: NodeJS.Timeout;
-  return ((...args: any[]) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  }) as T;
-};
-
-// Function to clean markdown formatting and convert to plain text
-
 
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
@@ -100,14 +88,11 @@ const ReadingRoom = () => {
   const { 
     showGuestUpgrade, 
     setShowGuestUpgrade, 
-    // triggerGuestUpgradeOnInvite // No longer returned
   } = useGuestUpgrade();
   const { 
     showHelpModal, 
-    // openHelpModal, // No longer used
-    // closeHelpModal, // No longer used
-    setShowHelpModal, // Keep for direct close actions
-    toggleHelpModal   // New toggle function
+    setShowHelpModal,
+    toggleHelpModal
   } = useHelpModal();
   
   // Properly detect guest users - anonymous users should be treated as guests
