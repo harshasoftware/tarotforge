@@ -33,6 +33,7 @@ import { useTheme } from './hooks/useTheme';
 import { useGuestUpgrade } from './hooks/useGuestUpgrade';
 import { useHelpModal } from './hooks/useHelpModal';
 import Div100vh from 'react-div-100vh';
+import { useReadingRoomKeyboardShortcuts } from './hooks/useReadingRoomKeyboardShortcuts'; // Added import
 
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
@@ -675,7 +676,7 @@ const ReadingRoom = () => {
     cardIndex: number | null;
     showDescription: boolean;
     triggeredBy: string | null;
-  } | null) => {
+  } | null | undefined) => { // Allow undefined
     updateSession({ sharedModalState: modalState });
   }, [updateSession]);
 
@@ -1044,7 +1045,14 @@ const ReadingRoom = () => {
   }, [updateSession]);
   
   // Ask Question handlers
-  const handleCategorySelect = useCallback(async (category: string) => {
+  const handleCategorySelect = useCallback(async (category: string | null) => {
+    if (category === null) { // Handle deselection
+      setSelectedCategory(null);
+      setGeneratedQuestions([]);
+      setHighlightedQuestionIndex(0); // Reset question highlighting
+      setIsQuestionHighlightingActive(true); // Re-enable highlighting on keyboard use
+      return;
+    }
     setSelectedCategory(category);
     setHighlightedQuestionIndex(0); // Reset question highlighting when selecting new category
     
@@ -1510,7 +1518,8 @@ const ReadingRoom = () => {
       shuffledDeck: newShuffledDeck,
       resetType: 'full'
     });
-  }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction]);
+  }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId,
+    anonymousId, getDefaultZoomLevel, selectedLayout]);
   
   const resetCards = useCallback(() => {
     // Shuffle and restore all cards to create a fresh deck
@@ -1546,7 +1555,7 @@ const ReadingRoom = () => {
     });
   }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId,
     anonymousId, getDefaultZoomLevel, selectedLayout]);
-  
+
   // Drag and Drop Functions
   const handleDragStart = (card: Card, index: number, e: any) => {
     setDraggedCard(card);
@@ -2027,394 +2036,71 @@ const ReadingRoom = () => {
   }, [deck, sharedModalState, updateSharedModalState, participantId]);
   
   // Keyboard navigation for gallery and panning
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Skip keyboard shortcuts if typing in an input/textarea
-      if (event.target instanceof HTMLElement && 
-          (event.target.tagName === 'INPUT' || 
-           event.target.tagName === 'TEXTAREA' || 
-           event.target.contentEditable === 'true')) {
-        return;
-      }
-      
-      // Track space key for space+drag panning (like Figma)
-      if (event.code === KEY_CODES.SPACE && !event.repeat && !isMobile) {
-        setIsSpacePressed(true);
-        event.preventDefault();
-        return;
-      }
-      
-      // Gallery navigation (takes priority when gallery is open)
-      if (showCardGallery) {
-        switch (event.key) {
-          case KEY_VALUES.ESCAPE:
-            if (showCardDescription && sharedModalState) {
-              updateSharedModalState({
-                ...sharedModalState,
-                showDescription: false,
-                triggeredBy: participantId
-              });
-            } else {
-              closeCardGallery();
-            }
-            break;
-          case KEY_VALUES.ARROW_LEFT:
-            event.preventDefault();
-            navigateGallery('prev');
-            break;
-          case KEY_VALUES.ARROW_RIGHT:
-            event.preventDefault();
-            navigateGallery('next');
-            break;
-        }
-        return;
-      }
-      
-      // Enter key handling for exit confirmation modal
-      if (event.key === KEY_VALUES.ENTER && showExitModal && (readingStep === 'setup' || readingStep === 'drawing' || readingStep === 'interpretation')) {
-        // Confirm exit - navigate away from reading room (same logic as exit button)
-        event.preventDefault();
-        window.location.href = user ? '/collection' : '/';
-        return;
-      }
-      
-      // Global Escape key handling for all modals (during setup/drawing/interpretation steps)
-      if (event.key === KEY_VALUES.ESCAPE && (readingStep === 'setup' || readingStep === 'drawing' || readingStep === 'interpretation')) {
-        // Close modals in priority order (most specific to least specific)
-        if (showShareModal) {
-          setShowShareModal(false);
-          event.preventDefault();
-          return;
-        }
-        if (showHelpModal) {
-          setShowHelpModal(false);
-          event.preventDefault();
-          return;
-        }
-        if (showExitModal) {
-          // Second Escape: Close exit modal (don't exit)
-          setShowExitModal(false);
-          event.preventDefault();
-          return;
-        }
-        if (showSignInModal) {
-          setShowSignInModal(false);
-          event.preventDefault();
-          return;
-        }
-        if (showGuestUpgrade) {
-          setShowGuestUpgrade(false);
-          event.preventDefault();
-          return;
-        }
-        if (isChangingDeckMidSession) {
-          // Cancel deck change and restore previous deck
-          setIsChangingDeckMidSession(false);
-          fetchAndSetDeck(deckId || 'rider-waite-classic');
-          event.preventDefault();
-          return;
-        }
-        
-        // First Escape: No modals open, show exit confirmation
-        setShowExitModal(true);
-        event.preventDefault();
-        return;
-      }
-      
-      // Setup screen layout navigation
-      if (readingStep === 'setup') {
-        switch (event.key) {
-          case KEY_VALUES.ARROW_UP:
-            event.preventDefault();
-            setHighlightedSetupLayoutIndex(prev => 
-              prev > 0 ? prev - 1 : readingLayouts.length - 1
-            );
-            return; // Prevent other handlers
-          case KEY_VALUES.ARROW_DOWN:
-            event.preventDefault();
-            setHighlightedSetupLayoutIndex(prev => 
-              prev < readingLayouts.length - 1 ? prev + 1 : 0
-            );
-            return; // Prevent other handlers
-          case KEY_VALUES.ENTER:
-            event.preventDefault();
-            const selectedLayoutFromSetup = readingLayouts[highlightedSetupLayoutIndex];
-            handleLayoutSelect(selectedLayoutFromSetup);
-            return; // Prevent other handlers
-          case KEY_VALUES.ESCAPE:
-            // Show exit confirmation dialog like in drawing screen
-            event.preventDefault();
-            setShowExitModal(true);
-            return; // Prevent other handlers
-        }
-        // Don't return here - allow other shortcuts like theme toggle to work
-      }
-
-      // Question step navigation
-      if (readingStep === 'ask-question') {
-        // Category navigation (when no category is selected)
-        if (!selectedCategory && !showCustomQuestionInput) {
-          switch (event.key) {
-            case KEY_VALUES.ARROW_UP:
-              event.preventDefault();
-              setIsCategoryHighlightingActive(true); // Re-enable highlighting on keyboard use
-              setHighlightedCategoryIndex(prev => {
-                // Move up by 2 positions (previous row), wrap to bottom if needed
-                const newIndex = prev - 2;
-                return newIndex >= 0 ? newIndex : questionCategories.length + newIndex;
-              });
-              return; // Prevent other handlers
-            case KEY_VALUES.ARROW_DOWN:
-              event.preventDefault();
-              setIsCategoryHighlightingActive(true); // Re-enable highlighting on keyboard use
-              setHighlightedCategoryIndex(prev => {
-                // Move down by 2 positions (next row), wrap to top if needed
-                const newIndex = prev + 2;
-                return newIndex < questionCategories.length ? newIndex : newIndex - questionCategories.length;
-              });
-              return; // Prevent other handlers
-            case KEY_VALUES.ARROW_LEFT:
-              event.preventDefault();
-              setIsCategoryHighlightingActive(true); // Re-enable highlighting on keyboard use
-              setHighlightedCategoryIndex(prev => 
-                prev > 0 ? prev - 1 : questionCategories.length - 1
-              );
-              return; // Prevent other handlers
-            case KEY_VALUES.ARROW_RIGHT:
-              event.preventDefault();
-              setIsCategoryHighlightingActive(true); // Re-enable highlighting on keyboard use
-              setHighlightedCategoryIndex(prev => 
-                prev < questionCategories.length - 1 ? prev + 1 : 0
-              );
-              return; // Prevent other handlers
-            case KEY_VALUES.ENTER:
-              event.preventDefault();
-              if (isCategoryHighlightingActive) {
-                const selectedCategoryFromKeyboard = questionCategories[highlightedCategoryIndex];
-                handleCategorySelect(selectedCategoryFromKeyboard.id);
-              }
-              return; // Prevent other handlers
-            case KEY_VALUES.ESCAPE:
-              // Show exit confirmation dialog like in other screens
-              event.preventDefault();
-              setShowExitModal(true);
-              return; // Prevent other handlers
-          }
-        }
-        // Generated questions navigation (when category is selected and questions are loaded)
-        else if (selectedCategory && generatedQuestions.length > 0 && !isLoadingQuestions && !showCustomQuestionInput) {
-          switch (event.key) {
-            case KEY_VALUES.ARROW_UP:
-              event.preventDefault();
-              setIsQuestionHighlightingActive(true); // Re-enable highlighting on keyboard use
-              setHighlightedQuestionIndex(prev => 
-                prev > 0 ? prev - 1 : generatedQuestions.length - 1
-              );
-              return; // Prevent other handlers
-            case KEY_VALUES.ARROW_DOWN:
-              event.preventDefault();
-              setIsQuestionHighlightingActive(true); // Re-enable highlighting on keyboard use
-              setHighlightedQuestionIndex(prev => 
-                prev < generatedQuestions.length - 1 ? prev + 1 : 0
-              );
-              return; // Prevent other handlers
-            case KEY_VALUES.ENTER:
-              event.preventDefault();
-              if (isQuestionHighlightingActive) {
-                const selectedQuestionFromKeyboard = generatedQuestions[highlightedQuestionIndex];
-                handleQuestionSelect(selectedQuestionFromKeyboard);
-              }
-              return; // Prevent other handlers
-            case KEY_VALUES.ESCAPE:
-              // Go back to category selection
-              event.preventDefault();
-              setSelectedCategory(null);
-              setGeneratedQuestions([]);
-              setHighlightedQuestionIndex(0);
-              setIsQuestionHighlightingActive(true);
-              return; // Prevent other handlers
-          }
-        }
-        // Don't return here - allow other shortcuts like theme toggle to work
-      }
-
-      // Layout dropdown navigation (takes priority when dropdown is open)
-      if (showLayoutDropdown && readingStep === 'drawing') {
-        switch (event.key) {
-          case KEY_VALUES.ARROW_UP:
-            event.preventDefault();
-            setHighlightedLayoutIndex(prev => 
-              prev > 0 ? prev - 1 : readingLayouts.length - 1
-            );
-            break;
-          case KEY_VALUES.ARROW_DOWN:
-            event.preventDefault();
-            setHighlightedLayoutIndex(prev => 
-              prev < readingLayouts.length - 1 ? prev + 1 : 0
-            );
-            break;
-          case KEY_VALUES.ENTER:
-            event.preventDefault();
-            const selectedLayoutFromDropdown = readingLayouts[highlightedLayoutIndex];
-            handleLayoutSelect(selectedLayoutFromDropdown);
-            setShowLayoutDropdown(false);
-            break;
-          case KEY_VALUES.ESCAPE:
-            event.preventDefault();
-            setShowLayoutDropdown(false);
-            break;
-        }
-        return; // Don't process other keyboard shortcuts when dropdown is open
-      }
-
-      // Panning navigation (only on desktop and when not in gallery or layout dropdown)
-      if (!isMobile && (readingStep === 'drawing' || readingStep === 'interpretation')) {
-        switch (event.key) {
-          case KEY_VALUES.ARROW_UP:
-            event.preventDefault();
-            panDirection('up');
-            break;
-          case KEY_VALUES.ARROW_DOWN:
-            event.preventDefault();
-            panDirection('down');
-            break;
-          case KEY_VALUES.ARROW_LEFT:
-            event.preventDefault();
-            panDirection('left');
-            break;
-          case KEY_VALUES.ARROW_RIGHT:
-            event.preventDefault();
-            panDirection('right');
-            break;
-          case KEY_VALUES.ENTER:
-          case KEY_VALUES.C_LOWER: // Handles 'c' and 'C' implicitly if KEY_VALUES.C_LOWER is 'c'
-            event.preventDefault();
-            resetPan();
-            break;
-          case KEY_VALUES.PLUS:
-          case KEY_VALUES.EQUALS:
-            event.preventDefault();
-            setZoomLevelWrapped(Math.min(zoomLevel + 0.2, 3));
-            break;
-          case KEY_VALUES.MINUS:
-          case KEY_VALUES.UNDERSCORE:
-            event.preventDefault();
-            setZoomLevelWrapped(Math.max(zoomLevel - 0.2, 0.5));
-            break;
-          case KEY_VALUES.Z_LOWER: // Handles 'z' and 'Z' implicitly if KEY_VALUES.Z_LOWER is 'z'
-            event.preventDefault();
-            setZoomLevelWrapped(getDefaultZoomLevel(selectedLayout));
-            setZoomFocusWrapped(null);
-            break;
-        }
-      }
-      
-      // Global shortcuts (available in drawing and interpretation steps)
-      if (!isMobile && (readingStep === 'drawing' || readingStep === 'interpretation')) {
-        switch (event.code) {
-          case KEY_CODES.SHIFT_LEFT:
-            event.preventDefault();
-            shuffleDeck();
-            break;
-        }
-      }
-      
-      // Card action shortcuts (available in drawing/interpretation steps)
-      if (!isMobile && (readingStep === 'drawing' || readingStep === 'interpretation')) {
-        switch (event.key) {
-          case KEY_VALUES.R_LOWER: // Handles 'r' and 'R' implicitly
-            // R for reveal all cards (only if cards are placed and some are unrevealed)
-            if (!event.metaKey && !event.ctrlKey) {
-              const hasPlacedCards = selectedCards.some((card: any) => card);
-              const hasUnrevealedCards = selectedCards.some((card: any) => card && !card.revealed);
-              if (hasPlacedCards && hasUnrevealedCards) {
-                event.preventDefault();
-                revealAllCards();
-              }
-            } else {
-              // Cmd+R / Ctrl+R for reset cards (only if cards are placed)
-              const hasPlacedCards = selectedCards.some((card: any) => card);
-              if (hasPlacedCards) {
-                event.preventDefault();
-                resetCards();
-              }
-            }
-            break;
-        }
-      }
-      
-      // Global shortcuts (available in all steps)
-      if (!isMobile) {
-        switch (event.key) {
-          case KEY_VALUES.F1:
-            // F1 for Windows/Linux
-            if (!navigator.platform.toLowerCase().includes('mac')) {
-              event.preventDefault();
-              toggleHelpModal(); // Use toggle from hook
-            }
-            break;
-          case KEY_VALUES.H_LOWER: // Handles 'h' and 'H' implicitly
-            // H for Mac (and as fallback for other platforms)
-            if (navigator.platform.toLowerCase().includes('mac') || event.metaKey || event.ctrlKey) {
-              event.preventDefault();
-              toggleHelpModal(); // Use toggle from hook
-            }
-            break;
-          case KEY_VALUES.T_LOWER: // Handles 't' and 'T' implicitly
-            // T for theme toggle (works in all steps)
-            event.preventDefault();
-            toggleTheme();
-            break;
-          case KEY_VALUES.D_LOWER: // Handles 'd' and 'D' implicitly
-            // D for deck selection
-            event.preventDefault();
-            openDeckSelection();
-            break;
-          case KEY_VALUES.V_LOWER: // Handles 'v' and 'V' implicitly
-            // V for viewing card detail modal (only if all cards are revealed)
-            const hasPlacedCards = selectedCards.some((card: any) => card);
-            const allCardsRevealed = hasPlacedCards && selectedCards.every((card: any) => !card || card.revealed);
-            if (allCardsRevealed && !showCardGallery) {
-              event.preventDefault();
-              // Open gallery with first revealed card
-              const firstRevealedIndex = selectedCards.findIndex((card: any) => card && card.revealed);
-              if (firstRevealedIndex !== -1) {
-                openCardGallery(firstRevealedIndex);
-              }
-            }
-            break;
-          case KEY_VALUES.L_LOWER: // Handles 'l' and 'L' implicitly
-            // L for layout selection (only during drawing step)
-            if (readingStep === 'drawing') {
-              event.preventDefault();
-              if (!showLayoutDropdown) {
-                // Find current layout index when opening dropdown
-                const currentIndex = readingLayouts.findIndex(layout => layout.id === selectedLayout?.id);
-                setHighlightedLayoutIndex(currentIndex >= 0 ? currentIndex : 0);
-              }
-              setShowLayoutDropdown(!showLayoutDropdown);
-            }
-            break;
-
-        }
-      }
-    };
-    
-    const handleKeyUp = (event: KeyboardEvent) => {
-      // Release space key
-      if (event.code === KEY_CODES.SPACE && !isMobile) {
-        setIsSpacePressed(false);
-        event.preventDefault();
-      }
-    };
-    
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('keyup', handleKeyUp);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [showCardGallery, showCardDescription, closeCardGallery, navigateGallery, isMobile, readingStep, panDirection, resetPan, shuffleDeck, toggleHelpModal, toggleTheme, setZoomLevelWrapped, zoomLevel, getDefaultZoomLevel, selectedLayout, setZoomFocusWrapped, openDeckSelection, showShareModal, setShowShareModal, showHelpModal, setShowHelpModal, showExitModal, setShowExitModal, showSignInModal, setShowSignInModal, showGuestUpgrade, setShowGuestUpgrade, isChangingDeckMidSession, setIsChangingDeckMidSession, fetchAndSetDeck, deckId, user, selectedCards, revealAllCards, resetCards, openCardGallery, showLayoutDropdown, setShowLayoutDropdown, highlightedLayoutIndex, setHighlightedLayoutIndex, highlightedSetupLayoutIndex, setHighlightedSetupLayoutIndex, handleLayoutSelect, readingLayouts, selectedCategory, highlightedCategoryIndex, setHighlightedCategoryIndex, handleCategorySelect, questionCategories, generatedQuestions, isLoadingQuestions, highlightedQuestionIndex, setHighlightedQuestionIndex, handleQuestionSelect, setGeneratedQuestions, showCustomQuestionInput, isQuestionHighlightingActive, isCategoryHighlightingActive]);
+  useReadingRoomKeyboardShortcuts({
+    showCardGallery,
+    showCardDescription,
+    isMobile,
+    readingStep,
+    zoomLevel,
+    selectedLayout,
+    deckId,
+    user,
+    selectedCards,
+    showShareModal,
+    showHelpModal,
+    showExitModal,
+    showSignInModal,
+    showGuestUpgrade,
+    isChangingDeckMidSession,
+    showLayoutDropdown,
+    highlightedLayoutIndex,
+    highlightedSetupLayoutIndex,
+    selectedCategory,
+    highlightedCategoryIndex,
+    generatedQuestions,
+    isLoadingQuestions,
+    highlightedQuestionIndex,
+    showCustomQuestionInput,
+    isQuestionHighlightingActive,
+    isCategoryHighlightingActive,
+    sharedModalState,
+    participantId,
+    closeCardGallery,
+    navigateGallery,
+    panDirection,
+    resetPan,
+    shuffleDeck,
+    toggleHelpModal,
+    toggleTheme,
+    setZoomLevelWrapped,
+    getDefaultZoomLevel,
+    setZoomFocusWrapped,
+    openDeckSelection,
+    setShowShareModal,
+    setShowHelpModal,
+    setShowExitModal,
+    setShowSignInModal,
+    setShowGuestUpgrade,
+    setIsChangingDeckMidSession,
+    fetchAndSetDeck,
+    revealAllCards,
+    resetCards,
+    openCardGallery,
+    setShowLayoutDropdown,
+    setHighlightedLayoutIndex,
+    setHighlightedSetupLayoutIndex,
+    handleLayoutSelect,
+    readingLayouts,
+    handleCategorySelect,
+    questionCategories,
+    handleQuestionSelect,
+    setGeneratedQuestions,
+    updateSharedModalState,
+    setIsSpacePressed,
+    setSelectedCategory,
+    setHighlightedCategoryIndex,
+    setHighlightedQuestionIndex,
+  });
   
   // Handle gallery swipe gestures
   const handleGalleryTouchStart = useCallback((e: React.TouchEvent) => {
@@ -3040,7 +2726,7 @@ const ReadingRoom = () => {
                   {isGuest && (
                     <button onClick={handleGuestBadgeClick} className="text-xs bg-accent px-2 py-0.5 rounded-full hover:bg-accent/80 transition-colors cursor-pointer flex items-center gap-1" ><UserCheck className="h-3 w-3" />Guest</button>
                   )}
-                  <ParticipantsDropdown participants={participants.map(p => ({ id: p.id, name: p.name ?? undefined, userId: p.userId, anonymousId: p.anonymousId, isHost: (p.userId && p.userId === sessionState?.hostUserId) || (!sessionState?.hostUserId && p.anonymousId && isHost && !p.userId) }))} currentUserId={user?.id || null} currentAnonymousId={anonymousId} disabled={isOfflineMode} />                </div>
+                  <ParticipantsDropdown participants={participants.map(p => ({ id: p.id, name: p.name ?? undefined, userId: p.userId, anonymousId: p.anonymousId, isHost: (p.userId && p.userId === sessionState?.hostUserId) || (!sessionState?.hostUserId && p.anonymousId && isHost && !p.userId) ? true : false }))} currentUserId={user?.id || null} currentAnonymousId={anonymousId} disabled={isOfflineMode} />                </div>
                 {deck && (
                   <p className="text-xs text-muted-foreground truncate max-w-48">
                     {deck.title} by {deck.creator_name}

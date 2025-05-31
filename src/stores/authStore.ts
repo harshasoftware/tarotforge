@@ -8,6 +8,8 @@ import { setUserContext, clearUserContext } from '../utils/errorTracking';
 import { identifyUser } from '../utils/analytics';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+export type { User }; // Re-export the User type
+
 interface AuthStore {
   user: User | null;
   loading: boolean;
