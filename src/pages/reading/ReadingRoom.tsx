@@ -26,7 +26,7 @@ import { cardAnimationConfig, zoomAnimationConfig, cardFlipConfig } from './util
 import { getPlatformShortcut, KEY_CODES, KEY_VALUES } from './constants/shortcuts'; 
 import { fisherYatesShuffle, cleanMarkdownText, getTransform, getTouchDistance } from './utils/cardHelpers'; // Added import
 import { getDefaultZoomLevel } from './utils/layoutHelpers'; // Added import
-import { generateShareableLink, getTodayDateString, isCacheValid } from './utils/sessionHelpers'; // Added import
+import { generateShareableLink, getTodayDateString, isCacheValid, copyRoomLink as copyRoomLinkHelper } from './utils/sessionHelpers'; // Updated import
 
 import Div100vh from 'react-div-100vh';
 
@@ -1120,7 +1120,7 @@ const ReadingRoom = () => {
     setHighlightedQuestionIndex(0); // Reset question highlighting when selecting new category
     
     // Check if we have valid cached questions for this category
-    if (isCacheValid(category)) {
+    if (isCacheValid(category, questionCache)) { // Pass questionCache here
       const cachedQuestions = questionCache[category].questions;
       setGeneratedQuestions(cachedQuestions);
       return;
@@ -1182,7 +1182,7 @@ const ReadingRoom = () => {
     } finally {
       setIsLoadingQuestions(false);
     }
-  }, [questionCache, isCacheValid, getTodayDateString]);
+  }, [questionCache, isCacheValid, getTodayDateString]); // Add isCacheValid and getTodayDateString to dependencies
   
   const handleQuestionSelect = useCallback((selectedQuestion: string) => {
     updateSession({ question: selectedQuestion, readingStep: 'drawing' });
@@ -5133,7 +5133,7 @@ const ReadingRoom = () => {
                     />
                     <Tooltip content={showCopied ? "Link copied!" : "Copy link to clipboard"} position="top" disabled={isMobile}>
                       <button
-                        onClick={copyRoomLink}
+                        onClick={() => copyRoomLinkHelper(sessionId, setShowCopied, generateShareableLink)}
                         className="p-2 bg-primary text-primary-foreground rounded-r-md hover:bg-primary/90 transition-colors flex items-center"
                       >
                         {showCopied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
