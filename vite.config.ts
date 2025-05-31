@@ -2,6 +2,12 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { resolve } from 'path';
+import fs from 'fs';
+import path from 'path';
+
+// Read package.json to get the version
+const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'));
+const appVersion = packageJson.version;
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -51,6 +57,7 @@ export default defineConfig({
     exclude: ['lucide-react'],
   },
   define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
     global: 'window', // Polyfill for Node.js global object
   },
   build: {

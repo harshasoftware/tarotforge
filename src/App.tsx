@@ -22,6 +22,7 @@ Sentry.init({
   dsn: "https://9c3c4747996da8b597048265023ff2f0@o4509354423156736.ingest.us.sentry.io/4509354424860677",
   sendDefaultPii: true,
   environment: import.meta.env.MODE,
+  release: `tarotforge@${import.meta.env.VITE_APP_VERSION || '0.1.0'}`,
   integrations: [
     new Sentry.BrowserTracing({
       // Set sampling rate for performance monitoring

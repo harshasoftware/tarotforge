@@ -42,7 +42,9 @@ export const initializeLogRocket = () => {
         },
         responseSanitizer: (response) => {
           // Don't record auth responses - Add null check before calling includes
-          if (response.url && (response.url.includes('/auth/') || response.url.includes('/login'))) {
+          // Use type assertion if 'url' is not on IResponse but present at runtime
+          const responseUrl = (response as any).url;
+          if (responseUrl && (responseUrl.includes('/auth/') || responseUrl.includes('/login'))) {
             // Sanitize auth responses
             if (response.body) {
               try {
@@ -71,6 +73,12 @@ export const initializeLogRocket = () => {
       debug: import.meta.env.DEV,
       track_pageview: true,
       persistence: 'localStorage'
+    });
+    
+    // Register app_version as a super property
+    const appVersion = import.meta.env.VITE_APP_VERSION || '0.1.0';
+    mixpanel.register({
+      'app_version': appVersion,
     });
     
     // Connect LogRocket with Mixpanel if both are available
@@ -109,8 +117,8 @@ export const identifyUser = (
   try {
     // Prepare user data for identification
     const userData: Record<string, any> = {
-      name: user.username || user.full_name || user.email.split('@')[0],
-      email: user.email,
+      name: user.username || user.full_name || user.email?.split('@')[0] || 'Anonymous',
+      email: user.email || '', // Fallback for email
       id: user.id,
       createdAt: user.created_at,
       isCreator: user.is_creator || false,
@@ -147,8 +155,8 @@ export const identifyUser = (
     if (import.meta.env.VITE_MIXPANEL_TOKEN) {
       mixpanel.identify(user.id);
       mixpanel.people.set({
-        $email: user.email,
-        $name: user.username || user.full_name || user.email.split('@')[0],
+        $email: user.email || '', // Fallback for email
+        $name: user.username || user.full_name || user.email?.split('@')[0] || 'Anonymous',
         $created: user.created_at,
         subscriptionStatus: subscription?.status || 'none',
         subscriptionType: subscription?.type || 'free',
@@ -183,7 +191,7 @@ export const updateSubscriptionData = (
     LogRocket.identify(userId, {
       subscriptionStatus: subscription.status,
       subscriptionType: subscription.type,
-      subscriptionPriceId: subscription.price_id,
+      subscriptionPriceId: subscription.price_id || 'none', // Fallback for price_id
       subscriptionUpdatedAt: new Date().toISOString()
     });
     
@@ -192,7 +200,7 @@ export const updateSubscriptionData = (
       mixpanel.people.set({
         subscriptionStatus: subscription.status,
         subscriptionType: subscription.type,
-        subscriptionPriceId: subscription.price_id,
+        subscriptionPriceId: subscription.price_id || 'none', // Fallback for price_id
         subscriptionUpdatedAt: new Date().toISOString()
       });
       
