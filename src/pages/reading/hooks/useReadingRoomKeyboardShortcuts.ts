@@ -368,23 +368,31 @@ export const useReadingRoomKeyboardShortcuts = (props: ReadingRoomKeyboardShortc
       }
 
       if (!isMobile) {
-        switch (event.key) {
-          case KEY_VALUES.F1:
+        switch (event.key.toLowerCase()) {
+          case KEY_VALUES.F1.toLowerCase():
             if (!navigator.platform.toLowerCase().includes('mac')) {
-              event.preventDefault(); toggleHelpModal();
+              event.preventDefault();
+              toggleHelpModal();
             }
             break;
           case KEY_VALUES.H_LOWER:
-            if (navigator.platform.toLowerCase().includes('mac') || event.metaKey || event.ctrlKey) {
-              event.preventDefault(); toggleHelpModal();
+            if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+              event.preventDefault();
+              toggleHelpModal();
             }
             break;
-          case KEY_VALUES.T_LOWER: event.preventDefault(); toggleTheme(); break;
-          case KEY_VALUES.D_LOWER: event.preventDefault(); openDeckSelection(); break;
+          case KEY_VALUES.T_LOWER:
+            event.preventDefault();
+            toggleTheme();
+            break;
+          case KEY_VALUES.D_LOWER:
+            event.preventDefault();
+            openDeckSelection();
+            break;
           case KEY_VALUES.V_LOWER:
-            const hasPlacedCards = selectedCards.some(card => !!card);
-            const allCardsRevealed = hasPlacedCards && selectedCards.every(card => !card || (card as any).revealed);
-            if (allCardsRevealed && !showCardGallery) {
+            const hasPlacedCardsV = selectedCards.some(card => !!card);
+            const allCardsRevealedV = hasPlacedCardsV && selectedCards.every(card => !card || (card as any).revealed);
+            if (allCardsRevealedV && !showCardGallery) {
               event.preventDefault();
               const firstRevealedIndex = selectedCards.findIndex(card => card && (card as any).revealed);
               if (firstRevealedIndex !== -1) {

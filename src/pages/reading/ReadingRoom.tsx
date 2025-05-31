@@ -49,6 +49,11 @@ import SetupScreen from './components/SetupScreen';
 import AskQuestionScreen from './components/AskQuestionScreen';
 import DrawingScreen from './components/DrawingScreen';
 import InterpretationScreen from './components/InterpretationScreen'; // Import the new component
+import ShareModal from './components/modals/ShareModal'; // Import the new modal
+import ExitModal from './components/modals/ExitModal'; // Import the new modal
+import InviteDropdownModal from './components/modals/InviteDropdownModal'; // Import
+import HelpModal from './components/modals/HelpModal'; // Import the new modal
+import CardGalleryModal from './components/modals/CardGalleryModal'; // Import
 
 // Coordinate transformation helper
 const viewportToPercentage = (
@@ -162,7 +167,7 @@ const ReadingRoom = () => {
   } = useGuestUpgrade();
   const { 
     showHelpModal, 
-    setShowHelpModal,
+    setShowHelpModal, // Re-enable for keyboard shortcuts hook
     toggleHelpModal
   } = useHelpModal();
   
@@ -212,7 +217,7 @@ const ReadingRoom = () => {
       setError(anonymousAuthError);
     }
   }, [anonymousAuthError]);
-  
+
   // Initialize video call when session is ready
   useEffect(() => {
     if (sessionState?.id && participantId) {
@@ -1735,7 +1740,7 @@ const ReadingRoom = () => {
     user,
     selectedCards,
     showShareModal: shareModal.isOpen, // Use a local variable for clarity if preferred in hook args
-    showHelpModal,
+    showHelpModal, // For the hook to know if it's open
     showExitModal: exitModal.isOpen, // Use a local variable for clarity if preferred in hook args
     showSignInModal,
     showGuestUpgrade,
@@ -2832,365 +2837,24 @@ const ReadingRoom = () => {
       )}
       
       {/* Share Room Modal - mobile responsive */}
-      <AnimatePresence>
-        {shareModal.isOpen && sessionId && (
-          <div 
-            className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
-            onClick={() => shareModal.closeModal()}
-          >
-            <motion.div 
-              className="relative bg-card max-w-md w-full rounded-xl overflow-hidden"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
-                <h3 className="font-serif font-bold">Share Reading Room</h3>
-                <Tooltip content="Close share modal" position="left" disabled={isMobile}>
-                  <button 
-                    onClick={() => shareModal.closeModal()}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <XCircle className="h-5 w-5" />
-                  </button>
-                </Tooltip>
-              </div>
-              
-              <div className="p-6">
-                <p className="mb-4 text-sm md:text-base">
-                  Share this link with others to invite them to your reading room with video chat. 
-                  {participants.length > 0 && ` Currently ${participants.length} participants are connected.`}
-                  {showVideoChat && <span className="block text-xs text-primary mt-1">Video chat is now active!</span>}
-                </p>
-                
-                <div className="mb-6">
-                  <label htmlFor="roomLink" className="block text-sm font-medium mb-2">
-                    Room Invitation Link
-                  </label>
-                  <div className="flex">
-                    <input
-                      id="roomLink"
-                      type="text"
-                      value={sessionId ? generateShareableLink(sessionId) : ''}
-                      readOnly
-                      className="flex-1 p-2 text-sm rounded-l-md border border-r-0 border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                    <Tooltip content={showCopied ? "Link copied!" : "Copy link to clipboard"} position="top" disabled={isMobile}>
-                      <button
-                        onClick={() => copyRoomLinkHelper(sessionId, setShowCopied, generateShareableLink)}
-                        className="p-2 bg-primary text-primary-foreground rounded-r-md hover:bg-primary/90 transition-colors flex items-center"
-                      >
-                        {showCopied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
-                      </button>
-                    </Tooltip>
-                  </div>
-                  {showCopied && (
-                    <p className="text-xs text-success mt-2">Link copied to clipboard!</p>
-                  )}
-                </div>
-                
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => shareModal.closeModal()}
-                    className="btn btn-primary px-4 py-2"
-                  >
-                    Done
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <ShareModal
+        isOpen={shareModal.isOpen}
+        onClose={shareModal.closeModal}
+        sessionId={sessionId || null} // Ensure null if undefined
+        isMobile={isMobile}
+        showCopied={showCopied}
+        setShowCopied={setShowCopied}
+        generateShareableLink={generateShareableLink}
+        copyRoomLinkHelper={copyRoomLinkHelper} // Note: copyRoomLinkHelper was defined in ReadingRoom
+        participantsCount={participants.length}
+        isVideoChatActive={showVideoChat} // Assuming showVideoChat state reflects this
+      />
       
       {/* Help Modal - Desktop */}
-      <AnimatePresence>
-        {showHelpModal && (
-          <div 
-            className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
-            onClick={() => setShowHelpModal(false)} // Explicit close
-          >
-            <motion.div 
-              className="relative bg-card max-w-4xl w-full max-h-[90vh] rounded-xl overflow-hidden"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
-                <h3 className="font-serif font-bold text-xl">TarotForge Reading Room Guide</h3>
-                <button 
-                  onClick={() => setShowHelpModal(false)} // Explicit close
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-              
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-                <div className="grid md:grid-cols-2 gap-8">
-                  {/* Keyboard Shortcuts */}
-                  <div>
-                    <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                      <Keyboard className="h-5 w-5 text-primary" />
-                      Keyboard Shortcuts
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Pan view</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Space + Drag</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Pan up</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">↑</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Pan down</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">↓</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Pan left</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">←</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Pan right</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">→</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Navigate categories</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">↑ ↓ ← →</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Navigate questions</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">↑ ↓</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Select category/layout/question</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Enter</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Pan to center</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">C</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Shuffle deck</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Left Shift</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Zoom in</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">+ / =</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Zoom out</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">- / _</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Reset zoom</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Z</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Zoom (mouse)</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">{navigator.platform.toLowerCase().includes('mac') ? 'Cmd' : 'Ctrl'} + Scroll</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Navigate gallery</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">← →</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Close gallery</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Esc</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Show help</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">{navigator.platform.toLowerCase().includes('mac') ? 'H' : 'F1'}</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Toggle theme</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">T</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Change deck</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">D</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Select layout</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">L</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Invite others</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">I</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Reveal all cards</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">R</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Reset cards</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">{navigator.platform.toLowerCase().includes('mac') ? 'Cmd' : 'Ctrl'} + R</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">View card details</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">V</kbd>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Exit / Close modals</span>
-                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Esc</kbd>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Navigation & Controls */}
-                  <div>
-                    <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                      <Navigation className="h-5 w-5 text-primary" />
-                      Navigation & Controls
-                    </h4>
-                    <div className="space-y-4">
-                      <div className="bg-muted/30 p-3 rounded-lg">
-                        <div className="font-medium text-sm mb-1">Zoom Controls</div>
-                        <div className="text-xs text-muted-foreground">Use the zoom buttons or {navigator.platform.toLowerCase().includes('mac') ? 'Cmd' : 'Ctrl'}+Scroll to zoom in/out. Pan with Space+Drag or arrow keys.</div>
-                      </div>
-                      <div className="bg-muted/30 p-3 rounded-lg">
-                        <div className="font-medium text-sm mb-1">Card Interaction</div>
-                        <div className="text-xs text-muted-foreground">Drag cards from the deck to positions. Click to flip cards. Double-click revealed cards for detailed view.</div>
-                      </div>
-                      <div className="bg-muted/30 p-3 rounded-lg">
-                        <div className="font-medium text-sm mb-1">Free Layout</div>
-                        <div className="text-xs text-muted-foreground">Drop cards anywhere on the board. Drag placed cards to reposition them.</div>
-                      </div>
-                      <div className="bg-muted/30 p-3 rounded-lg">
-                        <div className="font-medium text-sm mb-1">Directional Joypad</div>
-                        <div className="text-xs text-muted-foreground">Use the mini joystick in zoom controls for precise panning.</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Collaborative Features */}
-                  <div>
-                    <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                      <Users className="h-5 w-5 text-primary" />
-                      Collaborative Features
-                    </h4>
-                    <div className="space-y-4">
-                      <div className="bg-muted/30 p-3 rounded-lg">
-                        <div className="font-medium text-sm mb-1">Real-time Sync</div>
-                        <div className="text-xs text-muted-foreground">All participants see changes instantly - card placements, flips, zoom, and pan.</div>
-                      </div>
-                      <div className="bg-muted/30 p-3 rounded-lg">
-                        <div className="font-medium text-sm mb-1">Video Chat</div>
-                        <div className="text-xs text-muted-foreground">Click the video button to start/join video calls with other participants.</div>
-                      </div>
-                      <div className="bg-muted/30 p-3 rounded-lg">
-                        <div className="font-medium text-sm mb-1">Shared Deck</div>
-                        <div className="text-xs text-muted-foreground">All logged-in participants' deck collections are combined and available to everyone.</div>
-                      </div>
-                      <div className="bg-muted/30 p-3 rounded-lg">
-                        <div className="font-medium text-sm mb-1">Guest Access</div>
-                        <div className="text-xs text-muted-foreground">Guests can join and participate but have limited deck access. Upgrade to unlock full features.</div>
-                      </div>
-                      <div className="bg-muted/30 p-3 rounded-lg">
-                        <div className="font-medium text-sm mb-1">Invite Others</div>
-                        <div className="text-xs text-muted-foreground">Use the share button to generate invitation links for your reading room.</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Reading Process */}
-                  <div>
-                    <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                      <BookOpen className="h-5 w-5 text-primary" />
-                      Reading Process
-                    </h4>
-                    <div className="space-y-4">
-                      <div className="bg-muted/30 p-3 rounded-lg">
-                        <div className="font-medium text-sm mb-1">1. Setup</div>
-                        <div className="text-xs text-muted-foreground">Choose your deck and layout. Ask your question.</div>
-                      </div>
-                      <div className="bg-muted/30 p-3 rounded-lg">
-                        <div className="font-medium text-sm mb-1">2. Drawing</div>
-                        <div className="text-xs text-muted-foreground">Drag cards from the deck to positions. Cards start face-down.</div>
-                      </div>
-                      <div className="bg-muted/30 p-3 rounded-lg">
-                        <div className="font-medium text-sm mb-1">3. Reveal</div>
-                        <div className="text-xs text-muted-foreground">Click cards to flip them. Use "Reveal All" for quick reveal.</div>
-                      </div>
-                      <div className="bg-muted/30 p-3 rounded-lg">
-                        <div className="font-medium text-sm mb-1">4. Interpret</div>
-                        <div className="text-xs text-muted-foreground">Click "See Interpretation" to generate AI-powered insights based on your cards and question.</div>
-                      </div>
-                      <div className="bg-muted/30 p-3 rounded-lg">
-                        <div className="font-medium text-sm mb-1">Card Details</div>
-                        <div className="text-xs text-muted-foreground">Double-click any revealed card to see its full description and meaning.</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Tips & Tricks */}
-                  <div className="md:col-span-2">
-                    <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                      <Lightbulb className="h-5 w-5 text-primary" />
-                      Tips & Tricks
-                    </h4>
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <div className="bg-muted/20 p-3 rounded-lg">
-                          <div className="font-medium text-sm mb-1">Space+Drag</div>
-                          <div className="text-xs text-muted-foreground">Pan from anywhere, even over cards and UI elements</div>
-                        </div>
-                        <div className="bg-muted/20 p-3 rounded-lg">
-                          <div className="font-medium text-sm mb-1">Zoom Focus</div>
-                          <div className="text-xs text-muted-foreground">Zoom centers on your mouse cursor position</div>
-                        </div>
-                        <div className="bg-muted/20 p-3 rounded-lg">
-                          <div className="font-medium text-sm mb-1">Mobile</div>
-                          <div className="text-xs text-muted-foreground">Pinch to zoom, two-finger drag to pan</div>
-                        </div>
-                        <div className="bg-muted/20 p-3 rounded-lg">
-                          <div className="font-medium text-sm mb-1">Card Gallery</div>
-                          <div className="text-xs text-muted-foreground">Swipe or use arrow keys to navigate between revealed cards</div>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <div className="bg-muted/20 p-3 rounded-lg">
-                          <div className="font-medium text-sm mb-1">Collaborative</div>
-                          <div className="text-xs text-muted-foreground">Changes sync in real-time across all participants</div>
-                        </div>
-                        <div className="bg-muted/20 p-3 rounded-lg">
-                          <div className="font-medium text-sm mb-1">Deck Switching</div>
-                          <div className="text-xs text-muted-foreground">Change decks mid-reading without losing card positions</div>
-                        </div>
-                        <div className="bg-muted/20 p-3 rounded-lg">
-                          <div className="font-medium text-sm mb-1">Session Persistence</div>
-                          <div className="text-xs text-muted-foreground">Your reading room stays active for others to join</div>
-                        </div>
-                        <div className="bg-muted/20 p-3 rounded-lg">
-                          <div className="font-medium text-sm mb-1">Guest Mode</div>
-                          <div className="text-xs text-muted-foreground">Try the app without signing up, upgrade anytime</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-8 pt-6 border-t border-border text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Need more help? Visit our documentation or contact support.
-                  </p>
-                  <button
-                    onClick={() => setShowHelpModal(false)} // Explicit close
-                    className="btn btn-primary px-6 py-2 mt-4"
-                  >
-                    Got it!
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <HelpModal 
+        isOpen={showHelpModal} 
+        onClose={toggleHelpModal} 
+      />
       
       {/* Guest Account Upgrade Modal */}
       <AnimatePresence>
@@ -3206,74 +2870,16 @@ const ReadingRoom = () => {
       </AnimatePresence>
 
       {/* Exit Confirmation Modal */}
-      <AnimatePresence>
-        {exitModal.isOpen && (
-          <motion.div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => exitModal.closeModal()}
-          >
-            <motion.div
-              className={`bg-card border border-border rounded-lg shadow-lg ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md'} p-6`}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-destructive/10 rounded-full">
-                  <DoorOpen className="h-5 w-5 text-destructive" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold">Exit Reading Room</h3>
-                  <p className="text-sm text-muted-foreground">Are you sure you want to leave?</p>
-                </div>
-              </div>
-              
-              <div className="space-y-3 mb-6">
-                <p className="text-sm text-muted-foreground">
-                  {selectedCards.some((card: any) => card) ? (
-                    <>Your reading progress will be saved and you can return to this session later.</>
-                  ) : (
-                    <>You haven't started your reading yet. You can always come back to continue.</>
-                  )}
-                </p>
-                {participants.length > 1 && (
-                  <p className="text-sm text-muted-foreground">
-                    Other participants will remain in the session and can continue without you.
-                  </p>
-                )}
-              </div>
-              
-              <div className="flex gap-3">
-                <button
-                  onClick={() => exitModal.closeModal()}
-                  className="flex-1 px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors"
-                >
-                  Stay in Session
-                </button>
-                <Link
-                  to={user ? "/collection" : "/"}
-                  className="flex-1 px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors text-center"
-                  onClick={() => {
-                    // End video call if user is in one before leaving
-                    if (isInCall) {
-                      console.log('Ending video call before exiting reading room...');
-                      endCall();
-                    }
-                  }}
-                >
-                  Exit Reading Room
-                </Link>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ExitModal
+        isOpen={exitModal.isOpen}
+        onClose={exitModal.closeModal}
+        isMobile={isMobile}
+        user={user} // from useAuthStore
+        selectedCards={selectedCards} // from sessionState
+        participants={participants} // from readingSessionStore
+        isInCall={isInCall} // from useVideoCall
+        endCall={endCall} // from useVideoCall
+      />
       
       {/* Card Gallery - Full Screen on Mobile, Modal on Desktop */}
       <AnimatePresence>
@@ -3540,150 +3146,36 @@ const ReadingRoom = () => {
       />
 
       {/* Invite Dropdown Modal */}
-      <AnimatePresence>
-        {inviteDropdown.isOpen && (
-          <motion.div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => inviteDropdown.closeModal()}
-          >
-            <motion.div
-              className={`bg-card border border-border rounded-lg shadow-lg ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md'} p-6`}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-primary/10 rounded-full">
-                  <UserPlus className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold">Invite Others</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Choose how to invite people to your reading
-                  </p>
-                </div>
-              </div>
-              
-              {/* Current session info */}
-              <div className="bg-muted/30 rounded-lg p-3 mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span className="text-sm font-medium">Active Session</span>
-                </div>
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <div>Layout: {selectedLayout?.name || 'Custom'}</div>
-                  {question && <div>Question: "{question}"</div>}
-                  <div>Step: {readingStep}</div>
-                  {participants.length > 0 && (
-                    <div>Participants: {participants.length + 1} people</div>
-                  )}
-                  {showVideoChat && (
-                    <div className="text-green-600">✓ Video chat active</div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="space-y-3 mb-6">
-                {/* Video call option - only show during drawing/interpretation */}
-                {(readingStep === 'drawing' || readingStep === 'interpretation') && (
-                  <button
-                    onClick={async () => {
-                      // Start video call first if not already active
-                      if (!showVideoChat && !isVideoConnecting) {
-                        console.log('Starting video call for sharing...');
-                        setIsVideoConnecting(true);
-                        
-                        try {
-                          await startCall();
-                          console.log('Video call started successfully');
-                          setTimeout(() => {
-                            setIsVideoConnecting(false);
-                            setShowVideoChat(true);
-                          }, 500);
-                        } catch (error) {
-                          console.error('Failed to start video call:', error);
-                          setIsVideoConnecting(false);
-                        }
-                      }
-                      
-                      // Then proceed with sharing
-                      inviteDropdown.closeModal(); 
-                      shareModal.openModal(); 
-                    }}
-                    disabled={isVideoConnecting}
-                    className="w-full p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors text-left"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
-                        <Video className="h-5 w-5 text-green-600" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">
-                          {showVideoChat ? 'Share with Video Chat' : 'Start Video Chat & Share'}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {showVideoChat 
-                            ? 'Video chat is active. Share link with video enabled.'
-                            : 'Start video call and share invitation link'
-                          }
-                        </div>
-                      </div>
-                      {isVideoConnecting && (
-                        <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-                      )}
-                    </div>
-                      </button>
-                )}
-                
-                {/* Regular share option */}
-                <button
-                  onClick={() => {
-                    inviteDropdown.closeModal(); 
-                    shareModal.openModal(); 
-                  }}
-                  className="w-full p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                      <Share2 className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium">Share Reading Room</div>
-                      <div className="text-sm text-muted-foreground">
-                        Share invitation link without video chat
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              </div>
-              
-              <div className="flex gap-3">
-                <button
-                  onClick={() => inviteDropdown.closeModal()}
-                  className="flex-1 px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    // Handle invitee submission
-                    inviteDropdown.closeModal();
-                  }}
-                  className="flex-1 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                >
-                  Send Invitations
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <InviteDropdownModal
+        isOpen={inviteDropdown.isOpen}
+        onClose={inviteDropdown.closeModal}
+        isMobile={isMobile}
+        selectedLayoutName={selectedLayout?.name}
+        currentQuestion={question}
+        participantsCount={participants.length}
+        isVideoChatActive={showVideoChat} // From local state in ReadingRoom
+        readingStep={readingStep}
+        isVideoConnecting={isVideoConnecting} // From local state in ReadingRoom
+        startVideoCallAction={async () => { // Wrap the logic for this modal
+          if (!showVideoChat && !isVideoConnecting) {
+            console.log('Starting video call from InviteDropdown...');
+            setIsVideoConnecting(true);
+            try {
+              await startCall(); // from useVideoCall
+              console.log('Video call started successfully from InviteDropdown');
+              setTimeout(() => {
+                setIsVideoConnecting(false);
+                setShowVideoChat(true); // Update local state
+              }, 500);
+            } catch (error) {
+              console.error('Failed to start video call from InviteDropdown:', error);
+              setIsVideoConnecting(false);
+              // Optionally set an error message for the user here
+            }
+          }
+        }}
+        openShareModalAction={shareModal.openModal} // Pass the open function for ShareModal
+      />
 
     </Div100vh>
   );
