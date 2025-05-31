@@ -14,8 +14,8 @@ const getTouchDistanceUtil = (touches: TouchList) => {
 interface UseTouchInteractionsProps {
   readingAreaRef: RefObject<HTMLDivElement>;
   isMobile: boolean;
-  currentZoomLevel: number; // Renamed to avoid conflict with internal state if any
-  isCardDragging: boolean; // Renamed for clarity
+  currentZoomLevel: number;
+  isCardDragging: boolean;
   onPanStart: (clientX: number, clientY: number) => void;
   onPanMove: (clientX: number, clientY: number) => void;
   onPanEnd: () => void;
@@ -34,30 +34,43 @@ export const useTouchInteractions = ({
 }: UseTouchInteractionsProps) => {
   const [isZooming, setIsZooming] = useState(false);
   const [lastTouchDistance, setLastTouchDistance] = useState(0);
+  const [isPanActiveViaTouch, setIsPanActiveViaTouch] = useState(false); // Internal state for touch-initiated pan
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
+    console.log('[TouchInteractions] handleTouchStart - e.touches.length:', e.touches.length, 'currentZoomLevel:', currentZoomLevel);
     const target = e.target as HTMLElement;
     if (target.closest('[data-card-element="true"]') || target.closest('.deck-pile') || isCardDragging) {
+      setIsPanActiveViaTouch(false); 
       return;
     }
 
     if (e.touches.length === 2) {
       setIsZooming(true);
       setLastTouchDistance(getTouchDistanceUtil(e.touches));
+      setIsPanActiveViaTouch(false); 
       e.preventDefault();
       e.stopPropagation();
     } else if (e.touches.length === 1 && currentZoomLevel > 1) {
       const touch = e.touches[0];
+      console.log('[TouchInteractions] Pan Start Attempt: Calling onPanStart');
       onPanStart(touch.clientX, touch.clientY);
+      setIsPanActiveViaTouch(true);
       e.preventDefault();
+      e.stopPropagation(); // Added stopPropagation
+    } else {
+      console.log('[TouchInteractions] Pan Start: No action, resetting isPanActiveViaTouch');
+      setIsPanActiveViaTouch(false);
     }
-  }, [currentZoomLevel, isCardDragging, onPanStart]);
+  }, [currentZoomLevel, isCardDragging, onPanStart, setIsZooming, setLastTouchDistance, setIsPanActiveViaTouch]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (isZooming && e.touches.length === 2) {
       const currentDistance = getTouchDistanceUtil(e.touches);
+      if (lastTouchDistance === 0) { 
+        setLastTouchDistance(currentDistance);
+        return;
+      }
       const scale = currentDistance / lastTouchDistance;
-
       if (Math.abs(scale - 1) > 0.01) {
         const newZoom = Math.max(0.5, Math.min(2, currentZoomLevel * scale));
         onZoomChange(newZoom);
@@ -65,34 +78,36 @@ export const useTouchInteractions = ({
       }
       e.preventDefault();
       e.stopPropagation();
-    } else if (readingAreaRef.current?.style.cursor === 'grabbing' && e.touches.length === 1 && !isCardDragging) { // Check for active panning state
+    } else if (isPanActiveViaTouch && e.touches.length === 1 && !isCardDragging) {
       const touch = e.touches[0];
+      console.log('[TouchInteractions] Pan Move: Calling onPanMove');
       onPanMove(touch.clientX, touch.clientY);
       e.preventDefault();
       e.stopPropagation();
     }
-  }, [isZooming, lastTouchDistance, currentZoomLevel, onZoomChange, onPanMove, isCardDragging, readingAreaRef]);
+  }, [isZooming, lastTouchDistance, currentZoomLevel, onZoomChange, onPanMove, isCardDragging, isPanActiveViaTouch, setLastTouchDistance]);
 
   const handleTouchEnd = useCallback((e: TouchEvent) => {
-    if (e.touches.length < 2) {
+    if (isZooming && e.touches.length < 2) {
       setIsZooming(false);
       setLastTouchDistance(0);
     }
-    if (e.touches.length === 0) {
+    if (isPanActiveViaTouch && e.touches.length === 0) {
+      console.log('[TouchInteractions] Pan End: Calling onPanEnd');
       onPanEnd();
+      setIsPanActiveViaTouch(false);
     }
-  }, [onPanEnd]);
+  }, [onPanEnd, isPanActiveViaTouch, isZooming, setIsZooming, setLastTouchDistance, setIsPanActiveViaTouch]);
 
   useEffect(() => {
     const readingArea = readingAreaRef.current;
     if (!readingArea || !isMobile) return;
 
     const options = { passive: false };
-    const passiveOptions = { passive: true };
 
     readingArea.addEventListener('touchstart', handleTouchStart, options);
     readingArea.addEventListener('touchmove', handleTouchMove, options);
-    readingArea.addEventListener('touchend', handleTouchEnd, passiveOptions);
+    readingArea.addEventListener('touchend', handleTouchEnd, options);
 
     return () => {
       readingArea.removeEventListener('touchstart', handleTouchStart);

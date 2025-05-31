@@ -37,6 +37,7 @@ import { useReadingRoomKeyboardShortcuts } from './hooks/useReadingRoomKeyboardS
 import { useBroadcastHandler } from './hooks/useBroadcastHandler'; // Added import
 import { useParticipantNotificationHandler } from './hooks/useParticipantNotificationHandler'; // <<< ADD THIS LINE
 import { useTouchInteractions } from './hooks/useTouchInteractions'; 
+import { useDocumentMouseListeners } from './hooks/useDocumentMouseListeners'; // <<< ADD THIS LINE
 
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
@@ -1507,8 +1508,6 @@ const ReadingRoom = () => {
   };
   
   const handlePanMove = (clientX: number, clientY: number) => {
-    if (!isPanning) return;
-    
     const deltaX = clientX - panStartPos.x;
     const deltaY = clientY - panStartPos.y;
     
@@ -1744,6 +1743,17 @@ const ReadingRoom = () => {
     onPanEnd: handlePanEnd,      // Pass the existing handlePanEnd callback
     onZoomChange: setZoomLevelWrapped, // Pass the setZoomLevelWrapped callback
   });
+
+  // Add mouse move handler to document for dragging - optimized
+  useDocumentMouseListeners({
+    isDraggingCard: isDragging, // isDragging state from ReadingRoom (for cards from deck)
+    isPanningView: isPanning,   // isPanning state from ReadingRoom
+    isDraggingPlacedCard: isDraggingPlacedCard, // isDraggingPlacedCard state from ReadingRoom
+    onDragMove: setDragPosition, // Pass the setDragPosition setter
+    onPanMove: handlePanMove,    // Pass the handlePanMove callback
+    onDragEnd: handleDragEnd,    // Pass the handleDragEnd callback (for cards from deck)
+    onPanEnd: handlePanEnd,      // Pass the handlePanEnd callback
+  });
   
   // Keyboard navigation for gallery and panning
   useReadingRoomKeyboardShortcuts({
@@ -1837,53 +1847,6 @@ const ReadingRoom = () => {
     
     setGallerySwipeStart(null);
   }, [isMobile, showCardGallery, gallerySwipeStart, navigateGallery]);
-  
-  // Add mouse move handler to document for dragging - optimized
-  useEffect(() => {
-    let animationFrameId: number;
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      // Use requestAnimationFrame to throttle mouse movement for better performance
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-      
-      animationFrameId = requestAnimationFrame(() => {
-      if (isDragging) {
-        setDragPosition({ x: e.clientX, y: e.clientY });
-        } else if (isPanning && !isDragging && !isDraggingPlacedCard) {
-        handlePanMove(e.clientX, e.clientY);
-      }
-      });
-    };
-    
-    const handleMouseUp = () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-      
-      if (isDragging) {
-        handleDragEnd();
-      } else if (isPanning) {
-        handlePanEnd();
-      }
-    };
-    
-    if (isDragging || isPanning) {
-      document.addEventListener('mousemove', handleMouseMove, { passive: true });
-      document.addEventListener('mouseup', handleMouseUp, { passive: true });
-    }
-    
-    return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging, isPanning, isDraggingPlacedCard]);
-  
 
   // State for invite dropdown modal
   const [showInviteDropdown, setShowInviteDropdown] = useState(false);
