@@ -28,7 +28,7 @@ import { fisherYatesShuffle, cleanMarkdownText, getTransform, getTouchDistance }
 import { getDefaultZoomLevel } from './utils/layoutHelpers'; 
 import { generateShareableLink, getTodayDateString, isCacheValid, copyRoomLink as copyRoomLinkHelper } from './utils/sessionHelpers'; // Updated import
 import { useDeviceAndOrientationDetection } from './hooks/useDeviceAndOrientationDetection';
-import { useDebounce } from './hooks/useDebounce';
+import { debounce } from 'lodash';
 import { useTheme } from './hooks/useTheme'; 
 import { useGuestUpgrade } from './hooks/useGuestUpgrade';
 import { useHelpModal } from './hooks/useHelpModal';

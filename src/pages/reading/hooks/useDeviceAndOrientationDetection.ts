@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useDebounce } from './useDebounce';
+import { debounce } from 'lodash';
 
 export const useDeviceAndOrientationDetection = () => {
   const [isMobile, setIsMobile] = useState(false);
@@ -39,7 +39,7 @@ export const useDeviceAndOrientationDetection = () => {
       return;
     }
 
-    const debouncedCheck = useDebounce(checkDeviceAndOrientation, 250);
+    const debouncedCheck = debounce(checkDeviceAndOrientation, 250);
     
     // Initial check
     checkDeviceAndOrientation();
