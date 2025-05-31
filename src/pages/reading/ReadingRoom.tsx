@@ -30,7 +30,7 @@ import { generateShareableLink, getTodayDateString, isCacheValid, copyRoomLink a
 import { useDeviceAndOrientationDetection } from './hooks/useDeviceAndOrientationDetection';
 import { useTheme } from './hooks/useTheme'; 
 import { useGuestUpgrade } from './hooks/useGuestUpgrade';
-
+import { useHelpModal } from './hooks/useHelpModal';
 import Div100vh from 'react-div-100vh';
 
 
@@ -102,6 +102,13 @@ const ReadingRoom = () => {
     setShowGuestUpgrade, 
     // triggerGuestUpgradeOnInvite // No longer returned
   } = useGuestUpgrade();
+  const { 
+    showHelpModal, 
+    // openHelpModal, // No longer used
+    // closeHelpModal, // No longer used
+    setShowHelpModal, // Keep for direct close actions
+    toggleHelpModal   // New toggle function
+  } = useHelpModal();
   
   // Properly detect guest users - anonymous users should be treated as guests
   const isGuest = !user || isAnonymous();
@@ -328,9 +335,6 @@ const ReadingRoom = () => {
   const [panStartPos, setPanStartPos] = useState({ x: 0, y: 0 });
   const [panStartOffset, setPanStartOffset] = useState({ x: 0, y: 0 });
   const [isSpacePressed, setIsSpacePressed] = useState(false);
-  
-  // Help modal state
-  const [showHelpModal, setShowHelpModal] = useState(false);
   
   // Exit modal state
   const [showExitModal, setShowExitModal] = useState(false);
@@ -649,10 +653,6 @@ const ReadingRoom = () => {
     }
   }, [isMobile, readingStep, hasShownInitialHint]);
 
-  // Function to show help modal (via help button)
-  const showHint = useCallback(() => {
-    setShowHelpModal(true);
-  }, []);
 
   // Function to hide hint manually
   const hideHint = useCallback(() => {
@@ -2365,14 +2365,14 @@ const ReadingRoom = () => {
             // F1 for Windows/Linux
             if (!navigator.platform.toLowerCase().includes('mac')) {
               event.preventDefault();
-              showHint();
+              toggleHelpModal(); // Use toggle from hook
             }
             break;
           case KEY_VALUES.H_LOWER: // Handles 'h' and 'H' implicitly
             // H for Mac (and as fallback for other platforms)
             if (navigator.platform.toLowerCase().includes('mac') || event.metaKey || event.ctrlKey) {
               event.preventDefault();
-              showHint();
+              toggleHelpModal(); // Use toggle from hook
             }
             break;
           case KEY_VALUES.T_LOWER: // Handles 't' and 'T' implicitly
@@ -2429,7 +2429,7 @@ const ReadingRoom = () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
     };
-  }, [showCardGallery, showCardDescription, closeCardGallery, navigateGallery, isMobile, readingStep, panDirection, resetPan, shuffleDeck, showHint, toggleTheme, setZoomLevelWrapped, zoomLevel, getDefaultZoomLevel, selectedLayout, setZoomFocusWrapped, openDeckSelection, showShareModal, setShowShareModal, showHelpModal, setShowHelpModal, showExitModal, setShowExitModal, showSignInModal, setShowSignInModal, showGuestUpgrade, setShowGuestUpgrade, isChangingDeckMidSession, setIsChangingDeckMidSession, fetchAndSetDeck, deckId, user, selectedCards, revealAllCards, resetCards, openCardGallery, showLayoutDropdown, setShowLayoutDropdown, highlightedLayoutIndex, setHighlightedLayoutIndex, highlightedSetupLayoutIndex, setHighlightedSetupLayoutIndex, handleLayoutSelect, readingLayouts, selectedCategory, highlightedCategoryIndex, setHighlightedCategoryIndex, handleCategorySelect, questionCategories, generatedQuestions, isLoadingQuestions, highlightedQuestionIndex, setHighlightedQuestionIndex, handleQuestionSelect, setGeneratedQuestions, showCustomQuestionInput, isQuestionHighlightingActive, isCategoryHighlightingActive]);
+  }, [showCardGallery, showCardDescription, closeCardGallery, navigateGallery, isMobile, readingStep, panDirection, resetPan, shuffleDeck, toggleHelpModal, toggleTheme, setZoomLevelWrapped, zoomLevel, getDefaultZoomLevel, selectedLayout, setZoomFocusWrapped, openDeckSelection, showShareModal, setShowShareModal, showHelpModal, setShowHelpModal, showExitModal, setShowExitModal, showSignInModal, setShowSignInModal, showGuestUpgrade, setShowGuestUpgrade, isChangingDeckMidSession, setIsChangingDeckMidSession, fetchAndSetDeck, deckId, user, selectedCards, revealAllCards, resetCards, openCardGallery, showLayoutDropdown, setShowLayoutDropdown, highlightedLayoutIndex, setHighlightedLayoutIndex, highlightedSetupLayoutIndex, setHighlightedSetupLayoutIndex, handleLayoutSelect, readingLayouts, selectedCategory, highlightedCategoryIndex, setHighlightedCategoryIndex, handleCategorySelect, questionCategories, generatedQuestions, isLoadingQuestions, highlightedQuestionIndex, setHighlightedQuestionIndex, handleQuestionSelect, setGeneratedQuestions, showCustomQuestionInput, isQuestionHighlightingActive, isCategoryHighlightingActive]);
   
   // Handle gallery swipe gestures
   const handleGalleryTouchStart = useCallback((e: React.TouchEvent) => {
@@ -4089,7 +4089,7 @@ const ReadingRoom = () => {
                     </button>
                   </Tooltip>
                   <Tooltip content={`Show help (${getPlatformShortcut('help')})`} position="right" disabled={isMobile}>
-                    <button onClick={showHint} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
+                    <button onClick={toggleHelpModal} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <HelpCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
@@ -4672,7 +4672,7 @@ const ReadingRoom = () => {
                     </button>
                   </Tooltip>
                   <Tooltip content={`Show help (${getPlatformShortcut('help')})`} position="right" disabled={isMobile}>
-                    <button onClick={showHint} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
+                    <button onClick={toggleHelpModal} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <HelpCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
@@ -5108,7 +5108,7 @@ const ReadingRoom = () => {
         {showHelpModal && (
           <div 
             className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
-            onClick={() => setShowHelpModal(false)}
+            onClick={() => setShowHelpModal(false)} // Explicit close
           >
             <motion.div 
               className="relative bg-card max-w-4xl w-full max-h-[90vh] rounded-xl overflow-hidden"
@@ -5121,7 +5121,7 @@ const ReadingRoom = () => {
               <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
                 <h3 className="font-serif font-bold text-xl">TarotForge Reading Room Guide</h3>
                 <button 
-                  onClick={() => setShowHelpModal(false)}
+                  onClick={() => setShowHelpModal(false)} // Explicit close
                   className="text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <X className="h-6 w-6" />
@@ -5378,7 +5378,7 @@ const ReadingRoom = () => {
                     Need more help? Visit our documentation or contact support.
                   </p>
                   <button
-                    onClick={() => setShowHelpModal(false)}
+                    onClick={() => setShowHelpModal(false)} // Explicit close
                     className="btn btn-primary px-6 py-2 mt-4"
                   >
                     Got it!
