@@ -38,6 +38,11 @@ import { useBroadcastHandler } from './hooks/useBroadcastHandler'; // Added impo
 import { useParticipantNotificationHandler } from './hooks/useParticipantNotificationHandler'; // <<< ADD THIS LINE
 import { useTouchInteractions } from './hooks/useTouchInteractions'; 
 import { useDocumentMouseListeners } from './hooks/useDocumentMouseListeners'; // <<< ADD THIS LINE
+import { useAnonymousAuth } from './hooks/useAnonymousAuth';
+import { useSessionManagement } from './hooks/useSessionManagement';
+import { usePeriodicSessionSync } from './hooks/usePeriodicSessionSync';
+import { useQuestionCacheHandler } from './hooks/useQuestionCacheHandler';
+import { useBeforeUnloadVideoCleanup } from './hooks/useBeforeUnloadVideoCleanup';
 
 // Coordinate transformation helper
 const viewportToPercentage = (
@@ -96,11 +101,13 @@ const viewportToPercentage = (
 };
 
 const ReadingRoom = () => {
-  const { deckId } = useParams<{ deckId: string }>();
+  const { deckId: deckIdFromParams } = useParams<{ deckId: string }>();
   const { user, setShowSignInModal, showSignInModal, isAnonymous, signInAnonymously } = useAuthStore();
   const { isSubscribed } = useSubscription();
   const navigate = useNavigate();
   const location = useLocation();
+  const [error, setError] = useState<string | null>(null);
+  const [questionCache, setQuestionCache] = useState<{[key: string]: {questions: string[], date: string}}>({});
   
   // Get join session ID and access method from URL params
   const urlParams = new URLSearchParams(location.search);
@@ -167,137 +174,42 @@ const ReadingRoom = () => {
     localStorage.removeItem('auth_return_path');
   }, [setShowSignInModal]);
   
-  // Initialize session on mount
+  // Refactored Initial Setup Hooks
+  const { isReady: isAnonymousAuthReady, error: anonymousAuthError } = useAnonymousAuth({
+    onAuthError: setError, // Pass setError to handle auth errors
+  });
+
+  const { isSessionReady } = useSessionManagement({
+    shouldCreateSession,
+    joinSessionId,
+    deckIdFromParams,
+    onSessionError: setError, // Pass setError for session errors
+    isAnonymousAuthReady,
+  });
+
+  usePeriodicSessionSync({ isSessionReady });
+  useQuestionCacheHandler({ setQuestionCache });
+  useBeforeUnloadVideoCleanup();
+
+  // Combined cleanup for ReadingRoom unmount
   useEffect(() => {
-    const initSession = async () => {
-      // First, ensure user has anonymous auth if they're not authenticated
-      if (!user) {
-        console.log('🎭 No authenticated user found, creating anonymous session...');
-        try {
-          const result = await signInAnonymously();
-          
-          if (result.error) {
-            console.error('❌ Failed to create anonymous user:', result.error);
-            setError('Failed to authenticate. Please refresh the page and try again.');
-            return;
-          }
-          
-          console.log('✅ Anonymous user created successfully');
-          // Small delay to ensure auth state is updated
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (error) {
-          console.error('❌ Error creating anonymous user:', error);
-          setError('Authentication failed. Please refresh the page and try again.');
-          return;
-        }
-      }
-      
-      if (shouldCreateSession) {
-        // Create a new session and update URL
-        try {
-          const newSessionId = await createSession();
-          if (newSessionId) {
-            // Update URL to remove create flag and add session ID while preserving deck ID
-            const currentPath = window.location.pathname;
-            const newUrl = deckId && currentPath.includes(deckId)
-              ? `/reading-room/${deckId}?join=${newSessionId}`
-              : `/reading-room?join=${newSessionId}`;
-            window.history.replaceState({}, '', newUrl);
-            setInitialSessionId(newSessionId);
-          } else {
-            // Session creation failed, show error
-            setError('Failed to create reading room session. Please try again.');
-            return;
-          }
-        } catch (error) {
-          console.error('Error creating session:', error);
-          setError('Failed to create reading room session. Please try again.');
-          return;
-        }
-      } else {
-        setInitialSessionId(joinSessionId);
-      }
-      
-      setDeckId(deckId || 'rider-waite-classic');
-      await initializeSession();
-    };
-    
-    initSession().catch(error => {
-      console.error('Error initializing session:', error);
-      setError('Failed to initialize session. Please try again.');
-    });
-    
-    // Set up periodic sync for offline sessions and state synchronization
-    const syncInterval = setInterval(async () => {
-      if (isOfflineMode && sessionState?.id?.startsWith('local_')) {
-        console.log('Attempting periodic sync of local session...');
-        const synced = await syncLocalSessionToDatabase();
-        if (synced) {
-          console.log('Periodic sync successful');
-          clearInterval(syncInterval);
-        }
-      } else if (sessionState?.id && !isHost && !sessionState.id.startsWith('local_')) {
-        // For non-host participants, periodically sync state to ensure consistency
-        console.log('Syncing session state for participant...');
-        await syncCompleteSessionState(sessionState.id);
-      }
-    }, 30000); // Try every 30 seconds
-    
-    // Load question cache from localStorage
-    try {
-      const savedCache = localStorage.getItem('tarot_question_cache');
-      if (savedCache) {
-        const parsedCache = JSON.parse(savedCache);
-        // Clean up expired cache entries (older than today)
-        const today = getTodayDateString();
-        const validCache: {[key: string]: {questions: string[], date: string}} = {};
-        
-        Object.entries(parsedCache).forEach(([category, data]: [string, any]) => {
-          if (data.date === today) {
-            validCache[category] = data;
-          }
-        });
-        
-        setQuestionCache(validCache);
-        
-        // Save cleaned cache back to localStorage
-        if (Object.keys(validCache).length !== Object.keys(parsedCache).length) {
-          localStorage.setItem('tarot_question_cache', JSON.stringify(validCache));
-        }
-      }
-    } catch (error) {
-      console.error('Error loading question cache:', error);
-      localStorage.removeItem('tarot_question_cache');
-    }
-    
-    // Handle browser navigation away from reading room
-    const handleBeforeUnload = () => {
-      if (isInCall) {
-        console.log('Ending video call before page unload...');
-        endCall();
-      }
-    };
-
-    // Add event listener for page unload
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    // Cleanup on unmount
     return () => {
-      // End video call if user is in one before leaving
       if (isInCall) {
-        console.log('Ending video call before leaving reading room...');
+        console.log('ReadingRoom: Ending video call before component unmount...');
         endCall();
       }
-      
-      // Remove event listener
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      
-      cleanup();
-      cleanupVideoCall();
-      clearInterval(syncInterval);
+      cleanup(); // from useReadingSessionStore
+      cleanupVideoCall(); // from useVideoCall
     };
-  }, [joinSessionId, deckId, setInitialSessionId, setDeckId, initializeSession, cleanup, cleanupVideoCall, syncCompleteSessionState, isHost]);
+  }, [isInCall, endCall, cleanup, cleanupVideoCall]);
 
+  // Update main error state if anonymous auth fails
+  useEffect(() => {
+    if (anonymousAuthError) {
+      setError(anonymousAuthError);
+    }
+  }, [anonymousAuthError]);
+  
   // Initialize video call when session is ready
   useEffect(() => {
     if (sessionState?.id && participantId) {
@@ -336,7 +248,6 @@ const ReadingRoom = () => {
   const [deck, setDeck] = useState<Deck | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   
   const [shuffledDeck, setShuffledDeck] = useState<Card[]>([]);
   const [isGeneratingInterpretation, setIsGeneratingInterpretation] = useState(false);
@@ -516,8 +427,6 @@ const ReadingRoom = () => {
   // Track cards used for current interpretation to prevent regeneration
   const [interpretationCards, setInterpretationCards] = useState<any[]>([]);
   
-  // Cache for inspiration questions with daily expiration
-  const [questionCache, setQuestionCache] = useState<{[key: string]: {questions: string[], date: string}}>({});
   
   // Deck refresh key to force visual re-render when deck is reset
   const [deckRefreshKey, setDeckRefreshKey] = useState(0);
@@ -1073,8 +982,8 @@ const ReadingRoom = () => {
         await fetchCombinedCollection();
         
         // If there's a deckId in the URL, use that deck
-        if (deckId) {
-          await fetchAndSetDeck(deckId);
+        if (deckIdFromParams) {
+          await fetchAndSetDeck(deckIdFromParams);
         } else {
           // No deck specified, keep on loading screen until deck is selected
           setLoading(false);
@@ -1087,7 +996,7 @@ const ReadingRoom = () => {
     };
     
     fetchInitialData();
-  }, [deckId, user?.id]);
+  }, [deckIdFromParams, user?.id]);
   
   // Function to fetch and set a specific deck
   const fetchAndSetDeck = async (targetDeckId: string) => {
@@ -1810,7 +1719,7 @@ const ReadingRoom = () => {
     readingStep,
     zoomLevel,
     selectedLayout,
-    deckId,
+    deckId: deckIdFromParams, // Corrected prop name
     user,
     selectedCards,
     showShareModal,
@@ -2713,7 +2622,7 @@ const ReadingRoom = () => {
               onClick={isChangingDeckMidSession ? () => {
                 // Cancel deck change and restore previous deck when clicking outside
                 setIsChangingDeckMidSession(false);
-                fetchAndSetDeck(deckId || 'rider-waite-classic');
+                fetchAndSetDeck(deckIdFromParams || 'rider-waite-classic');
               } : undefined}
             >
               <div 
@@ -2731,7 +2640,7 @@ const ReadingRoom = () => {
                         onClick={() => {
                           // Cancel deck change and restore previous deck
                           setIsChangingDeckMidSession(false);
-                          fetchAndSetDeck(deckId || 'rider-waite-classic');
+                          fetchAndSetDeck(deckIdFromParams || 'rider-waite-classic');
                         }}
                         className="btn btn-ghost p-2 text-muted-foreground hover:text-foreground"
                       >
@@ -3516,18 +3425,24 @@ const ReadingRoom = () => {
                       transition={{ duration: 0.5 }}
                       className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-move"
                       data-card-element="true"
-                      style={{ 
-                        left: `${selectedCard.x}%`, 
+                      style={draggedPlacedCardIndex === index ? {
+                        // When this card is being dragged, only set zIndex. 
+                        // Framer Motion will control its position via transform.
+                        zIndex: 50, // Higher zIndex while dragging
+                        position: 'absolute', // Explicitly keep absolute
+                      } : {
+                        // When not dragging, position using state-derived percentages.
+                        left: `${selectedCard.x}%`,
                         top: `${selectedCard.y}%`,
-                        zIndex: activeCardIndex === index ? 20 : 10 + index
+                        zIndex: activeCardIndex === index ? 20 : 10 + index,
+                        position: 'absolute',
                       }}
                       drag
                       dragMomentum={false}
                       dragElastic={0}
-                      onDragStart={(event, info) => handlePlacedCardDragStart(index)}
+                      onDragStart={(event, info) => handlePlacedCardDragStart(index)} 
                       onDragEnd={(event, info) => handlePlacedCardDragEnd(event, info, index)}
                       whileHover={{ scale: 1.05 }}
-                      whileDrag={{ scale: 1.1, zIndex: 50 }}
                       onDoubleClick={(e) => {
                         if (!isMobile && (selectedCard as any).revealed) {
                           handleCardDoubleClick(index, e);
@@ -4113,18 +4028,21 @@ const ReadingRoom = () => {
                       transition={cardAnimationConfig}
                       className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-move"
                       data-card-element="true"
-                      style={{ 
-                        left: `${selectedCard.x}%`, 
+                      style={draggedPlacedCardIndex === index ? {
+                        zIndex: 50, // Higher zIndex while dragging
+                        position: 'absolute',
+                      } : {
+                        left: `${selectedCard.x}%`,
                         top: `${selectedCard.y}%`,
-                        zIndex: activeCardIndex === index ? 20 : 10 + index
+                        zIndex: activeCardIndex === index ? 20 : 10 + index,
+                        position: 'absolute',
                       }}
                       drag
                       dragMomentum={false}
                       dragElastic={0}
-                      onDragStart={(event, info) => handlePlacedCardDragStart(index)}
+                      onDragStart={(event, info) => handlePlacedCardDragStart(index)} 
                       onDragEnd={(event, info) => handlePlacedCardDragEnd(event, info, index)}
                       whileHover={{ scale: 1.05 }}
-                      whileDrag={{ scale: 1.1, zIndex: 50 }}
                         onClick={() => {
                         if ((selectedCard as any).revealed) {
                           // Open card detail modal for revealed cards

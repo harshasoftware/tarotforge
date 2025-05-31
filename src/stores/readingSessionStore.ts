@@ -85,7 +85,7 @@ interface ReadingSessionStore {
   setInitialSessionId: (sessionId: string | null) => void;
   setDeckId: (deckId: string) => void;
   createSession: () => Promise<string | null>;
-  createLocalSession: () => string;
+  createLocalSession: (forcedSessionId?: string, forcedDeckId?: string) => string;
   joinSession: (sessionId: string, accessMethod?: 'invite' | 'direct') => Promise<string | null>;
   updateSession: (updates: Partial<ReadingSessionState>) => Promise<void>;
   updateLocalSession: (updates: Partial<ReadingSessionState>) => void;
@@ -141,50 +141,130 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
 
     createSession: async () => {
       const { user } = useAuthStore.getState();
-      const { deckId } = get();
-      
+
+      console.log('[ReadingSessionStore] createSession called - preparing for a completely new session.');
+
+      const newSessionId = uuidv4(); // Use standard UUID
+      const now = new Date().toISOString();
+      const defaultDeckId = 'rider-waite-classic';
+
+      // 1. Reset local Zustand state to a "fresh session" state
+      set({
+        initialSessionId: newSessionId, // Important for initializeSession to pick up
+        deckId: defaultDeckId,          // Reset to default deck
+        isHost: true,                   // Creator is always host initially
+        isLoading: true,                // Will be set to false by initializeSession
+        error: null,
+        participants: [],               // Reset participants
+        channel: null,                  // Will be set up by initializeSession
+        participantId: null,            // Will be set up by initializeSession
+        isOfflineMode: false,           // Assume online for new DB session
+        pendingSyncData: null,
+        _justRestoredFromPreservedState: false,
+        sessionState: {                 // Set a minimal fresh session state
+          id: newSessionId,
+          hostUserId: user?.id || null,
+          deckId: defaultDeckId,
+          selectedLayout: null,
+          question: '',
+          readingStep: 'setup',
+          selectedCards: [],
+          shuffledDeck: [],
+          interpretation: '',
+          zoomLevel: 1.0,
+          panOffset: { x: 0, y: 0 },
+          zoomFocus: null,
+          activeCardIndex: null,
+          sharedModalState: null,
+          videoCallState: null,
+          loadingStates: null,
+          deckSelectionState: null,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+      console.log(`[ReadingSessionStore] Zustand state reset for new session ${newSessionId} with default deck ${defaultDeckId}.`);
+
       try {
-        const { data, error } = await supabase
+        // 2. Insert the new session into the database with these fresh defaults
+        const { data: dbSessionData, error } = await supabase
           .from('reading_sessions')
           .insert({
-            host_user_id: user?.id || null, // null for guest sessions - clear and simple
-            deck_id: deckId,
+            id: newSessionId, // Explicitly provide the ID
+            host_user_id: user?.id || null,
+            deck_id: defaultDeckId, // Use the fresh default deck
             reading_step: 'setup',
             selected_cards: [],
+            shuffled_deck: [],
             zoom_level: 1.0,
             pan_offset: { x: 0, y: 0 },
             zoom_focus: null,
             shared_modal_state: null,
-            is_active: true
+            video_call_state: null,
+            loading_states: null,
+            deck_selection_state: null,
+            is_active: true,
+            created_at: now, // Explicitly set timestamps
+            updated_at: now,
+            // Ensure other fields that should be default are explicitly set or handled by DB defaults
+            selected_layout: null,
+            question: '',
+            interpretation: '',
+            active_card_index: null,
           })
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error creating session in DB:', error);
+          // Attempt to throw to trigger fallback, or handle error differently
+          throw error; 
+        }
 
-        return data.id;
+        console.log(`[ReadingSessionStore] New session ${dbSessionData.id} successfully inserted into DB.`);
+        // The sessionState in Zustand is already set with newSessionId.
+        // initializeSession will later fetch this record to confirm and set up participants/realtime.
+        return dbSessionData.id;
+
       } catch (err: any) {
-        console.error('Error creating session:', err);
+        console.error('Error during DB session creation, falling back to local:', err);
+        const { user } = useAuthStore.getState(); // Get user again for local session context
+        const defaultDeckIdForLocal = 'rider-waite-classic'; // Ensure consistency
         
-        // Fallback to local session if database fails
-        console.log('Database failed, creating local session as fallback');
-        const localSessionId = get().createLocalSession();
-        set({ isOfflineMode: true });
-        return localSessionId;
+        // Call createLocalSession WITHOUT a forcedSessionId, so it generates a new local_... ID.
+        // Pass the defaultDeckId to ensure the local session also starts with the correct default deck.
+        const newGeneratedLocalSessionId = get().createLocalSession(undefined, defaultDeckIdForLocal);
+        
+        // Update the store to fully reflect this new local session state.
+        // createLocalSession already sets sessionState, initialSessionId, deckId, isHost, isOfflineMode.
+        // We just need to ensure any error message is also set if not already.
+        set(prevState => ({ 
+            isOfflineMode: true, // Re-affirm
+            initialSessionId: newGeneratedLocalSessionId, // Crucial: use the ID from createLocalSession
+            deckId: defaultDeckIdForLocal, // Re-affirm
+            // sessionState is already set by createLocalSession, so no need to spread prevState.sessionState here
+            // just ensure isHost and error are correctly managed.
+            isHost: true, // Creator of local session is host
+            error: prevState.error || 'Database failed, using local session.', 
+        }));
+        console.log(`[ReadingSessionStore] Fallback: Zustand state configured for new local session ${newGeneratedLocalSessionId}.`);
+        return newGeneratedLocalSessionId; // Return the actual local_... ID
       }
     },
 
-    createLocalSession: () => {
+    createLocalSession: (forcedSessionId?: string, forcedDeckId?: string) => {
       const { user } = useAuthStore.getState();
-      const { deckId } = get();
+      const currentDeckId = get().deckId; // Original deckId before potential override
       
-      const sessionId = `local_${uuidv4()}`;
+      const sessionId = forcedSessionId || `local_${uuidv4()}`;
+      const deckIdToUse = forcedDeckId || currentDeckId || 'rider-waite-classic';
       const now = new Date().toISOString();
       
       const localSession: ReadingSessionState = {
         id: sessionId,
         hostUserId: user?.id || null,
-        deckId,
+        deckId: deckIdToUse,
         selectedLayout: null,
         question: '',
         readingStep: 'setup',
@@ -198,6 +278,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         sharedModalState: null,
         videoCallState: null,
         loadingStates: null,
+        deckSelectionState: null,
         isActive: true,
         createdAt: now,
         updatedAt: now
@@ -206,13 +287,18 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
       // Save to localStorage
       get().saveLocalSession(localSession);
       
-      // Set as current session
+      // Set as current session in Zustand state
+      // This will be the state picked up by initializeSession if createSession falls back here.
       set({ 
         sessionState: localSession,
+        initialSessionId: sessionId, // Ensure initialSessionId is also set
+        deckId: deckIdToUse,         // And deckId
         isHost: true,
-        isOfflineMode: true
+        isOfflineMode: true,
+        isLoading: false, // Local session is ready immediately
+        error: get().error // Preserve any error from a failed DB attempt
       });
-      
+      console.log(`[ReadingSessionStore] Local session ${sessionId} created/updated with deck ${deckIdToUse}.`);
       return sessionId;
     },
 
@@ -1053,38 +1139,81 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
 
       try {
         let sessionId = initialStoreState.initialSessionId;
-        let isNewSession = false;
+        let isNewSession = false; // This flag helps determine if we are in a create flow.
 
+        // If initialSessionId is null, it implies a general entry, not a specific join or create from URL.
+        // In this case, createSession() is called, which handles DB or local creation.
         if (!sessionId) {
-          isNewSession = true;
-          console.log('Creating new session for user:', user?.id || 'anonymous (no auth user id yet)');
-          sessionId = await get().createSession();
+          console.log('[initializeSession] No initialSessionId found. Attempting to create a new session context.');
+          isNewSession = true; 
+          // createSession will set initialSessionId, sessionState, deckId, isHost internally.
+          sessionId = await get().createSession(); 
           if (!sessionId) {
-            set({ error: 'Failed to create session', isLoading: false });
+            set({ error: 'Failed to create or initialize session context.', isLoading: false });
             return;
           }
-          set({ isHost: true });
+          // After createSession, the store state (sessionState, initialSessionId, isHost, deckId) is fresh.
+          // If createSession fell back to local, sessionId will be like "local_..."
         }
         
-        const { data: sessionData, error: sessionFetchError } = await supabase
-          .from('reading_sessions')
-          .select('*')
-          .eq('id', sessionId)
-              .single();
-              
-        if (sessionFetchError || !sessionData) {
-          console.error('Failed to fetch session for initialization:', sessionFetchError);
-          set({ error: 'Failed to load session data', isLoading: false });
-          return;
+        // If the sessionId is explicitly local (e.g., from createSession fallback), 
+        // we assume sessionState is already correctly set up by createLocalSession 
+        // and we can skip DB fetching for this session ID.
+        if (sessionId.startsWith('local_')) {
+          console.log(`[initializeSession] Detected local session ID: ${sessionId}. State already set by createLocalSession. Finalizing participant and subscriptions.`);
+          // The sessionState should already be populated by createLocalSession via createSession's fallback.
+          // We just need to ensure participant and realtime setup proceeds.
+          if (!get().sessionState || get().sessionState!.id !== sessionId) {
+            console.error("[initializeSession] Mismatch: local session ID detected, but sessionState isn't correctly set up for it. Reloading local.");
+            // Attempt to load it directly if something went wrong in the createSession fallback state setting
+            const loadedLocal = get().loadLocalSession(sessionId);
+            if (loadedLocal) {
+              set({ 
+                sessionState: loadedLocal, 
+                isHost: (user ? loadedLocal.hostUserId === user.id : loadedLocal.hostUserId === null),
+                deckId: loadedLocal.deckId,
+                initialSessionId: sessionId,
+                isOfflineMode: true
+              });
+            } else {
+              set({ error: `Failed to load expected local session ${sessionId}.`, isLoading: false });
+              return;
+            }
+          }
+          set({ isHost: (user ? get().sessionState!.hostUserId === user.id : get().sessionState!.hostUserId === null) });
+        } else {
+          // This is for DB sessions (either newly created in DB by createSession, or joined)
+          console.log(`[initializeSession] Attempting to fetch DB session: ${sessionId}`);
+          const { data: sessionData, error: sessionFetchError } = await supabase
+            .from('reading_sessions')
+            .select('*')
+            .eq('id', sessionId)
+            .single();
+                
+          if (sessionFetchError || !sessionData) {
+            console.error(`[initializeSession] Failed to fetch DB session ${sessionId}:`, sessionFetchError);
+            // If it was supposed to be a new session created by createSession but not found,
+            // this indicates a problem with the createSession DB insert not being visible or failing silently earlier.
+            if (isNewSession) {
+                 console.error("[initializeSession] This was a new session flow, but DB fetch failed. The createSession DB insert might have had an issue not caught by its own try/catch, or RLS issue.");
+            }
+            set({ error: 'Failed to load session data from database.', isLoading: false });
+            return;
+          }
+          
+          console.log(`[initializeSession] Successfully fetched DB session ${sessionId}.`);
+          set((prevState) => ({
+            sessionState: sessionData as ReadingSessionState,
+            // isHost was potentially set by createSession if it was a new session.
+            // If joining, we re-evaluate host status.
+            isHost: isNewSession ? prevState.isHost : (user ? sessionData.host_user_id === user.id : sessionData.host_user_id === null),
+            deckId: sessionData.deck_id || prevState.deckId, // Prefer DB deck_id
+            initialSessionId: sessionId, // Ensure this is set
+            isOfflineMode: false
+          }));
         }
-        
-              set({
-          sessionState: sessionData as ReadingSessionState,
-          isHost: isNewSession || (user ? sessionData.host_user_id === user.id : sessionData.host_user_id === null),
-          initialSessionId: sessionId
-          // isLoading will be set to false after participant is resolved and state restored
-        });
 
+        // Participant setup logic (common for both local and DB sessions after state is set)
         let participantQueryInit = supabase
           .from('session_participants')
           .select('*')
