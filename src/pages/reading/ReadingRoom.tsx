@@ -25,10 +25,11 @@ import { questionCategories } from './constants/questionCategories';
 import { cardAnimationConfig, zoomAnimationConfig, cardFlipConfig } from './utils/animationConfigs';
 import { getPlatformShortcut, KEY_CODES, KEY_VALUES } from './constants/shortcuts'; 
 import { fisherYatesShuffle, cleanMarkdownText, getTransform, getTouchDistance } from './utils/cardHelpers'; // Added import
-import { getDefaultZoomLevel } from './utils/layoutHelpers'; // Added import
+import { getDefaultZoomLevel } from './utils/layoutHelpers'; 
 import { generateShareableLink, getTodayDateString, isCacheValid, copyRoomLink as copyRoomLinkHelper } from './utils/sessionHelpers'; // Updated import
 import { useDeviceAndOrientationDetection } from './hooks/useDeviceAndOrientationDetection';
-import { useTheme } from './hooks/useTheme'; // Added import
+import { useTheme } from './hooks/useTheme'; 
+import { useGuestUpgrade } from './hooks/useGuestUpgrade';
 
 import Div100vh from 'react-div-100vh';
 
@@ -96,6 +97,11 @@ const ReadingRoom = () => {
   // Use the new hook for device and orientation detection first
   const { isMobile, isTablet, isLandscape } = useDeviceAndOrientationDetection(); // Changed from useMobileDetection
   const { darkMode, toggleTheme } = useTheme();
+  const { 
+    showGuestUpgrade, 
+    setShowGuestUpgrade, 
+    // triggerGuestUpgradeOnInvite // No longer returned
+  } = useGuestUpgrade();
   
   // Properly detect guest users - anonymous users should be treated as guests
   const isGuest = !user || isAnonymous();
@@ -290,10 +296,6 @@ const ReadingRoom = () => {
   // Pinch zoom hint state
   const [showPinchHint, setShowPinchHint] = useState(false);
   const [hasShownInitialHint, setHasShownInitialHint] = useState(false);
-  
-  // Guest upgrade state
-  const [showGuestUpgrade, setShowGuestUpgrade] = useState(false);
-  const [hasShownInviteUpgrade, setHasShownInviteUpgrade] = useState(false);
   
   // Sync state
   const [isSyncing, setIsSyncing] = useState(false);
@@ -631,24 +633,12 @@ const ReadingRoom = () => {
     buttonSize: isMobile ? 'p-1.5' : 'p-2'
   }), [isMobile, isLandscape]);
 
-  // Auto-show guest upgrade modal for invite link joiners
-  useEffect(() => {
-    // Show upgrade modal if:
-    // 1. User joined via invite link (joinSessionId exists)
-    // 2. User is a guest (not authenticated)
-    // 3. Session has loaded (not loading)
-    // 4. We haven't already shown the modal
-    if (joinSessionId && isGuest && !sessionLoading && !hasShownInviteUpgrade) {
-      setShowGuestUpgrade(true);
-      setHasShownInviteUpgrade(true);
-    }
-  }, [joinSessionId, isGuest, sessionLoading, hasShownInviteUpgrade]);
 
   // Show pinch zoom hint when entering drawing step on mobile
   useEffect(() => {
     if (isMobile && readingStep === 'drawing' && !hasShownInitialHint) {
       setShowPinchHint(true);
-      setHasShownInitialHint(true);
+      // setHasShownInitialHint(true);
       
       // Auto-hide after 2 seconds (faster fade)
       const timer = setTimeout(() => {
@@ -5407,7 +5397,7 @@ const ReadingRoom = () => {
             onUpgradeSuccess={handleGuestUpgrade}
             onClose={handleCloseGuestUpgrade}
             participantCount={participants.length}
-            isInviteJoin={!!joinSessionId}
+            isInviteJoin={!!joinSessionId} // Pass boolean directly
             onGuestNameSet={handleGuestNameSet}
           />
         )}
