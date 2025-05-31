@@ -89,7 +89,7 @@ export const getTouchDistance = (touches: TouchList) => {
     Math.pow(touch2.clientX - touch1.clientX, 2) + 
     Math.pow(touch2.clientY - touch1.clientY, 2)
   );
-};
+}; 
 
 // Assuming CleanedMarkdownLine is defined something like this, ensure it's exported:
 export interface CleanedMarkdownLine { 

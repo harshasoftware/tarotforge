@@ -3157,19 +3157,19 @@ const ReadingRoom = () => {
         readingStep={readingStep}
         isVideoConnecting={isVideoConnecting} // From local state in ReadingRoom
         startVideoCallAction={async () => { // Wrap the logic for this modal
-          if (!showVideoChat && !isVideoConnecting) {
+                      if (!showVideoChat && !isVideoConnecting) {
             console.log('Starting video call from InviteDropdown...');
-            setIsVideoConnecting(true);
-            try {
+                        setIsVideoConnecting(true);
+                        try {
               await startCall(); // from useVideoCall
               console.log('Video call started successfully from InviteDropdown');
-              setTimeout(() => {
-                setIsVideoConnecting(false);
+                          setTimeout(() => {
+                            setIsVideoConnecting(false);
                 setShowVideoChat(true); // Update local state
-              }, 500);
-            } catch (error) {
+                          }, 500);
+                        } catch (error) {
               console.error('Failed to start video call from InviteDropdown:', error);
-              setIsVideoConnecting(false);
+                          setIsVideoConnecting(false);
               // Optionally set an error message for the user here
             }
           }

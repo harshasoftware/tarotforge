@@ -185,7 +185,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         },
       });
       console.log(`[ReadingSessionStore] Zustand state reset for new session ${newSessionId} with default deck ${defaultDeckId}.`);
-
+      
       try {
         // 2. Insert the new session into the database with these fresh defaults
         const { data: dbSessionData, error } = await supabase
@@ -1145,9 +1145,9 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         // In this case, createSession() is called, which handles DB or local creation.
         if (!sessionId) {
           console.log('[initializeSession] No initialSessionId found. Attempting to create a new session context.');
-          isNewSession = true; 
+          isNewSession = true;
           // createSession will set initialSessionId, sessionState, deckId, isHost internally.
-          sessionId = await get().createSession(); 
+          sessionId = await get().createSession();
           if (!sessionId) {
             set({ error: 'Failed to create or initialize session context.', isLoading: false });
             return;
@@ -1184,13 +1184,13 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         } else {
           // This is for DB sessions (either newly created in DB by createSession, or joined)
           console.log(`[initializeSession] Attempting to fetch DB session: ${sessionId}`);
-          const { data: sessionData, error: sessionFetchError } = await supabase
-            .from('reading_sessions')
-            .select('*')
-            .eq('id', sessionId)
-            .single();
-                
-          if (sessionFetchError || !sessionData) {
+        const { data: sessionData, error: sessionFetchError } = await supabase
+          .from('reading_sessions')
+          .select('*')
+          .eq('id', sessionId)
+              .single();
+              
+        if (sessionFetchError || !sessionData) {
             console.error(`[initializeSession] Failed to fetch DB session ${sessionId}:`, sessionFetchError);
             // If it was supposed to be a new session created by createSession but not found,
             // this indicates a problem with the createSession DB insert not being visible or failing silently earlier.
@@ -1198,12 +1198,12 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
                  console.error("[initializeSession] This was a new session flow, but DB fetch failed. The createSession DB insert might have had an issue not caught by its own try/catch, or RLS issue.");
             }
             set({ error: 'Failed to load session data from database.', isLoading: false });
-            return;
-          }
-          
+          return;
+        }
+        
           console.log(`[initializeSession] Successfully fetched DB session ${sessionId}.`);
           set((prevState) => ({
-            sessionState: sessionData as ReadingSessionState,
+          sessionState: sessionData as ReadingSessionState,
             // isHost was potentially set by createSession if it was a new session.
             // If joining, we re-evaluate host status.
             isHost: isNewSession ? prevState.isHost : (user ? sessionData.host_user_id === user.id : sessionData.host_user_id === null),
