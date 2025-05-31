@@ -35,6 +35,7 @@ import { useHelpModal } from './hooks/useHelpModal';
 import Div100vh from 'react-div-100vh';
 import { useReadingRoomKeyboardShortcuts } from './hooks/useReadingRoomKeyboardShortcuts'; // Added import
 import { useBroadcastHandler } from './hooks/useBroadcastHandler'; // Added import
+import { useParticipantNotificationHandler } from './hooks/useParticipantNotificationHandler'; // <<< ADD THIS LINE
 
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
@@ -591,6 +592,16 @@ const ReadingRoom = () => {
       setShowMobileInterpretation,
       setInterpretationCards,
     });
+  
+  // Track participant changes for notifications with debouncing
+  useParticipantNotificationHandler({
+      sessionState,
+      sessionLoading,
+      participants,
+      currentUser: user, // Pass the user from authStore as currentUser
+      currentParticipantId: participantId, // This is participantId from readingSessionStore
+      // currentAnonymousId is handled internally by the hook
+  });  
 
   // Modal synchronization wrapper
   const updateSharedModalState = useCallback((modalState: {
@@ -737,167 +748,6 @@ const ReadingRoom = () => {
       fetchCombinedCollection();
     }
   }, [participants, fetchCombinedCollection, user?.id]);
-  
-    // Track participant changes for notifications with debouncing
-  useEffect(() => {
-    if (!sessionState?.id || sessionLoading) return;
-
-    // Skip initial load to avoid showing notifications for existing participants
-    if (previousParticipants.length === 0 && participants.length > 0) {
-      setPreviousParticipants(participants);
-      return;
-    }
-
-    // Additional protection: suppress notifications for the first 3 seconds after session initialization
-    // This prevents ghost notifications during the UUID -> browser fingerprint transition period
-    const sessionAge = sessionState.createdAt ? Date.now() - new Date(sessionState.createdAt).getTime() : 0;
-    const isRecentSession = sessionAge < 3000; // 3 seconds
-    
-    if (isRecentSession) {
-      console.log('Suppressing notifications for recent session (transition period)');
-      setPreviousParticipants(participants);
-      return;
-    }
-
-    // Debounce participant change notifications to prevent spam during state transitions
-    const timeoutId = setTimeout(() => {
-      // Get current user identifiers for filtering
-      const currentUserId = user?.id;
-      const currentParticipantId = participantId;
-      const currentAnonymousId = useReadingSessionStore.getState().anonymousId;
-      
-      console.log('Participant change detection:', {
-        currentUserId,
-        currentParticipantId,
-        currentAnonymousId,
-        previousCount: previousParticipants.length,
-        currentCount: participants.length,
-        previousParticipants: previousParticipants.map(p => ({ id: p.id, anonymousId: p.anonymousId, userId: p.userId })),
-        currentParticipants: participants.map(p => ({ id: p.id, anonymousId: p.anonymousId, userId: p.userId }))
-      });
-      
-      // Helper function to check if a participant is the current user
-      const isCurrentUser = (participant: any) => {
-        // Check by participant ID (most reliable)
-        if (participant.id === currentParticipantId) return true;
-        
-        // Check by user ID (for authenticated users)
-        if (currentUserId && participant.userId === currentUserId) return true;
-        
-        // For anonymous users, check if it's a browser fingerprint vs UUID mismatch
-        if (!currentUserId && !participant.userId && participant.anonymousId) {
-          // If the participant has the same anonymous ID as current user
-          if (participant.anonymousId === currentAnonymousId) return true;
-          
-          // Check if this might be an old UUID-based ID being replaced by browser fingerprint
-          // Old IDs are UUIDs (36 chars with dashes), new ones are browser_xxxxxxxx
-          const isOldUuidFormat = participant.anonymousId.length === 36 && participant.anonymousId.includes('-');
-          const isNewBrowserFormat = currentAnonymousId?.startsWith('browser_');
-          
-          // If we're seeing an old UUID participant leave right when a browser fingerprint joins,
-          // it's likely the same user - suppress the notification
-          if (isOldUuidFormat && isNewBrowserFormat) {
-            console.log('Detected UUID -> browser fingerprint transition, suppressing notification');
-            return true;
-          }
-        }
-        
-        return false;
-      };
-
-      // Find new participants (joined)
-      const newParticipants = participants.filter(current => 
-        !previousParticipants.find(prev => prev.id === current.id)
-      );
-
-      // Find removed participants (left)
-      const leftParticipants = previousParticipants.filter(prev => 
-        !participants.find(current => current.id === prev.id)
-      );
-
-      // Filter out "ghost" notifications caused by anonymous ID transitions
-      // This happens when old UUID-based anonymous IDs are replaced by browser fingerprints
-      const filteredLeftParticipants = leftParticipants.filter(leftParticipant => {
-        console.log('Checking left participant:', { 
-          id: leftParticipant.id, 
-          anonymousId: leftParticipant.anonymousId, 
-          userId: leftParticipant.userId,
-          isCurrentUser: isCurrentUser(leftParticipant)
-        });
-        
-        // Don't show notifications for current user
-        if (isCurrentUser(leftParticipant)) {
-          console.log('Suppressing notification for current user leaving');
-          return false;
-        }
-        
-        // Check if this is likely a UUID -> browser fingerprint transition
-        if (!leftParticipant.userId && leftParticipant.anonymousId) {
-          const isOldUuidFormat = leftParticipant.anonymousId.length === 36 && leftParticipant.anonymousId.includes('-');
-          
-          // More aggressive filtering: suppress ALL UUID-based anonymous departures if we're in a browser fingerprint session
-          if (isOldUuidFormat && currentAnonymousId?.startsWith('browser_')) {
-            console.log('Suppressing UUID participant departure in browser fingerprint session');
-            return false;
-          }
-          
-          // If an old UUID participant is leaving and we have new browser fingerprint participants joining,
-          // it's likely the same user transitioning - suppress the notification
-          if (isOldUuidFormat) {
-            const hasNewBrowserParticipant = newParticipants.some(newP => 
-              !newP.userId && newP.anonymousId?.startsWith('browser_')
-            );
-            
-            if (hasNewBrowserParticipant) {
-              console.log('Suppressing ghost notification for UUID -> browser fingerprint transition');
-              return false;
-            }
-          }
-        }
-        
-        return true;
-      });
-
-      // Create notifications for new participants
-      newParticipants.forEach(participant => {
-        // Don't show notification for the current user joining
-        if (isCurrentUser(participant)) return;
-
-        // Additional check: don't show join notification if this might be a UUID -> browser transition
-        if (!participant.userId && participant.anonymousId?.startsWith('browser_')) {
-          const hasOldUuidParticipantLeaving = leftParticipants.some(leftP => 
-            !leftP.userId && leftP.anonymousId?.length === 36 && leftP.anonymousId.includes('-')
-          );
-          
-          if (hasOldUuidParticipantLeaving) {
-            console.log('Suppressing join notification for browser fingerprint during UUID transition');
-            return;
-          }
-        }
-
-        showParticipantNotification({
-          type: 'join',
-          participantName: participant.name || 'Anonymous User',
-          isAnonymous: !participant.userId // Anonymous if no userId
-        });
-      });
-
-      // Create notifications for participants who left (using filtered list)
-      filteredLeftParticipants.forEach(participant => {
-        showParticipantNotification({
-          type: 'leave',
-          participantName: participant.name || 'Anonymous User',
-          isAnonymous: !participant.userId // Anonymous if no userId
-        });
-      });
-
-      // Update previous participants
-      setPreviousParticipants(participants);
-    }, 500); // 500ms debounce to prevent rapid notifications during state changes
-
-    return () => clearTimeout(timeoutId);
-  }, [participants, previousParticipants, participantId,
-    anonymousId, sessionState?.id, sessionLoading, user?.id]);
 
   // Auto-show video chat when user is in a video call or when participants are detected
   useEffect(() => {
