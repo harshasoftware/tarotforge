@@ -28,6 +28,7 @@ import { fisherYatesShuffle, cleanMarkdownText, getTransform, getTouchDistance }
 import { getDefaultZoomLevel } from './utils/layoutHelpers'; // Added import
 import { generateShareableLink, getTodayDateString, isCacheValid, copyRoomLink as copyRoomLinkHelper } from './utils/sessionHelpers'; // Updated import
 import { useDeviceAndOrientationDetection } from './hooks/useDeviceAndOrientationDetection';
+import { useTheme } from './hooks/useTheme'; // Added import
 
 import Div100vh from 'react-div-100vh';
 
@@ -94,6 +95,7 @@ const ReadingRoom = () => {
   
   // Use the new hook for device and orientation detection first
   const { isMobile, isTablet, isLandscape } = useDeviceAndOrientationDetection(); // Changed from useMobileDetection
+  const { darkMode, toggleTheme } = useTheme();
   
   // Properly detect guest users - anonymous users should be treated as guests
   const isGuest = !user || isAnonymous();
@@ -335,8 +337,6 @@ const ReadingRoom = () => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [showFollowNotification, setShowFollowNotification] = useState(false);
   
-  // Theme state
-  const [darkMode, setDarkMode] = useState(true);
   
   // Follow functionality
   const toggleFollow = useCallback(() => {
@@ -347,11 +347,6 @@ const ReadingRoom = () => {
     }
   }, [isFollowing]);
   
-  // Theme toggle functionality
-  const toggleTheme = useCallback(() => {
-    setDarkMode(!darkMode);
-    document.body.classList.toggle('light-theme');
-  }, [darkMode]);
   
   // Listen for shuffled deck updates from other participants
   useEffect(() => {
