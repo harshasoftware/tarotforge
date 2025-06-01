@@ -476,13 +476,15 @@ export const useReadingRoomKeyboardShortcuts = (props: ReadingRoomKeyboardShortc
             openDeckSelection();
             break;
           case KEY_VALUES.V_LOWER:
-            const hasPlacedCardsV = selectedCards.some(card => !!card);
-            const allCardsRevealedV = hasPlacedCardsV && selectedCards.every(card => !card || (card as any).revealed);
-            if (allCardsRevealedV && !showCardGallery) {
-              event.preventDefault();
-              const firstRevealedIndex = selectedCards.findIndex(card => card && (card as any).revealed);
-              if (firstRevealedIndex !== -1) {
-                openCardGallery(firstRevealedIndex);
+            {
+              const hasPlacedCardsV = selectedCards.some(card => !!card);
+              const allCardsRevealedV = hasPlacedCardsV && selectedCards.every(card => !card || (card as any).revealed);
+              if (allCardsRevealedV && !showCardGallery) {
+                event.preventDefault();
+                const firstRevealedIndex = selectedCards.findIndex(card => card && (card as any).revealed);
+                if (firstRevealedIndex !== -1) {
+                  openCardGallery(firstRevealedIndex);
+                }
               }
             }
             break;
