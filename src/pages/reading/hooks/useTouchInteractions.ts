@@ -67,7 +67,7 @@ export const useTouchInteractions = ({
   const handleTouchStart = useCallback((e: TouchEvent) => {
     console.log('[TouchInteractions] handleTouchStart - e.touches.length:', e.touches.length, 'currentZoomLevel:', currentZoomLevel);
     const target = e.target as HTMLElement;
-    if (target.closest('[data-card-element="true"]') || target.closest('.deck-pile') || isCardDragging) {
+    if (!target || target.closest('[data-card-element="true"]') || target.closest('.deck-pile') || isCardDragging) {
       setIsPanActiveViaTouch(false); 
       return;
     }
