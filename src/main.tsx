@@ -16,6 +16,18 @@ import {
 import * as Sentry from "@sentry/react";
 import { initializeLogRocket } from './utils/analytics';
 
+Sentry.init({
+  dsn: "https://9c3c4747996da8b597048265023ff2f0@o4509354423156736.ingest.us.sentry.io/4509354424860677",
+  integrations: [Sentry.browserTracingIntegration()],
+
+  // Set tracesSampleRate to 1.0 to capture 100%
+  // of transactions for performance monitoring.
+  // We recommend adjusting this value in production
+  tracesSampleRate: 1.0,
+  // Set `tracePropagationTargets` to control for which URLs distributed tracing should be enabled
+  tracePropagationTargets: ["localhost", /^https:\/\/yourserver\.io\/api\//],
+});
+
 // Initialize analytics (LogRocket and Mixpanel)
 initializeLogRocket();
 
