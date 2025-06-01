@@ -2705,7 +2705,7 @@ const ReadingRoom = () => {
         </div>
 
         {/* Reading table */}
-        <div className="h-full relative bg-gradient-to-b from-slate-900 to-slate-800 dark:from-background dark:to-background/80">
+        <div className={`h-full relative ${darkMode ? 'bg-gradient-to-b from-slate-900 to-slate-800 dark:from-background dark:to-background/80' : 'bg-gradient-to-r from-primary/10 to-accent/10'}`}>
           {/* Step 0: Deck Selection Screen */}
           {(!deck && !deckSelectionLoading) && (
             <div 
