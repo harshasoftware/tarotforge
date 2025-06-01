@@ -1,5 +1,6 @@
 export const getPlatformShortcut = (key: string, withModifier = false): string => {
-  const isMac = navigator.platform.toLowerCase().includes('mac');
+  const isMac = typeof navigator !== 'undefined' && 
+    ((navigator.userAgentData?.platform || navigator.platform || '').toLowerCase().includes('mac'));
   
   switch (key) {
     case 'help':
