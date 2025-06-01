@@ -22,11 +22,21 @@ export const copyRoomLink = async (
   generateLinkFunc: (id: string) => string
 ) => {
   if (sessionId) {
+    const shareableLink = generateLinkFunc(sessionId);
     try {
-      const shareableLink = generateLinkFunc(sessionId);
-      await navigator.clipboard.writeText(shareableLink);
-      setShowCopied(true);
-      setTimeout(() => setShowCopied(false), 3000);
+      navigator.clipboard.writeText(shareableLink)
+        .then(() => {
+          setShowCopied(true);
+          setTimeout(() => setShowCopied(false), 3000);
+        })
+        .catch(() => {
+          // Handle clipboard write failure
+          setShowCopied(false);
+        });
+    } catch (error) {
+      setShowCopied(false);
+    }
+  }
     } catch (error) {
       console.error('Failed to copy link:', error);
       // Optionally handle the error in the UI
