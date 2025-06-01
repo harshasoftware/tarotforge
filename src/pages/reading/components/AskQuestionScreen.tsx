@@ -107,12 +107,14 @@ const AskQuestionScreen: React.FC<AskQuestionScreenProps> = ({
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-sm">
-                {selectedCategory === 'love' && '💕 Love Questions'}
-                {selectedCategory === 'career' && '🎯 Career Questions'}
-                {selectedCategory === 'finance' && '💰 Finance Questions'}
-                {selectedCategory === 'relationships' && '👥 Relationship Questions'}
-                {selectedCategory === 'spiritual-growth' && '⭐ Spiritual Growth Questions'}
-                {selectedCategory === 'past-lives' && '♾️ Past Lives Questions'}
+                {{
+                  'love': '💕 Love Questions',
+                  'career': '🎯 Career Questions',
+                  'finance': '💰 Finance Questions',
+                  'relationships': '👥 Relationship Questions',
+                  'spiritual-growth': '⭐ Spiritual Growth Questions',
+                  'past-lives': '♾️ Past Lives Questions'
+                }[selectedCategory]}
               </h3>
               <button
                 onClick={() => {
