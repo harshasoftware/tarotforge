@@ -3541,7 +3541,7 @@ const ReadingRoom = () => {
                       }}
                     >
                       <motion.div 
-                        className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} shadow-lg cursor-pointer transition-shadow p-0.5 ${
+                        className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} shadow-lg cursor-pointer transition-shadow p-0.5 rounded-md ${
                           activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
                         }`}
                         animate={{ 
@@ -3693,7 +3693,7 @@ const ReadingRoom = () => {
                             whileHover={{ scale: 1.05 }}
                           >
                             <motion.div 
-                              className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} shadow-lg cursor-pointer p-0.5`}
+                              className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} shadow-lg cursor-pointer p-0.5 rounded-md`} // Added rounded-md
                               style={{ 
                                 transformOrigin: 'center center'
                               }}
