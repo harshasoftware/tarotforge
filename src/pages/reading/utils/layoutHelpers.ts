@@ -17,4 +17,3 @@ export const getDefaultZoomLevel = (layout: Layout | null | undefined): number =
   if (!layout) return DEFAULT_ZOOM;
   return layout.id === 'celtic-cross' ? DEFAULT_ZOOM : ENHANCED_ZOOM;
 };
-}; 
