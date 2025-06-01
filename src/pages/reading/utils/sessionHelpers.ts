@@ -16,15 +16,20 @@ export const isCacheValid = (category: string, questionCache: {[key: string]: {q
   return cached.date === getTodayDateString();
 };
 
-export const copyRoomLink = (
+export const copyRoomLink = async (
   sessionId: string | undefined,
   setShowCopied: (copied: boolean) => void,
   generateLinkFunc: (id: string) => string
 ) => {
   if (sessionId) {
-    const shareableLink = generateLinkFunc(sessionId);
-    navigator.clipboard.writeText(shareableLink);
-    setShowCopied(true);
-    setTimeout(() => setShowCopied(false), 3000);
+    try {
+      const shareableLink = generateLinkFunc(sessionId);
+      await navigator.clipboard.writeText(shareableLink);
+      setShowCopied(true);
+      setTimeout(() => setShowCopied(false), 3000);
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+      // Optionally handle the error in the UI
+    }
   }
 }; 
