@@ -7,6 +7,81 @@ import { questionCategories as defaultQuestionCategories } from '../constants/qu
 // Define a more specific type for readingStep if possible, using string for now
 type ReadingStep = 'setup' | 'drawing' | 'interpretation' | 'ask-question' | string;
 
+/**
+ * @interface ReadingRoomKeyboardShortcutsProps
+ * @description Props for the `useReadingRoomKeyboardShortcuts` hook.
+ * This interface includes various state values read by the hook and callback functions
+ * used by the hook to interact with the parent component's state and logic.
+ *
+ * @property {boolean} showCardGallery - Whether the card gallery modal is currently visible.
+ * @property {boolean} showCardDescription - Whether the card description is visible within the gallery.
+ * @property {boolean} isMobile - Flag indicating if the current device is mobile.
+ * @property {ReadingStep} readingStep - The current step in the reading process (e.g., 'setup', 'drawing').
+ * @property {number} zoomLevel - The current zoom level of the reading area.
+ * @property {ReadingLayout | null | undefined} selectedLayout - The currently selected card layout.
+ * @property {string | undefined} deckId - The ID of the currently selected deck.
+ * @property {User | null} user - The current authenticated user, or null if guest.
+ * @property {Card[]} selectedCards - An array of cards that have been selected or drawn.
+ * @property {boolean} showShareModal - Whether the share session modal is visible.
+ * @property {boolean} showHelpModal - Whether the help modal is visible.
+ * @property {boolean} showExitModal - Whether the exit confirmation modal is visible.
+ * @property {boolean} showSignInModal - Whether the sign-in modal is visible.
+ * @property {boolean} showGuestUpgrade - Whether the guest upgrade modal is visible.
+ * @property {boolean} isChangingDeckMidSession - Flag indicating if the deck is being changed mid-session.
+ * @property {boolean} showLayoutDropdown - Whether the layout selection dropdown is visible.
+ * @property {number} highlightedLayoutIndex - Index of the currently highlighted layout in the dropdown.
+ * @property {number} highlightedSetupLayoutIndex - Index of the highlighted layout during the setup step.
+ * @property {string | null} selectedCategory - The ID of the selected question category.
+ * @property {number} highlightedCategoryIndex - Index of the highlighted question category.
+ * @property {string[]} generatedQuestions - Array of AI-generated questions.
+ * @property {boolean} isLoadingQuestions - Flag indicating if questions are currently being loaded.
+ * @property {number} highlightedQuestionIndex - Index of the highlighted AI-generated question.
+ * @property {boolean} showCustomQuestionInput - Whether the custom question input field is visible.
+ * @property {boolean} isQuestionHighlightingActive - Flag indicating if question highlighting is active.
+ * @property {boolean} isCategoryHighlightingActive - Flag indicating if category highlighting is active.
+ * @property {object | null | undefined} sharedModalState - State of the shared (gallery) modal.
+ * @property {boolean} sharedModalState.isOpen - Whether the shared modal is open.
+ * @property {number | null} sharedModalState.cardIndex - Index of the card shown in the shared modal.
+ * @property {boolean} sharedModalState.showDescription - Whether description is shown in shared modal.
+ * @property {string | null} sharedModalState.triggeredBy - Participant ID who triggered the shared modal.
+ * @property {string | null | undefined} participantId - The ID of the current participant.
+ *
+ * @property {function(): void} closeCardGallery - Callback to close the card gallery.
+ * @property {function(direction: 'prev' | 'next'): void} navigateGallery - Callback to navigate in the gallery.
+ * @property {function(direction: 'up' | 'down' | 'left' | 'right'): void} panDirection - Callback to pan the view.
+ * @property {function(): void} resetPan - Callback to reset the view pan.
+ * @property {function(): void} shuffleDeck - Callback to shuffle the deck.
+ * @property {function(): void} toggleHelpModal - Callback to toggle the help modal.
+ * @property {function(): void} toggleTheme - Callback to toggle the UI theme.
+ * @property {function(level: number): void} setZoomLevelWrapped - Callback to set the zoom level.
+ * @property {function(layout: ReadingLayout | null | undefined): number} getDefaultZoomLevel - Function to get the default zoom for a layout.
+ * @property {function(focus: { x: number; y: number } | null): void} setZoomFocusWrapped - Callback to set the zoom focus point.
+ * @property {function(): void} openDeckSelection - Callback to open the deck selection interface.
+ * @property {function(show: boolean): void} setShowShareModal - Callback to set share modal visibility.
+ * @property {function(show: boolean): void} setShowHelpModal - Callback to set help modal visibility.
+ * @property {function(show: boolean): void} setShowExitModal - Callback to set exit modal visibility.
+ * @property {function(show: boolean): void} setShowSignInModal - Callback to set sign-in modal visibility.
+ * @property {function(show: boolean): void} setShowGuestUpgrade - Callback to set guest upgrade modal visibility.
+ * @property {function(changing: boolean): void} setIsChangingDeckMidSession - Callback to set deck changing state.
+ * @property {function(deckId: string): Promise<void>} fetchAndSetDeck - Callback to fetch and set a new deck.
+ * @property {function(): void} revealAllCards - Callback to reveal all drawn cards.
+ * @property {function(): void} resetCards - Callback to reset/clear all drawn cards.
+ * @property {function(index: number): void} openCardGallery - Callback to open the gallery at a specific card index.
+ * @property {function(show: boolean): void} setShowLayoutDropdown - Callback to set layout dropdown visibility.
+ * @property {function(index: number): void} setHighlightedLayoutIndex - Callback to set highlighted layout index.
+ * @property {function(index: number): void} setHighlightedSetupLayoutIndex - Callback to set highlighted setup layout index.
+ * @property {function(layout: ReadingLayout): void} handleLayoutSelect - Callback for when a layout is selected.
+ * @property {ReadingLayout[]} readingLayouts - Array of available reading layouts.
+ * @property {function(category: string | null): void} handleCategorySelect - Callback for when a question category is selected.
+ * @property {typeof defaultQuestionCategories} questionCategories - Array of available question categories.
+ * @property {function(question: string): void} handleQuestionSelect - Callback for when a question is selected.
+ * @property {function(questions: string[]): void} setGeneratedQuestions - Callback to update generated questions.
+ * @property {function(state: ReadingRoomKeyboardShortcutsProps['sharedModalState']): void} updateSharedModalState - Callback to update shared modal state.
+ * @property {function(pressed: boolean): void} setIsSpacePressed - Callback to set spacebar pressed state.
+ * @property {function(category: string | null): void} setSelectedCategory - Callback to set the selected question category.
+ * @property {function(updater: (prev: number) => number): void} setHighlightedCategoryIndex - Callback to update highlighted category index.
+ * @property {function(updater: (prev: number) => number): void} setHighlightedQuestionIndex - Callback to update highlighted question index.
+ */
 export interface ReadingRoomKeyboardShortcutsProps {
   // States read by the hook
   showCardGallery: boolean;
@@ -81,6 +156,17 @@ export interface ReadingRoomKeyboardShortcutsProps {
   setHighlightedQuestionIndex: (updater: (prev: number) => number) => void; // Added to fix linter error
 }
 
+/**
+ * @hook useReadingRoomKeyboardShortcuts
+ * @description React hook to manage all keyboard shortcuts within the reading room.
+ * It listens for keydown and keyup events on the document and triggers various actions
+ * based on the current application state (e.g., reading step, active modals).
+ * This hook centralizes keyboard navigation and interaction logic.
+ * This hook does not return any value.
+ * Its primary side effect is adding and removing global 'keydown' and 'keyup' event listeners.
+ *
+ * @param {ReadingRoomKeyboardShortcutsProps} props - The properties for the hook, including current states and action callbacks.
+ */
 export const useReadingRoomKeyboardShortcuts = (props: ReadingRoomKeyboardShortcutsProps) => {
   const {
     showCardGallery,

@@ -1,6 +1,15 @@
 import { useEffect } from 'react';
 import { useReadingSessionStore } from '../../../stores/readingSessionStore';
 
+/**
+ * @interface UseSessionManagementProps
+ * @description Props for the `useSessionManagement` hook.
+ * @property {boolean} shouldCreateSession - Flag indicating whether a new session should be created.
+ * @property {string | null} joinSessionId - The ID of a session to join, if provided in the URL.
+ * @property {string | undefined} deckIdFromParams - The ID of the deck to use, if provided in the URL.
+ * @property {function(message: string): void} onSessionError - Callback function to handle session-related errors.
+ * @property {boolean} isAnonymousAuthReady - Flag indicating if anonymous authentication is complete and ready.
+ */
 interface UseSessionManagementProps {
   shouldCreateSession: boolean;
   joinSessionId: string | null;
@@ -9,6 +18,18 @@ interface UseSessionManagementProps {
   isAnonymousAuthReady: boolean;
 }
 
+/**
+ * @hook useSessionManagement
+ * @description React hook to manage the lifecycle of a reading session.
+ * It handles creating a new session or joining/resuming an existing one based on URL parameters and anonymous authentication status.
+ * It interacts with the `useReadingSessionStore` to update and manage session state.
+ * A key side effect is updating the browser's URL history using `window.history.replaceState`
+ * when a new session is created, to include the new session ID in the URL.
+ *
+ * @param {UseSessionManagementProps} props - The properties for the hook.
+ * @returns {{ isSessionReady: boolean }} An object indicating whether the session is ready.
+ * @property {boolean} isSessionReady - True if the session has been successfully initialized (i.e., has an ID).
+ */
 export function useSessionManagement({
   shouldCreateSession,
   joinSessionId,

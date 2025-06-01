@@ -1,6 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { debounce } from 'lodash';
 
+/**
+ * @hook useDeviceAndOrientationDetection
+ * @description React hook to detect device type (mobile, tablet) and screen orientation (landscape, portrait).
+ * This hook listens to window resize and orientation change events to update the device status.
+ * It also has a side effect of manipulating `document.body.style` to manage overflow and touch actions on mobile devices.
+ * This hook does not take any parameters.
+ *
+ * @returns {{ isMobile: boolean, isTablet: boolean, isLandscape: boolean }} An object containing device and orientation status.
+ * @property {boolean} isMobile - True if the device is detected as a mobile device (width < 768px).
+ * @property {boolean} isTablet - True if the device is detected as a tablet device (width >= 768px and width < 1024px).
+ * @property {boolean} isLandscape - True if the screen orientation is landscape (width > height).
+ */
 export const useDeviceAndOrientationDetection = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);

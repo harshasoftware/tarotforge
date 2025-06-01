@@ -15,6 +15,24 @@ interface BroadcastHandlerProps {
   setInterpretationCards: (cards: any[]) => void;
 }
 
+/**
+ * @hook useBroadcastHandler
+ * @description React hook to handle broadcasted actions from other participants in a reading session.
+ * This hook subscribes to a broadcast channel and updates the local state based on actions received from other users.
+ * It is responsible for keeping the UI in sync across different participants' devices.
+ * This hook does not return any value.
+ *
+ * @param {BroadcastHandlerProps} props - The properties for the hook.
+ * @param {string | undefined | null} props.sessionId - The ID of the current reading session.
+ * @param {string | undefined | null} props.participantId - The ID of the current participant.
+ * @param {function(deck: Card[] | ((prevDeck: Card[]) => Card[])): void} props.setShuffledDeck - Setter function to update the shuffled deck of cards.
+ * @param {function(isShuffling: boolean): void} props.setIsShuffling - Setter function to control the shuffling animation state.
+ * @param {function(isGenerating: boolean): void} props.setIsGeneratingInterpretation - Setter function to control the interpretation generation state.
+ * @param {function(offset: { x: number; y: number }): void} props.setPanOffsetWrapped - Setter function to update the pan offset of the card area.
+ * @param {function(updater: (prev: number) => number): void} props.setDeckRefreshKey - Setter function to trigger a refresh of the deck display.
+ * @param {function(show: boolean): void} props.setShowMobileInterpretation - Setter function to control the visibility of the interpretation view on mobile.
+ * @param {function(cards: any[]): void} props.setInterpretationCards - Setter function to update the cards used for interpretation.
+ */
 export const useBroadcastHandler = ({
   sessionId,
   participantId,

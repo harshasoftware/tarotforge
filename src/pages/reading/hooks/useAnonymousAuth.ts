@@ -5,6 +5,19 @@ interface UseAnonymousAuthProps {
   onAuthError?: (message: string) => void;
 }
 
+/**
+ * @hook useAnonymousAuth
+ * @description React hook to handle anonymous user authentication.
+ * This hook attempts to sign in a user anonymously if no authenticated user is found.
+ * It manages the state of the anonymous authentication attempt and any errors that occur.
+ *
+ * @param {UseAnonymousAuthProps} props - The properties for the hook.
+ * @param {function(message: string): void} [props.onAuthError] - Optional callback function that is called when an authentication error occurs.
+ *
+ * @returns {{ isReady: boolean, error: string | null }} An object containing the authentication status.
+ * @property {boolean} isReady - True if the anonymous authentication process is complete (either successfully or with an error), or if a user is already authenticated.
+ * @property {string | null} error - An error message if anonymous authentication failed, otherwise null.
+ */
 export function useAnonymousAuth({ onAuthError }: UseAnonymousAuthProps = {}) {
   const { user, signInAnonymously } = useAuthStore();
   const [isAnonymousAuthAttempted, setIsAnonymousAuthAttempted] = useState(false);

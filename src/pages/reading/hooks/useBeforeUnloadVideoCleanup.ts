@@ -1,6 +1,14 @@
 import { useEffect } from 'react';
 import { useVideoCall } from '../../../hooks/useVideoCall'; // Adjusted path
 
+/**
+ * @hook useBeforeUnloadVideoCleanup
+ * @description React hook to ensure video call cleanup before the page unloads.
+ * This hook listens for the 'beforeunload' event and, if the user is in a video call,
+ * ends the call to prevent orphaned connections or states.
+ * It does not take any parameters and does not return any value.
+ * Its primary side effect is the management of a 'beforeunload' event listener on the window.
+ */
 export function useBeforeUnloadVideoCleanup() {
   const { isInCall, endCall } = useVideoCall();
 

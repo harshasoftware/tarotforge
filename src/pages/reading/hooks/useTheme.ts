@@ -1,5 +1,17 @@
 import { useState, useCallback, useEffect } from 'react';
 
+/**
+ * @hook useTheme
+ * @description React hook to manage the application's theme (dark/light mode).
+ * It initializes the theme based on an optional initial value and provides a function to toggle the theme.
+ * A key side effect is the manipulation of `document.body.classList` to apply or remove
+ * the 'light-theme' class, allowing CSS to style the application accordingly.
+ *
+ * @param {boolean} [initialDarkMode=true] - The initial state for dark mode. Defaults to true (dark mode).
+ * @returns {{ darkMode: boolean, toggleTheme: function(): void }} An object containing the current theme state and a function to toggle it.
+ * @property {boolean} darkMode - True if dark mode is currently active, false for light mode.
+ * @property {function(): void} toggleTheme - Function to toggle between dark and light mode.
+ */
 export const useTheme = (initialDarkMode = true) => {
   const [darkMode, setDarkMode] = useState(initialDarkMode);
 
