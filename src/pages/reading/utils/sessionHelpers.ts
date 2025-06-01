@@ -34,12 +34,8 @@ export const copyRoomLink = async (
           setShowCopied(false);
         });
     } catch (error) {
+      console.error('Failed to copy link:', error);
       setShowCopied(false);
     }
   }
-    } catch (error) {
-      console.error('Failed to copy link:', error);
-      // Optionally handle the error in the UI
-    }
-  }
-}; 
+};
