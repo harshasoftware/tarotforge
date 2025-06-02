@@ -47,11 +47,10 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    // exclude: ['lucide-react'], // Commented out as a potential fix
+    exclude: ['lucide-react'],
   },
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
-    global: 'window', // Polyfill for Node.js global object
   },
   build: {
     outDir: 'dist',
