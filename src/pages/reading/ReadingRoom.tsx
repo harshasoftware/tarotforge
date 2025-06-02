@@ -1111,6 +1111,14 @@ const ReadingRoom = () => {
           // Update session state with new shuffled deck
           updateSession({ shuffledDeck: newShuffledDeck });
           
+          // Preload card images
+          cardsData.forEach(card => {
+            if (card.image_url) {
+              const img = new Image();
+              img.src = card.image_url;
+            }
+          });
+          
           // Trigger deck visual refresh animation when new deck is loaded
           setDeckRefreshKey(prev => prev + 1);
         } else {
