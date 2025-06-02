@@ -96,7 +96,7 @@ export default defineConfig({
       }
     },
     chunkSizeWarningLimit: 1500,
-    target: 'esnext',
+    target: 'es2020',
     minify: 'terser',
     terserOptions: {
       compress: {
