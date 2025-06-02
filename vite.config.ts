@@ -18,7 +18,7 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       registerType: 'prompt',
-      includeAssets: ['tarot-icon.svg', 'android/**/*', 'ios/**/*', 'windows11/**/*'],
+      includeAssets: ['tarot-icon.svg', 'android/**/*', 'ios/**/*', 'windows11/**/*', 'sounds/*.mp3'],
       manifest: false,
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,gif,webp,woff,woff2,ttf,eot}'],
@@ -63,5 +63,6 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     target: 'esnext',
     minify: 'esbuild'
-  }
+  },
+  assetsInclude: ['**/*.lottie', '**/*.mp3'],
 });
