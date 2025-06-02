@@ -79,6 +79,7 @@ export interface ReadingRoomKeyboardShortcutsProps {
   setSelectedCategory: (category: string | null) => void; // Added for ESC in ask-question
   setHighlightedCategoryIndex: (updater: (prev: number) => number) => void; // Added to fix linter error
   setHighlightedQuestionIndex: (updater: (prev: number) => number) => void; // Added to fix linter error
+  toggleMute: () => void;
 }
 
 export const useReadingRoomKeyboardShortcuts = (props: ReadingRoomKeyboardShortcutsProps) => {
@@ -144,8 +145,9 @@ export const useReadingRoomKeyboardShortcuts = (props: ReadingRoomKeyboardShortc
     updateSharedModalState,
     setIsSpacePressed,
     setSelectedCategory,
-    setHighlightedCategoryIndex, // Added to fix linter error
-    setHighlightedQuestionIndex, // Added to fix linter error
+    setHighlightedCategoryIndex,
+    setHighlightedQuestionIndex,
+    toggleMute,
   } = props;
 
   useEffect(() => {
@@ -367,6 +369,18 @@ export const useReadingRoomKeyboardShortcuts = (props: ReadingRoomKeyboardShortc
         }
       }
 
+      // General check to prevent shortcuts while typing in inputs/textareas
+      const targetElement = event.target as HTMLElement;
+      const isTyping = targetElement.tagName === 'INPUT' || 
+                       targetElement.tagName === 'TEXTAREA' || 
+                       targetElement.contentEditable === 'true';
+
+      // If typing, and the key is not Escape or Enter (which might be needed for forms),
+      // then don't process other shortcuts.
+      if (isTyping && event.key !== KEY_VALUES.ESCAPE && event.key !== KEY_VALUES.ENTER) {
+        return;
+      }
+
       if (!isMobile) {
         switch (event.key) {
           case KEY_VALUES.F1:
@@ -402,6 +416,12 @@ export const useReadingRoomKeyboardShortcuts = (props: ReadingRoomKeyboardShortc
               setShowLayoutDropdown(!showLayoutDropdown);
             }
             break;
+          case KEY_VALUES.M_LOWER:
+            if (!isTyping && !isMobile) {
+              event.preventDefault();
+              toggleMute();
+            }
+            break;
         }
       }
     };
@@ -431,7 +451,8 @@ export const useReadingRoomKeyboardShortcuts = (props: ReadingRoomKeyboardShortc
     fetchAndSetDeck, revealAllCards, resetCards, openCardGallery, setShowLayoutDropdown, setHighlightedLayoutIndex,
     setHighlightedSetupLayoutIndex, handleLayoutSelect, readingLayouts, handleCategorySelect, questionCategories,
     handleQuestionSelect, setGeneratedQuestions, updateSharedModalState, setIsSpacePressed, setSelectedCategory,
-    setHighlightedCategoryIndex, // Added to fix linter error
-    setHighlightedQuestionIndex, // Added to fix linter error
+    setHighlightedCategoryIndex,
+    setHighlightedQuestionIndex,
+    toggleMute,
   ]);
 }; 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Wand, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX, LogIn, Keyboard, Navigation, BookOpen, Lightbulb, Sun, Moon, DoorOpen, ScanSearch } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Wand, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX, LogIn, Keyboard, Navigation, BookOpen, Lightbulb, Sun, Moon, DoorOpen, ScanSearch, Volume2, VolumeX, Volume1 } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
@@ -38,6 +38,7 @@ import { useBroadcastHandler } from './hooks/useBroadcastHandler'; // Added impo
 import { useParticipantNotificationHandler } from './hooks/useParticipantNotificationHandler'; // <<< ADD THIS LINE
 import { useTouchInteractions } from './hooks/useTouchInteractions'; 
 import { useDocumentMouseListeners } from './hooks/useDocumentMouseListeners'; // <<< ADD THIS LINE
+import { useSoundManager } from './hooks/useSoundManager'; // <<< ADD THIS LINE
 
 // Coordinate transformation helper
 const viewportToPercentage = (
@@ -101,6 +102,16 @@ const ReadingRoom = () => {
   const { isSubscribed } = useSubscription();
   const navigate = useNavigate();
   const location = useLocation();
+  const { 
+    playSound, 
+    stopSound, 
+    stopAllSounds, 
+    toggleMute, 
+    setVolume, 
+    isMuted, 
+    volume 
+  } = useSoundManager();
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false); // Declare showVolumeSlider state
   
   // Get join session ID and access method from URL params
   const urlParams = new URLSearchParams(location.search);
@@ -169,6 +180,10 @@ const ReadingRoom = () => {
   
   // Initialize session on mount
   useEffect(() => {
+    // REMOVE ambient sound logic from here
+    // if (!isMuted) {
+    // playSound('ambient', true);
+    // }
     const initSession = async () => {
       // First, ensure user has anonymous auth if they're not authenticated
       if (!user) {
@@ -283,6 +298,7 @@ const ReadingRoom = () => {
 
     // Cleanup on unmount
     return () => {
+      stopAllSounds(); // This is fine here, stopAllSounds has a stable identity
       // End video call if user is in one before leaving
       if (isInCall) {
         console.log('Ending video call before leaving reading room...');
@@ -296,7 +312,19 @@ const ReadingRoom = () => {
       cleanupVideoCall();
       clearInterval(syncInterval);
     };
-  }, [joinSessionId, deckId, setInitialSessionId, setDeckId, initializeSession, cleanup, cleanupVideoCall, syncCompleteSessionState, isHost]);
+    // Revise dependency array: REMOVE playSound, stopAllSounds (already stable), isMuted
+  }, [joinSessionId, deckId, setInitialSessionId, setDeckId, initializeSession, cleanup, cleanupVideoCall, syncCompleteSessionState, isHost, user]); // Added user as it's used in initSession indirectly
+
+  // NEW useEffect specifically for managing ambient sound
+  useEffect(() => {
+    if (!isMuted) {
+      playSound('ambient', true);
+    } else {
+      stopSound('ambient'); // Explicitly stop ambient when muted
+    }
+    // This effect should only re-run when isMuted, playSound, or stopSound change.
+    // playSound changes with volume, which is fine for this specific effect.
+  }, [isMuted, playSound, stopSound]);
 
   // Initialize video call when session is ready
   useEffect(() => {
@@ -1135,36 +1163,26 @@ const ReadingRoom = () => {
   
   const shuffleDeck = useCallback(() => {
     setIsShuffling(true);
+    playSound('shuffle', true); 
     
-    // Update session state to show shuffling for all participants
-    updateSession({ 
-      loadingStates: { 
-        isShuffling: true, 
-        isGeneratingInterpretation: false,
-        triggeredBy: participantId 
-      } 
-    });
-    
-    // Add a delay to show the shuffling animation
     setTimeout(() => {
       const currentDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
       const newShuffledDeck = fisherYatesShuffle(currentDeck);
       setShuffledDeck(newShuffledDeck);
       setIsShuffling(false);
-      setDeckRefreshKey(prev => prev + 1); // Force deck visual refresh
+      setDeckRefreshKey(prev => prev + 1); 
+      stopSound('shuffle'); 
       
-      // Update session state with new shuffled deck and clear loading state
       updateSession({ 
         shuffledDeck: newShuffledDeck,
         loadingStates: null
       });
       
-      // Broadcast shuffle action to other participants
       broadcastGuestAction('shuffleDeck', { 
         shuffledDeck: newShuffledDeck 
       });
-    }, 1000); // 1 second delay for shuffling animation
-  }, [fisherYatesShuffle, shuffledDeck, sessionShuffledDeck, shouldUseSessionDeck, updateSession, broadcastGuestAction, participantId]);
+    }, 1000); 
+  }, [fisherYatesShuffle, shuffledDeck, sessionShuffledDeck, shouldUseSessionDeck, updateSession, broadcastGuestAction, participantId, playSound, stopSound]); // Added playSound, stopSound
 
   // Handle placed card drag start
   const handlePlacedCardDragStart = useCallback((cardIndex: number) => { // <<< MUST ACCEPT cardIndex
@@ -1338,6 +1356,7 @@ const ReadingRoom = () => {
   const handleCardDrop = (positionIndex?: number, freePosition?: { x: number; y: number }) => {
     if (!draggedCard || !selectedLayout) return;
     
+    playSound('uiPop'); // Play uiPop sound when card is dropped
     let newCard: any;
     
     if (selectedLayout.id === 'free-layout' && freePosition) {
@@ -1658,13 +1677,14 @@ const ReadingRoom = () => {
   const handleCardFlip = useCallback((cardIndex: number) => {
     const newSelectedCards = [...selectedCards];
     if (newSelectedCards[cardIndex]) {
+      playSound('flip'); // Play flip sound when card is flipped
       newSelectedCards[cardIndex] = {
         ...newSelectedCards[cardIndex],
         revealed: !(newSelectedCards[cardIndex] as any).revealed
       } as any;
       updateSession({ selectedCards: newSelectedCards });
     }
-  }, [selectedCards, updateSession]);
+  }, [selectedCards, updateSession, playSound]); // Added playSound
   
   // Handle opening card gallery - now synchronized
   const openCardGallery = useCallback((cardIndex: number) => {
@@ -1867,6 +1887,7 @@ const ReadingRoom = () => {
     setSelectedCategory,
     setHighlightedCategoryIndex,
     setHighlightedQuestionIndex,
+    toggleMute, 
   });
   
   // Handle gallery swipe gestures
@@ -3489,6 +3510,43 @@ const ReadingRoom = () => {
                       <XCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
+
+                  {/* Music control button and slider START */}
+                  <div 
+                    className="relative"
+                    onMouseEnter={() => !isMobile && setShowVolumeSlider(true)}
+                    onMouseLeave={() => !isMobile && setShowVolumeSlider(false)}
+                  >
+                    <Tooltip content={isMuted ? "Unmute (M)" : "Mute (M)"} position="right" disabled={isMobile || showVolumeSlider}>
+                      <button 
+                        onClick={toggleMute} 
+                        className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"
+                      >
+                        {isMuted ? <VolumeX className="h-4 w-4" /> : (volume > 0.5 ? <Volume2 className="h-4 w-4" /> : (volume > 0 ? <Volume1 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />))}
+                      </button>
+                    </Tooltip>
+                    {showVolumeSlider && !isMobile && (
+                      <motion.div 
+                        initial={{ opacity: 0, width: 0, x: -10 }}
+                        animate={{ opacity: 1, width: 80, x: 0 }}
+                        exit={{ opacity: 0, width: 0, x: -10 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 p-2 bg-card/90 backdrop-blur-sm rounded-md shadow-lg flex items-center z-50"
+                      >
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max="1" 
+                          step="0.01" 
+                          value={volume}
+                          onChange={(e) => setVolume(parseFloat(e.target.value))} 
+                          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                      </motion.div>
+                    )}
+                  </div>
+                  {/* Music control button and slider END */}
+
                 </div>
 
                 {/* Layout visualization with mobile-responsive card sizes */}
@@ -3978,9 +4036,10 @@ const ReadingRoom = () => {
                 {/* Zoom controls */}
                 <div className={`zoom-controls absolute ${
                   isMobile 
-                    ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
+                    ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' 
                     : 'top-4 left-4 flex-col'
                 } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-2 rounded-md z-40 items-center`}>
+                  {/* ... (ZoomIn, ResetZoom, ZoomOut buttons for interpretation step) ... */}
                   <Tooltip content="Zoom out (- / _)" position="right" disabled={isMobile}>
                     <button onClick={zoomOut} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <ZoomOut className="h-4 w-4" />
@@ -4001,57 +4060,7 @@ const ReadingRoom = () => {
                   {!isMobile && (
                     <>
                       <div className="w-full h-px bg-border my-2"></div>
-                      <div className="relative w-16 h-16 flex-shrink-0 mx-auto">
-                        {/* Up */}
-                        <Tooltip content="Pan up (↑)" position="right" wrapperClassName="absolute top-0 left-1/2 transform -translate-x-1/2">
-                          <button 
-                            onClick={() => panDirection('up')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ArrowUp className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Left */}
-                        <Tooltip content="Pan left (←)" position="right" wrapperClassName="absolute left-0 top-1/2 transform -translate-y-1/2">
-                          <button 
-                            onClick={() => panDirection('left')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ChevronLeft className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Center button */}
-                        <Tooltip content="Reset pan to center (C / Enter)" position="right" wrapperClassName="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                          <button 
-                            onClick={resetPan}
-                            className="w-5 h-5 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
-                          >
-                            <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full"></div>
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Right */}
-                        <Tooltip content="Pan right (→)" position="right" wrapperClassName="absolute right-0 top-1/2 transform -translate-y-1/2">
-                          <button 
-                            onClick={() => panDirection('right')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ChevronRight className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Down */}
-                        <Tooltip content="Pan down (↓)" position="right" wrapperClassName="absolute bottom-0 left-1/2 transform -translate-x-1/2">
-                          <button 
-                            onClick={() => panDirection('down')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ArrowDown className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                      </div>
+                      {/* ... (Joypad JSX for interpretation step) ... */}
                       <div className="w-full h-px bg-border my-2"></div>
                     </>
                   )}
@@ -4071,6 +4080,42 @@ const ReadingRoom = () => {
                       <XCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
+
+                  {/* Music control button and slider START (for interpretation step) */}
+                  <div 
+                    className="relative"
+                    onMouseEnter={() => !isMobile && setShowVolumeSlider(true)}
+                    onMouseLeave={() => !isMobile && setShowVolumeSlider(false)}
+                  >
+                    <Tooltip content={isMuted ? "Unmute (M)" : "Mute (M)"} position="right" disabled={isMobile || showVolumeSlider}>
+                      <button 
+                        onClick={toggleMute} 
+                        className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"
+                      >
+                        {isMuted ? <VolumeX className="h-4 w-4" /> : (volume > 0.5 ? <Volume2 className="h-4 w-4" /> : (volume > 0 ? <Volume1 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />))}
+                      </button>
+                    </Tooltip>
+                    {showVolumeSlider && !isMobile && (
+                      <motion.div 
+                        initial={{ opacity: 0, width: 0, x: -10 }}
+                        animate={{ opacity: 1, width: 80, x: 0 }}
+                        exit={{ opacity: 0, width: 0, x: -10 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 p-2 bg-card/90 backdrop-blur-sm rounded-md shadow-lg flex items-center z-50"
+                      >
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max="1" 
+                          step="0.01" 
+                          value={volume}
+                          onChange={(e) => setVolume(parseFloat(e.target.value))} 
+                          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                      </motion.div>
+                    )}
+                  </div>
+                  {/* Music control button and slider END (for interpretation step) */}
                 </div>
                 
                 {/* Card layout with zoom applied */}
@@ -4852,6 +4897,7 @@ const ReadingRoom = () => {
                       console.log('Ending video call before exiting reading room...');
                       endCall();
                     }
+                    stopAllSounds(); // Stop all sounds when exiting
                   }}
                 >
                   Exit Reading Room

@@ -864,7 +864,7 @@ const Home = () => {
               <div className="aspect-video bg-card border border-border rounded-xl overflow-hidden shadow-xl">
                 <div className="relative w-full h-full">
                   <img 
-                    src="https://images.pexels.com/photos/7148384/pexels-photo-7148384.jpeg?auto=compress&cs=tinysrgb&w=1600" 
+                    src="https://api.tarotforge.xyz/storage/v1/object/public/assets//readingroom.webp" 
                     alt="Tarot reading session" 
                     className="w-full h-full object-cover"
                   />
