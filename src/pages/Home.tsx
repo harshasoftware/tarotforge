@@ -23,7 +23,7 @@ const featuredDecks = [
     style: 'ethereal',
     card_count: 78,
     price: 12.99,
-    cover_image: 'https://images.pexels.com/photos/1274260/pexels-photo-1274260.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    cover_image: 'https://api.tarotforge.xyz/storage/v1/object/sign/card-images/astraldeck/astral.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jYTcyNDk2MC0yMGJjLTQ5MDYtOWJiYy01NThhOGRlMzQwMGUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9hc3RyYWxkZWNrL2FzdHJhbC5wbmciLCJpYXQiOjE3NDg4NjA5OTMsImV4cCI6NDkwMjQ2MDk5M30.sxD4yjam7IzkkFwCc8EwF6djhmUA8gfHDTlHwBI8F2g',
     sample_images: [],
     created_at: '2023-10-15T14:30:00Z',
     updated_at: '2023-10-15T14:30:00Z',
@@ -42,7 +42,7 @@ const featuredDecks = [
     card_count: 22,
     price: 0,
     is_free: true,
-    cover_image: 'https://images.pexels.com/photos/1097456/pexels-photo-1097456.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    cover_image: 'https://api.tarotforge.xyz/storage/v1/object/sign/card-images/a8c392fb-7759-44bb-9515-8785280622d2/the-world-1747580504415.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jYTcyNDk2MC0yMGJjLTQ5MDYtOWJiYy01NThhOGRlMzQwMGUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9hOGMzOTJmYi03NzU5LTQ0YmItOTUxNS04Nzg1MjgwNjIyZDIvdGhlLXdvcmxkLTE3NDc1ODA1MDQ0MTUucG5nIiwiaWF0IjoxNzQ4ODYwNjg1LCJleHAiOjQ5MDI0NjA2ODV9.hINMNHe0-Ml3eePg0bDob2V4kx_mMyavNlvZOhXBQm4',
     sample_images: [],
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
@@ -59,7 +59,7 @@ const featuredDecks = [
     style: 'digital',
     card_count: 78,
     price: 14.99,
-    cover_image: 'https://images.pexels.com/photos/2150/sky-space-dark-galaxy.jpg?auto=compress&cs=tinysrgb&w=1600',
+    cover_image: 'https://api.tarotforge.xyz/storage/v1/object/sign/card-images/cyberpunkdeck/lovers.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jYTcyNDk2MC0yMGJjLTQ5MDYtOWJiYy01NThhOGRlMzQwMGUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9jeWJlcnB1bmtkZWNrL2xvdmVycy5wbmciLCJpYXQiOjE3NDg4NjA0MTcsImV4cCI6NDkwMjQ2MDQxN30.5rnyBLaib_hIPEPcq3nJZaU9wk_H8urYDceCV4KgBzQ',
     sample_images: [],
     created_at: '2023-09-22T16:45:00Z',
     updated_at: '2023-09-22T16:45:00Z',
@@ -71,12 +71,12 @@ const featuredDecks = [
 
 // Tarot card images for background
 const tarotCardImages = [
-  'https://images.pexels.com/photos/1619317/pexels-photo-1619317.jpeg?auto=compress&cs=tinysrgb&w=1600', // The Fool
-  'https://images.pexels.com/photos/2693529/pexels-photo-2693529.jpeg?auto=compress&cs=tinysrgb&w=1600', // The Magician
-  'https://images.pexels.com/photos/3617457/pexels-photo-3617457.jpeg?auto=compress&cs=tinysrgb&w=1600', // The High Priestess
-  'https://images.pexels.com/photos/1252890/pexels-photo-1252890.jpeg?auto=compress&cs=tinysrgb&w=1600', // The Star
-  'https://images.pexels.com/photos/2670898/pexels-photo-2670898.jpeg?auto=compress&cs=tinysrgb&w=1600', // The Moon
-  'https://images.pexels.com/photos/1727684/pexels-photo-1727684.jpeg?auto=compress&cs=tinysrgb&w=1600', // Wheel of Fortune
+  'https://api.tarotforge.xyz/storage/v1/object/sign/card-images/cyberpunkdeck/lovers.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jYTcyNDk2MC0yMGJjLTQ5MDYtOWJiYy01NThhOGRlMzQwMGUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9jeWJlcnB1bmtkZWNrL2xvdmVycy5wbmciLCJpYXQiOjE3NDg4NjA0MTcsImV4cCI6NDkwMjQ2MDQxN30.5rnyBLaib_hIPEPcq3nJZaU9wk_H8urYDceCV4KgBzQ',
+  'https://api.tarotforge.xyz/storage/v1/object/sign/card-images/desertdeck/star.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jYTcyNDk2MC0yMGJjLTQ5MDYtOWJiYy01NThhOGRlMzQwMGUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9kZXNlcnRkZWNrL3N0YXIucG5nIiwiaWF0IjoxNzQ4ODYwNDY0LCJleHAiOjQ5MDI0NjA0NjR9.UGJkA8bNr7QAO72ZMdEn5gvhSJjO5GeAoNOs4RUnsdI',
+  'https://api.tarotforge.xyz/storage/v1/object/sign/card-images/astraldeck/astral.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jYTcyNDk2MC0yMGJjLTQ5MDYtOWJiYy01NThhOGRlMzQwMGUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9hc3RyYWxkZWNrL2FzdHJhbC5wbmciLCJpYXQiOjE3NDg4NjA0OTEsImV4cCI6NDkwMjQ2MDQ5MX0.21MB3C3huzJswMX-08aHyHGlmoK8kK5GigdXipI2ANo',
+  'https://api.tarotforge.xyz/storage/v1/object/sign/card-images/a8c392fb-7759-44bb-9515-8785280622d2/judgement-1747580310932.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jYTcyNDk2MC0yMGJjLTQ5MDYtOWJiYy01NThhOGRlMzQwMGUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9hOGMzOTJmYi03NzU5LTQ0YmItOTUxNS04Nzg1MjgwNjIyZDIvanVkZ2VtZW50LTE3NDc1ODAzMTA5MzIucG5nIiwiaWF0IjoxNzQ4ODYwNTM0LCJleHAiOjQ5MDI0NjA1MzR9.PLuZHZ8W3Vh8gFH9P0cFtIyEDVUFJl9zWqlQSGwO0sk',
+  'https://api.tarotforge.xyz/storage/v1/object/sign/card-images/a8c392fb-7759-44bb-9515-8785280622d2/the-world-1747580504415.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jYTcyNDk2MC0yMGJjLTQ5MDYtOWJiYy01NThhOGRlMzQwMGUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9hOGMzOTJmYi03NzU5LTQ0YmItOTUxNS04Nzg1MjgwNjIyZDIvdGhlLXdvcmxkLTE3NDc1ODA1MDQ0MTUucG5nIiwiaWF0IjoxNzQ4ODYwNTY5LCJleHAiOjQ5MDI0NjA1Njl9.SXZUye2qPkMZbLVqWzwNTcU5UI_IJw1d22cPyne7aKI',
+  'https://api.tarotforge.xyz/storage/v1/object/sign/card-images/a8c392fb-7759-44bb-9515-8785280622d2/the-world-1747580504415.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jYTcyNDk2MC0yMGJjLTQ5MDYtOWJiYy01NThhOGRlMzQwMGUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9hOGMzOTJmYi03NzU5LTQ0YmItOTUxNS04Nzg1MjgwNjIyZDIvdGhlLXdvcmxkLTE3NDc1ODA1MDQ0MTUucG5nIiwiaWF0IjoxNzQ4ODYwNjg1LCJleHAiOjQ5MDI0NjA2ODV9.hINMNHe0-Ml3eePg0bDob2V4kx_mMyavNlvZOhXBQm4',
 ];
 
 // Generate theme suggestions using Gemini AI
@@ -864,7 +864,7 @@ const Home = () => {
               <div className="aspect-video bg-card border border-border rounded-xl overflow-hidden shadow-xl">
                 <div className="relative w-full h-full">
                   <img 
-                    src="https://images.pexels.com/photos/7148384/pexels-photo-7148384.jpeg?auto=compress&cs=tinysrgb&w=1600" 
+                    src="https://api.tarotforge.xyz/storage/v1/object/public/assets//readingroom.webp" 
                     alt="Tarot reading session" 
                     className="w-full h-full object-cover"
                   />
