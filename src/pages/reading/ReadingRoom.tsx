@@ -1447,30 +1447,34 @@ const ReadingRoom = () => {
   };
 
   const handleFreeLayoutDrop = (e: any) => {
-    if (!draggedCard || !readingAreaRef.current || selectedLayout?.id !== 'free-layout') {
-      handleDragEnd(); // Reset drag state if drop is invalid
+    if (!draggedCard || !readingAreaRef.current) { 
+      handleDragEnd(); 
       return;
     }
-    
-    const rect = readingAreaRef.current.getBoundingClientRect();
-    // Ensure clientX/Y are valid before proceeding
-    const clientX = 'touches' in e ? (e.touches[0]?.clientX ?? e.changedTouches?.[0]?.clientX) : e.clientX;
-    const clientY = 'touches' in e ? (e.touches[0]?.clientY ?? e.changedTouches?.[0]?.clientY) : e.clientY;
 
-    if (clientX === undefined || clientY === undefined) {
-        console.warn('[handleFreeLayoutDrop] Could not determine drop coordinates.');
-        handleDragEnd();
-        return;
+    // Only perform drop logic if it is actually free-layout mode
+    if (selectedLayout?.id === 'free-layout') {
+      const rect = readingAreaRef.current.getBoundingClientRect();
+      const clientX = 'touches' in e ? (e.touches[0]?.clientX ?? e.changedTouches?.[0]?.clientX) : e.clientX;
+      const clientY = 'touches' in e ? (e.touches[0]?.clientY ?? e.changedTouches?.[0]?.clientY) : e.clientY;
+
+      if (clientX === undefined || clientY === undefined) {
+          console.warn('[handleFreeLayoutDrop] Could not determine drop coordinates.');
+          handleDragEnd();
+          return;
+      }
+      
+      const x = ((clientX - rect.left) / rect.width) * 100;
+      const y = ((clientY - rect.top) / rect.height) * 100;
+      
+      if (x >= 0 && x <= 100 && y >= 0 && y <= 100) {
+        handleCardDrop(undefined, { x, y }); // This will call handleDragEnd internally
+      } else {
+        handleDragEnd(); // Dropped outside bounds for free-layout
+      }
     }
-    
-    const x = ((clientX - rect.left) / rect.width) * 100;
-    const y = ((clientY - rect.top) / rect.height) * 100;
-    
-    if (x >= 0 && x <= 100 && y >= 0 && y <= 100) {
-      handleCardDrop(undefined, { x, y });
-    } else {
-      handleDragEnd();
-    }
+    // If not 'free-layout', this function now does nothing further,
+    // allowing dropzone-specific onTouchEnd handlers to manage the drop.
   };
   
   const generateInterpretation = async (cards = selectedCards) => {
@@ -3773,6 +3777,7 @@ const ReadingRoom = () => {
                         onTouchEnd={(e) => {
                           if (isMobile && isDragging && draggedCard && !selectedCard) {
                             e.preventDefault();
+                            e.stopPropagation(); // Prevent event from bubbling to document listener
                             handleCardDrop(index);
                           }
                         }}
@@ -3780,6 +3785,7 @@ const ReadingRoom = () => {
                         {/* Card position indicator - responsive size */}
                         {!selectedCard && (
                           <div 
+                            data-dropzone-index={index} // Added data attribute
                             className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} border-2 border-dashed ${
                               isHovered ? 'border-primary bg-primary/10' : 'border-muted-foreground/30'
                             } rounded-md flex flex-col items-center justify-center transition-colors`}
@@ -3940,28 +3946,76 @@ const ReadingRoom = () => {
                                 onMouseMove={handleDragMove}
                                 onTouchMove={handleDragMove}
                                 onTouchEnd={(e) => {
-                                  if (isMobile && isDragging) {
-                                    e.preventDefault();
-                                    handleFreeLayoutDrop(e);
+                                  // Rigorous check for mobile drag state
+                                  if (isMobile && isDragging && draggedCard) {
+                                    e.preventDefault(); // Prevent default touch behavior like scrolling
+                                    e.stopPropagation(); // Prevent this event from bubbling to document listeners
+
+                                    if (selectedLayout?.id === 'free-layout') {
+                                      handleFreeLayoutDrop(e); // This function calls handleDragEnd internally
+                                    } else {
+                                      // Predefined layout on mobile: Card performs hit-testing on touchend
+                                      const touch = e.changedTouches[0];
+                                      if (touch) {
+                                        const { clientX, clientY } = touch;
+                                        const dropzones = document.querySelectorAll('[data-dropzone-index]');
+                                        let droppedSuccessfully = false;
+
+                                        for (let i = 0; i < dropzones.length; i++) {
+                                          const dzElement = dropzones[i] as HTMLElement; // Cast to HTMLElement
+                                          const rect = dzElement.getBoundingClientRect();
+
+                                          if (
+                                            clientX >= rect.left &&
+                                            clientX <= rect.right &&
+                                            clientY >= rect.top &&
+                                            clientY <= rect.bottom
+                                          ) {
+                                            const dropzoneIndexStr = dzElement.getAttribute('data-dropzone-index');
+                                            if (dropzoneIndexStr) {
+                                              const dropzoneIndex = parseInt(dropzoneIndexStr, 10);
+                                              // Check if the dropzoneIndex is valid and the slot is empty
+                                              if (!isNaN(dropzoneIndex) && 
+                                                  (selectedCards[dropzoneIndex] === undefined || selectedCards[dropzoneIndex] === null)) {
+                                                handleCardDrop(dropzoneIndex); // This calls handleDragEnd internally
+                                                droppedSuccessfully = true;
+                                                break; // Exit loop once dropped
+                                              }
+                                            }
+                                          }
+                                        }
+
+                                        if (!droppedSuccessfully) {
+                                          handleDragEnd(); // No valid, empty dropzone was hit
+                                        }
+                                      } else {
+                                        handleDragEnd(); // No touch data from event
+                                      }
+                                    }
+                                  } else if (isMobile && isDragging) {
+                                    // Fallback: isDragging was true, but draggedCard was null or other conditions failed.
+                                    // This prevents a stuck dragging state.
+                                    handleDragEnd();
                                   }
+                                  // If not a mobile drag event fitting the conditions, this handler does nothing.
                                 }}
                               >
-                                                              <TarotCardBack className="w-full h-full rounded-md shadow-lg hover:shadow-xl transition-shadow">
-                                {/* Drag text overlay */}
-                                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 z-10">
-                                  <span className="text-xs font-serif tracking-wider" style={{ color: 'rgb(139 92 246 / 0.7)' }}>
-                                    {index < 5 ? 'Drag' : ''}
-                                  </span>
-                                </div>
-                              </TarotCardBack>
-                                {index === Math.floor(totalCards / 2) && (
-                                  <div className="absolute -top-2 -right-1 bg-accent text-accent-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center shadow-md z-[300]">
-                                    {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length}
+                                <TarotCardBack className="w-full h-full rounded-md shadow-lg hover:shadow-xl transition-shadow">
+                                  {/* Drag text overlay */}
+                                  <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 z-10">
+                                    <span className="text-xs font-serif tracking-wider" style={{ color: 'rgb(139 92 246 / 0.7)' }}>
+                                      {index < 5 ? 'Drag' : ''}
+                                    </span>
                                   </div>
-                                )}
-                              </motion.div>
-                            );
-                          })}
+                                </TarotCardBack>
+                                  {index === Math.floor(totalCards / 2) && (
+                                    <div className="absolute -top-2 -right-1 bg-accent text-accent-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center shadow-md z-[300]">
+                                      {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length}
+                                    </div>
+                                  )}
+                                </motion.div>
+                              );
+                            })}
                         </div>
                         
                         {/* Mobile navigation hints */}
