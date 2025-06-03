@@ -864,7 +864,21 @@ const ReadingRoom = () => {
         readingStep: targetReadingStep,
         interpretation: '',
         activeCardIndex: null,
-        zoomLevel: isMobile ? (isLandscape ? (layout.id === 'celtic-cross' ? 0.8 : 1) : (layout.id === 'celtic-cross' ? 0.6 : 0.8)) : (layout.id === 'celtic-cross' ? 1.0 : 1.6)
+        zoomLevel: isMobile
+          ? isLandscape // Mobile Landscape
+            ? layout.id === 'celtic-cross'
+              ? 0.8 // Celtic Cross mobile landscape
+              : 1.0 // All other layouts (including three-card, single-card) mobile landscape
+            : // Mobile Portrait
+              layout.id === 'celtic-cross'
+              ? 0.6 // Celtic Cross mobile portrait
+              : 0.8 // All other layouts (including three-card, single-card) mobile portrait
+          : // Desktop
+            layout.id === 'celtic-cross'
+            ? 1.0 // Celtic Cross desktop
+            : layout.id === 'three-card' || layout.id === 'single-card'
+            ? 2.0 // Three-card & Single-card desktop
+            : 1.6 // All other layouts desktop
       };
       
       // Only shuffle if cards are loaded and not already in session state
@@ -3724,12 +3738,19 @@ const ReadingRoom = () => {
                       }
                     }
                     
+                    let displayX = adjustedPosition.x;
+                    if (isMobile && selectedLayout?.id === 'three-card') {
+                      if (index === 0) displayX = 25; // Original Past X for mobile
+                      else if (index === 1) displayX = 50; // Original Present X for mobile
+                      else if (index === 2) displayX = 75; // Original Future X for mobile
+                    }
+                    
                     return (
                       <div 
                         key={position.id}
                         className="absolute transform -translate-x-1/2 -translate-y-1/2"
                         style={{ 
-                          left: `${adjustedPosition.x}%`, 
+                          left: `${displayX}%`, 
                           top: `${adjustedPosition.y}%`,
                           zIndex: selectedCard ? (10 + index) : (index === 1 ? 2 : 1) // Equal z-index for both cards when placed
                         }}
@@ -4339,12 +4360,19 @@ const ReadingRoom = () => {
                     // For Celtic Cross interpretation, always use original positions for perfect cross
                     const adjustedPosition = { ...position };
                     
+                    let displayX = adjustedPosition.x;
+                    if (isMobile && selectedLayout?.id === 'three-card') {
+                      if (index === 0) displayX = 25;
+                      else if (index === 1) displayX = 50;
+                      else if (index === 2) displayX = 75;
+                    }
+                    
                     return (
                       <div 
                         key={position.id}
                         className="absolute transform -translate-x-1/2 -translate-y-1/2"
                         style={{ 
-                          left: `${adjustedPosition.x}%`, 
+                          left: `${displayX}%`, // Use displayX
                           top: `${adjustedPosition.y}%`,
                           zIndex: activeCardIndex === index ? 20 : (isChallengePosition ? 12 : 10 + index) // Challenge card always on top
                         }}
