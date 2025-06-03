@@ -1365,85 +1365,94 @@ const ReadingRoom = () => {
   };
   
   const handleCardDrop = (positionIndex?: number, freePosition?: { x: number; y: number }) => {
-    if (!draggedCard || !selectedLayout) return;
-    
-    let newCard: any;
-    let cardPlaced = false; // Flag to check if a card was actually placed
-    
+    if (!draggedCard || !selectedLayout) {
+      handleDragEnd(); // Ensure drag state is reset even if no action is taken
+      return;
+    }
+
+    let newCardForArray: any;
+    let cardPlacedSuccessfully = false;
+    const currentLocalShuffledDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
+    let newSelectedCardsArray = [...selectedCards]; 
+    let newShuffledDeckArray = [...currentLocalShuffledDeck];
+
     if (selectedLayout.id === 'free-layout' && freePosition) {
-      // Free layout - place at custom position
       const isReversed = Math.random() < 0.2;
-      newCard = {
+      newCardForArray = {
         ...draggedCard,
-        position: `Card ${selectedCards.length + 1}`,
-        customPosition: `Custom Position ${selectedCards.length + 1}`,
+        position: `Card ${newSelectedCardsArray.length + 1}`,
+        customPosition: `Custom Position ${newSelectedCardsArray.length + 1}`,
         isReversed,
-        revealed: false, // Card starts face-down
+        revealed: false, 
         x: freePosition.x,
         y: freePosition.y
       };
-      
-      // Add to selected cards array
-      const newSelectedCards = [...selectedCards, newCard];
-      updateSession({ selectedCards: newSelectedCards });
-      cardPlaced = true;
-      
-    } else if (positionIndex !== undefined) {
-      // Predefined layout - place at specific position
+      newSelectedCardsArray.push(newCardForArray);
+      cardPlacedSuccessfully = true;
+    } else if (positionIndex !== undefined && selectedLayout.positions && selectedLayout.positions[positionIndex]) {
       const position = selectedLayout.positions[positionIndex];
       const isReversed = Math.random() < 0.2;
-      
-      newCard = {
+      newCardForArray = {
         ...draggedCard,
         position: position.name,
         isReversed,
-        revealed: false // Card starts face-down
+        revealed: false
       };
-      
-      // Update selected cards
-      const newSelectedCards = [...selectedCards];
-      newSelectedCards[positionIndex] = newCard;
-      updateSession({ selectedCards: newSelectedCards });
-      cardPlaced = true;
+      if (newSelectedCardsArray.length <= positionIndex) {
+          newSelectedCardsArray.length = positionIndex + 1; 
+      }
+      newSelectedCardsArray[positionIndex] = newCardForArray;
+      cardPlacedSuccessfully = true;
     }
-    
-    if (cardPlaced) {
+
+    const updatesForSession: any = {}; // Type changed to any, or define a local Partial type if preferred
+
+    if (cardPlacedSuccessfully) {
+      updatesForSession.selectedCards = newSelectedCardsArray;
       playSoundEffect('pop');
+
+      if (draggedCardIndex !== null) {
+        newShuffledDeckArray = newShuffledDeckArray.filter((_: any, index: number) => index !== draggedCardIndex);
+        updatesForSession.shuffledDeck = newShuffledDeckArray;
+        
+        broadcastGuestAction('updateShuffledDeck', { 
+          shuffledDeck: newShuffledDeckArray, 
+          removedCardIndex: draggedCardIndex 
+        });
+      }
+    } else {
+      handleDragEnd();
+      return;
     }
-    
-    // Remove card from shuffled deck
-    if (draggedCardIndex !== null) {
-      const currentDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
-      const newShuffledDeck = currentDeck.filter((_: any, index: number) => index !== draggedCardIndex);
-      setShuffledDeck(newShuffledDeck);
-      
-      // Update session state with new shuffled deck
-      updateSession({ shuffledDeck: newShuffledDeck });
-      
-      // Broadcast shuffled deck update to other participants
-      broadcastGuestAction('updateShuffledDeck', { 
-        shuffledDeck: newShuffledDeck,
-        removedCardIndex: draggedCardIndex 
-      });
+
+    if (Object.keys(updatesForSession).length > 0) {
+      updateSession(updatesForSession);
     }
     
     handleDragEnd();
   };
 
   const handleFreeLayoutDrop = (e: any) => {
-    if (!draggedCard || !readingAreaRef.current || selectedLayout?.id !== 'free-layout') return;
+    if (!draggedCard || !readingAreaRef.current || selectedLayout?.id !== 'free-layout') {
+      handleDragEnd(); // Reset drag state if drop is invalid
+      return;
+    }
     
     const rect = readingAreaRef.current.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0]?.clientX || e.changedTouches?.[0]?.clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0]?.clientY || e.changedTouches?.[0]?.clientY : e.clientY;
+    // Ensure clientX/Y are valid before proceeding
+    const clientX = 'touches' in e ? (e.touches[0]?.clientX ?? e.changedTouches?.[0]?.clientX) : e.clientX;
+    const clientY = 'touches' in e ? (e.touches[0]?.clientY ?? e.changedTouches?.[0]?.clientY) : e.clientY;
+
+    if (clientX === undefined || clientY === undefined) {
+        console.warn('[handleFreeLayoutDrop] Could not determine drop coordinates.');
+        handleDragEnd();
+        return;
+    }
     
-    // Calculate percentage position relative to the reading area
     const x = ((clientX - rect.left) / rect.width) * 100;
     const y = ((clientY - rect.top) / rect.height) * 100;
     
-    // Ensure position is within bounds
     if (x >= 0 && x <= 100 && y >= 0 && y <= 100) {
-      // playSoundEffect('pop'); // Moved to handleCardDrop to avoid double play
       handleCardDrop(undefined, { x, y });
     } else {
       handleDragEnd();
