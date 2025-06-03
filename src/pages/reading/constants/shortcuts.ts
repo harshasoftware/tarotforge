@@ -38,5 +38,6 @@ export const KEY_VALUES = {
   V_LOWER: 'v',
   L_LOWER: 'l',
   I_LOWER: 'i',
+  M_LOWER: 'm',
   // Add other event.key constants here
 }; 

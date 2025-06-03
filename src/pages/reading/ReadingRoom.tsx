@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Wand, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX, LogIn, Keyboard, Navigation, BookOpen, Lightbulb, Sun, Moon, DoorOpen, ScanSearch } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Wand, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX, LogIn, Keyboard, Navigation, BookOpen, Lightbulb, Sun, Moon, DoorOpen, ScanSearch, Music } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
@@ -38,6 +38,7 @@ import { useBroadcastHandler } from './hooks/useBroadcastHandler'; // Added impo
 import { useParticipantNotificationHandler } from './hooks/useParticipantNotificationHandler'; // <<< ADD THIS LINE
 import { useTouchInteractions } from './hooks/useTouchInteractions'; 
 import { useDocumentMouseListeners } from './hooks/useDocumentMouseListeners'; // <<< ADD THIS LINE
+import { useSoundManager } from '../../hooks/useSoundManager'; // Added SoundManager
 
 // Coordinate transformation helper
 const viewportToPercentage = (
@@ -101,6 +102,16 @@ const ReadingRoom = () => {
   const { isSubscribed } = useSubscription();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  const {
+    isMuted,
+    volume,
+    playAmbientSound,
+    pauseAmbientSound,
+    toggleMute,
+    setGlobalVolume,
+    playSoundEffect,
+  } = useSoundManager();
   
   // Get join session ID and access method from URL params
   const urlParams = new URLSearchParams(location.search);
@@ -169,6 +180,7 @@ const ReadingRoom = () => {
   
   // Initialize session on mount
   useEffect(() => {
+    playAmbientSound(); // Play ambient sound on mount
     const initSession = async () => {
       // First, ensure user has anonymous auth if they're not authenticated
       if (!user) {
@@ -283,6 +295,7 @@ const ReadingRoom = () => {
 
     // Cleanup on unmount
     return () => {
+      pauseAmbientSound(); // Pause ambient sound on unmount
       // End video call if user is in one before leaving
       if (isInCall) {
         console.log('Ending video call before leaving reading room...');
@@ -296,7 +309,7 @@ const ReadingRoom = () => {
       cleanupVideoCall();
       clearInterval(syncInterval);
     };
-  }, [joinSessionId, deckId, setInitialSessionId, setDeckId, initializeSession, cleanup, cleanupVideoCall, syncCompleteSessionState, isHost]);
+  }, [joinSessionId, deckId, setInitialSessionId, setDeckId, initializeSession, cleanup, cleanupVideoCall, syncCompleteSessionState, isHost, playAmbientSound, pauseAmbientSound]);
 
   // Initialize video call when session is ready
   useEffect(() => {
@@ -379,6 +392,10 @@ const ReadingRoom = () => {
   const [panStartPos, setPanStartPos] = useState({ x: 0, y: 0 });
   const [panStartOffset, setPanStartOffset] = useState({ x: 0, y: 0 });
   const [isSpacePressed, setIsSpacePressed] = useState(false);
+  
+  // Sound UI State
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const volumeSliderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Exit modal state
   const [showExitModal, setShowExitModal] = useState(false);
@@ -834,6 +851,7 @@ const ReadingRoom = () => {
   const handleLayoutSelect = useCallback((layout: ReadingLayout) => {
     try {
       console.log('Layout selected:', layout);
+      playSoundEffect('pop');
       
       // Determine the appropriate reading step based on current state
       // If user is already in a reading session (past setup), skip question step
@@ -866,7 +884,7 @@ const ReadingRoom = () => {
       console.error('Error selecting layout:', error);
       setError('Failed to select layout. Please try again.');
     }
-  }, [updateSession, cards, isMobile, isLandscape, fisherYatesShuffle, readingStep, shouldUseSessionDeck]);
+  }, [updateSession, cards, isMobile, isLandscape, fisherYatesShuffle, readingStep, shouldUseSessionDeck, playSoundEffect]);
 
   const handleQuestionChange = useCallback((newQuestion: string) => {
     updateSession({ question: newQuestion });
@@ -881,6 +899,7 @@ const ReadingRoom = () => {
       setIsQuestionHighlightingActive(true); // Re-enable highlighting on keyboard use
       return;
     }
+    playSoundEffect('pop');
     setSelectedCategory(category);
     setHighlightedQuestionIndex(0); // Reset question highlighting when selecting new category
     
@@ -947,11 +966,12 @@ const ReadingRoom = () => {
     } finally {
       setIsLoadingQuestions(false);
     }
-  }, [questionCache, isCacheValid, getTodayDateString]); // Add isCacheValid and getTodayDateString to dependencies
+  }, [questionCache, isCacheValid, getTodayDateString, playSoundEffect]); // Add isCacheValid and getTodayDateString to dependencies
   
   const handleQuestionSelect = useCallback((selectedQuestion: string) => {
+    playSoundEffect('pop');
     updateSession({ question: selectedQuestion, readingStep: 'drawing' });
-  }, [updateSession]);
+  }, [updateSession, playSoundEffect]);
   
   const handleSkipQuestion = useCallback(() => {
     updateSession({ readingStep: 'drawing' });
@@ -1111,6 +1131,14 @@ const ReadingRoom = () => {
           // Update session state with new shuffled deck
           updateSession({ shuffledDeck: newShuffledDeck });
           
+          // Preload card images
+          cardsData.forEach(card => {
+            if (card.image_url) {
+              const img = new Image();
+              img.src = card.image_url;
+            }
+          });
+          
           // Trigger deck visual refresh animation when new deck is loaded
           setDeckRefreshKey(prev => prev + 1);
         } else {
@@ -1135,6 +1163,7 @@ const ReadingRoom = () => {
   
   const shuffleDeck = useCallback(() => {
     setIsShuffling(true);
+    playSoundEffect('shuffle');
     
     // Update session state to show shuffling for all participants
     updateSession({ 
@@ -1164,7 +1193,7 @@ const ReadingRoom = () => {
         shuffledDeck: newShuffledDeck 
       });
     }, 1000); // 1 second delay for shuffling animation
-  }, [fisherYatesShuffle, shuffledDeck, sessionShuffledDeck, shouldUseSessionDeck, updateSession, broadcastGuestAction, participantId]);
+  }, [fisherYatesShuffle, shuffledDeck, sessionShuffledDeck, shouldUseSessionDeck, updateSession, broadcastGuestAction, participantId, playSoundEffect]);
 
   // Handle placed card drag start
   const handlePlacedCardDragStart = useCallback((cardIndex: number) => { // <<< MUST ACCEPT cardIndex
@@ -1336,76 +1365,93 @@ const ReadingRoom = () => {
   };
   
   const handleCardDrop = (positionIndex?: number, freePosition?: { x: number; y: number }) => {
-    if (!draggedCard || !selectedLayout) return;
-    
-    let newCard: any;
-    
+    if (!draggedCard || !selectedLayout) {
+      handleDragEnd(); // Ensure drag state is reset even if no action is taken
+      return;
+    }
+
+    let newCardForArray: any;
+    let cardPlacedSuccessfully = false;
+    const currentLocalShuffledDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
+    let newSelectedCardsArray = [...selectedCards]; 
+    let newShuffledDeckArray = [...currentLocalShuffledDeck];
+
     if (selectedLayout.id === 'free-layout' && freePosition) {
-      // Free layout - place at custom position
       const isReversed = Math.random() < 0.2;
-      newCard = {
+      newCardForArray = {
         ...draggedCard,
-        position: `Card ${selectedCards.length + 1}`,
-        customPosition: `Custom Position ${selectedCards.length + 1}`,
+        position: `Card ${newSelectedCardsArray.length + 1}`,
+        customPosition: `Custom Position ${newSelectedCardsArray.length + 1}`,
         isReversed,
-        revealed: false, // Card starts face-down
+        revealed: false, 
         x: freePosition.x,
         y: freePosition.y
       };
-      
-      // Add to selected cards array
-      const newSelectedCards = [...selectedCards, newCard];
-      updateSession({ selectedCards: newSelectedCards });
-      
-    } else if (positionIndex !== undefined) {
-      // Predefined layout - place at specific position
+      newSelectedCardsArray.push(newCardForArray);
+      cardPlacedSuccessfully = true;
+    } else if (positionIndex !== undefined && selectedLayout.positions && selectedLayout.positions[positionIndex]) {
       const position = selectedLayout.positions[positionIndex];
       const isReversed = Math.random() < 0.2;
-      
-      newCard = {
+      newCardForArray = {
         ...draggedCard,
         position: position.name,
         isReversed,
-        revealed: false // Card starts face-down
+        revealed: false
       };
-      
-      // Update selected cards
-      const newSelectedCards = [...selectedCards];
-      newSelectedCards[positionIndex] = newCard;
-      updateSession({ selectedCards: newSelectedCards });
+      if (newSelectedCardsArray.length <= positionIndex) {
+          newSelectedCardsArray.length = positionIndex + 1; 
+      }
+      newSelectedCardsArray[positionIndex] = newCardForArray;
+      cardPlacedSuccessfully = true;
     }
-    
-    // Remove card from shuffled deck
-    if (draggedCardIndex !== null) {
-      const currentDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
-      const newShuffledDeck = currentDeck.filter((_: any, index: number) => index !== draggedCardIndex);
-      setShuffledDeck(newShuffledDeck);
-      
-      // Update session state with new shuffled deck
-      updateSession({ shuffledDeck: newShuffledDeck });
-      
-      // Broadcast shuffled deck update to other participants
-      broadcastGuestAction('updateShuffledDeck', { 
-        shuffledDeck: newShuffledDeck,
-        removedCardIndex: draggedCardIndex 
-      });
+
+    const updatesForSession: any = {}; // Type changed to any, or define a local Partial type if preferred
+
+    if (cardPlacedSuccessfully) {
+      updatesForSession.selectedCards = newSelectedCardsArray;
+      playSoundEffect('pop');
+
+      if (draggedCardIndex !== null) {
+        newShuffledDeckArray = newShuffledDeckArray.filter((_: any, index: number) => index !== draggedCardIndex);
+        updatesForSession.shuffledDeck = newShuffledDeckArray;
+        
+        broadcastGuestAction('updateShuffledDeck', { 
+          shuffledDeck: newShuffledDeckArray, 
+          removedCardIndex: draggedCardIndex 
+        });
+      }
+    } else {
+      handleDragEnd();
+      return;
+    }
+
+    if (Object.keys(updatesForSession).length > 0) {
+      updateSession(updatesForSession);
     }
     
     handleDragEnd();
   };
 
   const handleFreeLayoutDrop = (e: any) => {
-    if (!draggedCard || !readingAreaRef.current || selectedLayout?.id !== 'free-layout') return;
+    if (!draggedCard || !readingAreaRef.current || selectedLayout?.id !== 'free-layout') {
+      handleDragEnd(); // Reset drag state if drop is invalid
+      return;
+    }
     
     const rect = readingAreaRef.current.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0]?.clientX || e.changedTouches?.[0]?.clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0]?.clientY || e.changedTouches?.[0]?.clientY : e.clientY;
+    // Ensure clientX/Y are valid before proceeding
+    const clientX = 'touches' in e ? (e.touches[0]?.clientX ?? e.changedTouches?.[0]?.clientX) : e.clientX;
+    const clientY = 'touches' in e ? (e.touches[0]?.clientY ?? e.changedTouches?.[0]?.clientY) : e.clientY;
+
+    if (clientX === undefined || clientY === undefined) {
+        console.warn('[handleFreeLayoutDrop] Could not determine drop coordinates.');
+        handleDragEnd();
+        return;
+    }
     
-    // Calculate percentage position relative to the reading area
     const x = ((clientX - rect.left) / rect.width) * 100;
     const y = ((clientY - rect.top) / rect.height) * 100;
     
-    // Ensure position is within bounds
     if (x >= 0 && x <= 100 && y >= 0 && y <= 100) {
       handleCardDrop(undefined, { x, y });
     } else {
@@ -1658,13 +1704,17 @@ const ReadingRoom = () => {
   const handleCardFlip = useCallback((cardIndex: number) => {
     const newSelectedCards = [...selectedCards];
     if (newSelectedCards[cardIndex]) {
+      const cardIsBeingRevealed = !(newSelectedCards[cardIndex] as any).revealed;
       newSelectedCards[cardIndex] = {
         ...newSelectedCards[cardIndex],
         revealed: !(newSelectedCards[cardIndex] as any).revealed
       } as any;
       updateSession({ selectedCards: newSelectedCards });
+      if (cardIsBeingRevealed) {
+        playSoundEffect('flip');
+      }
     }
-  }, [selectedCards, updateSession]);
+  }, [selectedCards, updateSession, playSoundEffect]);
   
   // Handle opening card gallery - now synchronized
   const openCardGallery = useCallback((cardIndex: number) => {
@@ -1832,6 +1882,8 @@ const ReadingRoom = () => {
     isCategoryHighlightingActive,
     sharedModalState,
     participantId,
+    isMuted, // Pass isMuted
+    toggleMute, // Pass toggleMute
     closeCardGallery,
     navigateGallery,
     panDirection,
@@ -3399,21 +3451,24 @@ const ReadingRoom = () => {
                     ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
                     : 'top-4 left-4 flex-col'
                 } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-2 rounded-md z-40 items-center`}>
-                  <Tooltip content="Zoom in (+ / =)" position="right" disabled={isMobile}>
+                                    <Tooltip content="Zoom in (+ / =)" position="right" disabled={isMobile}>
                     <button onClick={zoomIn} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <ZoomIn className="h-4 w-4" />
                     </button>
                   </Tooltip>
+                
                   <Tooltip content="Reset zoom (Z)" position="right" disabled={isMobile}>
                     <button onClick={resetZoom} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <RotateCcw className="h-4 w-4" />
                     </button>
                   </Tooltip>
+
                   <Tooltip content="Zoom out (- / _)" position="right" disabled={isMobile}>
                     <button onClick={zoomOut} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <ZoomOut className="h-4 w-4" />
                     </button>
                   </Tooltip>
+
                   
                   {/* Desktop Directional Joypad */}
                   {!isMobile && (
@@ -3488,6 +3543,46 @@ const ReadingRoom = () => {
                     <button onClick={resetCards} className="p-1.5 hover:bg-muted rounded-sm text-red-500 hover:text-red-600 flex items-center justify-center">
                       <XCircle className="h-4 w-4" />
                     </button>
+                  </Tooltip>
+                  <Tooltip content={isMuted ? "Unmute (M)" : "Mute (M)"} position="right" disabled={isMobile}>
+                     <div
+                      onMouseEnter={() => {
+                        if (volumeSliderTimeoutRef.current) clearTimeout(volumeSliderTimeoutRef.current);
+                        setShowVolumeSlider(true);
+                      }}
+                      onMouseLeave={() => {
+                        volumeSliderTimeoutRef.current = setTimeout(() => setShowVolumeSlider(false), 1500);
+                      }}
+                      className="relative p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"
+                    >
+                      <button onClick={toggleMute}>
+                        <Music className={`h-4 w-4 ${isMuted ? 'text-red-500' : ''}`} />
+                      </button>
+                      {showVolumeSlider && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
+                          className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-card border border-border p-2 rounded-md shadow-lg z-50"
+                          onMouseEnter={() => {
+                            if (volumeSliderTimeoutRef.current) clearTimeout(volumeSliderTimeoutRef.current);
+                          }}
+                          onMouseLeave={() => {
+                            volumeSliderTimeoutRef.current = setTimeout(() => setShowVolumeSlider(false), 1500);
+                          }}
+                        >
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value={volume}
+                            onChange={(e) => setGlobalVolume(parseFloat(e.target.value))}
+                            className="w-20 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
+                          />
+                        </motion.div>
+                      )}
+                    </div>
                   </Tooltip>
                 </div>
 
@@ -4071,6 +4166,46 @@ const ReadingRoom = () => {
                       <XCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
+                  <Tooltip content={isMuted ? "Unmute (M)" : "Mute (M)"} position="right" disabled={isMobile}>
+                     <div
+                      onMouseEnter={() => {
+                        if (volumeSliderTimeoutRef.current) clearTimeout(volumeSliderTimeoutRef.current);
+                        setShowVolumeSlider(true);
+                      }}
+                      onMouseLeave={() => {
+                        volumeSliderTimeoutRef.current = setTimeout(() => setShowVolumeSlider(false), 1500);
+                      }}
+                      className="relative p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"
+                    >
+                      <button onClick={toggleMute}>
+                        <Music className={`h-4 w-4 ${isMuted ? 'text-red-500' : ''}`} />
+                      </button>
+                      {showVolumeSlider && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
+                          className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-card border border-border p-2 rounded-md shadow-lg z-50"
+                          onMouseEnter={() => {
+                            if (volumeSliderTimeoutRef.current) clearTimeout(volumeSliderTimeoutRef.current);
+                          }}
+                          onMouseLeave={() => {
+                            volumeSliderTimeoutRef.current = setTimeout(() => setShowVolumeSlider(false), 1500);
+                          }}
+                        >
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value={volume}
+                            onChange={(e) => setGlobalVolume(parseFloat(e.target.value))}
+                            className="w-20 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
+                          />
+                        </motion.div>
+                      )}
+                    </div>
+                  </Tooltip>
                 </div>
                 
                 {/* Card layout with zoom applied */}
@@ -4625,6 +4760,10 @@ const ReadingRoom = () => {
                       <div className="flex justify-between items-center">
                         <span className="text-sm">Exit / Close modals</span>
                         <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Esc</kbd>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Toggle Mute</span>
+                        <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">M</kbd>
                       </div>
                     </div>
                   </div>

@@ -42,6 +42,8 @@ export interface ReadingRoomKeyboardShortcutsProps {
     triggeredBy: string | null;
   } | null | undefined;
   participantId: string | null | undefined;
+  isMuted?: boolean; // Optional: to show current state in help if needed
+  toggleMute?: () => void;
 
   // Callbacks used by the hook
   closeCardGallery: () => void;
@@ -78,7 +80,7 @@ export interface ReadingRoomKeyboardShortcutsProps {
   setIsSpacePressed: (pressed: boolean) => void;
   setSelectedCategory: (category: string | null) => void; // Added for ESC in ask-question
   setHighlightedCategoryIndex: (updater: (prev: number) => number) => void; // Added to fix linter error
-  setHighlightedQuestionIndex: (updater: (prev: number) => number) => void; // Added to fix linter error
+  setHighlightedQuestionIndex: (value: number | ((prev: number) => number)) => void; 
 }
 
 export const useReadingRoomKeyboardShortcuts = (props: ReadingRoomKeyboardShortcutsProps) => {
@@ -111,6 +113,8 @@ export const useReadingRoomKeyboardShortcuts = (props: ReadingRoomKeyboardShortc
     isCategoryHighlightingActive,
     sharedModalState,
     participantId,
+    isMuted,
+    toggleMute,
     closeCardGallery,
     navigateGallery,
     panDirection,
@@ -402,6 +406,12 @@ export const useReadingRoomKeyboardShortcuts = (props: ReadingRoomKeyboardShortc
               setShowLayoutDropdown(!showLayoutDropdown);
             }
             break;
+          case KEY_VALUES.M_LOWER:
+            if (toggleMute) {
+              event.preventDefault();
+              toggleMute();
+            }
+            break;
         }
       }
     };
@@ -425,7 +435,7 @@ export const useReadingRoomKeyboardShortcuts = (props: ReadingRoomKeyboardShortc
     isChangingDeckMidSession, showLayoutDropdown, highlightedLayoutIndex, highlightedSetupLayoutIndex,
     selectedCategory, highlightedCategoryIndex, generatedQuestions, isLoadingQuestions, highlightedQuestionIndex,
     showCustomQuestionInput, isQuestionHighlightingActive, isCategoryHighlightingActive, sharedModalState, participantId,
-    closeCardGallery, navigateGallery, panDirection, resetPan, shuffleDeck, toggleHelpModal, toggleTheme,
+    isMuted, toggleMute, closeCardGallery, navigateGallery, panDirection, resetPan, shuffleDeck, toggleHelpModal, toggleTheme,
     setZoomLevelWrapped, getDefaultZoomLevel, setZoomFocusWrapped, openDeckSelection, setShowShareModal,
     setShowHelpModal, setShowExitModal, setShowSignInModal, setShowGuestUpgrade, setIsChangingDeckMidSession,
     fetchAndSetDeck, revealAllCards, resetCards, openCardGallery, setShowLayoutDropdown, setHighlightedLayoutIndex,

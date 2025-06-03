@@ -6,6 +6,8 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { getPersistentBrowserId } from '../utils/browserFingerprint';
 
+let updateCallCounter = 0; // Module-level counter for updateSession calls
+
 export interface ReadingSessionState {
   id: string;
   hostUserId: string | null;
@@ -20,6 +22,26 @@ export interface ReadingSessionState {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  shuffledDeck?: Card[]; 
+  loadingStates?: { 
+    isShuffling?: boolean; 
+    isGeneratingInterpretation?: boolean;
+    triggeredBy?: string | null;
+  } | null;
+  sharedModalState?: {
+    isOpen: boolean;
+    cardIndex: number | null;
+    showDescription: boolean;
+    triggeredBy: string | null;
+  } | null;
+  deckSelectionState?: {
+    isOpen: boolean;
+    activeTab: 'collection' | 'marketplace';
+    selectedMarketplaceDeck: string | null;
+    triggeredBy: string | null;
+  } | null;
+  panOffset?: { x: number; y: number };
+  zoomFocus?: {x: number; y: number} | null;
 }
 
 export interface SessionParticipant {
@@ -39,6 +61,7 @@ interface UseReadingSessionProps {
 
 export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessionProps) => {
   const { user, isAnonymous } = useAuthStore();
+  const isGuest = !user || isAnonymous();
   const [sessionState, setSessionState] = useState<ReadingSessionState | null>(null);
   const [participants, setParticipants] = useState<SessionParticipant[]>([]);
   const [isHost, setIsHost] = useState(false);
@@ -170,72 +193,81 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
 
   // Update session state
   const updateSession = useCallback(async (updates: Partial<ReadingSessionState>) => {
+    const callId = updateCallCounter++;
     if (!sessionState?.id) {
-      console.warn('No session ID available for update');
+      console.warn(`[useReadingSession update #${callId}] updateSession: No session ID. Updates:`, JSON.stringify(updates));
       return;
     }
+    console.log(`[useReadingSession update #${callId}] updateSession: Called with updates:`, JSON.stringify(updates), 'Current local selectedCards count:', sessionState.selectedCards?.length);
 
     try {
-      // Build update object only with defined values
       const updateData: any = {};
+      const fieldsToMap: Partial<Record<keyof ReadingSessionState, string>> = {
+        selectedLayout: 'selected_layout',
+        readingStep: 'reading_step',
+        selectedCards: 'selected_cards',
+        zoomLevel: 'zoom_level',
+        activeCardIndex: 'active_card_index',
+        shuffledDeck: 'shuffled_deck',
+        loadingStates: 'loading_states',
+        sharedModalState: 'shared_modal_state',
+        deckSelectionState: 'deck_selection_state',
+        panOffset: 'pan_offset',
+        zoomFocus: 'zoom_focus'
+      };
+
+      for (const key in updates) {
+        if (updates.hasOwnProperty(key) && updates[key as keyof ReadingSessionState] !== undefined) {
+          const dbKey = fieldsToMap[key as keyof ReadingSessionState] || key;
+          updateData[dbKey] = updates[key as keyof ReadingSessionState];
+        }
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        console.log(`[useReadingSession update #${callId}] updateSession: No actual data fields to update in DB.`);
+        return;
+      }
       
-      if (updates.selectedLayout !== undefined) {
-        updateData.selected_layout = updates.selectedLayout;
-      }
-      if (updates.question !== undefined) {
-        updateData.question = updates.question;
-      }
-      if (updates.readingStep !== undefined) {
-        updateData.reading_step = updates.readingStep;
-      }
-      if (updates.selectedCards !== undefined) {
-        updateData.selected_cards = updates.selectedCards;
-      }
-      if (updates.interpretation !== undefined) {
-        updateData.interpretation = updates.interpretation;
-      }
-      if (updates.zoomLevel !== undefined) {
-        updateData.zoom_level = updates.zoomLevel;
-      }
-      if (updates.activeCardIndex !== undefined) {
-        updateData.active_card_index = updates.activeCardIndex;
-      }
+      console.log(`[useReadingSession update #${callId}] Sending to DB (session ${sessionState.id}): DATA:`, JSON.stringify(updateData));
 
-      console.log('Updating session with data:', updateData);
-
-      const { error } = await supabase
+      const { error: dbError } = await supabase
         .from('reading_sessions')
         .update(updateData)
         .eq('id', sessionState.id);
 
-      if (error) {
-        console.error('Database update error:', error);
-        throw error;
-      }
-
-      // Update local state immediately for better UX
+      if (dbError) {
+        console.error(`[useReadingSession update #${callId}] Database update error:`, dbError, 'for data:', JSON.stringify(updateData));
+        if (isGuest && (dbError.message?.includes('permission') || dbError.message?.includes('policy'))) {
+            console.warn(`[useReadingSession update #${callId}] DB update failed for guest (permissions), applying local optimistic update.`);
       setSessionState((prev: ReadingSessionState | null) => prev ? {
         ...prev,
         ...updates,
         updatedAt: new Date().toISOString()
       } : null);
+        } else {
+            setError(dbError.message);
+        }
+        return;
+      }
 
-    } catch (err: any) {
-      console.error('Error updating session:', err);
-      
-      // For development/guest users, update local state even if DB update fails
-      if (err.message?.includes('permission') || err.message?.includes('policy')) {
-        console.warn('Database update failed due to permissions, updating local state only');
-        setSessionState((prev: ReadingSessionState | null) => prev ? {
+      console.log(`[useReadingSession update #${callId}] DB update successful for session ${sessionState.id}. Host optimistic update (if host):`, isHost);
+      if (isHost) {
+        setSessionState((prev: ReadingSessionState | null) => {
+          if (!prev) return null;
+          const newState = {
           ...prev,
           ...updates,
           updatedAt: new Date().toISOString()
-        } : null);
-      } else {
-        setError(err.message);
+          };
+          console.log(`[useReadingSession update #${callId}] Host optimistic. Prev cards:`, prev.selectedCards?.length, 'New cards:', newState.selectedCards?.length);
+          return newState;
+        });
       }
+    } catch (err: any) {
+      console.error(`[useReadingSession update #${callId}] Unexpected error:`, err, 'Updates attempted:', JSON.stringify(updates));
+      setError(err.message);
     }
-  }, [sessionState?.id]);
+  }, [sessionState, supabase, isHost, isGuest, setError]);
 
   // Update participant presence
   const updatePresence = useCallback(async () => {
@@ -306,62 +338,130 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
     }
   }, []);
 
-  // Check if current user is a guest - properly detect anonymous users
-  const isGuest = !user || isAnonymous();
-
   // Setup realtime subscriptions
   useEffect(() => {
     if (!sessionState?.id) return;
 
-    // Clean up existing channel
     if (channelRef.current) {
       channelRef.current.unsubscribe();
+      channelRef.current = null; // Ensure old channel is cleared
     }
 
-    // Create new channel for this session
     const channel = supabase.channel(`reading-session:${sessionState.id}`, {
       config: {
-        broadcast: { self: false },
-        presence: { key: participantIdRef.current || anonymousIdRef.current || 'anonymous' }
+        broadcast: { self: false }, // Usually good, but for selectedCards, self:true might be needed if host relies on this too
+        presence: { key: participantIdRef.current || anonymousIdRef.current || uuidv4() }
       }
     });
 
-    // Subscribe to session updates
     channel
       .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'reading_sessions', filter: `id=eq.${sessionState.id}` },
         (payload: any) => {
-          console.log('Session updated:', payload);
-          const newSession = payload.new as any;
-          setSessionState((prev: ReadingSessionState | null) => prev ? {
-            ...prev,
-            selectedLayout: newSession.selected_layout,
-            question: newSession.question,
-            readingStep: newSession.reading_step,
-            selectedCards: newSession.selected_cards,
-            interpretation: newSession.interpretation,
-            zoomLevel: newSession.zoom_level,
-            activeCardIndex: newSession.active_card_index,
-            updatedAt: newSession.updated_at
-          } : null);
+          const newDbSession = payload.new as any; 
+          const commitTs = payload.commit_timestamp;
+          console.log(`[useReadingSession Realtime Evt ${commitTs}] Session ${sessionState?.id} UPDATE received.`, 'Payload NEW:', JSON.stringify(newDbSession));
+          
+          setSessionState((prevLocalState) => {
+            if (!prevLocalState) {
+                console.warn("[useReadingSession Realtime Evt ${commitTs}] prevLocalState is null. Initializing with new DB data.");
+                return { 
+                    id: newDbSession.id,
+                    hostUserId: newDbSession.host_user_id,
+                    deckId: newDbSession.deck_id,
+                    selectedLayout: newDbSession.selected_layout,
+                    question: newDbSession.question || '',
+                    readingStep: newDbSession.reading_step,
+                    selectedCards: newDbSession.selected_cards || [],
+                    interpretation: newDbSession.interpretation || '',
+                    zoomLevel: newDbSession.zoom_level || 1.0,
+                    activeCardIndex: newDbSession.active_card_index,
+                    isActive: newDbSession.is_active,
+                    createdAt: newDbSession.created_at,
+                    updatedAt: newDbSession.updated_at,
+                    shuffledDeck: newDbSession.shuffled_deck,
+                    loadingStates: newDbSession.loading_states,
+                    sharedModalState: newDbSession.shared_modal_state,
+                    deckSelectionState: newDbSession.deck_selection_state,
+                    panOffset: newDbSession.pan_offset,
+                    zoomFocus: newDbSession.zoom_focus,
+                } as ReadingSessionState;
+            }
+
+            const remoteUpdateTime = new Date(newDbSession.updated_at).getTime();
+            const localUpdateTime = prevLocalState.updatedAt ? new Date(prevLocalState.updatedAt).getTime() : 0;
+
+            console.log(`[useReadingSession Realtime Evt ${commitTs}] Comparing timestamps. Local: ${prevLocalState.updatedAt} (${localUpdateTime}), Remote: ${newDbSession.updated_at} (${remoteUpdateTime}). IsHost: ${isHost}`);
+            console.log(`[useReadingSession Realtime Evt ${commitTs}] Prev local selectedCards (${prevLocalState.selectedCards?.length}):`, JSON.stringify(prevLocalState.selectedCards?.map(c => c.id)));
+            console.log(`[useReadingSession Realtime Evt ${commitTs}] Incoming DB selected_cards (${newDbSession.selected_cards?.length}):`, JSON.stringify(newDbSession.selected_cards?.map((c: any) => c.id)));
+            
+            let resolvedSelectedCards = newDbSession.selected_cards !== undefined 
+                ? newDbSession.selected_cards 
+                : prevLocalState.selectedCards;
+
+            if (!isHost && 
+                remoteUpdateTime <= localUpdateTime &&
+                newDbSession.selected_cards !== undefined && 
+                newDbSession.selected_cards.length === 0 && 
+                prevLocalState.selectedCards && 
+                prevLocalState.selectedCards.length > 0) {
+                
+                console.warn(`[useReadingSession Realtime Evt ${commitTs}] Non-host received update that would set cards to empty, but local state had ${prevLocalState.selectedCards.length} cards. Keeping previous cards due to suspicion of stale/conflicting update.`);
+                resolvedSelectedCards = prevLocalState.selectedCards;
+            }
+            
+            const mergedState: ReadingSessionState = {
+                ...prevLocalState,
+                id: newDbSession.id || prevLocalState.id,
+                hostUserId: newDbSession.host_user_id !== undefined ? newDbSession.host_user_id : prevLocalState.hostUserId,
+                deckId: newDbSession.deck_id || prevLocalState.deckId,
+                selectedLayout: newDbSession.selected_layout !== undefined ? newDbSession.selected_layout : prevLocalState.selectedLayout,
+                question: newDbSession.question !== undefined ? newDbSession.question : prevLocalState.question,
+                readingStep: newDbSession.reading_step || prevLocalState.readingStep,
+                selectedCards: resolvedSelectedCards,
+                interpretation: newDbSession.interpretation !== undefined ? newDbSession.interpretation : prevLocalState.interpretation,
+                zoomLevel: newDbSession.zoom_level !== undefined ? newDbSession.zoom_level : prevLocalState.zoomLevel,
+                activeCardIndex: newDbSession.active_card_index !== undefined ? newDbSession.active_card_index : prevLocalState.activeCardIndex,
+                isActive: newDbSession.is_active !== undefined ? newDbSession.is_active : prevLocalState.isActive,
+                shuffledDeck: newDbSession.shuffled_deck !== undefined ? newDbSession.shuffled_deck : prevLocalState.shuffledDeck,
+                loadingStates: newDbSession.loading_states !== undefined ? newDbSession.loading_states : prevLocalState.loadingStates,
+                sharedModalState: newDbSession.shared_modal_state !== undefined ? newDbSession.shared_modal_state : prevLocalState.sharedModalState,
+                deckSelectionState: newDbSession.deck_selection_state !== undefined ? newDbSession.deck_selection_state : prevLocalState.deckSelectionState,
+                panOffset: newDbSession.pan_offset !== undefined ? newDbSession.pan_offset : prevLocalState.panOffset,
+                zoomFocus: newDbSession.zoom_focus !== undefined ? newDbSession.zoom_focus : prevLocalState.zoomFocus,
+                updatedAt: newDbSession.updated_at || prevLocalState.updatedAt,
+                createdAt: newDbSession.created_at || prevLocalState.createdAt
+            };
+
+            console.log(`[useReadingSession Realtime Evt ${commitTs}] Applying merged state. Final selectedCards (${mergedState.selectedCards?.length}):`, JSON.stringify(mergedState.selectedCards?.map(c => c.id)));
+            return mergedState;
+          });
         }
       )
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'session_participants', filter: `session_id=eq.${sessionState.id}` },
-        async () => {
-          // Refetch participants when they change
+        async (payload:any) => {
+          console.log(`[useReadingSession Realtime Evt ${payload.commit_timestamp}] Participants changed for session ${sessionState.id}`, payload);
           const { data } = await supabase
             .from('session_participants')
             .select('*')
             .eq('session_id', sessionState.id)
             .eq('is_active', true);
-          
-          if (data) {
-            setParticipants(data);
-          }
+          if (data) setParticipants(data);
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`[useReadingSession Realtime] Subscribed to session ${sessionState.id}`);
+        }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(`[useReadingSession Realtime] Channel error/timeout for session ${sessionState.id}`, err);
+          setError(`Realtime connection issue: ${status}`);
+        }
+        if (err) {
+            console.error(`[useReadingSession Realtime] Subscription error for session ${sessionState.id}`, err);
+        }
+      });
 
     channelRef.current = channel;
 
@@ -380,7 +480,7 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
         clearInterval(presenceIntervalRef.current);
       }
     };
-  }, [sessionState?.id, updatePresence]);
+  }, [sessionState?.id, supabase, updatePresence, isHost, setError]); // Added supabase and isHost
 
   // Initialize session
   useEffect(() => {
@@ -531,6 +631,8 @@ export const useReadingSession = ({ initialSessionId, deckId }: UseReadingSessio
     leaveSession,
     upgradeGuestAccount,
     isGuest,
-    setGuestName
+    setGuestName,
+    participantId: participantIdRef.current, // Expose participantId if needed by ReadingRoom
+    anonymousId: anonymousIdRef.current    // Expose anonymousId if needed
   };
 }; 
