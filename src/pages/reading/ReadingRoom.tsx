@@ -3378,7 +3378,6 @@ const ReadingRoom = () => {
                             setIsQuestionHighlightingActive(true); 
                             setIsCategoryHighlightingActive(true); 
                           } else {
-                            playSoundEffect('error'); // Play error sound for empty input
                             showErrorToast("Please type your question or select an inspired question. You can also skip this step.");
                             // Do not hide input, keep it focused for typing
                             input?.focus(); 

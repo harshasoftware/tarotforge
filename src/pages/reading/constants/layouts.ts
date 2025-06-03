@@ -17,9 +17,9 @@ export const readingLayouts: ReadingLayout[] = [
     description: 'Past, Present, Future reading to understand your current situation',
     card_count: 3,
     positions: [
-      { id: 0, name: 'Past', meaning: 'Represents influences from the past that led to your current situation', x: 25, y: 50 },
+      { id: 0, name: 'Past', meaning: 'Represents influences from the past that led to your current situation', x: 35, y: 50 },
       { id: 1, name: 'Present', meaning: 'Shows the current situation and energies surrounding your question', x: 50, y: 50 },
-      { id: 2, name: 'Future', meaning: 'Potential outcome based on the current path you are on', x: 75, y: 50 }
+      { id: 2, name: 'Future', meaning: 'Potential outcome based on the current path you are on', x: 65, y: 50 }
     ]
   },
   {
