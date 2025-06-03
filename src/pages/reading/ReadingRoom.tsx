@@ -3349,17 +3349,19 @@ const ReadingRoom = () => {
                 {/* Custom Question Input */}
                 {showCustomQuestionInput && (
                   <div className="mb-6">
-                    <label className="block text-sm font-medium mb-2">Write your own question</label>
+                    <label htmlFor="customQuestionInput" className="block text-sm font-medium mb-2">Write your own question</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         placeholder="What would you like guidance on?"
                         className="flex-1 p-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                        id="customQuestionInput" 
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             const input = e.target as HTMLInputElement;
                             if (input.value.trim()) {
                               handleCustomQuestion(input.value.trim());
+                              setShowCustomQuestionInput(false); 
                             }
                           }
                         }}
@@ -3367,13 +3369,24 @@ const ReadingRoom = () => {
                       />
                       <button
                         onClick={() => {
-                          setShowCustomQuestionInput(false);
-                          setIsQuestionHighlightingActive(true); // Re-enable question highlighting when closing custom input
-                          setIsCategoryHighlightingActive(true); // Re-enable category highlighting when closing custom input
+                          const input = document.getElementById('customQuestionInput') as HTMLInputElement;
+                          if (input && input.value.trim()) {
+                            playSoundEffect('pop'); // Play sound effect
+                            handleCustomQuestion(input.value.trim());
+                            // Always close the input after clicking the button if question was submitted
+                            setShowCustomQuestionInput(false); 
+                            setIsQuestionHighlightingActive(true); 
+                            setIsCategoryHighlightingActive(true); 
+                          } else {
+                            playSoundEffect('error'); // Play error sound for empty input
+                            showErrorToast("Please type your question or select an inspired question. You can also skip this step.");
+                            // Do not hide input, keep it focused for typing
+                            input?.focus(); 
+                          }
                         }}
-                        className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+                        className="btn btn-primary px-3 py-2 text-sm"
                       >
-                        Cancel
+                        Ask Question
                       </button>
                     </div>
                   </div>
