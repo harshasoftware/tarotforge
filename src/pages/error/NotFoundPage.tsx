@@ -30,9 +30,9 @@ const NotFoundPage = () => {
         
         <Link 
           to="/"
-          className="group inline-flex items-center justify-center px-6 py-1.5 bg-gradient-to-r from-purple-600 via-pink-500 to-indigo-600 hover:from-purple-700 hover:via-pink-600 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-xl hover:shadow-purple-500/40 transform transition-all duration-300 ease-in-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-purple-400/50 focus:ring-opacity-80 text-xs md:text-sm"
+          className="group btn btn-primary py-1.5 px-4 text-sm inline-flex items-center justify-center font-semibold rounded-md shadow-lg hover:scale-105 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
         >
-          <Compass className="h-4 w-4 mr-2 transition-transform duration-500 ease-out group-hover:rotate-[360deg] group-hover:scale-110" />
+          <Compass className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-[180deg]" />
           Return to a Familiar Path
         </Link>
 
