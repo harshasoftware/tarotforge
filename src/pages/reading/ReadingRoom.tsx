@@ -29,7 +29,7 @@ import { getDefaultZoomLevel } from './utils/layoutHelpers';
 import { generateShareableLink, getTodayDateString, isCacheValid, copyRoomLink as copyRoomLinkHelper } from './utils/sessionHelpers'; // Updated import
 import { useDeviceAndOrientationDetection } from './hooks/useDeviceAndOrientationDetection';
 import { debounce } from 'lodash';
-import { useTheme } from './hooks/useTheme'; 
+import { useTheme } from '../../hooks/useTheme'; 
 import { useGuestUpgrade } from './hooks/useGuestUpgrade';
 import { useHelpModal } from './hooks/useHelpModal';
 import Div100vh from 'react-div-100vh';

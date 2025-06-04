@@ -67,6 +67,9 @@ const SubscriptionSuccess = lazy(() => import('./pages/subscription/Subscription
 // Pricing page (for logged-out users)
 const PricingPage = lazy(() => import('./pages/pricing/PricingPage'));
 
+// Reader Profile Page
+const ReaderProfilePage = lazy(() => import('./pages/readers/ReaderProfilePage'));
+
 // Error Page
 const NotFoundPage = lazy(() => import('./pages/error/NotFoundPage'));
 
@@ -185,6 +188,7 @@ function App() {
             <Route path="marketplace" element={<Marketplace />} />
             <Route path="marketplace/:deckId" element={<DeckDetails />} />
             <Route path="readers" element={<ReadersPage />} />
+            <Route path="readers/:username" element={<ReaderProfilePage />} />
             <Route path="pricing" element={<PricingPage />} />
             <Route path="subscription" element={<SubscriptionPage />} />
             <Route path="subscription/success" element={<SubscriptionSuccess />} />

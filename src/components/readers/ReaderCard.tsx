@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Star, Calendar, Clock, Video, BookOpen, Crown, Heart, Sun, Flame, Sparkles, Circle } from 'lucide-react';
+import { User, Star, Calendar, Clock, Video, BookOpen, Crown, Heart, Sun, Flame, Sparkles, Circle, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { User as UserType } from '../../types';
+import { User as UserType, Deck } from '../../types'; // Added Deck type
 import TarotLogo from '../ui/TarotLogo';
+import { fetchUserOwnedDecks } from '../../lib/deck-utils'; // Import fetchUserOwnedDecks
 
 interface ReaderCardProps {
   reader: UserType;
@@ -36,9 +37,7 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
       'Chakra Alignment', 'Higher Self Connection', 'Manifestation'
     ];
     
-    // Use reader's ID to deterministically select specialties (but appear random)
     const idSum = reader.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-    
     const specialtyCount = (idSum % 3) + 2; // 2-4 specialties
     const specialties = [];
     
@@ -52,7 +51,6 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
 
   const specialties = getReaderSpecialties();
   
-  // Get reader level information
   const getReaderLevelInfo = () => {
     if (!reader.readerLevel) {
       return {
@@ -74,8 +72,30 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
   };
   
   const levelInfo = getReaderLevelInfo();
+
+  const [ownedDecks, setOwnedDecks] = useState<Deck[]>([]);
+  const [loadingDecks, setLoadingDecks] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (reader.id) {
+      const loadDecks = async () => {
+        setLoadingDecks(true);
+        try {
+          const decks = await fetchUserOwnedDecks(reader.id);
+          setOwnedDecks(decks);
+        } catch (error) {
+          console.error("Error fetching reader's decks:", error);
+          setOwnedDecks([]); 
+        }
+        setLoadingDecks(false);
+      };
+      loadDecks();
+    } else {
+      setOwnedDecks([]);
+      setLoadingDecks(false);
+    }
+  }, [reader.id]);
   
-  // Get appropriate color based on reader level (Chakra system colors)
   const getLevelColor = () => {
     switch (levelInfo.colorTheme) {
       case 'red': return 'text-red-500 border-red-500';
@@ -89,7 +109,6 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
     }
   };
   
-  // Get background gradient based on reader level
   const getLevelGradient = () => {
     switch (levelInfo.colorTheme) {
       case 'red': return 'from-red-500/5 to-transparent';
@@ -103,7 +122,6 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
     }
   };
 
-  // Get border color based on reader level
   const getLevelBorder = () => {
     switch (levelInfo.colorTheme) {
       case 'red': return 'hover:border-red-500/50';
@@ -117,7 +135,6 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
     }
   };
   
-  // Get appropriate icon based on chakra themes
   const getLevelIcon = () => {
     switch (levelInfo.icon) {
       case 'flame': return <Flame className="h-4 w-4" />;
@@ -129,7 +146,6 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
     }
   };
   
-  // Get avatar border color based on reader level
   const getAvatarBorder = () => {
     switch (levelInfo.colorTheme) {
       case 'red': return 'border-red-500';
@@ -143,7 +159,6 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
     }
   };
 
-  // Get button background color based on reader level
   const getButtonBg = () => {
     switch (levelInfo.colorTheme) {
       case 'red': return 'bg-red-500 hover:bg-red-600 text-white';
@@ -157,7 +172,6 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
     }
   };
   
-  // Check if reader offers free readings
   const isFreeReader = levelInfo.pricePerMinute === 0;
   
   return (
@@ -167,8 +181,7 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
     >
       <div className="p-6">
         <div className="flex items-center gap-4 mb-4">
-          {/* Profile Image */}
-          <div className="relative">
+          <Link to={`/readers/${reader.username || reader.id}`} className="relative block">
             {reader.avatar_url ? (
               <img 
                 src={reader.avatar_url} 
@@ -177,45 +190,37 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
               />
             ) : (
               <div className={`w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-xl font-bold border-2 ${getAvatarBorder()}`}>
-                {reader.username?.charAt(0) || reader.email.charAt(0)}
+                {reader.username?.charAt(0) || reader.email?.charAt(0) || 'R'}
               </div>
             )}
-            
-            {/* Online Status Indicator */}
             <div className="absolute -top-1 -right-1 flex items-center justify-center">
               <Circle 
                 className={`h-4 w-4 ${reader.is_online ? 'text-green-500 fill-green-500' : 'text-gray-400 fill-gray-400'}`}
               />
             </div>
-            
             <div className={`absolute -bottom-1 -right-1 ${getButtonBg()} p-1 rounded-full`}>
               <TarotLogo className="h-4 w-4" />
             </div>
-          </div>
+          </Link>
           
-          {/* Reader Details */}
           <div className="flex-1">
-            <h3 className="text-xl font-serif font-bold">{reader.username || reader.email.split('@')[0]}</h3>
-            
-            {/* Reader Level Badge */}
+            <Link to={`/readers/${reader.username || reader.id}`} className="hover:underline">
+              <h3 className="text-xl font-serif font-bold">{reader.username || reader.email?.split('@')[0] || 'Reader'}</h3>
+            </Link>
             <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border mt-1 ${getLevelColor()}`}>
               {getLevelIcon()}
               <span className="ml-1">{levelInfo.name}</span>
             </div>
-            
             <div className="flex items-center text-muted-foreground text-sm mt-1 space-x-4">
               <div className="flex items-center">
                 <Calendar className="h-3 w-3 mr-1" />
                 <span>{getReaderSince()}</span>
               </div>
-              
               <div className="flex items-center">
                 <Star className="h-3 w-3 fill-accent text-accent mr-1" />
                 <span>{reader.average_rating ? reader.average_rating.toFixed(1) : '5.0'}</span>
               </div>
             </div>
-            
-            {/* Online Status Text */}
             <div className="flex items-center mt-1">
               <Circle className={`h-2 w-2 mr-1 ${reader.is_online ? 'text-green-500 fill-green-500' : 'text-gray-400 fill-gray-400'}`} />
               <span className={`text-xs ${reader.is_online ? 'text-green-600' : 'text-muted-foreground'}`}>
@@ -225,12 +230,10 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
           </div>
         </div>
         
-        {/* Reader Bio */}
         <p className="text-muted-foreground text-sm mb-4 line-clamp-3">
           {reader.bio || `Certified tarot reader specializing in intuitive guidance. Expertise in spiritual journeys and personal growth through tarot wisdom. Every reading is personalized to your unique energy and questions.`}
         </p>
         
-        {/* Specialties */}
         <div className="mb-4">
           <div className="flex flex-wrap gap-1">
             {specialties.map((specialty, index) => (
@@ -240,8 +243,44 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
             ))}
           </div>
         </div>
+
+        {/* Reader's Decks Section */}
+        <div className="mb-4">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center">
+            <Layers className="h-3 w-3 mr-1.5 text-current" />
+            Reader's Decks
+          </h4>
+          {loadingDecks ? (
+            <div className="text-xs text-muted-foreground animate-pulse">Loading decks...</div>
+          ) : ownedDecks.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {ownedDecks.slice(0, 4).map(deck => (
+                <div key={deck.id} className="group relative w-10 h-14 rounded-sm overflow-hidden border border-border hover:border-primary/50 transition-all duration-200 bg-muted/30 cursor-default">
+                  {deck.cover_image ? (
+                    <img src={deck.cover_image} alt={deck.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <TarotLogo className="h-5 w-5 text-primary/40" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-1">
+                    <p className="text-white text-[8px] leading-tight text-center line-clamp-2 font-medium">
+                      {deck.title}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {ownedDecks.length > 4 && (
+                <div className="w-10 h-14 rounded-sm border border-dashed border-border flex items-center justify-center text-muted-foreground text-xs font-medium">
+                  +{ownedDecks.length - 4}
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">This reader hasn't featured any decks yet.</p>
+          )}
+        </div>
         
-        {/* Price */}
         <div className="mb-4 flex items-center">
           <span className="text-sm font-medium mr-1">Rate:</span>
           {isFreeReader ? (
@@ -257,7 +296,6 @@ const ReaderCard: React.FC<ReaderCardProps> = ({ reader }) => {
           )}
         </div>
         
-        {/* Reading Options */}
         <div className="flex gap-2 mt-4 pt-4 border-t border-border">
           {reader.is_online ? (
             <Link to="#" className="flex-1 btn btn-secondary p-2 text-xs flex items-center justify-center hover:bg-secondary/80">
