@@ -2212,17 +2212,21 @@ const ReadingRoom = () => {
     // Determine the most relevant loading message
     if (loading) { // Initial data loading is in progress (e.g., deck data)
       message = shouldCreateSession 
-        ? 'Creating your reading room...' 
-        : 'Preparing reading room...';
+        ? 'Weaving the Veil: Your Sacred Space Emerges...' 
+        : 'The Oracle Awakens: Aligning the Astral Plane...';
       if (shouldCreateSession) {
-        subMessage = 'Setting up your session, please wait...';
+        subMessage = 'The loom of fate spins your connection...';
+      } else {
+        subMessage = 'The energies gather...'; // Optional sub-message for preparing
       }
     } else { // Implies loading is false, but sessionLoading is true (e.g., connecting to session)
       message = shouldCreateSession 
-        ? 'Finalizing session setup...' 
-        : 'Connecting to reading room...';
+        ? 'The Stars Align: Consecrating Your Chamber...' 
+        : 'Stepping Through the Portal: The Reading Room Beckons...';
       if (shouldCreateSession) {
-        subMessage = 'Almost there...';
+        subMessage = 'Whispers from beyond grow clearer...';
+      } else {
+        subMessage = 'The connection deepens...'; // Optional sub-message for connecting
       }
     }
       
