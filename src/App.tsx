@@ -67,6 +67,9 @@ const SubscriptionSuccess = lazy(() => import('./pages/subscription/Subscription
 // Pricing page (for logged-out users)
 const PricingPage = lazy(() => import('./pages/pricing/PricingPage'));
 
+// Error Page
+const NotFoundPage = lazy(() => import('./pages/error/NotFoundPage'));
+
 // Wrap the app with Sentry's error boundary
 const SentryErrorBoundary = Sentry.withErrorBoundary(ErrorBoundary, {
   fallback: ({ error, componentStack, resetError }: { 
@@ -206,6 +209,9 @@ function App() {
               <Route path="create-deck" element={<DeckCreator />} />
             </Route>
           </Route>
+          
+          {/* Catch-all 404 Not Found Route - MUST BE LAST */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
         <Toaster
           position="top-right"
