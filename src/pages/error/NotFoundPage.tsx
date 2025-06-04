@@ -20,7 +20,7 @@ const NotFoundPage = () => {
         <h4
           className="font-serif text-2xl md:text-3xl lg:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 mb-2 tracking-tight [text-shadow:0_2px_10px_rgba(192,132,252,0.3)]"
         >
-          404 - Path Lost in the Mists
+          Path Lost in the Mists
         </h4>
         
         <p className="text-slate-300/90 text-xs md:text-sm leading-snug mb-4 max-w-xl text-justify">
@@ -30,9 +30,9 @@ const NotFoundPage = () => {
         
         <Link 
           to="/"
-          className="group btn btn-primary py-1.5 px-4 text-sm inline-flex items-center justify-center font-semibold rounded-md shadow-lg hover:scale-105 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+          className="group inline-flex items-center justify-center px-8 py-3 bg-gradient-to-r from-purple-600 via-pink-500 to-indigo-600 hover:from-purple-700 hover:via-pink-600 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-xl hover:shadow-purple-500/40 transform transition-all duration-300 ease-in-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-purple-400/50 focus:ring-opacity-80 text-xs md:text-sm"
         >
-          <Compass className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-[180deg]" />
+          <Compass className="h-4 w-4 mr-2 transition-transform duration-500 ease-out group-hover:rotate-[360deg] group-hover:scale-110" />
           Return to a Familiar Path
         </Link>
 
