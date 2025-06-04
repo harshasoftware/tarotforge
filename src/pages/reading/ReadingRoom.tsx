@@ -4146,359 +4146,105 @@ const ReadingRoom = () => {
           
           {/* Step 3: Interpretation - mobile responsive layout */}
           {readingStep === 'interpretation' && (
-            <div className={`absolute inset-0 ${isMobile ? (isLandscape && !showMobileInterpretation ? 'flex pt-8' : 'flex-col pt-12') : 'flex pt-20'}`}>
-              {/* Reading display */}
-              <div 
-                className={`${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-3/5' : (showMobileInterpretation ? 'hidden' : 'flex-1')) : 'w-3/5'} relative`}
-                onMouseDown={(e) => {
-                  // Only allow panning with space key to avoid conflicts with card dragging
-                  if (!isMobile && !isDragging && !isDraggingPlacedCard && isSpacePressed) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handlePanStart(e.clientX, e.clientY);
-                  }
-                }}
-                onWheel={(e) => {
-                  // Desktop scroll wheel zoom
-                  if (!isMobile && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault();
-                    const delta = e.deltaY;
-                    const zoomFactor = delta > 0 ? 0.9 : 1.1;
-                    const newZoom = Math.max(0.5, Math.min(2, zoomLevel * zoomFactor));
-                    setZoomLevelWrapped(newZoom);
-                  }
-                }}
-                style={{
-                  ...getTransform(zoomLevel, zoomFocus, panOffset),
-                  // Additional optimizations for smooth performance
-                  contain: 'layout style paint',
-                  cursor: !isMobile && !isDragging && !isDraggingPlacedCard ? (isPanning ? 'grabbing' : (isSpacePressed ? 'grab' : 'default')) : 'default'
-                }}
-              >
-                {/* Zoom controls */}
-                <div className={`zoom-controls absolute ${
+            <div className={`absolute inset-0 ${isMobile ? (isLandscape && !showMobileInterpretation ? 'flex pt-8' : 'flex-col pt-12') : 'pt-20'}`}> {/* Desktop: No longer flex, pt-20 for header */}
+              {/* Card Display Area & Fixed Controls Container */}
+              <div className={`relative h-full ${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-3/5' : (showMobileInterpretation ? 'hidden' : 'flex-1 w-full')) : 'w-full'}`}> 
+                
+                {/* Zoom Controls: Positioned absolutely relative to this container, fixed during pan/zoom of canvas */}
+                <div className={`zoom-controls absolute ${ 
                   isMobile 
-                    ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
+                    ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' 
                     : 'top-4 left-4 flex-col'
                 } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-2 rounded-md z-40 items-center`}>
-                  <Tooltip content="Zoom out (- / _)" position="right" disabled={isMobile}>
-                    <button onClick={zoomOut} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <ZoomOut className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Reset zoom (Z)" position="right" disabled={isMobile}>
-                    <button onClick={resetZoom} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <RotateCcw className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Zoom in (+ / =)" position="right" disabled={isMobile}>
-                    <button onClick={zoomIn} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <ZoomIn className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  
-                  {/* Desktop Directional Joypad */}
+                  <Tooltip content="Zoom out (- / _)" position="right" disabled={isMobile}><button onClick={zoomOut} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"><ZoomOut className="h-4 w-4" /></button></Tooltip>
+                  <Tooltip content="Reset zoom (Z)" position="right" disabled={isMobile}><button onClick={resetZoom} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"><RotateCcw className="h-4 w-4" /></button></Tooltip>
+                  <Tooltip content="Zoom in (+ / =)" position="right" disabled={isMobile}><button onClick={zoomIn} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"><ZoomIn className="h-4 w-4" /></button></Tooltip>
                   {!isMobile && (
                     <>
                       <div className="w-full h-px bg-border my-2"></div>
                       <div className="relative w-16 h-16 flex-shrink-0 mx-auto">
-                        {/* Up */}
-                        <Tooltip content="Pan up (↑)" position="right" wrapperClassName="absolute top-0 left-1/2 transform -translate-x-1/2">
-                          <button 
-                            onClick={() => panDirection('up')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ArrowUp className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Left */}
-                        <Tooltip content="Pan left (←)" position="right" wrapperClassName="absolute left-0 top-1/2 transform -translate-y-1/2">
-                          <button 
-                            onClick={() => panDirection('left')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ChevronLeft className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Center button */}
-                        <Tooltip content="Reset pan to center (C / Enter)" position="right" wrapperClassName="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                          <button 
-                            onClick={resetPan}
-                            className="w-5 h-5 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"
-                          >
-                            <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full"></div>
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Right */}
-                        <Tooltip content="Pan right (→)" position="right" wrapperClassName="absolute right-0 top-1/2 transform -translate-y-1/2">
-                          <button 
-                            onClick={() => panDirection('right')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ChevronRight className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
-                        
-                        {/* Down */}
-                        <Tooltip content="Pan down (↓)" position="right" wrapperClassName="absolute bottom-0 left-1/2 transform -translate-x-1/2">
-                          <button 
-                            onClick={() => panDirection('down')}
-                            className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"
-                          >
-                            <ArrowDown className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
+                        <Tooltip content="Pan up (↑)" position="right" wrapperClassName="absolute top-0 left-1/2 transform -translate-x-1/2"><button onClick={() => panDirection('up')} className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"><ArrowUp className="h-3 w-3" /></button></Tooltip>
+                        <Tooltip content="Pan left (←)" position="right" wrapperClassName="absolute left-0 top-1/2 transform -translate-y-1/2"><button onClick={() => panDirection('left')} className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"><ChevronLeft className="h-3 w-3" /></button></Tooltip>
+                        <Tooltip content="Reset pan to center (C / Enter)" position="right" wrapperClassName="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"><button onClick={resetPan} className="w-5 h-5 bg-muted hover:bg-muted-foreground/20 rounded-full flex items-center justify-center transition-colors"><div className="w-1.5 h-1.5 bg-muted-foreground rounded-full"></div></button></Tooltip>
+                        <Tooltip content="Pan right (→)" position="right" wrapperClassName="absolute right-0 top-1/2 transform -translate-y-1/2"><button onClick={() => panDirection('right')} className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"><ChevronRight className="h-3 w-3" /></button></Tooltip>
+                        <Tooltip content="Pan down (↓)" position="right" wrapperClassName="absolute bottom-0 left-1/2 transform -translate-x-1/2"><button onClick={() => panDirection('down')} className="w-5 h-5 hover:bg-muted rounded-sm flex items-center justify-center"><ArrowDown className="h-3 w-3" /></button></Tooltip>
                       </div>
                       <div className="w-full h-px bg-border my-2"></div>
                     </>
                   )}
-                  
-                  <Tooltip content="Shuffle deck (Left Shift)" position="right" disabled={isMobile}>
-                    <button onClick={shuffleDeck} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <Shuffle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content={`Show help (${getPlatformShortcut('help')})`} position="right" disabled={isMobile}>
-                    <button onClick={toggleHelpModal} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <HelpCircle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content={`Reset cards (${getPlatformShortcut('reset', true)})`} position="right" disabled={isMobile}>
-                    <button onClick={resetCards} className="p-1.5 hover:bg-muted rounded-sm text-red-500 hover:text-red-600 flex items-center justify-center">
-                      <XCircle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
+                  <Tooltip content="Shuffle deck (Left Shift)" position="right" disabled={isMobile}><button onClick={shuffleDeck} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"><Shuffle className="h-4 w-4" /></button></Tooltip>
+                  <Tooltip content={`Show help (${getPlatformShortcut('help')})`} position="right" disabled={isMobile}><button onClick={toggleHelpModal} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"><HelpCircle className="h-4 w-4" /></button></Tooltip>
+                  <Tooltip content={`Reset cards (${getPlatformShortcut('reset', true)})`} position="right" disabled={isMobile}><button onClick={resetCards} className="p-1.5 hover:bg-muted rounded-sm text-red-500 hover:text-red-600 flex items-center justify-center"><XCircle className="h-4 w-4" /></button></Tooltip>
                   <Tooltip content={isMuted ? "Unmute (M)" : "Mute (M)"} position="right" disabled={isMobile}>
-                     <div
-                      onMouseEnter={() => {
-                        if (volumeSliderTimeoutRef.current) clearTimeout(volumeSliderTimeoutRef.current);
-                        setShowVolumeSlider(true);
-                      }}
-                      onMouseLeave={() => {
-                        volumeSliderTimeoutRef.current = setTimeout(() => setShowVolumeSlider(false), 1500);
-                      }}
-                      className="relative p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"
-                    >
-                      <button onClick={toggleMute}>
-                        <Music className={`h-4 w-4 ${isMuted ? 'text-red-500' : ''}`} />
-                      </button>
-                      {showVolumeSlider && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -5 }}
-                          className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-card border border-border p-2 rounded-md shadow-lg z-50"
-                          onMouseEnter={() => {
-                            if (volumeSliderTimeoutRef.current) clearTimeout(volumeSliderTimeoutRef.current);
-                          }}
-                          onMouseLeave={() => {
-                            volumeSliderTimeoutRef.current = setTimeout(() => setShowVolumeSlider(false), 1500);
-                          }}
-                        >
-                          <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.01"
-                            value={volume}
-                            onChange={(e) => setGlobalVolume(parseFloat(e.target.value))}
-                            className="w-20 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
-                          />
-                        </motion.div>
-                      )}
+                     <div onMouseEnter={() => { if (volumeSliderTimeoutRef.current) clearTimeout(volumeSliderTimeoutRef.current); setShowVolumeSlider(true); }} onMouseLeave={() => { volumeSliderTimeoutRef.current = setTimeout(() => setShowVolumeSlider(false), 1500);}} className="relative p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
+                      <button onClick={toggleMute}><Music className={`h-4 w-4 ${isMuted ? 'text-red-500' : ''}`} /></button>
+                      {showVolumeSlider && (<motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-card border border-border p-2 rounded-md shadow-lg z-50" onMouseEnter={() => { if (volumeSliderTimeoutRef.current) clearTimeout(volumeSliderTimeoutRef.current);}} onMouseLeave={() => { volumeSliderTimeoutRef.current = setTimeout(() => setShowVolumeSlider(false), 1500);}}><input type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => setGlobalVolume(parseFloat(e.target.value))} className="w-20 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary" /></motion.div>)}
                     </div>
                   </Tooltip>
                 </div>
                 
-                {/* Card layout with zoom applied */}
+                {/* Transformed Card Canvas */}
                 <div 
-                  className="absolute inset-0 transition-transform duration-300 ease-in-out"
+                  className="absolute inset-0" 
                   onMouseDown={(e) => {
-                    // Only allow panning with space key to avoid conflicts with card dragging
                     if (!isMobile && !isDragging && !isDraggingPlacedCard && isSpacePressed) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handlePanStart(e.clientX, e.clientY);
+                      e.preventDefault(); e.stopPropagation(); handlePanStart(e.clientX, e.clientY);
                     }
                   }}
                   onWheel={(e) => {
-                    // Desktop scroll wheel zoom
                     if (!isMobile && (e.ctrlKey || e.metaKey)) {
-                      e.preventDefault();
-                      const delta = e.deltaY;
-                      const zoomFactor = delta > 0 ? 0.9 : 1.1;
-                      const newZoom = Math.max(0.5, Math.min(2, zoomLevel * zoomFactor));
-                      setZoomLevelWrapped(newZoom);
+                      e.preventDefault(); const delta = e.deltaY; const zoomFactor = delta > 0 ? 0.9 : 1.1;
+                      const newZoom = Math.max(0.5, Math.min(2, zoomLevel * zoomFactor)); setZoomLevelWrapped(newZoom);
                     }
                   }}
                   style={{
-                    ...getTransform(zoomLevel, zoomFocus, panOffset),
-                    // Additional optimizations for smooth performance
+                    ...(getTransform(zoomLevel, zoomFocus, panOffset) || {}),
                     contain: 'layout style paint',
                     cursor: !isMobile && !isDragging && !isDraggingPlacedCard ? (isPanning ? 'grabbing' : (isSpacePressed ? 'grab' : 'default')) : 'default'
                   }}
                 >
-                  {/* Free layout cards in interpretation */}
-                  {selectedLayout?.id === 'free-layout' && selectedCards.map((selectedCard: any, index: number) => (
-                    <motion.div
-                      key={`free-interp-${index}`}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ 
-                        opacity: 1, 
-                        scale: activeCardIndex === index ? 1.1 : 1 
-                      }}
-                      transition={cardAnimationConfig}
-                      className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-move"
-                      data-card-element="true"
-                      style={{ 
-                        left: `${selectedCard.x}%`, 
-                        top: `${selectedCard.y}%`,
-                        zIndex: activeCardIndex === index ? 20 : 10 + index
-                      }}
-                      drag
-                      dragMomentum={false}
-                      dragElastic={0}
-                      onDragStart={(event, info) => handlePlacedCardDragStart(index)}
-                      onDragEnd={(event, info) => handlePlacedCardDragEnd(event, info, index)}
-                      whileHover={{ scale: 1.05 }}
-                      whileDrag={{ scale: 1.1, zIndex: 50 }}
-                        onClick={() => {
-                        if ((selectedCard as any).revealed) {
-                          // Open card detail modal for revealed cards
-                          updateSharedModalState({
-                            isOpen: true,
-                            cardIndex: index,
-                            showDescription: false,
-                            triggeredBy: participantId || null
-                          });
-                        } else {
-                          handleCardFlip(index);
-                        }
-                      }}
-                      onDoubleClick={(e) => {
-                        if (!isMobile && (selectedCard as any).revealed) {
-                          handleCardDoubleClick(index, e);
-                        }
-                      }}
-                      onTouchEnd={(e) => {
-                        if (isMobile) {
-                          e.preventDefault();
-                          handleCardDoubleTap(index, e);
-                        }
-                      }}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
+                    <div className="flex items-center gap-3 opacity-15 transform scale-150">
+                      <TarotLogo className="w-12 h-12 text-foreground" />
+                      <span className="font-serif text-4xl font-bold tracking-wider text-foreground">TarotForge</span>
+                    </div>
+                  </div>
+                  {selectedLayout?.id === 'free-layout' && selectedCards.map((cardData: any, index: number) => {
+                    return (
+                    <motion.div key={`free-interp-${index}`} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: activeCardIndex === index ? 1.1 : 1 }} transition={cardAnimationConfig}
+                      className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-move" data-card-element="true"
+                      style={{ left: `${cardData.x}%`, top: `${cardData.y}%`, zIndex: activeCardIndex === index ? 20 : 10 + index }}
+                      drag dragMomentum={false} dragElastic={0} onDragStart={(event, info) => handlePlacedCardDragStart(index)} onDragEnd={(event, info) => handlePlacedCardDragEnd(event, info, index)}
+                      whileHover={{ scale: 1.05 }} whileDrag={{ scale: 1.1, zIndex: 50 }}
+                      onClick={() => { if (cardData.revealed) { updateSharedModalState({ isOpen: true, cardIndex: index, showDescription: false, triggeredBy: participantId || null }); } else { handleCardFlip(index); } }}
+                      onDoubleClick={(e) => { if (!isMobile && cardData.revealed) { handleCardDoubleClick(index, e); } }}
+                      onTouchEnd={(e) => { if (isMobile) { e.preventDefault(); handleCardDoubleTap(index, e); } }}
                     >
-                      <motion.div 
-                        className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${
-                          activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
-                        }`}
-                        animate={{ 
-                          rotateY: (selectedCard as any).revealed ? 0 : 180 
-                        }}
-                        transition={cardAnimationConfig}
-                      >
-                        {(selectedCard as any).revealed ? (
-                          <img 
-                            src={selectedCard.image_url} 
-                            alt={selectedCard.name} 
-                            className={`w-full h-full object-cover ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
-                          />
-                        ) : (
-                          <TarotCardBack />
-                        )}
+                      <motion.div className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''}`} animate={{ rotateY: cardData.revealed ? 0 : 180 }} transition={cardAnimationConfig}>
+                        {cardData.revealed ? <img src={cardData.image_url} alt={cardData.name} className={`w-full h-full object-cover rounded-md ${cardData.isReversed ? 'rotate-180' : ''}`} /> : <TarotCardBack />}
                       </motion.div>
-                      <div 
-                        className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {selectedCard.position} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
+                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move" onClick={(e) => e.stopPropagation()}>
+                        {cardData.position} {cardData.revealed && cardData.isReversed && '(R)'}
                       </div>
                     </motion.div>
-                  ))}
-
-                  {/* Predefined layout cards in interpretation */}
+                  );}) 
+                  }
                   {selectedLayout?.id !== 'free-layout' && selectedLayout && selectedLayout.positions.map((position: any, index: number) => {
-                    const selectedCard = selectedCards[index];
-                    if (!selectedCard) return null;
-                    
-                    // Special handling for Celtic Cross Present (0) and Challenge (1) positions in interpretation
-                    const isCelticCross = selectedLayout?.id === 'celtic-cross';
-                    const isChallengePosition = isCelticCross && index === 1;
-                    const presentCard = isCelticCross ? selectedCards[0] : null;
-                    const challengeCard = isCelticCross ? selectedCards[1] : null;
-                    
-                    // For Celtic Cross interpretation, always use original positions for perfect cross
-                    const adjustedPosition = { ...position };
-                    
-                    let displayX = adjustedPosition.x;
-                    if (isMobile && selectedLayout?.id === 'three-card') {
-                      if (index === 0) displayX = 25;
-                      else if (index === 1) displayX = 50;
-                      else if (index === 2) displayX = 75;
-                    }
-                    
+                    const cardData = selectedCards[index] as any; 
+                    if (!cardData) return null;
+                    const isCelticCross = selectedLayout?.id === 'celtic-cross'; const isChallengePosition = isCelticCross && index === 1;
+                    const adjustedPosition = { ...position }; let displayX = adjustedPosition.x;
+                    if (isMobile && selectedLayout?.id === 'three-card') { if (index === 0) displayX = 25; else if (index === 1) displayX = 50; else if (index === 2) displayX = 75; }
                     return (
-                      <div 
-                        key={position.id}
-                        className="absolute transform -translate-x-1/2 -translate-y-1/2"
-                        style={{ 
-                          left: `${displayX}%`, // Use displayX
-                          top: `${adjustedPosition.y}%`,
-                          zIndex: activeCardIndex === index ? 20 : (isChallengePosition ? 12 : 10 + index) // Challenge card always on top
-                        }}
-                      >
-                        <motion.div
-                          className="relative"
-                          data-card-element="true"
-                          onTouchEnd={(e) => {
-                            if (isMobile) {
-                              e.preventDefault();
-                              handleCardDoubleTap(index, e);
-                            }
-                          }}
-                          whileHover={{ scale: 1.05 }}
-                          animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}
-                        >
-                          <motion.div 
-                            className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`}
-                            style={{ 
-                              transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none' 
-                            }}
-                            animate={{ 
-                              rotateY: (selectedCard as any).revealed ? 0 : 180 
-                            }}
-                            transition={cardAnimationConfig}
-                            onClick={() => {
-                              if ((selectedCard as any).revealed) {
-                                // Open card detail modal for revealed cards
-                                updateSharedModalState({
-                                  isOpen: true,
-                                  cardIndex: index,
-                                  showDescription: false,
-                                  triggeredBy: participantId || null
-                                });
-                              } else {
-                                handleCardFlip(index);
-                              }
-                            }}
+                      <div key={position.id} className="absolute transform -translate-x-1/2 -translate-y-1/2" style={{ left: `${displayX}%`, top: `${adjustedPosition.y}%`, zIndex: activeCardIndex === index ? 20 : (isChallengePosition ? 12 : 10 + index) }}>
+                        <motion.div className="relative" data-card-element="true" onTouchEnd={(e) => { if (isMobile) { e.preventDefault(); handleCardDoubleTap(index, e); } }} whileHover={{ scale: 1.05 }} animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}>
+                          <motion.div className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`} style={{ transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none' }} animate={{ rotateY: cardData.revealed ? 0 : 180 }} transition={cardAnimationConfig}
+                            onClick={() => { if (cardData.revealed) { updateSharedModalState({ isOpen: true, cardIndex: index, showDescription: false, triggeredBy: participantId || null }); } else { handleCardFlip(index); } }}
                           >
-                            {(selectedCard as any).revealed ? (
-                              <img 
-                                src={selectedCard.image_url} 
-                                alt={selectedCard.name} 
-                                className={`w-full h-full object-contain p-0.5 ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
-                              />
-                            ) : (
-                              <TarotCardBack />
-                            )}
+                            {cardData.revealed ? <img src={cardData.image_url} alt={cardData.name} className={`w-full h-full object-cover rounded-md ${cardData.isReversed ? 'rotate-180' : ''}`} /> : <TarotCardBack />}
                           </motion.div>
-                          <div 
-                            className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
+                          <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move" onClick={(e) => e.stopPropagation()}>
+                            {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {cardData.revealed && cardData.isReversed && '(R)'}
                           </div>
                         </motion.div>
                       </div>
@@ -4506,130 +4252,64 @@ const ReadingRoom = () => {
                   })}
                 </div>
                 
-
-
-                {/* Reading controls */}
-                <div className={`absolute ${isMobile ? 'top-2 right-2' : 'bottom-6 right-6'} flex gap-1 md:gap-3`}>
-                  <Tooltip content="View interpretation" position="left" disabled={isMobile}>
-                    <button 
-                      onClick={() => setShowMobileInterpretation(true)}
-                      className={`btn btn-primary px-2 py-1 text-xs mobile-interpretation-button ${!(isMobile && !isLandscape && !showMobileInterpretation) ? 'hidden' : ''}`}
-                    >
-                      <Info className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Return to card table" position="left" disabled={isMobile}>
-                    <button 
-                      onClick={() => setReadingStepWrapped('drawing')}
-                      className={`btn btn-secondary ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}
-                    >
-                      {isMobile ? 'Back' : 'Back to Table'}
-                    </button>
-                  </Tooltip>
-                  
-                  <Tooltip content="Start a new reading" position="left" disabled={isMobile}>
-                    <button 
-                      onClick={resetReading}
-                      className={`btn btn-ghost border border-input ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}
-                    >
-                      {isMobile ? 'New' : 'New Reading'}
-                    </button>
-                  </Tooltip>
+                {/* Reading controls (Back to Table, New Reading) */}
+                <div className={`absolute ${isMobile ? 'top-2 right-2' : 'bottom-6 right-6'} flex gap-1 md:gap-3 z-40`}>
+                  <Tooltip content="View interpretation" position="left" disabled={isMobile}><button onClick={() => setShowMobileInterpretation(true)} className={`btn btn-primary px-2 py-1 text-xs mobile-interpretation-button ${!(isMobile && !isLandscape && !showMobileInterpretation) ? 'hidden' : ''}`}><Info className="h-4 w-4" /></button></Tooltip>
+                  <Tooltip content="Return to card table" position="left" disabled={isMobile}><button onClick={() => setReadingStepWrapped('drawing')} className={`btn btn-secondary ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}>{isMobile ? 'Back' : 'Back to Table'}</button></Tooltip>
+                  <Tooltip content="Start a new reading" position="left" disabled={isMobile}><button onClick={resetReading} className={`btn btn-ghost border border-input ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}>{isMobile ? 'New' : 'New Reading'}</button></Tooltip>
                 </div>
-              </div>
+              </div> 
               
-              {/* Interpretation panel - responsive layout */}
-              <div className={`${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-2/5' : (showMobileInterpretation ? 'flex-1' : 'hidden')) : 'w-2/5'} bg-card ${isMobile ? (isLandscape && !showMobileInterpretation ? 'border-l' : '') : 'border-l'} border-border flex flex-col h-full`}>
+              {/* Interpretation panel - overlay on desktop */}
+              <div className={`
+                ${isMobile 
+                  ? (isLandscape && !showMobileInterpretation ? 'w-2/5 border-l' : (showMobileInterpretation ? 'flex-1 w-full' : 'hidden')) 
+                  : 'absolute top-20 right-0 bottom-0 w-2/5 max-w-md bg-card border-l border-border shadow-xl flex flex-col z-50' /* Desktop: Absolute overlay styling, max-width added */
+                }
+                 bg-card border-border flex flex-col h-auto transition-transform duration-300 ease-in-out
+                 ${isMobile && showMobileInterpretation ? 'translate-x-0' : ''}
+                 ${isMobile && !showMobileInterpretation && readingStep === 'interpretation' ? 'translate-x-full' : ''}
+              `}>
                 <div className={`${isMobile ? 'p-2' : 'p-3 md:p-4'} border-b border-border bg-primary/5 flex justify-between items-center`}>
                   <div className="flex items-center">
                     <TarotLogo className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4 md:h-5 md:w-5'} text-primary mr-2`} />
                     <h3 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm md:text-base'}`}>Reading Interpretation</h3>
                   </div>
-                  <Tooltip content="Back to table" position="left" disabled={isMobile}>
-                    <button 
-                      onClick={() => setReadingStepWrapped('drawing')}
-                      className={`text-muted-foreground hover:text-foreground ${isMobile ? 'hidden' : ''}`}
-                    >
-                      <XCircle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
+                  <Tooltip content="Back to table" position="left" disabled={isMobile}><button onClick={() => setReadingStepWrapped('drawing')} className={`text-muted-foreground hover:text-foreground ${isMobile ? 'hidden' : ''}`}><XCircle className="h-4 w-4" /></button></Tooltip>
                 </div>
-                
                 <div className={`flex-1 ${isMobile ? 'p-2' : 'p-3 md:p-4'} overflow-y-auto`}>
-                  {/* Card information */}
                   {activeCardIndex !== null && activeCardIndex !== undefined && selectedCards[activeCardIndex] && (
                     <div className={`${isMobile ? 'mb-3 p-2' : 'mb-4 md:mb-6 p-2 md:p-3'} bg-muted/30 border border-border rounded-lg`}>
                       <div className={`flex ${isMobile ? 'gap-1' : 'gap-2 md:gap-3'}`}>
                         <div className={`shrink-0 ${isMobile ? 'w-8 h-12' : 'w-10 h-15 md:w-12 md:h-18'} p-0.5`}>
-                          <img 
-                            src={selectedCards[activeCardIndex].image_url} 
-                            alt={selectedCards[activeCardIndex].name} 
-                            className={`w-full h-full object-cover rounded-md ${selectedCards[activeCardIndex].isReversed ? 'rotate-180' : ''}`}
-                          />
+                          <img src={(selectedCards[activeCardIndex] as Card).image_url} alt={(selectedCards[activeCardIndex] as Card).name} className={`w-full h-full object-cover rounded-md ${(selectedCards[activeCardIndex] as any).isReversed ? 'rotate-180' : ''}`} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm md:text-base'}`}>{selectedCards[activeCardIndex].name} {selectedCards[activeCardIndex].isReversed && '(Reversed)'}</h4>
-                          <p className="text-xs text-accent mb-1">{selectedCards[activeCardIndex].position}</p>
-                          <p className="text-xs text-muted-foreground">{selectedCards[activeCardIndex].description}</p>
+                          <h4 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm md:text-base'}`}>{(selectedCards[activeCardIndex] as Card).name} {(selectedCards[activeCardIndex] as any).isReversed && '(Reversed)'}</h4>
+                          <p className="text-xs text-accent mb-1">{(selectedCards[activeCardIndex] as Card).position}</p>
+                          <p className="text-xs text-muted-foreground">{(selectedCards[activeCardIndex] as Card).description}</p>
                         </div>
                       </div>
                     </div>
                   )}
-                  
-                  {/* Interpretation text */}
                   <div className="space-y-2">
                     {cleanMarkdownText(interpretation).map((line, i: number) => (
                       <div key={i}>
-                        {line.isHeader ? (
-                          <h4 className={`font-semibold text-primary ${isMobile ? 'text-sm' : 'text-base'} mb-2`}>
-                            {line.content}
-                          </h4>
-                        ) : line.isBullet ? (
-                          <div className={`flex items-start gap-2 ${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground ml-2`}>
-                            <span className="text-primary mt-1">•</span>
-                            <span>{line.content}</span>
-                          </div>
-                        ) : (
-                          <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-foreground leading-relaxed`}>
-                            {line.content}
-                          </p>
-                        )}
+                        {line.isHeader ? <h4 className={`font-semibold text-primary ${isMobile ? 'text-sm' : 'text-base'} mb-2`}>{line.content}</h4>
+                        : line.isBullet ? <div className={`flex items-start gap-2 ${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground ml-2`}><span className="text-primary mt-1">•</span><span>{line.content}</span></div>
+                        : <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-foreground leading-relaxed`}>{line.content}</p>}
                       </div>
                     ))}
                   </div>
                 </div>
-                
-                {/* Card navigation */}
                 {selectedCards.length > 1 && (
                   <div className={`${isMobile ? 'p-1' : 'p-2 md:p-3'} border-t border-border flex justify-between items-center`}>
                     <Tooltip content="Previous card" position="top" disabled={isMobile}>
-                      <button 
-                        onClick={() => {
-                          const currentIndex = activeCardIndex ?? 0;
-                          const newIndex = currentIndex > 0 ? currentIndex - 1 : selectedCards.length - 1;
-                          setActiveCardIndexWrapped(newIndex);
-                        }}
-                        className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'}`}
-                      >
-                        <ChevronLeft className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
-                      </button>
+                      <button onClick={() => { const currentIndex = activeCardIndex !== null && activeCardIndex !== undefined ? activeCardIndex : 0; const newIndex = currentIndex > 0 ? currentIndex - 1 : selectedCards.length - 1; setActiveCardIndexWrapped(newIndex); }} className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'}`}><ChevronLeft className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} /></button>
                     </Tooltip>
-                    
-                    <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>
-                      {(activeCardIndex ?? 0) + 1} of {selectedCards.length} cards
-                    </div>
-                    
+                    <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>{(activeCardIndex !== null && activeCardIndex !== undefined ? activeCardIndex : 0) + 1} of {selectedCards.length} cards</div>
                     <Tooltip content="Next card" position="top" disabled={isMobile}>
-                      <button 
-                        onClick={() => {
-                          const currentIndex = activeCardIndex ?? 0;
-                          const newIndex = currentIndex < selectedCards.length - 1 ? currentIndex + 1 : 0;
-                          setActiveCardIndexWrapped(newIndex);
-                        }}
-                        className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'}`}
-                      >
-                        <ChevronRight className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} />
-                      </button>
+                      <button onClick={() => { const currentIndex = activeCardIndex !== null && activeCardIndex !== undefined ? activeCardIndex : 0; const newIndex = currentIndex < selectedCards.length - 1 ? currentIndex + 1 : 0; setActiveCardIndexWrapped(newIndex); }} className={`btn btn-ghost ${isMobile ? 'p-0.5' : 'p-1'}`}><ChevronRight className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'}`} /></button>
                     </Tooltip>
                   </div>
                 )}
@@ -4638,106 +4318,6 @@ const ReadingRoom = () => {
           )}
         </div>
       </main>
-      
-      {/* Dragged card following cursor/touch */}
-      {isDragging && draggedCard && (
-        <div 
-          className={`fixed ${isMobile ? 'w-16 h-24' : 'w-20 h-30'} pointer-events-none z-50 transition-transform`}
-          style={{
-            left: dragPosition.x - (isMobile ? 32 : 40),
-            top: dragPosition.y - (isMobile ? 48 : 60),
-            transform: 'rotate(5deg)'
-          }}
-        >
-          <div className="w-full h-full bg-primary rounded-md border-2 border-primary-foreground shadow-xl opacity-80">
-            <div className="w-full h-full flex items-center justify-center">
-              <span className="text-xs text-primary-foreground">Card</span>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Video Chat - Floating Bubbles Interface */}
-      {showVideoChat && (
-        <VideoBubbles 
-          onClose={() => setShowVideoChat(false)}
-          readingStep={readingStep}
-        />
-      )}
-      
-      {/* Share Room Modal - mobile responsive */}
-      <AnimatePresence>
-        {showShareModal && sessionId && (
-          <div 
-            className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
-            onClick={() => setShowShareModal(false)}
-          >
-            <motion.div 
-              className="relative bg-card max-w-md w-full rounded-xl overflow-hidden"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
-                <h3 className="font-serif font-bold">Share Reading Room</h3>
-                <Tooltip content="Close share modal" position="left" disabled={isMobile}>
-                  <button 
-                    onClick={() => setShowShareModal(false)}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <XCircle className="h-5 w-5" />
-                  </button>
-                </Tooltip>
-              </div>
-              
-              <div className="p-6">
-                <p className="mb-4 text-sm md:text-base">
-                  Share this link with others to invite them to your reading room with video chat. 
-                  {participants.length > 0 && ` Currently ${participants.length} participants are connected.`}
-                  {showVideoChat && <span className="block text-xs text-primary mt-1">Video chat is now active!</span>}
-                </p>
-                
-                <div className="mb-6">
-                  <label htmlFor="roomLink" className="block text-sm font-medium mb-2">
-                    Room Invitation Link
-                  </label>
-                  <div className="flex">
-                    <input
-                      id="roomLink"
-                      type="text"
-                      value={sessionId ? generateShareableLink(sessionId) : ''}
-                      readOnly
-                      className="flex-1 p-2 text-sm rounded-l-md border border-r-0 border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                    <Tooltip content={showCopied ? "Link copied!" : "Copy link to clipboard"} position="top" disabled={isMobile}>
-                      <button
-                        onClick={() => copyRoomLinkHelper(sessionId, setShowCopied, generateShareableLink)}
-                        className="p-2 bg-primary text-primary-foreground rounded-r-md hover:bg-primary/90 transition-colors flex items-center"
-                      >
-                        {showCopied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
-                      </button>
-                    </Tooltip>
-                  </div>
-                  {showCopied && (
-                    <p className="text-xs text-success mt-2">Link copied to clipboard!</p>
-                  )}
-                </div>
-                
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => setShowShareModal(false)}
-                    className="btn btn-primary px-4 py-2"
-                  >
-                    Done
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
       
       {/* Help Modal - Desktop */}
       <AnimatePresence>
