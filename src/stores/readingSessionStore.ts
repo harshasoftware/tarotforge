@@ -152,11 +152,13 @@ const waitForAuthDetermination = async (get: () => ReadingSessionStore, set: (pa
 // Helper function to ensure participant record exists and is up-to-date
 const _ensureParticipantRecord = async (
   sessionId: string, 
-  user: User | null, // User from useAuthStore
-  isHost: boolean, // Current host status from readingSessionStore
+  userArgument: User | null, // User from useAuthStore passed as argument
+  isHost: boolean, 
   get: () => ReadingSessionStore, 
   set: (partial: Partial<ReadingSessionStore> | ((state: ReadingSessionStore) => Partial<ReadingSessionStore>)) => void
 ): Promise<string | null> => {
+  const { user: currentUserFromAuth } = useAuthStore.getState();
+
   let participantQuery = supabase
     .from('session_participants')
     .select('*')
@@ -165,79 +167,141 @@ const _ensureParticipantRecord = async (
 
   let determinedAnonymousId: string | null = null;
 
-  if (user && user.email) { // Authenticated user
-    participantQuery = participantQuery.eq('user_id', user.id);
-  } else if (user && !user.email) { // Anonymous user identified by useAuthStore (user.id is the anonymous_id)
-    determinedAnonymousId = user.id;
-    participantQuery = participantQuery.eq('anonymous_id', user.id);
-    if (!get().anonymousId) set({ anonymousId: user.id }); // Ensure readingSessionStore has this anonymousId
-  } else { // No user from auth store, try browser fingerprint as last resort for anonymous
-    console.warn("[_ensureParticipantRecord] No user from authStore. Attempting fingerprint.");
-    const browserFingerprint = getPersistentBrowserId();
-    if (browserFingerprint) {
-      determinedAnonymousId = browserFingerprint;
-      participantQuery = participantQuery.eq('anonymous_id', browserFingerprint);
-      if (!get().anonymousId) set({ anonymousId: browserFingerprint });
-    } else {
-      console.error("[_ensureParticipantRecord] Cannot identify anonymous user (no auth user, no fingerprint).");
-      set({ error: "Cannot identify anonymous user.", isLoading: false });
-      return null;
-    }
+  if (currentUserFromAuth && currentUserFromAuth.email) {
+    participantQuery = participantQuery.eq('user_id', currentUserFromAuth.id);
+  } else if (currentUserFromAuth && !currentUserFromAuth.email && currentUserFromAuth.id) {
+    determinedAnonymousId = currentUserFromAuth.id;
+    participantQuery = participantQuery.eq('anonymous_id', currentUserFromAuth.id);
+    if (!get().anonymousId) set({ anonymousId: currentUserFromAuth.id });
+  } else {
+    // If currentUserFromAuth is null, we have no Supabase identity (auth or anon) to work with.
+    // Fingerprinting is removed as per user request.
+    console.error("[_ensureParticipantRecord] No user (neither authenticated nor Supabase anonymous) found in authStore. Cannot ensure participant record without a Supabase-managed identity.");
+    set({ error: "User identity not available from authentication service. Please ensure you are signed in, at least anonymously.", isLoading: false });
+    return null; // Cannot proceed without a Supabase-backed user identity.
   }
 
-  const { data: existingParticipant, error: fetchError } = await participantQuery.maybeSingle();
+  const { data: existingParticipantData, error: fetchError } = await participantQuery.maybeSingle();
+  const existingParticipant = existingParticipantData as SessionParticipant | null;
 
-  if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means no rows found, which is not an error here
+  if (fetchError && fetchError.code !== 'PGRST116') { 
     console.error("[_ensureParticipantRecord] Error fetching existing participant:", fetchError);
     set({ error: "Failed to check for existing participant.", isLoading: false });
     return null;
   }
 
   if (existingParticipant) {
-    console.log('[_ensureParticipantRecord] Found existing participant:', existingParticipant.id);
-    await supabase
-      .from('session_participants')
-      .update({ last_seen_at: new Date().toISOString(), is_active: true })
-      .eq('id', existingParticipant.id);
+    console.log('[_ensureParticipantRecord] Found existing participant:', existingParticipant.id, 'Current Name:', existingParticipant.name);
+    let updatePayload: Partial<SessionParticipant> = { lastSeenAt: new Date().toISOString(), isActive: true };
+
+    if (currentUserFromAuth && currentUserFromAuth.email) { 
+        const newAuthName = currentUserFromAuth.username || currentUserFromAuth.email.split('@')[0] || `User (${currentUserFromAuth.id.substring(0, 6)})`;
+        if ( existingParticipant.anonymousId || 
+            (!existingParticipant.userId && (existingParticipant.name?.startsWith('Guest') || existingParticipant.name?.startsWith('Anonymous') || existingParticipant.name === 'Host')) || 
+            (existingParticipant.name !== newAuthName && (existingParticipant.name?.startsWith('Guest') || existingParticipant.name?.startsWith('Anonymous')))
+           ) {
+            console.log(`[_ensureParticipantRecord] Updating name for authenticated user ${currentUserFromAuth.id}. Old name: ${existingParticipant.name}, New name: ${newAuthName}`);
+            updatePayload.name = newAuthName;
+        }
+        if (existingParticipant.userId !== currentUserFromAuth.id || existingParticipant.anonymousId) {
+            updatePayload.userId = currentUserFromAuth.id;
+            updatePayload.anonymousId = null;
+        }
+    } else if (currentUserFromAuth && !currentUserFromAuth.email && currentUserFromAuth.id) { 
+        if (existingParticipant.userId && !existingParticipant.anonymousId) {
+            console.warn(`[_ensureParticipantRecord] Participant ${existingParticipant.id} was authenticated, now identified as anonymous ${currentUserFromAuth.id}. Updating IDs.`);
+            updatePayload.userId = null;
+            updatePayload.anonymousId = currentUserFromAuth.id;
+            if (existingParticipant.name && (existingParticipant.name.startsWith('User (') || existingParticipant.name === 'Host')) {
+                updatePayload.name = `Guest (${currentUserFromAuth.id.substring(0, 6)})`;
+            }
+        } else if (existingParticipant.anonymousId !== currentUserFromAuth.id) {
+            updatePayload.anonymousId = currentUserFromAuth.id;
+            updatePayload.userId = null; 
+            if (!existingParticipant.name || existingParticipant.name === 'Guest' || existingParticipant.name === 'Anonymous Host' || existingParticipant.name.startsWith('User (')) {
+                updatePayload.name = `Guest (${currentUserFromAuth.id.substring(0, 6)})`;
+            }
+        } else if (!existingParticipant.userId && existingParticipant.anonymousId === currentUserFromAuth.id) {
+            if (!existingParticipant.name || existingParticipant.name === 'Guest' || existingParticipant.name === 'Anonymous Host') {
+                 updatePayload.name = `Guest (${currentUserFromAuth.id.substring(0, 6)})`;
+            }
+        }
+    } else if (!currentUserFromAuth && determinedAnonymousId) { 
+        if (existingParticipant.userId) {
+            console.warn(`[_ensureParticipantRecord] Existing participant ${existingParticipant.id} was authenticated, but current identification is by fingerprint ${determinedAnonymousId}. Not changing name or primary ID type.`);
+        } else if (existingParticipant.anonymousId !== determinedAnonymousId) {
+            updatePayload.anonymousId = determinedAnonymousId;
+            if (!existingParticipant.name || existingParticipant.name === 'Guest' || existingParticipant.name === 'Anonymous Host') {
+                updatePayload.name = `Guest (${determinedAnonymousId.substring(0, 6)})`;
+            }
+        } else if (!existingParticipant.name || existingParticipant.name === 'Guest' || existingParticipant.name === 'Anonymous Host') {
+            updatePayload.name = `Guest (${determinedAnonymousId.substring(0, 6)})`;
+        }
+    }
+
+    const dbUpdatePayload: any = {};
+    if (updatePayload.lastSeenAt !== undefined) dbUpdatePayload.last_seen_at = updatePayload.lastSeenAt; // Corrected: No .toISOString()
+    if (updatePayload.isActive !== undefined) dbUpdatePayload.is_active = updatePayload.isActive;
+    if (updatePayload.name !== undefined) dbUpdatePayload.name = updatePayload.name;
+    if (updatePayload.userId !== undefined) dbUpdatePayload.user_id = updatePayload.userId;
+    if (updatePayload.anonymousId !== undefined) dbUpdatePayload.anonymous_id = updatePayload.anonymousId;
+    // if anonymousId is being set to null explicitly
+    if (updatePayload.hasOwnProperty('anonymousId') && updatePayload.anonymousId === null) {
+      dbUpdatePayload.anonymous_id = null;
+    }
+
+    if (Object.keys(dbUpdatePayload).length > 2) { // If more than just last_seen_at and is_active changed (default ones)
+        await supabase.from('session_participants').update(dbUpdatePayload).eq('id', existingParticipant.id);
+        console.log('[_ensureParticipantRecord] Updated participant record with DB payload:', dbUpdatePayload);
+    } else if (Object.keys(dbUpdatePayload).length > 0) { // ensure there is something to update (at least last_seen_at and is_active)
+        await supabase.from('session_participants').update(dbUpdatePayload).eq('id', existingParticipant.id);
+    } else {
+        // This case should ideally not happen if lastSeenAt and isActive are always in updatePayload
+        // but as a safeguard if updatePayload was empty for some reason.
+        await supabase.from('session_participants').update({ last_seen_at: new Date().toISOString(), is_active: true }).eq('id', existingParticipant.id);
+    }
     return existingParticipant.id;
-  } else {
+
+  } else { 
     console.log('[_ensureParticipantRecord] No existing participant found, creating new one...');
-    const participantNameToSet = user?.username || 
-                               ((user && !user.email) ? (isHost ? 'Anonymous Host' : 'Anonymous Guest') : 
-                               (isHost ? 'Host' : 'Guest'));
+    let participantNameToSet: string;
+
+    if (currentUserFromAuth && currentUserFromAuth.email) { 
+      participantNameToSet = currentUserFromAuth.username || currentUserFromAuth.email.split('@')[0] || `User (${currentUserFromAuth.id.substring(0, 6)})`;
+    } else if (currentUserFromAuth && !currentUserFromAuth.email && currentUserFromAuth.id) { // This is a Supabase anonymous user
+      determinedAnonymousId = currentUserFromAuth.id; // Ensure determinedAnonymousId is set from Supabase anon user
+      participantNameToSet = `Guest (${currentUserFromAuth.id.substring(0, 6)})`; 
+    // The case for determinedAnonymousId coming from fingerprint is now removed.
+    // If currentUserFromAuth was null, we would have returned early.
+    } else {
+      // This fallback should ideally not be reached if currentUserFromAuth is always present (auth or anon)
+      console.warn("[_ensureParticipantRecord] Unexpected state: currentUserFromAuth is null or invalid when trying to set new participant name.");
+      participantNameToSet = isHost ? 'Host (Error)' : 'Guest (Error)'; 
+    }
     
-    const newParticipantData: any = {
+    const newParticipantDataForDB: any = {
       session_id: sessionId,
       name: participantNameToSet,
       is_active: true,
       role: isHost ? 'host' : 'participant',
     };
 
-    if (user && user.email) {
-      newParticipantData.user_id = user.id;
+    if (currentUserFromAuth && currentUserFromAuth.email) {
+      newParticipantDataForDB.user_id = currentUserFromAuth.id;
+    } else if (determinedAnonymousId) { // This will now only be from a Supabase anonymous user
+      newParticipantDataForDB.anonymous_id = determinedAnonymousId;
     } else {
-      // Use the determinedAnonymousId from earlier logic (either from authStore user or fingerprint)
-      if (determinedAnonymousId) {
-        newParticipantData.anonymous_id = determinedAnonymousId;
-      } else {
-        // This case should be rare due to checks above, but as a fallback:
-        const freshFingerprint = getPersistentBrowserId();
-        if (freshFingerprint) {
-          newParticipantData.anonymous_id = freshFingerprint;
-          if(!get().anonymousId) set({ anonymousId: freshFingerprint });
-          console.warn("[_ensureParticipantRecord] Fallback: Creating new participant with freshly fetched fingerprint for anonymous_id.");
-        } else {
-          console.error("[_ensureParticipantRecord] Critical: Cannot create anonymous participant without an ID.");
-          set({ error: "Cannot create anonymous participant without an identifier.", isLoading: false });
-          return null;
-        }
-      }
+      // This path should not be taken if the early return for null currentUserFromAuth works.
+      console.error('[_ensureParticipantRecord] Critical error: Creating new participant without user_id or determinedAnonymousId from Supabase.');
+      // To prevent inserting a record without any identifier, though this indicates a logic flaw upstream.
+      set({ error: "Failed to create participant due to missing identifier.", isLoading: false });
+      return null; 
     }
     
-    console.log('[_ensureParticipantRecord] Inserting new participant with data:', newParticipantData);
+    console.log('[_ensureParticipantRecord] Inserting new participant with DB data:', newParticipantDataForDB);
     const { data: newParticipant, error: insertError } = await supabase
       .from('session_participants')
-      .insert(newParticipantData)
+      .insert(newParticipantDataForDB)
       .select('id')
       .single();
 
