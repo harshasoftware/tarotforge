@@ -504,7 +504,6 @@ const AuthCallback = () => {
   
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      {/* <LoadingScreen /> */}
       <MagicWandLoader size="md" className="mb-4" />
       <div className="mt-8 max-w-md text-center">
         <h2 className="text-xl font-medium mb-2">Unveiling Your Destiny</h2>
