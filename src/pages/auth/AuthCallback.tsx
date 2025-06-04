@@ -1,15 +1,39 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import LoadingScreen from '../../components/ui/LoadingScreen';
-import { useAuthStore } from '../../stores/authStore';
 import { AlertCircle } from 'lucide-react';
+import { useAuthStore } from '../../stores/authStore';
+import MagicWandLoader from '../../components/ui/MagicWandLoader';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
-  const [processingStep, setProcessingStep] = useState<string>('Initializing authentication...');
+  const [processingStep, setProcessingStep] = useState<string>('Whispers from the Ether: Awakening Your Connection...');
   const [loading, setLoading] = useState(false);
+  const [progressPercent, setProgressPercent] = useState<number>(10); // Start with a small initial progress
+  
+  useEffect(() => {
+    switch (processingStep) {
+      case 'Whispers from the Ether: Awakening Your Connection...':
+        setProgressPercent(10);
+        break;
+      case 'Celestial Alignment: Confirming Your Star Chart...': // Google verify
+      case 'The Scribe\'s Scroll: Inscribing Your Essence...': // Email upgrade setup
+        setProgressPercent(30);
+        break;
+      case 'The Weaver\'s Loom: Crafting Your Astral Form...': // Google Link create account
+        setProgressPercent(60);
+        break;
+      case 'Ancient Scrolls Unfurl: Transcribing Your Journey...': // Migration step
+        setProgressPercent(80);
+        break;
+      case 'The Veil Thins: Your Path is Illuminated!': // Completion
+        setProgressPercent(100);
+        break;
+      default:
+        setProgressPercent(10); 
+    }
+  }, [processingStep]);
   
   // Handle auth callback
   useEffect(() => {
@@ -57,7 +81,7 @@ const AuthCallback = () => {
             console.log('📧 Upgrading from anonymous user:', anonymousUserId, 'to email user:', newUserId);
             
             if (user && user.email === email && user.id === newUserId) {
-              setProcessingStep('Setting up your account...');
+              setProcessingStep('The Scribe\'s Scroll: Inscribing Your Essence...');
               
               // Create user profile in users table (transition from anonymous_users)
               const { error: insertError } = await supabase
@@ -76,7 +100,7 @@ const AuthCallback = () => {
               }
               
               // Migrate anonymous user data
-              setProcessingStep('Migrating your reading sessions...');
+              setProcessingStep('Ancient Scrolls Unfurl: Transcribing Your Journey...');
               try {
                 const { migrateAnonymousUserData } = useAuthStore.getState();
                 await migrateAnonymousUserData(anonymousUserId, user.id);
@@ -103,7 +127,7 @@ const AuthCallback = () => {
               localStorage.removeItem('pending_email_upgrade');
               
               console.log('✅ Email upgrade completed successfully');
-              setProcessingStep('Account setup complete!');
+              setProcessingStep('The Veil Thins: Your Path is Illuminated!');
             
             // Force refresh the auth state
               const { checkAuth } = useAuthStore.getState();
@@ -237,7 +261,7 @@ const AuthCallback = () => {
             const anonymousUserId = pendingGoogleLink;
             console.log('🔗 Completing Google upgrade for anonymous user:', anonymousUserId);
             
-            setProcessingStep('Verifying Google authentication...');
+            setProcessingStep('Celestial Alignment: Confirming Your Star Chart...');
             
             // Get the actual session to check if we have updated user info
             const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -268,7 +292,7 @@ const AuthCallback = () => {
             }
             
             // ✅ Google auth successful - now safe to proceed with upgrade
-            setProcessingStep('Creating your account...');
+            setProcessingStep('The Weaver\'s Loom: Crafting Your Astral Form...');
             
             // Create user profile in users table (transition from anonymous_users)
             const { error: insertError } = await supabase
@@ -287,7 +311,7 @@ const AuthCallback = () => {
             }
             
             // Migrate anonymous user data (reading sessions, decks, etc.)
-            setProcessingStep('Migrating your reading sessions...');
+            setProcessingStep('Ancient Scrolls Unfurl: Transcribing Your Journey...');
             try {
               const { migrateAnonymousUserData } = useAuthStore.getState();
               await migrateAnonymousUserData(anonymousUserId, session.user.id);
@@ -314,7 +338,7 @@ const AuthCallback = () => {
             localStorage.removeItem('pending_google_link');
             
             console.log('✅ Google upgrade completed successfully');
-            setProcessingStep('Account setup complete! Redirecting...');
+            setProcessingStep('The Veil Thins: Your Path is Illuminated!');
             
             // Force refresh the auth state to pick up the new user profile
             const { checkAuth } = useAuthStore.getState();
@@ -479,13 +503,17 @@ const AuthCallback = () => {
   }
   
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <LoadingScreen />
+    <div className="min-h-screen flex flex-col items-center justify-center p-4">
+      {/* <LoadingScreen /> */}
+      <MagicWandLoader size="md" className="mb-4" />
       <div className="mt-8 max-w-md text-center">
-        <h2 className="text-xl font-medium mb-2">Setting Up Your Account</h2>
+        <h2 className="text-xl font-medium mb-2">Unveiling Your Destiny</h2>
         <p className="text-muted-foreground mb-4">{processingStep}</p>
         <div className="h-2 w-full bg-muted/30 rounded-full overflow-hidden">
-          <div className="h-2 bg-primary rounded-full animate-pulse" style={{ width: '75%' }}></div>
+          <div 
+            className="h-2 bg-primary rounded-full transition-all duration-500 ease-in-out" 
+            style={{ width: `${progressPercent}%` }}
+          ></div>
         </div>
       </div>
     </div>

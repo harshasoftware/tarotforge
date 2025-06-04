@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
-import { useAuthStore } from './authStore';
+import { useAuthStore, type User } from './authStore';
 import { ReadingLayout, Card } from '../types';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
@@ -113,6 +113,835 @@ interface ReadingSessionStore {
   cleanupInactiveSessions: () => Promise<void>;
   checkSessionExpiry: () => Promise<boolean>;
 }
+
+// Helper function to wait for auth state determination
+const waitForAuthDetermination = async (get: () => ReadingSessionStore, set: (partial: Partial<ReadingSessionStore> | ((state: ReadingSessionStore) => Partial<ReadingSessionStore>)) => void): Promise<boolean> => {
+  let authDetermined = useAuthStore.getState().authStateDetermined;
+  let authLoading = useAuthStore.getState().loading;
+  let waitAttempts = 0;
+  const maxWaitAttempts = 60; // Max ~6 seconds wait (60 * 100ms)
+
+  const isLoadingFromSelfInitially = get().isLoading;
+  const isLoadingFromAuthInitially = useAuthStore.getState().loading;
+
+  while ((!authDetermined || authLoading) && waitAttempts < maxWaitAttempts) {
+    if (waitAttempts === 0 && (isLoadingFromSelfInitially || isLoadingFromAuthInitially)) {
+      if (!get().isLoading) set({ isLoading: true });
+    }
+    console.log(`[waitForAuthDetermination] Waiting for auth (Determined: ${authDetermined}, Loading: ${authLoading}). Attempt: ${waitAttempts + 1}`);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    authDetermined = useAuthStore.getState().authStateDetermined;
+    authLoading = useAuthStore.getState().loading;
+    waitAttempts++;
+  }
+
+  if (!authDetermined) {
+    console.error('[waitForAuthDetermination] Auth state not determined after waiting.');
+    set({ error: 'Authentication status could not be determined.', isLoading: false });
+    return false;
+  }
+  if (authLoading && !authDetermined) { // Should be caught by !authDetermined mostly
+     console.error('[waitForAuthDetermination] Auth stopped loading but state still not determined.');
+     set({ error: 'Authentication status unclear after loading.', isLoading: false });
+     return false;
+  }
+  console.log('[waitForAuthDetermination] Auth state determined, proceeding.');
+  return true;
+};
+
+// Helper function to ensure participant record exists and is up-to-date
+const _ensureParticipantRecord = async (
+  sessionId: string, 
+  user: User | null, // User from useAuthStore
+  isHost: boolean, // Current host status from readingSessionStore
+  get: () => ReadingSessionStore, 
+  set: (partial: Partial<ReadingSessionStore> | ((state: ReadingSessionStore) => Partial<ReadingSessionStore>)) => void
+): Promise<string | null> => {
+  let participantQuery = supabase
+    .from('session_participants')
+    .select('*')
+    .eq('session_id', sessionId)
+    .eq('is_active', true);
+
+  let determinedAnonymousId: string | null = null;
+
+  if (user && user.email) { // Authenticated user
+    participantQuery = participantQuery.eq('user_id', user.id);
+  } else if (user && !user.email) { // Anonymous user identified by useAuthStore (user.id is the anonymous_id)
+    determinedAnonymousId = user.id;
+    participantQuery = participantQuery.eq('anonymous_id', user.id);
+    if (!get().anonymousId) set({ anonymousId: user.id }); // Ensure readingSessionStore has this anonymousId
+  } else { // No user from auth store, try browser fingerprint as last resort for anonymous
+    console.warn("[_ensureParticipantRecord] No user from authStore. Attempting fingerprint.");
+    const browserFingerprint = getPersistentBrowserId();
+    if (browserFingerprint) {
+      determinedAnonymousId = browserFingerprint;
+      participantQuery = participantQuery.eq('anonymous_id', browserFingerprint);
+      if (!get().anonymousId) set({ anonymousId: browserFingerprint });
+    } else {
+      console.error("[_ensureParticipantRecord] Cannot identify anonymous user (no auth user, no fingerprint).");
+      set({ error: "Cannot identify anonymous user.", isLoading: false });
+      return null;
+    }
+  }
+
+  const { data: existingParticipant, error: fetchError } = await participantQuery.maybeSingle();
+
+  if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means no rows found, which is not an error here
+    console.error("[_ensureParticipantRecord] Error fetching existing participant:", fetchError);
+    set({ error: "Failed to check for existing participant.", isLoading: false });
+    return null;
+  }
+
+  if (existingParticipant) {
+    console.log('[_ensureParticipantRecord] Found existing participant:', existingParticipant.id);
+    await supabase
+      .from('session_participants')
+      .update({ last_seen_at: new Date().toISOString(), is_active: true })
+      .eq('id', existingParticipant.id);
+    return existingParticipant.id;
+  } else {
+    console.log('[_ensureParticipantRecord] No existing participant found, creating new one...');
+    const participantNameToSet = user?.username || 
+                               ((user && !user.email) ? (isHost ? 'Anonymous Host' : 'Anonymous Guest') : 
+                               (isHost ? 'Host' : 'Guest'));
+    
+    const newParticipantData: any = {
+      session_id: sessionId,
+      name: participantNameToSet,
+      is_active: true,
+      role: isHost ? 'host' : 'participant',
+    };
+
+    if (user && user.email) {
+      newParticipantData.user_id = user.id;
+    } else {
+      // Use the determinedAnonymousId from earlier logic (either from authStore user or fingerprint)
+      if (determinedAnonymousId) {
+        newParticipantData.anonymous_id = determinedAnonymousId;
+      } else {
+        // This case should be rare due to checks above, but as a fallback:
+        const freshFingerprint = getPersistentBrowserId();
+        if (freshFingerprint) {
+          newParticipantData.anonymous_id = freshFingerprint;
+          if(!get().anonymousId) set({ anonymousId: freshFingerprint });
+          console.warn("[_ensureParticipantRecord] Fallback: Creating new participant with freshly fetched fingerprint for anonymous_id.");
+        } else {
+          console.error("[_ensureParticipantRecord] Critical: Cannot create anonymous participant without an ID.");
+          set({ error: "Cannot create anonymous participant without an identifier.", isLoading: false });
+          return null;
+        }
+      }
+    }
+    
+    console.log('[_ensureParticipantRecord] Inserting new participant with data:', newParticipantData);
+    const { data: newParticipant, error: insertError } = await supabase
+      .from('session_participants')
+      .insert(newParticipantData)
+      .select('id')
+      .single();
+
+    if (insertError) {
+      console.error('[_ensureParticipantRecord] Failed to create participant:', insertError);
+      set({ error: "Failed to create participant record.", isLoading: false });
+      return null;
+    }
+    if (newParticipant) {
+        console.log('[_ensureParticipantRecord] New participant created successfully:', newParticipant.id);
+        return newParticipant.id;
+    }
+    return null; // Should not happen if insert was successful
+  }
+};
+
+// Helper function to restore session state from localStorage if available
+const _restorePreservedSessionContext = async (
+  sessionId: string,
+  user: User | null, // User from useAuthStore
+  initialStoreState: ReadingSessionStore, // Initial state of the store
+  finalParticipantId: string | null, // Established participantId
+  get: () => ReadingSessionStore,
+  set: (partial: Partial<ReadingSessionStore> | ((state: ReadingSessionStore) => Partial<ReadingSessionStore>)) => void
+) => {
+  try {
+    const restoredContextRaw = localStorage.getItem('session_context_restored');
+    if (restoredContextRaw) {
+      const restoredContext = JSON.parse(restoredContextRaw);
+      console.log('[_restorePreservedCtx] Found session_context_restored:', restoredContext);
+
+      if (
+        restoredContext.sessionId === sessionId &&
+        restoredContext.migrationComplete &&
+        restoredContext.preserveState
+      ) {
+        const preservedStateRaw = localStorage.getItem('preserved_session_state');
+        if (preservedStateRaw) {
+          const preservedState = JSON.parse(preservedStateRaw);
+          console.log('[_restorePreservedCtx] Applying preserved_session_state:', preservedState);
+
+          const currentSessionInStore = get().sessionState; // Get current session state from DB before overriding
+          const updatedSessionData = {
+            ...currentSessionInStore, // Base on what was fetched from DB
+            ...preservedState,        // Override with preserved parts
+            id: sessionId,            // Ensure session ID is correct
+            hostUserId: currentSessionInStore?.hostUserId || preservedState.hostUserId, // Prioritize DB host, then preserved
+            deckId: preservedState.deckId || currentSessionInStore?.deckId || initialStoreState.deckId,
+            // Ensure fields not in preservedState but existing in currentSessionInStore are kept
+            createdAt: currentSessionInStore?.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(), // Always update this
+            isActive: currentSessionInStore?.isActive !== undefined ? currentSessionInStore.isActive : true,
+          };
+
+          set(state => ({
+            sessionState: updatedSessionData as ReadingSessionState,
+            isHost: (user ? updatedSessionData.hostUserId === user.id : updatedSessionData.hostUserId === null) || state.isHost,
+            _justRestoredFromPreservedState: true,
+          }));
+
+          setTimeout(() => {
+            set({ _justRestoredFromPreservedState: false });
+            console.log('[_restorePreservedCtx] _justRestoredFromPreservedState flag cleared.');
+          }, 3000);
+
+          if (restoredContext.participantId && finalParticipantId && restoredContext.participantId !== finalParticipantId) {
+            console.warn(`[_restorePreservedCtx] Restored participantId (${restoredContext.participantId}) differs from established one (${finalParticipantId}). Using established one.`);
+          }
+
+          localStorage.removeItem('preserved_session_state');
+          localStorage.removeItem('session_context_restored');
+          console.log('[_restorePreservedCtx] ✅ Preserved session state applied and localStorage cleaned.');
+        } else {
+          console.log('[_restorePreservedCtx] session_context_restored found, but no preserved_session_state item.');
+          localStorage.removeItem('session_context_restored');
+        }
+      } else {
+        console.log('[_restorePreservedCtx] session_context_restored not applicable or migration not complete. SessionId match:', restoredContext.sessionId === sessionId);
+        if (restoredContext.sessionId !== sessionId || Date.now() - (restoredContext.timestamp || 0) > 300000) {
+          localStorage.removeItem('session_context_restored');
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[_restorePreservedCtx] Error processing preserved session state:', e);
+    localStorage.removeItem('session_context_restored');
+    localStorage.removeItem('preserved_session_state');
+  }
+};
+
+// --- Realtime Subscription Helper Functions ---
+
+const _handlePostgresSessionUpdate = (
+  payload: any, // Supabase PostgresChangeEventPayload<any>
+  get: () => ReadingSessionStore,
+  set: (partial: Partial<ReadingSessionStore> | ((state: ReadingSessionStore) => Partial<ReadingSessionStore>)) => void
+) => {
+  console.log('[_handlePostgresSessionUpdate] Real-time session update received:', payload);
+  const newSession = payload.new as Partial<ReadingSessionState>; // Cast to Partial, as not all fields might be present
+  const currentState = get().sessionState;
+  const justRestored = get()._justRestoredFromPreservedState;
+
+  if (currentState) {
+    const localStateAge = Date.now() - new Date(currentState.updatedAt).getTime();
+    const isRecentLocalUpdate = localStateAge < 2000; // 2 seconds threshold
+    const incomingCards = newSession.selectedCards || [];
+    const currentCards = currentState.selectedCards || [];
+    const wouldReduceCards = incomingCards.length < currentCards.length;
+    // Preserve local cards if local update was recent AND incoming update would reduce card count AND we have cards
+    const shouldPreserveLocalCards = isRecentLocalUpdate && wouldReduceCards && currentCards.length > 0;
+
+    const stepOrder = ['setup', 'ask-question', 'drawing', 'interpretation'];
+    const currentStepIndex = stepOrder.indexOf(currentState.readingStep);
+    const incomingStepIndex = newSession.readingStep ? stepOrder.indexOf(newSession.readingStep) : -1;
+
+    console.log('[_handlePostgresSessionUpdate] Real-time update analysis:', {
+      localStateAge,
+      isRecentLocalUpdate,
+      currentSelectedCards: currentCards.length,
+      incomingSelectedCards: incomingCards.length,
+      wouldReduceCards,
+      shouldPreserveLocalCards,
+      justRestoredFromPreserved: justRestored,
+      currentReadingStep: currentState.readingStep,
+      incomingReadingStep: newSession.readingStep,
+      currentStepIndex,
+      incomingStepIndex,
+      currentShuffledDeckLength: currentState.shuffledDeck?.length,
+      incomingShuffledDeckLength: newSession.shuffledDeck?.length,
+      currentQuestion: currentState.question,
+      incomingQuestion: newSession.question,
+      currentLayoutId: currentState.selectedLayout?.id,
+      incomingLayoutId: newSession.selectedLayout?.id,
+    });
+
+    let finalShuffledDeck = newSession.shuffledDeck ?? currentState.shuffledDeck ?? [];
+    if (justRestored && currentState.shuffledDeck && newSession.shuffledDeck && newSession.shuffledDeck.length > currentState.shuffledDeck.length) {
+      console.log('[_handlePostgresSessionUpdate] [RT PRESERVE] ShuffledDeck: Using local (more cards removed).');
+      finalShuffledDeck = currentState.shuffledDeck;
+    }
+
+    let finalReadingStep = newSession.readingStep ?? currentState.readingStep;
+    if (justRestored && incomingStepIndex !== -1 && incomingStepIndex < currentStepIndex) {
+      console.log('[_handlePostgresSessionUpdate] [RT PRESERVE] ReadingStep: Using local (more advanced).');
+      finalReadingStep = currentState.readingStep;
+    }
+
+    let finalSelectedLayout = newSession.selectedLayout ?? currentState.selectedLayout;
+    if (justRestored && currentState.selectedLayout && !newSession.selectedLayout) {
+      console.log('[_handlePostgresSessionUpdate] [RT PRESERVE] SelectedLayout: Using local (incoming is null).');
+      finalSelectedLayout = currentState.selectedLayout;
+    }
+    
+    let finalQuestion = newSession.question ?? currentState.question;
+    if (justRestored && currentState.question && newSession.question === undefined) { // Check specifically for undefined, empty string is valid
+      console.log('[_handlePostgresSessionUpdate] [RT PRESERVE] Question: Using local (incoming is undefined).');
+      finalQuestion = currentState.question;
+    }
+
+    set({
+      sessionState: {
+        ...currentState, // Base on current state
+        ...newSession,   // Apply incoming changes
+        // Apply preserved/defaulted values
+        shuffledDeck: finalShuffledDeck,
+        readingStep: finalReadingStep,
+        selectedLayout: finalSelectedLayout,
+        question: finalQuestion,
+        selectedCards: shouldPreserveLocalCards ? currentCards : (newSession.selectedCards || currentState.selectedCards || []),
+        updatedAt: newSession.updatedAt || currentState.updatedAt || new Date().toISOString(),
+        deckId: newSession.deckId || currentState.deckId, // Ensure deckId is preserved
+      }
+    });
+  } else {
+    // If no current state, just set the new state (should be rare for an update event)
+    set({ sessionState: newSession as ReadingSessionState });
+  }
+};
+
+const _handlePostgresParticipantChange = async (
+  sessionId: string, 
+  get: () => ReadingSessionStore,
+  set: (partial: Partial<ReadingSessionStore> | ((state: ReadingSessionStore) => Partial<ReadingSessionStore>)) => void
+) => {
+  console.log('[_handlePostgresParticipantChange] Participant change detected for session:', sessionId);
+  try {
+    const { data } = await supabase
+      .from('session_participants')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('is_active', true);
+    
+    if (data) {
+      set({ participants: data as SessionParticipant[] });
+    } else {
+      console.warn('[_handlePostgresParticipantChange] No participant data returned after change notification.');
+    }
+  } catch (error) {
+    console.error('[_handlePostgresParticipantChange] Error refetching participants:', error);
+  }
+};
+
+const _handleBroadcastedGuestAction = (
+  payload: any, // SupabaseBroadcastMessage<any>
+  get: () => ReadingSessionStore,
+  set: (partial: Partial<ReadingSessionStore> | ((state: ReadingSessionStore) => Partial<ReadingSessionStore>)) => void
+) => {
+  console.log('[_handleBroadcastedGuestAction] Received guest action:', payload);
+  const { action, data, participantId: senderParticipantId } = payload.payload;
+  const currentStoreState = get();
+  
+  if (senderParticipantId === currentStoreState.participantId) {
+    console.log('[_handleBroadcastedGuestAction] Ignoring own broadcasted action.');
+    return;
+  }
+
+  console.log('[_handleBroadcastedGuestAction] Processing action:', { action, data, fromHost: action === 'hostUpdate' });
+  
+  switch (action) {
+    case 'updateSession':
+      // Guest update - only process if we're the host
+      if (currentStoreState.isHost) {
+        console.log('[_handleBroadcastedGuestAction] Processing guest updateSession as host');
+        currentStoreState.updateSession(data); // Call the store's updateSession method
+      } else {
+        console.log('[_handleBroadcastedGuestAction] Non-host received updateSession broadcast, might apply locally if non-critical.');
+        // Non-hosts might still apply non-critical UI updates directly for responsiveness,
+        // but critical state should come from postgres_changes or hostUpdate.
+        // Example: if (data.someSpecificNonCriticalField) set({ sessionState: { ...get().sessionState, ...data }});
+      }
+      break;
+      
+    case 'hostUpdate':
+      // Host update - all participants should apply this
+      console.log('[_handleBroadcastedGuestAction] Processing hostUpdate as participant');
+      const currentSession = currentStoreState.sessionState;
+      if (currentSession) {
+        set({
+          sessionState: {
+            ...currentSession,
+            ...data, // Apply updates from host
+            updatedAt: new Date().toISOString() // Ensure updatedAt is fresh
+          }
+        });
+      }
+      break;
+      
+    case 'cardSelection':
+      // Example: Handle card selection from guest (if host needs to validate/process)
+      if (currentStoreState.isHost && data.selectedCards) {
+        console.log('[_handleBroadcastedGuestAction] Host processing cardSelection from guest.');
+        currentStoreState.updateSession({ selectedCards: data.selectedCards });
+      }
+      break;
+      
+    // Add more cases for other specific guest actions as needed
+    // e.g., 'shuffleDeck', 'resetCards', 'resetReading', 'resetPan'
+    case 'shuffleDeck':
+    case 'resetCards':
+    case 'resetReading':
+    case 'resetPan':
+        // These actions might primarily affect the local UI for the sender,
+        // but other participants might need to react or sync. If the action
+        // implies a DB change (like shuffledDeck), hostUpdate or session update is better.
+        // For purely visual/local state on other clients, you might do something here.
+        console.log(`[_handleBroadcastedGuestAction] Received action '${action}', data:`, data);
+        // Potentially update local store state for other clients based on these actions
+        // Example: if (action === 'shuffleDeck' && data.shuffledDeck) {
+        //   set(state => ({ sessionState: { ...state.sessionState, shuffledDeck: data.shuffledDeck }}));
+        // }
+        break;
+
+    default:
+      console.log('[_handleBroadcastedGuestAction] Unknown guest action:', action);
+  }
+};
+
+const _managePresenceAndExpiryInterval = (
+  get: () => ReadingSessionStore,
+  set: (partial: Partial<ReadingSessionStore> | ((state: ReadingSessionStore) => Partial<ReadingSessionStore>)) => void
+): NodeJS.Timeout => {
+  console.log('[_managePresenceAndExpiryInterval] Setting up presence and expiry interval.');
+  const intervalId = setInterval(async () => {
+    get().updatePresence();
+    
+    const now = Date.now();
+    const lastExpiryCheck = (get() as any)._lastExpiryCheckTimestamp || 0;
+    if (now - lastExpiryCheck > 5 * 60 * 1000) { // 5 minutes
+      const isExpired = await get().checkSessionExpiry();
+      if (isExpired) {
+        console.log('[_managePresenceAndExpiryInterval] Current session has expired, cleaning up...');
+        get().cleanup();
+        if (typeof window !== 'undefined') window.location.href = '/';
+      }
+      set({ _lastExpiryCheckTimestamp: now } as any); // Store the last check time, acknowledge any type
+    }
+  }, 30000); // Every 30 seconds
+  return intervalId;
+};
+
+// Helper function to merge fetched session data with local state, applying preservation logic
+const _mergeFetchedSessionWithLocalState = (
+  fetchedSessionData: any, // Raw data from Supabase
+  currentLocalSessionState: ReadingSessionState | null,
+  isCurrentUserHost: boolean, // isHost from the store for the current user
+  currentUser: User | null // User from useAuthStore
+): ReadingSessionState => {
+  // Convert fetched data to local format
+  const syncedState: ReadingSessionState = {
+    id: fetchedSessionData.id,
+    hostUserId: fetchedSessionData.host_user_id,
+    deckId: fetchedSessionData.deck_id,
+    selectedLayout: fetchedSessionData.selected_layout,
+    question: fetchedSessionData.question || '',
+    readingStep: fetchedSessionData.reading_step,
+    selectedCards: fetchedSessionData.selected_cards || [],
+    shuffledDeck: fetchedSessionData.shuffled_deck ?? [],
+    interpretation: fetchedSessionData.interpretation || '',
+    zoomLevel: fetchedSessionData.zoom_level || 1.0,
+    panOffset: fetchedSessionData.pan_offset || { x: 0, y: 0 },
+    zoomFocus: fetchedSessionData.zoom_focus || null,
+    activeCardIndex: fetchedSessionData.active_card_index,
+    sharedModalState: fetchedSessionData.shared_modal_state || null,
+    videoCallState: fetchedSessionData.video_call_state || null,
+    loadingStates: fetchedSessionData.loading_states || null,
+    deckSelectionState: fetchedSessionData.deck_selection_state || null,
+    isActive: fetchedSessionData.is_active,
+    createdAt: fetchedSessionData.created_at,
+    updatedAt: fetchedSessionData.updated_at
+  };
+
+  if (!currentLocalSessionState) {
+    console.log('[_mergeFetchedSession] No current local state, using fetched state as is.');
+    return syncedState;
+  }
+
+  const isSessionCreator = isCurrentUserHost || 
+    (syncedState.hostUserId === null && !currentUser) || // Guest session creator
+    (syncedState.hostUserId === currentUser?.id); // Authenticated session creator
+        
+  const localStateAge = Date.now() - new Date(currentLocalSessionState.updatedAt).getTime();
+  const isRecentLocalUpdate = localStateAge < 10000; // 10 seconds
+        
+  const currentStepOrder = ['setup', 'ask-question', 'drawing', 'interpretation'];
+  const localStepIndex = currentStepOrder.indexOf(currentLocalSessionState.readingStep);
+  const syncedStepIndex = currentStepOrder.indexOf(syncedState.readingStep);
+        
+  console.log('[_mergeFetchedSession] Session sync merge check:', {
+    isCurrentUserHost,
+    isSessionCreator,
+    isRecentLocalUpdate,
+    localStateAge,
+    localStep: currentLocalSessionState.readingStep,
+    syncedStep: syncedState.readingStep,
+    localStepIndex,
+    syncedStepIndex,
+    hostUserIdFromSynced: syncedState.hostUserId,
+    currentAuthUserId: currentUser?.id
+  });
+        
+  const shouldPreserveLocal = 
+    (isSessionCreator && localStepIndex > syncedStepIndex) ||
+    isRecentLocalUpdate;
+          
+  if (shouldPreserveLocal) {
+    console.log('[_mergeFetchedSession] Preserving some local state attributes:', {
+      reason: isRecentLocalUpdate ? 'recent local update' : 'session creator with more advanced progress',
+      preserving: {
+        readingStep: currentLocalSessionState.readingStep,
+        selectedLayoutId: currentLocalSessionState.selectedLayout?.id,
+        question: currentLocalSessionState.question,
+        selectedCardsCount: currentLocalSessionState.selectedCards.length,
+        interpretationExists: !!currentLocalSessionState.interpretation,
+        activeCardIndex: currentLocalSessionState.activeCardIndex
+      }
+    });
+    
+    return {
+      ...syncedState, // Base with synced state
+      readingStep: currentLocalSessionState.readingStep, // Preserve more advanced step
+      selectedLayout: currentLocalSessionState.selectedLayout || syncedState.selectedLayout,
+      question: currentLocalSessionState.question || syncedState.question,
+      // For selectedCards, if local is more advanced, it often means cards were placed.
+      // However, the primary driver should be the readingStep. If local step is drawing/interpretation
+      // and synced is setup, local cards are more relevant.
+      selectedCards: (localStepIndex >= currentStepOrder.indexOf('drawing') && localStepIndex > syncedStepIndex) 
+                     ? currentLocalSessionState.selectedCards 
+                     : syncedState.selectedCards,
+      interpretation: currentLocalSessionState.interpretation || syncedState.interpretation,
+      activeCardIndex: currentLocalSessionState.activeCardIndex ?? syncedState.activeCardIndex,
+      // Preserve UI-related states if local state was recent, otherwise take synced (e.g. from host)
+      zoomLevel: isRecentLocalUpdate ? currentLocalSessionState.zoomLevel : syncedState.zoomLevel,
+      panOffset: isRecentLocalUpdate ? currentLocalSessionState.panOffset : syncedState.panOffset,
+      zoomFocus: isRecentLocalUpdate ? currentLocalSessionState.zoomFocus : syncedState.zoomFocus,
+      sharedModalState: isRecentLocalUpdate ? currentLocalSessionState.sharedModalState : syncedState.sharedModalState,
+      deckSelectionState: isRecentLocalUpdate ? currentLocalSessionState.deckSelectionState : syncedState.deckSelectionState,
+      updatedAt: new Date().toISOString(), // Mark as updated now due to merge
+    };
+  } else {
+    console.log('[_mergeFetchedSession] Using fetched state as primary, no specific local preservation needed based on rules.');
+    return {
+        ...syncedState,
+        updatedAt: new Date().toISOString(), // Mark as updated now due to merge/sync
+    };
+  }
+};
+
+// --- updateSession Helper Functions ---
+
+const _handleOfflineSessionUpdate = (
+  updates: Partial<ReadingSessionState>,
+  get: () => ReadingSessionStore,
+  // set is not directly used here if updateLocalSession handles its own state setting via get()
+) => {
+  console.log('[_handleOfflineSessionUpdate] Updating local/offline session.');
+  get().updateLocalSession(updates);
+};
+
+const _handleGuestBroadcastUpdate = async (
+  updates: Partial<ReadingSessionState>,
+  get: () => ReadingSessionStore,
+  set: (partial: Partial<ReadingSessionStore> | ((state: ReadingSessionStore) => Partial<ReadingSessionStore>)) => void
+) => {
+  console.log('[_handleGuestBroadcastUpdate] Guest (non-host) broadcasting action.');
+  await get().broadcastGuestAction('updateSession', updates);
+  const currentSessionState = get().sessionState;
+  if (currentSessionState) {
+    set({
+      sessionState: {
+        ...currentSessionState,
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+  }
+};
+
+const _performDatabaseSessionUpdate = async (
+  updates: Partial<ReadingSessionState>,
+  sessionState: ReadingSessionState, // Assumed non-null by caller
+  user: User | null,
+  isHost: boolean,
+  participantId: string | null,
+  anonymousId: string | null,
+  get: () => ReadingSessionStore, // For broadcast fallback
+  set: (partial: Partial<ReadingSessionStore> | ((state: ReadingSessionStore) => Partial<ReadingSessionStore>)) => void
+) => {
+  console.log('[_performDatabaseSessionUpdate] Attempting direct database update.');
+  try {
+    const updateData: any = {};
+    if (updates.selectedLayout !== undefined) updateData.selected_layout = updates.selectedLayout;
+    if (updates.question !== undefined) updateData.question = updates.question;
+    if (updates.readingStep !== undefined) updateData.reading_step = updates.readingStep;
+    if (updates.selectedCards !== undefined) updateData.selected_cards = updates.selectedCards;
+    if (updates.shuffledDeck !== undefined) updateData.shuffled_deck = updates.shuffledDeck;
+    if (updates.interpretation !== undefined) updateData.interpretation = updates.interpretation;
+    if (updates.zoomLevel !== undefined) updateData.zoom_level = updates.zoomLevel;
+    if (updates.panOffset !== undefined) updateData.pan_offset = updates.panOffset;
+    if (updates.zoomFocus !== undefined) updateData.zoom_focus = updates.zoomFocus;
+    if (updates.activeCardIndex !== undefined) updateData.active_card_index = updates.activeCardIndex;
+    if (updates.sharedModalState !== undefined) updateData.shared_modal_state = updates.sharedModalState;
+    if (updates.videoCallState !== undefined) updateData.video_call_state = updates.videoCallState;
+    if (updates.loadingStates !== undefined) updateData.loading_states = updates.loadingStates;
+    if (updates.deckSelectionState !== undefined) updateData.deck_selection_state = updates.deckSelectionState;
+
+    console.log('[_performDatabaseSessionUpdate] Updating session with data:', updateData);
+    console.log('[_performDatabaseSessionUpdate] Session ID:', sessionState.id);
+    console.log('[_performDatabaseSessionUpdate] User info:', { userId: user?.id, participantId, anonymousId, isHost, isAnonymous: !user });
+
+    if (!user && isHost && anonymousId) {
+      console.log('[_performDatabaseSessionUpdate] Anonymous host RLS check.');
+      const { data: hostCheck } = await supabase
+        .from('session_participants')
+        .select('id')
+        .eq('session_id', sessionState.id)
+        .eq('anonymous_id', anonymousId)
+        .order('joined_at', { ascending: true })
+        .limit(1)
+        .single();
+      if (!hostCheck) throw new Error('Anonymous host RLS verification failed');
+      console.log('[_performDatabaseSessionUpdate] Anonymous host RLS verified.');
+    }
+
+    const { error } = await supabase
+      .from('reading_sessions')
+      .update(updateData)
+      .eq('id', sessionState.id);
+
+    if (error) throw error; // Let the catch block handle it
+
+    set({
+      sessionState: {
+        ...sessionState,
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    console.log('[_performDatabaseSessionUpdate] Database update successful.');
+
+  } catch (err: any) {
+    console.error('[_performDatabaseSessionUpdate] Error during database update:', err);
+    if (!user && isHost && (err.message?.includes('permission') || err.message?.includes('policy') || err.message?.includes('insufficient_privilege') || err.code === '42501' || err.code === 'PGRST301')) {
+      console.warn('[_performDatabaseSessionUpdate] Anonymous host DB update failed (RLS), falling back to broadcast.');
+      await get().broadcastGuestAction('hostUpdate', updates); // Use get() to call broadcastGuestAction
+      // Optimistically update local state for the host
+      set({
+        sessionState: {
+          ...sessionState,
+          ...updates,
+          updatedAt: new Date().toISOString(),
+        },
+      });
+    } else if (!user && !isHost && (err.message?.includes('permission') || err.message?.includes('policy'))) {
+      console.warn('[_performDatabaseSessionUpdate] Guest DB update failed as expected (RLS).');
+      // Local state was already updated optimistically for guests, or should be via broadcast that was sent.
+    } else {
+      console.error('[_performDatabaseSessionUpdate] Unexpected database error:', err);
+      set({ error: err.message });
+    }
+  }
+};
+
+// --- upgradeGuestAccount Helper Functions ---
+
+const _updateParticipantForGuestUpgrade = async (participantId: string, newUserId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('session_participants')
+      .update({ user_id: newUserId, anonymous_id: null })
+      .eq('id', participantId);
+    if (error) throw error;
+    console.log('[_updateParticipantForGuestUpgrade] Participant record updated for guest upgrade.');
+    return true;
+  } catch (err) {
+    console.error('[_updateParticipantForGuestUpgrade] Error updating participant record:', err);
+    return false;
+  }
+};
+
+const _updateSessionHostForGuestUpgrade = async (sessionId: string, newUserId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('reading_sessions')
+      .update({ host_user_id: newUserId })
+      .eq('id', sessionId);
+    if (error) throw error;
+    console.log('[_updateSessionHostForGuestUpgrade] Session host updated for guest upgrade.');
+    return true;
+  } catch (err) {
+    console.error('[_updateSessionHostForGuestUpgrade] Error updating session host:', err);
+    return false;
+  }
+};
+
+const _refreshParticipantsAfterUpgrade = async (
+  sessionId: string, 
+  set: (partial: Partial<ReadingSessionStore> | ((state: ReadingSessionStore) => Partial<ReadingSessionStore>)) => void
+) => {
+  try {
+    const { data: updatedParticipants } = await supabase
+      .from('session_participants')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('is_active', true);
+    if (updatedParticipants) {
+      set({ participants: updatedParticipants as SessionParticipant[] });
+      console.log('[_refreshParticipantsAfterUpgrade] Participants list refreshed.');
+    }
+  } catch (participantsError) {
+    console.warn('[_refreshParticipantsAfterUpgrade] Could not refresh participants list after upgrade:', participantsError);
+  }
+};
+
+// --- syncLocalSessionToDatabase Helper Functions ---
+
+// Interface for the database schema (snake_case)
+interface ReadingSessionDBSchema {
+  host_user_id: string | null;
+  deck_id: string;
+  selected_layout: ReadingLayout | null; 
+  question: string;
+  reading_step: 'setup' | 'ask-question' | 'drawing' | 'interpretation';
+  selected_cards: (Card & { position: string; isReversed: boolean; x?: number; y?: number; customPosition?: string })[];
+  interpretation: string;
+  zoom_level: number;
+  pan_offset: { x: number; y: number }; 
+  zoom_focus: { x: number; y: number } | null; 
+  active_card_index: number | null;
+  shared_modal_state: ReadingSessionState['sharedModalState']; 
+  video_call_state: ReadingSessionState['videoCallState']; 
+  loading_states: ReadingSessionState['loadingStates']; 
+  deck_selection_state: ReadingSessionState['deckSelectionState']; 
+  is_active: boolean;
+  // id, created_at, updated_at are typically auto-managed by Supabase
+}
+
+const _prepareLocalSessionForSync = (localSessionState: ReadingSessionState, userId: string | undefined | null): Partial<ReadingSessionDBSchema> => {
+  return {
+    host_user_id: userId || localSessionState.hostUserId, 
+    deck_id: localSessionState.deckId,
+    selected_layout: localSessionState.selectedLayout,
+    question: localSessionState.question,
+    reading_step: localSessionState.readingStep,
+    selected_cards: localSessionState.selectedCards,
+    interpretation: localSessionState.interpretation,
+    zoom_level: localSessionState.zoomLevel,
+    pan_offset: localSessionState.panOffset,
+    zoom_focus: localSessionState.zoomFocus,
+    active_card_index: localSessionState.activeCardIndex,
+    shared_modal_state: localSessionState.sharedModalState,
+    video_call_state: localSessionState.videoCallState,
+    loading_states: localSessionState.loadingStates,
+    deck_selection_state: localSessionState.deckSelectionState,
+    is_active: true, 
+  };
+};
+
+const _insertSessionToDatabase = async (sessionPayload: Partial<ReadingSessionDBSchema>): Promise<{ id: string } | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('reading_sessions')
+      .insert(sessionPayload) // Supabase client expects an object matching DB schema
+      .select('id') 
+      .single();
+    if (error) throw error;
+    return data as { id: string }; 
+  } catch (err) {
+    console.error('[_insertSessionToDatabase] Error inserting session to DB:', err);
+    return null;
+  }
+};
+
+const _finalizeLocalSessionSync = (
+  newDbId: string, 
+  oldLocalSessionState: ReadingSessionState,
+  get: () => ReadingSessionStore,
+  set: (partial: Partial<ReadingSessionStore> | ((state: ReadingSessionStore) => Partial<ReadingSessionStore>)) => void
+) => {
+  const syncedSessionState: ReadingSessionState = {
+    ...oldLocalSessionState,
+    id: newDbId, // Update with the new ID from the database
+    updatedAt: new Date().toISOString(), // Mark as updated now
+    // Potentially reset fields that should not carry over from local-only state if any
+  };
+
+  localStorage.removeItem(`tarot_session_${oldLocalSessionState.id}`); // Remove old local_ session
+  get().saveLocalSession(syncedSessionState); // Save the new state (with DB ID) to localStorage
+
+  set({
+    sessionState: syncedSessionState,
+    isOfflineMode: false,
+    pendingSyncData: null,
+  });
+  console.log('[_finalizeLocalSessionSync] Successfully finalized sync of local session to database:', newDbId);
+};
+
+// --- End syncLocalSessionToDatabase Helper Functions ---
+
+// --- checkSessionExpiry Helper Functions ---
+
+const _fetchActiveParticipantsTimestamps = async (sessionId: string): Promise<{ last_seen_at: string }[] | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('session_participants')
+      .select('last_seen_at')
+      .eq('session_id', sessionId)
+      .eq('is_active', true);
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error('[_fetchActiveParticipantsTimestamps] Error fetching participants:', err);
+    return null;
+  }
+};
+
+const _checkIfAllParticipantsAreStale = (participantsTimestamps: { last_seen_at: string }[] | null): boolean => {
+  if (!participantsTimestamps || participantsTimestamps.length === 0) {
+    console.log('[_checkIfAllParticipantsAreStale] No active participants found, considering stale.');
+    return true; // No active participants means session can be considered stale for cleanup purposes
+  }
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const allStale = participantsTimestamps.every(p => new Date(p.last_seen_at) < oneHourAgo);
+  if (allStale) {
+    console.log('[_checkIfAllParticipantsAreStale] All participants stale for over 1 hour.');
+  }
+  return allStale;
+};
+
+const _markSessionAsInactiveInDB = async (sessionId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('reading_sessions')
+      .update({ is_active: false })
+      .eq('id', sessionId);
+    if (error) throw error;
+    console.log('[_markSessionAsInactiveInDB] Session marked as inactive in DB:', sessionId);
+    return true;
+  } catch (err) {
+    console.error('[_markSessionAsInactiveInDB] Error marking session inactive:', err);
+    return false;
+  }
+};
+
+// --- End checkSessionExpiry Helper Functions ---
 
 export const useReadingSessionStore = create<ReadingSessionStore>()(
   subscribeWithSelector((set, get) => ({
@@ -261,65 +1090,33 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
     },
 
     syncLocalSessionToDatabase: async () => {
-      const { sessionState, pendingSyncData, isOfflineMode } = get();
+      const { sessionState, isOfflineMode } = get();
       
       if (!sessionState || !isOfflineMode || !sessionState.id.startsWith('local_')) {
+        console.warn('[syncLocalSessionToDatabase] Conditions not met for sync. Aborting.');
         return false;
       }
       
-      try {
-        const { user } = useAuthStore.getState();
-        
-        // Create the session in the database
-        const { data, error } = await supabase
-          .from('reading_sessions')
-          .insert({
-            host_user_id: user?.id || sessionState.hostUserId,
-            deck_id: sessionState.deckId,
-            selected_layout: sessionState.selectedLayout,
-            question: sessionState.question,
-            reading_step: sessionState.readingStep,
-            selected_cards: sessionState.selectedCards,
-            interpretation: sessionState.interpretation,
-            zoom_level: sessionState.zoomLevel,
-            active_card_index: sessionState.activeCardIndex,
-            is_active: true
-          })
-          .select()
-          .single();
+      const { user } = useAuthStore.getState();
+      const sessionPayloadToSync = _prepareLocalSessionForSync(sessionState, user?.id);
 
-        if (error) throw error;
+      console.log('[syncLocalSessionToDatabase] Attempting to insert session to DB with payload:', sessionPayloadToSync);
+      const insertionResult = await _insertSessionToDatabase(sessionPayloadToSync);
 
-        // Update session with new database ID
-        const syncedSession: ReadingSessionState = {
-          ...sessionState,
-          id: data.id,
-          updatedAt: new Date().toISOString()
-        };
-        
-        // Clean up local session
-        localStorage.removeItem(`tarot_session_${sessionState.id}`);
-        
-        // Save synced session
-        get().saveLocalSession(syncedSession);
-        
-        // Update state
-        set({ 
-          sessionState: syncedSession,
-          isOfflineMode: false,
-          pendingSyncData: null
-        });
-        
-        console.log('Successfully synced local session to database:', data.id);
+      if (insertionResult && insertionResult.id) {
+        _finalizeLocalSessionSync(insertionResult.id, sessionState, get, set);
         return true;
-      } catch (error) {
-        console.error('Failed to sync local session to database:', error);
+      } else {
+        console.error('[syncLocalSessionToDatabase] Failed to insert session into database or get new ID.');
+        // Optionally, set an error state here if needed
+        // set({ error: 'Failed to sync session with the database.' });
         return false;
       }
     },
 
     joinSession: async (sessionId: string, accessMethod: 'invite' | 'direct' = 'direct') => {
       const { user } = useAuthStore.getState();
+      set({ isLoading: true, error: null }); // Set loading true at the start
 
       try {
         const { data: session, error: sessionError } = await supabase
@@ -330,84 +1127,45 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           .single();
 
         if (sessionError || !session) {
+          set({ error: 'Session not found or inactive', isLoading: false });
           throw new Error('Session not found or inactive');
         }
 
+        const determinedIsHost = (user && session.host_user_id === user.id) || 
+                                 (!user && session.host_user_id === null && accessMethod === 'direct');
+
         set({ 
           sessionState: session as ReadingSessionState,
-          isHost: (user && session.host_user_id === user.id) || (!user && session.host_user_id === null && accessMethod === 'direct'),
-          isLoading: false, 
+          isHost: determinedIsHost,
+          // isLoading: false, // Keep loading true until participant is resolved
           error: null,
           initialSessionId: sessionId
         });
 
-        let participantQuery = supabase
-            .from('session_participants')
-          .select('*')
-            .eq('session_id', sessionId)
-          .eq('is_active', true);
+        // Use the refactored helper to ensure participant record
+        const finalParticipantId = await _ensureParticipantRecord(sessionId, user, determinedIsHost, get, set);
 
-        if (user && user.email) {
-          participantQuery = participantQuery.eq('user_id', user.id);
-        } else if (user && !user.email) {
-          participantQuery = participantQuery.eq('anonymous_id', user.id);
-          } else {
-          console.warn("joinSession: No valid user from authStore to find participant by.");
-          participantQuery = participantQuery.limit(0); 
-        }
-        
-        const { data: existingParticipant, error: existingParticipantError } = await participantQuery.maybeSingle();
-
-        if (existingParticipantError && existingParticipantError.code !== 'PGRST116') {
-            console.error("Error finding existing participant in joinSession:", existingParticipantError);
-        }
-          
-        let participant = existingParticipant;
-        
-        if (existingParticipant) {
-          console.log('Found existing participant in joinSession, reusing:', existingParticipant.id);
-          await supabase
-          .from('session_participants')
-            .update({ last_seen_at: new Date().toISOString() })
-            .eq('id', existingParticipant.id);
-        } else {
-          console.log('Creating new participant in joinSession...');
-          const participantDataToInsert = {
-            session_id: sessionId,
-            user_id: (user && user.email) ? user.id : null,
-            anonymous_id: (user && !user.email) ? user.id : null,
-            name: user?.username || ((user && !user.email) ? 'Anonymous Guest' : 'Guest'),
-            is_active: true,
-            role: 'participant' // Default role, can be adjusted by other logic if needed
-            // role: accessMethod === 'reader' ? 'reader' : 'participant' // Reverted this, as 'reader' is not a valid accessMethod here
-          };
-          console.log('Creating participant in joinSession with:', participantDataToInsert);
-
-          const { data: newParticipant, error: participantError } = await supabase
-            .from('session_participants')
-            .insert(participantDataToInsert)
-          .select()
-          .single();
-
-        if (participantError) throw participantError;
-          participant = newParticipant;
+        if (!finalParticipantId) {
+          // _ensureParticipantRecord sets isLoading to false and an error if it fails critically.
+          // If we are here, it means it might have returned null without a critical error, but we can't proceed.
+          if (get().isLoading) set({ isLoading: false });
+          if (!get().error) set({error: "Could not establish participant for session joining."});
+          return null; 
         }
 
-        if (!participant) {
-            console.error("Failed to establish participant record in joinSession.");
-            set({ error: "Could not establish participant record."});
-            return null;
-        }
-
-        set({ participantId: participant.id });
+        set({ participantId: finalParticipantId, isLoading: false }); // Now set loading to false
         
         // Fetch current participants list
-        const { data: participantsData } = await supabase
+        const { data: participantsData, error: participantsFetchError } = await supabase
           .from('session_participants')
           .select('*')
           .eq('session_id', sessionId)
           .eq('is_active', true);
 
+        if (participantsFetchError) {
+          console.warn('[joinSession] Error fetching participants list:', participantsFetchError);
+          // Continue, but participant list might be stale
+        }
         if (participantsData) {
           set({ participants: participantsData as SessionParticipant[] });
         }
@@ -416,7 +1174,7 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
         if (get().participantId) {
             get().setupRealtimeSubscriptions();
         } else {
-            console.warn("joinSession: Cannot setup realtime subscriptions without a participantId.");
+            console.warn("[joinSession] Cannot setup realtime subscriptions without a participantId.");
         }
 
         console.log('Successfully joined session:', sessionId);
@@ -433,180 +1191,22 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
       const { user } = useAuthStore.getState();
       
       if (!sessionState?.id) {
-        console.warn('No session ID available for update');
+        console.warn('[updateSession] No session ID available for update. Aborting.');
         return;
       }
 
-      // If in offline mode or local session, use local update
       if (isOfflineMode || sessionState.id.startsWith('local_')) {
-        get().updateLocalSession(updates);
+        _handleOfflineSessionUpdate(updates, get);
         return;
       }
 
-      // If user is a guest (not authenticated) and not the host, use broadcast
-      if (!user && !isHost) {
-        console.log('Guest user (non-host) broadcasting action instead of direct DB update');
-        await get().broadcastGuestAction('updateSession', updates);
-        
-        // Update local state immediately for better UX
-        set({
-          sessionState: sessionState ? {
-            ...sessionState,
-            ...updates,
-            updatedAt: new Date().toISOString()
-          } : null
-        });
+      if (!user && !isHost) { // User is a guest (not authenticated via Supabase auth) AND not the host
+        await _handleGuestBroadcastUpdate(updates, get, set);
         return;
       }
 
-      try {
-        // Build update object only with defined values
-        const updateData: any = {};
-        
-        if (updates.selectedLayout !== undefined) {
-          updateData.selected_layout = updates.selectedLayout;
-        }
-        if (updates.question !== undefined) {
-          updateData.question = updates.question;
-        }
-        if (updates.readingStep !== undefined) {
-          updateData.reading_step = updates.readingStep;
-        }
-        if (updates.selectedCards !== undefined) {
-          updateData.selected_cards = updates.selectedCards;
-        }
-        if (updates.shuffledDeck !== undefined) {
-          updateData.shuffled_deck = updates.shuffledDeck;
-        }
-        if (updates.interpretation !== undefined) {
-          updateData.interpretation = updates.interpretation;
-        }
-        if (updates.zoomLevel !== undefined) {
-          updateData.zoom_level = updates.zoomLevel;
-        }
-        if (updates.panOffset !== undefined) {
-          updateData.pan_offset = updates.panOffset;
-        }
-        if (updates.zoomFocus !== undefined) {
-          updateData.zoom_focus = updates.zoomFocus;
-        }
-        if (updates.activeCardIndex !== undefined) {
-          updateData.active_card_index = updates.activeCardIndex;
-        }
-        if (updates.sharedModalState !== undefined) {
-          updateData.shared_modal_state = updates.sharedModalState;
-        }
-        if (updates.videoCallState !== undefined) {
-          updateData.video_call_state = updates.videoCallState;
-        }
-        if (updates.loadingStates !== undefined) {
-          updateData.loading_states = updates.loadingStates;
-        }
-        if (updates.deckSelectionState !== undefined) {
-          updateData.deck_selection_state = updates.deckSelectionState;
-        }
-
-        console.log('Updating session with data:', updateData);
-        console.log('Session ID:', sessionState.id);
-        console.log('User info:', { 
-          userId: user?.id, 
-          participantId,
-          anonymousId,
-          isHost,
-          isAnonymous: !user
-        });
-
-        let supabaseClient = supabase;
-
-        // For anonymous hosts, we need to ensure the RLS context includes our participant info
-        // This is a workaround since Supabase RLS doesn't have direct access to anonymous session data
-        if (!user && isHost && anonymousId) {
-          console.log('Anonymous host update - using participant context');
-          
-          // First verify this anonymous user is indeed the host
-          const { data: hostCheck } = await supabase
-            .from('session_participants')
-            .select('id, joined_at')
-            .eq('session_id', sessionState.id)
-            .eq('anonymous_id', anonymousId)
-            .order('joined_at', { ascending: true })
-            .limit(1)
-            .single();
-            
-          if (!hostCheck) {
-            throw new Error('Anonymous host verification failed');
-          }
-          
-          console.log('Anonymous host verified:', hostCheck);
-        }
-
-        const { error } = await supabaseClient
-          .from('reading_sessions')
-          .update(updateData)
-          .eq('id', sessionState.id);
-
-        if (error) {
-          console.error('Database update error:', error);
-          console.error('Error details:', {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code
-          });
-          throw error;
-        }
-
-        // Update local state immediately for better UX
-        set({
-          sessionState: sessionState ? {
-            ...sessionState,
-            ...updates,
-            updatedAt: new Date().toISOString()
-          } : null
-        });
-
-      } catch (err: any) {
-        console.error('Error updating session:', err);
-        
-        // For anonymous hosts who can't update due to RLS, fall back to broadcast
-        if (!user && isHost && (
-          err.message?.includes('permission') || 
-          err.message?.includes('policy') || 
-          err.message?.includes('insufficient_privilege') ||
-          err.code === '42501' || // insufficient_privilege
-          err.code === 'PGRST301' // permission denied
-        )) {
-          console.warn('Anonymous host cannot update directly, falling back to broadcast mechanism');
-          
-          // Broadcast the update for other participants to apply
-          await get().broadcastGuestAction('hostUpdate', updates);
-          
-          // Update local state
-          set({
-            sessionState: sessionState ? {
-              ...sessionState,
-              ...updates,
-              updatedAt: new Date().toISOString()
-            } : null
-          });
-        } else if (!user && !isHost && (
-          err.message?.includes('permission') || 
-          err.message?.includes('policy')
-        )) {
-          // Expected for non-host guests
-          console.warn('Guest cannot update database - this is expected behavior');
-          set({
-            sessionState: sessionState ? {
-              ...sessionState,
-              ...updates,
-              updatedAt: new Date().toISOString()
-            } : null
-          });
-        } else {
-          console.error('Unexpected database error:', err);
-          set({ error: err.message });
-        }
-      }
+      // For authenticated users OR hosts (including anonymous hosts)
+      await _performDatabaseSessionUpdate(updates, sessionState, user, isHost, participantId, anonymousId, get, set);
     },
 
     updatePresence: async () => {
@@ -642,68 +1242,40 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
     upgradeGuestAccount: async (newUserId: string) => {
       const { participantId, anonymousId, sessionState, isHost } = get();
       
-      if (!participantId || !anonymousId) return false;
-
-      try {
-        // Update the participant record to use the new user_id instead of anonymous_id
-        const { error: participantError } = await supabase
-          .from('session_participants')
-          .update({ 
-            user_id: newUserId,
-            anonymous_id: null 
-          })
-          .eq('id', participantId);
-
-        if (participantError) throw participantError;
-
-        // If this guest was the host (created the session), update the session's host_user_id
-        if (isHost && sessionState?.id && sessionState.hostUserId === null) {
-          const { error: sessionError } = await supabase
-            .from('reading_sessions')
-            .update({ host_user_id: newUserId })
-            .eq('id', sessionState.id);
-
-          if (sessionError) {
-            console.error('Error updating session host:', sessionError);
-            // Don't fail the upgrade if session update fails, participant update is more important
-          } else {
-            // Update local session state
-            set({
-              sessionState: {
-                ...sessionState,
-                hostUserId: newUserId,
-                updatedAt: new Date().toISOString()
-              }
-            });
-          }
-        }
-
-        // Clear the anonymous ID from store since user is now authenticated
-        set({ anonymousId: null });
-
-        // Refresh participants list to show updated user info
-        if (sessionState?.id) {
-          try {
-            const { data: updatedParticipants } = await supabase
-              .from('session_participants')
-              .select('*')
-              .eq('session_id', sessionState.id)
-              .eq('is_active', true);
-            
-            if (updatedParticipants) {
-              set({ participants: updatedParticipants });
-            }
-          } catch (participantsError) {
-            console.warn('Could not refresh participants after upgrade:', participantsError);
-          }
-        }
-
-        console.log('✅ Guest account upgraded successfully in session store');
-        return true;
-      } catch (err: any) {
-        console.error('Error upgrading guest account:', err);
+      if (!participantId || !anonymousId) {
+        console.warn('[upgradeGuestAccount] Missing participantId or anonymousId. Aborting.');
         return false;
       }
+
+      const participantUpdated = await _updateParticipantForGuestUpgrade(participantId, newUserId);
+      if (!participantUpdated) return false;
+
+      let hostUpdated = true; // Assume success or not applicable
+      if (isHost && sessionState?.id && sessionState.hostUserId === null) {
+        hostUpdated = await _updateSessionHostForGuestUpgrade(sessionState.id, newUserId);
+        if (hostUpdated && sessionState) {
+          // Update local session state immediately for hostUserId
+          set({
+            sessionState: {
+              ...sessionState,
+              hostUserId: newUserId,
+              updatedAt: new Date().toISOString()
+            }
+          });
+        } else if (!hostUpdated) {
+          console.warn('[upgradeGuestAccount] Failed to update session host, but continuing with participant upgrade.');
+          // Proceed even if session host update fails, participant link is primary.
+        }
+      }
+
+      set({ anonymousId: null }); // Clear local anonymousId as user is now authenticated
+
+      if (sessionState?.id) {
+        await _refreshParticipantsAfterUpgrade(sessionState.id, set);
+      }
+
+      console.log('✅ Guest account upgraded successfully in session store logic.');
+      return true; // Overall success if participant record was updated
     },
 
     setGuestName: async (name: string) => {
@@ -726,344 +1298,145 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
     },
 
     setupRealtimeSubscriptions: () => {
-      const { sessionState, channel } = get();
+      const { sessionState, channel: currentChannel, presenceInterval: currentPresenceInterval } = get();
       
-      if (!sessionState?.id) return;
-
-      // Clean up existing channel
-      if (channel) {
-        channel.unsubscribe();
+      if (!sessionState?.id) {
+        console.warn('[setupRealtimeSubscriptions] No session ID, cannot set up subscriptions.');
+        return;
       }
 
-      // Create new channel for this session
+      if (currentChannel) {
+        console.log('[setupRealtimeSubscriptions] Unsubscribing from existing channel.');
+        currentChannel.unsubscribe();
+      }
+      if (currentPresenceInterval) {
+        clearInterval(currentPresenceInterval);
+      }
+
+      console.log(`[setupRealtimeSubscriptions] Creating new channel for session: ${sessionState.id}`);
       const newChannel = supabase.channel(`reading-session:${sessionState.id}`, {
         config: {
-          broadcast: { self: false },
-          presence: { key: get().participantId || get().anonymousId || 'anonymous' }
+          broadcast: { self: false }, // Do not receive own broadcasts
+          presence: { key: get().participantId || get().anonymousId || 'guest' } // Use participantId or anonymousId for presence key
         }
       });
 
-      // Subscribe to session updates
       newChannel
         .on('postgres_changes', 
           { event: 'UPDATE', schema: 'public', table: 'reading_sessions', filter: `id=eq.${sessionState.id}` },
-          (payload: any) => {
-            console.log('Real-time session update received:', payload);
-            const newSession = payload.new as any;
-            const currentState = get().sessionState;
-            const justRestored = get()._justRestoredFromPreservedState;
-            
-            if (currentState) {
-              const localStateAge = Date.now() - new Date(currentState.updatedAt).getTime();
-              const isRecentLocalUpdate = localStateAge < 2000; 
-              const incomingCards = newSession.selected_cards || [];
-              const currentCards = currentState.selectedCards || [];
-              const wouldReduceCards = incomingCards.length < currentCards.length;
-              const shouldPreserveLocalCards = isRecentLocalUpdate && wouldReduceCards && currentCards.length > 0;
-
-              const stepOrder = ['setup', 'ask-question', 'drawing', 'interpretation'];
-              const currentStepIndex = stepOrder.indexOf(currentState.readingStep);
-              const incomingStepIndex = stepOrder.indexOf(newSession.reading_step);
-              
-              console.log('Real-time update analysis:', {
-                localStateAge,
-                isRecentLocalUpdate,
-                currentSelectedCards: currentCards.length,
-                incomingSelectedCards: incomingCards.length,
-                wouldReduceCards,
-                shouldPreserveLocalCards,
-                justRestoredFromPreserved: justRestored,
-                currentReadingStep: currentState.readingStep,
-                incomingReadingStep: newSession.reading_step,
-                currentStepIndex,
-                incomingStepIndex,
-                currentShuffledDeckLength: currentState.shuffledDeck?.length,
-                incomingShuffledDeckLength: newSession.shuffled_deck?.length,
-                currentQuestion: currentState.question,
-                incomingQuestion: newSession.question,
-                currentLayout: currentState.selectedLayout?.id,
-                incomingLayout: newSession.selected_layout?.id
-              });
-              
-              let finalShuffledDeck = newSession.shuffled_deck ?? [];
-              if (justRestored && 
-                  currentState.shuffledDeck && 
-                  newSession.shuffled_deck && 
-                  newSession.shuffled_deck.length > currentState.shuffledDeck.length) {
-                console.log('[RT PRESERVE] ShuffledDeck: Using local (more cards removed).');
-                finalShuffledDeck = currentState.shuffledDeck;
-              }
-
-              let finalReadingStep = newSession.reading_step;
-              if (justRestored && incomingStepIndex < currentStepIndex) {
-                console.log('[RT PRESERVE] ReadingStep: Using local (more advanced).');
-                finalReadingStep = currentState.readingStep;
-              }
-
-              let finalSelectedLayout = newSession.selected_layout;
-              if (justRestored && currentState.selectedLayout && !newSession.selected_layout) {
-                console.log('[RT PRESERVE] SelectedLayout: Using local (incoming is null).');
-                finalSelectedLayout = currentState.selectedLayout;
-              }
-              
-              let finalQuestion = newSession.question;
-              if (justRestored && currentState.question && !newSession.question) {
-                console.log('[RT PRESERVE] Question: Using local (incoming is empty).');
-                finalQuestion = currentState.question;
-              }
-
-              set({
-                sessionState: {
-                  ...currentState,
-                  ...newSession,
-                  shuffledDeck: finalShuffledDeck,
-                  readingStep: finalReadingStep,
-                  selectedLayout: finalSelectedLayout,
-                  question: finalQuestion,
-                  selectedCards: shouldPreserveLocalCards ? currentCards : (newSession.selected_cards || []),
-                  updatedAt: newSession.updated_at || currentState.updatedAt || new Date().toISOString(),
-                  deckId: newSession.deck_id || currentState.deckId,
-                }
-              });
-            }
-          }
+          (payload) => _handlePostgresSessionUpdate(payload, get, set)
         )
         .on('postgres_changes',
           { event: '*', schema: 'public', table: 'session_participants', filter: `session_id=eq.${sessionState.id}` },
-          async () => {
-            // Refetch participants when they change
-            const { data } = await supabase
-              .from('session_participants')
-              .select('*')
-              .eq('session_id', sessionState.id)
-              .eq('is_active', true);
-            
-            if (data) {
-              set({ participants: data });
-            }
-          }
+          () => _handlePostgresParticipantChange(sessionState.id, get, set) // Pass sessionId
         )
-        .on('broadcast', { event: 'guest_action' }, (payload: any) => {
-          console.log('Received guest action:', payload);
-          const { action, data, participantId: senderParticipantId } = payload.payload;
-          const currentState = get();
-          
-          // Process different types of actions
-          if (senderParticipantId !== currentState.participantId) {
-            console.log('Processing action:', { action, data, fromHost: action === 'hostUpdate' });
-            
-            switch (action) {
-              case 'updateSession':
-                // Guest update - only process if we're the host
-                if (currentState.isHost) {
-                  console.log('Processing guest update as host');
-                  get().updateSession(data);
-                }
-                break;
-                
-              case 'hostUpdate':
-                // Host update - all participants should apply this
-                console.log('Processing host update as participant');
-                // Directly update local state since this comes from the host
-                const sessionState = currentState.sessionState;
-                if (sessionState) {
-                  set({
-                    sessionState: {
-                      ...sessionState,
-                      ...data,
-                      updatedAt: new Date().toISOString()
-                    }
-                  });
-                }
-                break;
-                
-              case 'cardSelection':
-                // Handle card selection from guest
-                if (currentState.isHost && data.selectedCards) {
-                  get().updateSession({ selectedCards: data.selectedCards });
-                }
-                break;
-                
-              default:
-                console.log('Unknown guest action:', action);
-            }
+        .on('broadcast', { event: 'guest_action' }, 
+          (payload) => _handleBroadcastedGuestAction(payload, get, set)
+        )
+        .subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') {
+            console.log(`[setupRealtimeSubscriptions] Successfully subscribed to channel: reading-session:${sessionState.id}`);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.error(`[setupRealtimeSubscriptions] Channel subscription error for session ${sessionState.id}:`, status, err);
+            // Optionally, attempt to re-subscribe or notify user
           }
-        })
-        .subscribe();
+        });
 
       set({ channel: newChannel });
 
-      // Setup presence updates and session expiry checks
-      const currentInterval = get().presenceInterval;
-      if (currentInterval) {
-        clearInterval(currentInterval);
-      }
-      
-      const newInterval = setInterval(async () => {
-        // Update presence
-        get().updatePresence();
-        
-        // Check if current session has expired every 5 minutes (10 cycles)
-        const now = Date.now();
-        const lastExpiryCheck = (get() as any).lastExpiryCheck || 0;
-        if (now - lastExpiryCheck > 5 * 60 * 1000) { // 5 minutes
-          const isExpired = await get().checkSessionExpiry();
-          if (isExpired) {
-            console.log('Current session has expired, cleaning up...');
-            get().cleanup();
-            // Optionally redirect to home or show a message
-            window.location.href = '/';
-          }
-          // Store the last check time
-          (get() as any).lastExpiryCheck = now;
-        }
-      }, 30000); // Every 30 seconds
-
-      set({ presenceInterval: newInterval });
+      const newPresenceInterval = _managePresenceAndExpiryInterval(get, set);
+      set({ presenceInterval: newPresenceInterval });
     },
 
     syncCompleteSessionState: async (sessionId: string) => {
       try {
         console.log('Syncing complete session state for:', sessionId);
         
-        const { isHost, sessionState: currentState } = get();
+        const { isHost: isCurrentUserHost, sessionState: currentLocalSessionState } = get();
+        const { user } = useAuthStore.getState();
         
         // Fetch the latest session data
-        const { data: session, error: sessionError } = await supabase
+        const { data: fetchedSessionData, error: sessionError } = await supabase
           .from('reading_sessions')
           .select('*')
           .eq('id', sessionId)
           .eq('is_active', true)
           .single();
 
-        if (sessionError || !session) {
+        if (sessionError || !fetchedSessionData) {
           console.error('Failed to fetch session for sync:', sessionError);
+          set({ error: sessionError?.message || 'Failed to fetch session data for sync'});
           return false;
         }
 
-        // Convert to local format
-        const syncedState: ReadingSessionState = {
-          id: session.id,
-          hostUserId: session.host_user_id,
-          deckId: session.deck_id,
-          selectedLayout: session.selected_layout,
-          question: session.question || '',
-          readingStep: session.reading_step,
-          selectedCards: session.selected_cards || [],
-          shuffledDeck: session.shuffled_deck ?? [],
-          interpretation: session.interpretation || '',
-          zoomLevel: session.zoom_level || 1.0,
-          panOffset: session.pan_offset || { x: 0, y: 0 },
-          zoomFocus: session.zoom_focus || null,
-          activeCardIndex: session.active_card_index,
-          sharedModalState: session.shared_modal_state || null,
-          videoCallState: session.video_call_state || null,
-          loadingStates: session.loading_states || null,
-          deckSelectionState: session.deck_selection_state || null,
-          isActive: session.is_active,
-          createdAt: session.created_at,
-          updatedAt: session.updated_at
-        };
+        const mergedSessionState = _mergeFetchedSessionWithLocalState(
+          fetchedSessionData,
+          currentLocalSessionState,
+          isCurrentUserHost,
+          user
+        );
 
-        // Check if we should preserve local state
-        const { user } = useAuthStore.getState();
-        const isSessionCreator = isHost || 
-          (syncedState.hostUserId === null && !user) || // Guest session creator
-          (syncedState.hostUserId === user?.id); // Authenticated session creator
-          
-        // Check if local state was recently updated (within last 10 seconds)
-        const localStateAge = currentState ? Date.now() - new Date(currentState.updatedAt).getTime() : Infinity;
-        const isRecentLocalUpdate = localStateAge < 10000; // 10 seconds
-          
-        if (currentState) {
-          const currentStepOrder = ['setup', 'ask-question', 'drawing', 'interpretation'];
-          const currentStepIndex = currentStepOrder.indexOf(currentState.readingStep);
-          const syncedStepIndex = currentStepOrder.indexOf(syncedState.readingStep);
-          
-          console.log('Session sync check:', {
-            isHost,
-            isSessionCreator,
-            isRecentLocalUpdate,
-            localStateAge,
-            currentStep: currentState.readingStep,
-            syncedStep: syncedState.readingStep,
-            currentStepIndex,
-            syncedStepIndex,
-            hostUserId: syncedState.hostUserId,
-            currentUserId: user?.id
-          });
-          
-          // Preserve local state if:
-          // 1. User is session creator AND local state is more advanced, OR
-          // 2. Local state was recently updated (user is actively working)
-          const shouldPreserveLocal = 
-            (isSessionCreator && currentStepIndex > syncedStepIndex) ||
-            isRecentLocalUpdate;
-            
-          if (shouldPreserveLocal) {
-            console.log('Preserving local state:', {
-              reason: isRecentLocalUpdate ? 'recent local update' : 'session creator with advanced progress',
-              preserving: {
-                readingStep: currentState.readingStep,
-                selectedLayout: currentState.selectedLayout,
-                question: currentState.question,
-                selectedCardsCount: currentState.selectedCards.length
-              }
-            });
-            
-            syncedState.readingStep = currentState.readingStep;
-            syncedState.selectedLayout = currentState.selectedLayout || syncedState.selectedLayout;
-            syncedState.question = currentState.question || syncedState.question;
-            syncedState.selectedCards = currentState.selectedCards.length > 0 ? currentState.selectedCards : syncedState.selectedCards;
-            syncedState.interpretation = currentState.interpretation || syncedState.interpretation;
-            syncedState.activeCardIndex = currentState.activeCardIndex ?? syncedState.activeCardIndex;
-          } else {
-            console.log('Using synced state - no local preservation needed');
-          }
-        } else {
-          console.log('No current state to preserve, using synced state');
-        }
-
-        set({ sessionState: syncedState });
+        set({ sessionState: mergedSessionState });
 
         // Also sync participants
-        const { data: participantsData } = await supabase
+        const { data: participantsData, error: participantsFetchError } = await supabase
           .from('session_participants')
           .select('*')
           .eq('session_id', sessionId)
           .eq('is_active', true);
 
-        if (participantsData) {
-          set({ participants: participantsData });
+        if (participantsFetchError) {
+            console.warn('[syncCompleteSessionState] Error fetching participants:', participantsFetchError);
+        } else if (participantsData) {
+          set({ participants: participantsData as SessionParticipant[] });
         }
 
-        console.log('Complete session state synced successfully:', syncedState);
+        console.log('Complete session state synced successfully:', mergedSessionState);
         return true;
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error syncing complete session state:', error);
+        set({ error: error.message });
         return false;
       }
     },
 
     initializeSession: async () => {
-      const { user } = useAuthStore.getState();
+      const { user: initialUserCheck } = useAuthStore.getState(); 
       const initialStoreState = get();
       
-      set({ isLoading: true, error: null });
+      if (!initialUserCheck || !initialStoreState.initialSessionId) {
+        set({ isLoading: true, error: null });
+      } else {
+        set({ error: null }); 
+      }
+
+      // Wait for auth state to be determined
+      const authReady = await waitForAuthDetermination(get, set);
+      if (!authReady) {
+        return; // Abort if auth determination failed
+      }
+
+      // Re-fetch user from authStore now that authState is determined
+      const { user } = useAuthStore.getState();
+
+      // Ensure isLoading is true if it wasn't set at the very start but we are now proceeding with async ops
+      if (!get().isLoading) {
+        set({ isLoading: true });
+      }
 
       try {
         let sessionId = initialStoreState.initialSessionId;
-        let isNewSession = false;
+        let currentIsHost = get().isHost; // Get current host status before it might change
 
         if (!sessionId) {
-          isNewSession = true;
           console.log('Creating new session for user:', user?.id || 'anonymous (no auth user id yet)');
           sessionId = await get().createSession();
           if (!sessionId) {
             set({ error: 'Failed to create session', isLoading: false });
             return;
           }
-          set({ isHost: true });
+          set({ isHost: true }); // If we created the session, we are the host
+          currentIsHost = true; // Update for local use in this function
         }
         
         const { data: sessionData, error: sessionFetchError } = await supabase
@@ -1078,158 +1451,31 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
           return;
         }
         
-              set({
+        // Determine host status based on fetched session data and current user
+        const determinedHostStatus = (user ? sessionData.host_user_id === user.id : sessionData.host_user_id === null);
+        set({
           sessionState: sessionData as ReadingSessionState,
-          isHost: isNewSession || (user ? sessionData.host_user_id === user.id : sessionData.host_user_id === null),
+          isHost: determinedHostStatus, // Set host status based on DB and current user
           initialSessionId: sessionId
-          // isLoading will be set to false after participant is resolved and state restored
         });
+        currentIsHost = determinedHostStatus; // Update local var after setting in store
 
-        let participantQueryInit = supabase
-          .from('session_participants')
-          .select('*')
-          .eq('session_id', sessionId)
-          .eq('is_active', true);
-
-        if (user && user.email) {
-          participantQueryInit = participantQueryInit.eq('user_id', user.id);
-        } else if (user && !user.email) { // This is an anonymous Supabase auth user
-          participantQueryInit = participantQueryInit.eq('anonymous_id', user.id);
-            } else {
-          console.warn("initializeSession: No valid user from authStore to find/create participant by.");
-          // Attempt to use browser fingerprint if available, otherwise can't find participant
-          const browserFingerprint = getPersistentBrowserId();
-          if (browserFingerprint) {
-             console.log("initializeSession: Trying to find participant by browser fingerprint:", browserFingerprint);
-             participantQueryInit = participantQueryInit.eq('anonymous_id', browserFingerprint);
-          } else {
-            participantQueryInit = participantQueryInit.limit(0); 
-          }
-        }
-        
-        const { data: existingParticipantInit, error: existingParticipantErrorInit } = await participantQueryInit.maybeSingle();
-
-        if (existingParticipantErrorInit && existingParticipantErrorInit.code !== 'PGRST116') { // PGRST116: 0 rows
-            console.error("Error finding existing participant in initializeSession:", existingParticipantErrorInit);
-        }
-
-        let finalParticipantId: string | null = null;
-
-        if (existingParticipantInit) {
-          console.log('Found existing participant in initializeSession, reusing:', existingParticipantInit.id);
-          finalParticipantId = existingParticipantInit.id;
-          await supabase
-                .from('session_participants')
-            .update({ last_seen_at: new Date().toISOString() })
-            .eq('id', existingParticipantInit.id);
-        } else {
-          console.log('Creating new participant in initializeSession as none found matching user/anon context...');
-          const participantNameToSet = user?.username || 
-                                     ((user && !user.email) ? (get().isHost ? 'Anonymous Host' : 'Anonymous Guest') : 
-                                     (get().isHost ? 'Host' : 'Guest'));
-          const anonymousIdToSet = (user && !user.email) ? user.id : (!user ? getPersistentBrowserId() : null);
-
-          const participantDataToInsertInit = {
-                  session_id: sessionId,
-            user_id: (user && user.email) ? user.id : null,
-            anonymous_id: anonymousIdToSet,
-            name: participantNameToSet,
-            is_active: true,
-            role: get().isHost ? 'host' : 'participant'
-          };
-          console.log('Creating participant in initializeSession with:', participantDataToInsertInit);
-
-          const { data: newParticipantInit, error: newParticipantErrorInit } = await supabase
-            .from('session_participants')
-            .insert(participantDataToInsertInit)
-            .select('id') 
-                .single();
-                
-          if (newParticipantErrorInit) {
-            console.error('Error creating participant in initializeSession:', newParticipantErrorInit);
-          } else if (newParticipantInit) {
-            finalParticipantId = newParticipantInit.id;
-            console.log('Participant created successfully in initializeSession:', finalParticipantId);
-              }
-        }
+        // Ensure participant record
+        const finalParticipantId = await _ensureParticipantRecord(sessionId, user, currentIsHost, get, set);
 
         if (!finalParticipantId) {
             console.error("Failed to establish participant ID in initializeSession.");
-            set({ error: "Could not establish participant for session.", isLoading: false });
+            // _ensureParticipantRecord should have set isLoading:false and error if it failed critically
+            // If get().isLoading is still true here, it means _ensureParticipantRecord might have returned null
+            // without a critical error that stops the flow, but we still can't proceed.
+            if (get().isLoading) set({ isLoading: false }); 
+            if (!get().error) set({error: "Could not establish participant for session."});
             return; 
         }
         set({ participantId: finalParticipantId });
 
         // --- BEGIN STATE RESTORATION LOGIC ---
-        try {
-          const restoredContextRaw = localStorage.getItem('session_context_restored');
-          if (restoredContextRaw) {
-            const restoredContext = JSON.parse(restoredContextRaw);
-            console.log('Found session_context_restored:', restoredContext);
-
-            if (restoredContext.sessionId === sessionId && 
-                restoredContext.migrationComplete && 
-                restoredContext.preserveState) {
-                  
-              const preservedStateRaw = localStorage.getItem('preserved_session_state');
-              if (preservedStateRaw) {
-                const preservedState = JSON.parse(preservedStateRaw);
-                console.log('Applying preserved_session_state:', preservedState);
-                
-                // Merge into existing sessionState
-                // Ensure all relevant fields from ReadingSessionState are considered
-                const updatedSessionData = {
-                  ...get().sessionState, // current session state from DB
-                  ...preservedState,    // potentially overriding with preserved state
-                  id: sessionId,        // ensure session ID is correct
-                  // Explicitly carry over participant-specific or newly established things if needed
-                  hostUserId: get().sessionState?.hostUserId || preservedState.hostUserId,
-                  // Ensure deckId is consistent if it was part of preserved state or initial state
-                  deckId: preservedState.deckId || get().sessionState?.deckId || initialStoreState.deckId,
-                };
-                
-                // Use updateSession to ensure DB is also updated if this is the host
-                // or if we want to ensure all fields are synced.
-                // For now, just update local store, DB update will happen via normal interaction.
-                set(state => ({
-                  sessionState: updatedSessionData as ReadingSessionState,
-                  // Update isHost based on the potentially updated hostUserId from preservedState
-                  isHost: (user ? updatedSessionData.hostUserId === user.id : updatedSessionData.hostUserId === null) || state.isHost,
-                  _justRestoredFromPreservedState: true // Set flag
-                }));
-                
-                // Clear flag after a delay
-                setTimeout(() => {
-                  set({ _justRestoredFromPreservedState: false });
-                  console.log('_justRestoredFromPreservedState flag cleared after timeout.');
-                }, 3000);
-            
-                if (restoredContext.participantId && restoredContext.participantId !== finalParticipantId) {
-                    console.warn(`Restored participantId (${restoredContext.participantId}) differs from established one (${finalParticipantId}). Using established one.`);
-                }
-                
-                // Clean up localStorage
-                localStorage.removeItem('preserved_session_state');
-                localStorage.removeItem('session_context_restored'); // Remove this too as it's now processed
-                console.log('✅ Preserved session state applied and localStorage cleaned.');
-              } else {
-                console.log('session_context_restored found, but no preserved_session_state item.');
-                localStorage.removeItem('session_context_restored'); // Clean up if no corresponding state
-              }
-            } else {
-              console.log('session_context_restored not applicable or migration not complete. SessionId match:', restoredContext.sessionId === sessionId);
-              // If context is old or not for this session, remove it
-              if (restoredContext.sessionId !== sessionId || Date.now() - (restoredContext.timestamp || 0) > 300000) { // Older than 5 mins
-                localStorage.removeItem('session_context_restored');
-              }
-            }
-          }
-        } catch (e) {
-          console.error('Error processing preserved session state:', e);
-          // Clean up potentially corrupted localStorage items
-          localStorage.removeItem('session_context_restored');
-          localStorage.removeItem('preserved_session_state');
-        }
+        await _restorePreservedSessionContext(sessionId, user, initialStoreState, finalParticipantId, get, set);
         // --- END STATE RESTORATION LOGIC ---
 
         const { data: participantsDataFromDB, error: participantsError } = await supabase
@@ -1504,66 +1750,37 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
     cleanupInactiveSessions: async () => {
       try {
         // Call the database function to cleanup inactive sessions
+        console.log('[cleanupInactiveSessions] Calling RPC to cleanup_inactive_sessions.');
         const { error } = await supabase.rpc('cleanup_inactive_sessions');
         
         if (error) {
-          console.error('Error cleaning up inactive sessions:', error);
+          console.error('[cleanupInactiveSessions] Error calling RPC:', error);
         } else {
-          console.log('Successfully cleaned up inactive sessions');
+          console.log('[cleanupInactiveSessions] Successfully called RPC cleanup_inactive_sessions');
         }
       } catch (err: any) {
-        console.error('Error in cleanupInactiveSessions:', err);
+        console.error('[cleanupInactiveSessions] Error in RPC call:', err);
       }
     },
 
     checkSessionExpiry: async () => {
       const { sessionState } = get();
-      
-      if (!sessionState?.id) return false;
-
-      try {
-        // Check if current session has any active participants
-        const { data: activeParticipants, error } = await supabase
-          .from('session_participants')
-          .select('last_seen_at')
-          .eq('session_id', sessionState.id)
-          .eq('is_active', true);
-
-        if (error) {
-          console.error('Error checking session expiry:', error);
-          return false;
-        }
-
-        // If no active participants, session should be considered expired
-        if (!activeParticipants || activeParticipants.length === 0) {
-          console.log('Session expired: no active participants');
-          return true;
-        }
-
-        // Check if all participants have been inactive for more than 1 hour
-        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-        const allInactive = activeParticipants.every(participant => {
-          const lastSeen = new Date(participant.last_seen_at);
-          return lastSeen < oneHourAgo;
-        });
-
-        if (allInactive) {
-          console.log('Session expired: all participants inactive for over 1 hour');
-          
-          // Mark session as inactive
-          await supabase
-            .from('reading_sessions')
-            .update({ is_active: false })
-            .eq('id', sessionState.id);
-          
-          return true;
-        }
-
-        return false;
-      } catch (err: any) {
-        console.error('Error checking session expiry:', err);
+      if (!sessionState?.id) {
+        console.warn('[checkSessionExpiry] No session ID, cannot check expiry.');
         return false;
       }
+
+      console.log(`[checkSessionExpiry] Checking expiry for session: ${sessionState.id}`);
+      const participantsTimestamps = await _fetchActiveParticipantsTimestamps(sessionState.id);
+
+      if (_checkIfAllParticipantsAreStale(participantsTimestamps)) {
+        console.log(`[checkSessionExpiry] Session ${sessionState.id} determined stale. Marking inactive.`);
+        await _markSessionAsInactiveInDB(sessionState.id);
+        return true; // Session is stale/expired
+      }
+
+      console.log(`[checkSessionExpiry] Session ${sessionState.id} is not stale.`);
+      return false; // Session is not stale
     }
   }))
 );

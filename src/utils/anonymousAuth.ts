@@ -18,25 +18,28 @@ export const createAnonymousUserSingleton = async (
   currentUser: User | null,
   isAnonymousCheck: () => boolean,
   setUser: (user: User | null) => void,
-  setLoading?: (loading: boolean) => void
+  setLoading?: (loading: boolean) => void,
+  setAuthStateDetermined?: (determined: boolean) => void
 ): Promise<AnonymousAuthResult> => {
-  console.log('🎭 Starting anonymous user creation process (singleton)');
+  console.log('🎭 [AnonAuth] Starting anonymous user creation process (singleton)');
 
   // If we already have an anonymous user, return it
   if (currentUser && isAnonymousCheck()) {
-    console.log('✅ Already have anonymous user:', currentUser.id);
+    console.log('✅ [AnonAuth] Already have anonymous user in store:', currentUser.id);
+    if (setAuthStateDetermined) setAuthStateDetermined(true);
     return { user: currentUser, error: null };
   }
 
   // If we have a regular user, don't create anonymous
   if (currentUser && !isAnonymousCheck()) {
-    console.log('✅ Already have authenticated user:', currentUser.id);
+    console.log('✅ [AnonAuth] Already have authenticated user in store:', currentUser.id);
+    if (setAuthStateDetermined) setAuthStateDetermined(true);
     return { user: currentUser, error: null };
   }
 
   // If already creating an anonymous user, return the existing promise
   if (isCreatingAnonymousUser && pendingAnonymousPromise) {
-    console.log('⏳ Anonymous user creation already in progress, waiting...');
+    console.log('⏳ [AnonAuth] Anonymous user creation already in progress, waiting...');
     return pendingAnonymousPromise;
   }
 
@@ -46,18 +49,18 @@ export const createAnonymousUserSingleton = async (
 
   pendingAnonymousPromise = (async (): Promise<AnonymousAuthResult> => {
     try {
-      console.log('🔍 Checking for existing anonymous session...');
+      console.log('🔍 [AnonAuth] Checking for existing Supabase anonymous session...');
       
       // First check if we already have an active session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
-        console.warn('⚠️ Error checking existing session:', sessionError);
+        console.warn('⚠️ [AnonAuth] Error checking existing Supabase session:', sessionError);
       }
       
       // If we already have an anonymous session, use it
       if (session?.user && session.user.is_anonymous) {
-        console.log('✅ Found existing anonymous session:', session.user.id);
+        console.log('✅ [AnonAuth] Found existing Supabase anonymous session. User ID:', session.user.id);
         
         // Check if we have user data in anonymous_users table
         const { data: anonymousUserData, error: fetchError } = await supabase
@@ -67,7 +70,7 @@ export const createAnonymousUserSingleton = async (
           .single();
 
         if (fetchError) {
-          console.warn('⚠️ Error fetching anonymous user data:', fetchError);
+          console.warn('⚠️ [AnonAuth] Error fetching anonymous user data:', fetchError);
         }
 
         // Set user state with existing anonymous user data
@@ -85,23 +88,23 @@ export const createAnonymousUserSingleton = async (
         return { user: userObj, error: null };
       }
 
-      console.log('🔐 Creating new anonymous user with Supabase');
+      console.log('🔐 [AnonAuth] No existing Supabase anonymous session found or session was not anonymous. Creating new anonymous user with Supabase...');
       
       // Create new anonymous user
       const { data, error } = await supabase.auth.signInAnonymously();
       
       if (error) {
-        console.error('❌ Supabase anonymous auth error:', error);
+        console.error('❌ [AnonAuth] Supabase anonymous auth error during new signInAnonymously:', error);
         return { user: null, error };
       }
 
       if (!data.user) {
-        const noUserError = { message: 'No user returned from anonymous sign in' };
-        console.error('❌ No user returned:', noUserError);
+        const noUserError = { message: 'No user returned from new anonymous sign in' };
+        console.error('❌ [AnonAuth] No user returned from new signInAnonymously:', noUserError);
         return { user: null, error: noUserError };
       }
 
-      console.log('✅ Supabase anonymous user created:', data.user.id);
+      console.log('✅ [AnonAuth] New Supabase anonymous user created. User ID:', data.user.id);
 
       // Create anonymous user record in our database
       const anonymousUserData = {
@@ -148,6 +151,7 @@ export const createAnonymousUserSingleton = async (
       isCreatingAnonymousUser = false;
       pendingAnonymousPromise = null;
       if (setLoading) setLoading(false);
+      if (setAuthStateDetermined) setAuthStateDetermined(true);
     }
   })();
 
@@ -161,13 +165,18 @@ export const ensureAnonymousUserSingleton = async (
   currentUser: User | null,
   isAnonymousCheck: () => boolean,
   setUser: (user: User | null) => void,
-  setLoading?: (loading: boolean) => void
+  setLoading?: (loading: boolean) => void,
+  setAuthStateDetermined?: (determined: boolean) => void
 ): Promise<AnonymousAuthResult> => {
+  console.log('🎭 [AnonAuth] ensureAnonymousUserSingleton called.');
   // If we already have any user, return it
   if (currentUser) {
+    console.log('✅ [AnonAuth] ensureAnonymousUserSingleton: currentUser already exists in store. ID:', currentUser.id, 'IsAnonymous:', isAnonymousCheck());
+    if (setAuthStateDetermined) setAuthStateDetermined(true);
     return { user: currentUser, error: null };
   }
 
+  console.log('🤔 [AnonAuth] ensureAnonymousUserSingleton: No currentUser in store. Proceeding to create/find anonymous user.');
   // Otherwise create anonymous user
-  return createAnonymousUserSingleton(currentUser, isAnonymousCheck, setUser, setLoading);
+  return createAnonymousUserSingleton(currentUser, isAnonymousCheck, setUser, setLoading, setAuthStateDetermined);
 }; 

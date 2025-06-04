@@ -182,26 +182,40 @@ const ReadingRoom = () => {
   useEffect(() => {
     playAmbientSound(); // Play ambient sound on mount
     const initSession = async () => {
-      // First, ensure user has anonymous auth if they're not authenticated
-      if (!user) {
-        console.log('🎭 No authenticated user found, creating anonymous session...');
+      const auth = useAuthStore.getState(); // Get initial auth state
+
+      if (!auth.user) { // If no user at all initially from store
+        console.log('🎭 No authenticated user found, ensuring anonymous session...');
         try {
-          const result = await signInAnonymously();
-          
+          const result = await signInAnonymously(); // This updates authStore internally
+
           if (result.error) {
-            console.error('❌ Failed to create anonymous user:', result.error);
+            console.error('❌ Failed to ensure anonymous user:', result.error);
             setError('Failed to authenticate. Please refresh the page and try again.');
             return;
           }
-          
-          console.log('✅ Anonymous user created successfully');
-          // Small delay to ensure auth state is updated
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // After signInAnonymously, authStore.user should be the anonymous user.
+          // A small delay can help ensure store propagation if needed, though Zustand is often synchronous.
+          await new Promise(resolve => setTimeout(resolve, 50)); // Allow store to update
+          const updatedAuthUser = useAuthStore.getState().user;
+          if (updatedAuthUser && !updatedAuthUser.email) {
+               console.log('✅ Anonymous user session ensured/retrieved. ID:', updatedAuthUser.id);
+          } else if (updatedAuthUser) {
+              console.log('User is authenticated, not anonymous:', updatedAuthUser.id);
+          } else {
+              console.warn('⚠️ Anonymous user ID not found in auth store even after signInAnonymously call.');
+              setError('Authentication failed. Please refresh the page and try again.');
+              return;
+          }
         } catch (error) {
-          console.error('❌ Error creating anonymous user:', error);
+          console.error('❌ Error in signInAnonymously sequence:', error);
           setError('Authentication failed. Please refresh the page and try again.');
           return;
         }
+      } else if (auth.user && !auth.user.email) { // Already an anonymous user in store
+          console.log('🎭 Existing anonymous user in auth store. ID:', auth.user.id);
+      } else { // Already an authenticated user in store
+          console.log('👤 Existing authenticated user in auth store. ID:', auth.user.id);
       }
       
       if (shouldCreateSession) {
@@ -231,6 +245,8 @@ const ReadingRoom = () => {
       }
       
       setDeckId(deckId || 'rider-waite-classic');
+      // By now, useAuthStore().user should be stable (either anon or real).
+      // initializeSession in useReadingSessionStore will use this stable user.
       await initializeSession();
     };
     
@@ -309,7 +325,7 @@ const ReadingRoom = () => {
       cleanupVideoCall();
       clearInterval(syncInterval);
     };
-  }, [joinSessionId, deckId, setInitialSessionId, setDeckId, initializeSession, cleanup, cleanupVideoCall, syncCompleteSessionState, isHost, playAmbientSound, pauseAmbientSound]);
+  }, [joinSessionId, deckId, shouldCreateSession, user, setInitialSessionId, setDeckId, initializeSession, createSession, signInAnonymously, cleanup, cleanupVideoCall, syncCompleteSessionState, isHost, playAmbientSound, pauseAmbientSound]); // Added user and shouldCreateSession
 
   // Initialize video call when session is ready
   useEffect(() => {
@@ -2189,52 +2205,54 @@ const ReadingRoom = () => {
     }
   }, [isSubscribed]);
   
-  if (loading) {
-    const loadingMessage = shouldCreateSession 
-      ? 'Creating your reading room...'
-      : 'Preparing reading room...';
-      
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <LoadingSpinner size="lg" className="mx-auto mb-4" />
-          <p className="text-muted-foreground">
-            {loadingMessage}
-          </p>
-          {shouldCreateSession && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Setting up your session...
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  }
+  if (loading || sessionLoading) {
+    let message = '';
+    let subMessage: string | null = null;
 
-  // Show session loading only if deck data is also loading
-  if (sessionLoading && loading) {
-    const sessionLoadingMessage = shouldCreateSession 
-      ? 'Creating your reading room...'
-      : 'Connecting to reading room...';
+    // Determine the most relevant loading message
+    if (loading) { // Initial data loading is in progress (e.g., deck data)
+      message = shouldCreateSession 
+        ? 'Creating your reading room...' 
+        : 'Preparing reading room...';
+      if (shouldCreateSession) {
+        subMessage = 'Setting up your session, please wait...';
+      }
+    } else { // Implies loading is false, but sessionLoading is true (e.g., connecting to session)
+      message = shouldCreateSession 
+        ? 'Finalizing session setup...' 
+        : 'Connecting to reading room...';
+      if (shouldCreateSession) {
+        subMessage = 'Almost there...';
+      }
+    }
       
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
+      <div className="h-screen flex items-center justify-center p-4">
+        <div className="text-center bg-card border border-border rounded-xl shadow-lg p-6 max-w-md">
           <LoadingSpinner size="lg" className="mx-auto mb-4" />
-          <p className="text-muted-foreground">
-            {sessionLoadingMessage}
+          <p className="text-lg font-medium text-foreground">
+            {message}
           </p>
-          {shouldCreateSession && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Please wait while we set up your session...
+          {subMessage && (
+            <p className="text-sm text-muted-foreground mt-2">
+              {subMessage}
             </p>
           )}
+          <p className="text-xs text-muted-foreground mt-6">
+            If this is taking longer than expected, you can try to:
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="btn btn-secondary mt-3 px-6 py-2 text-sm"
+          >
+            Refresh Page
+          </button>
         </div>
       </div>
     );
   }
   
-  if (error || sessionError) {
+  else if (error || sessionError) { // Changed to else if
     const isSessionCreationError = error?.includes('Failed to create reading room session');
     
     return (

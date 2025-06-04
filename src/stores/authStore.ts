@@ -25,6 +25,7 @@ interface AuthStore {
   setLoading: (loading: boolean) => void;
   setMagicLinkSent: (sent: boolean) => void;
   setShowSignInModal: (show: boolean) => void;
+  setAuthStateDetermined: (determined: boolean) => void;
   signUp: (email: string, username?: string, fullName?: string) => Promise<{ error: any }>;
   signIn: (email: string) => Promise<{ error: any }>;
   signInWithGoogle: (returnToHome?: boolean) => Promise<{ error: any }>;
@@ -56,6 +57,7 @@ export const useAuthStore = create<AuthStore>()(
     setUser: (user) => set({ user }),
     setLoading: (loading) => set({ loading }),
     setMagicLinkSent: (magicLinkSent) => set({ magicLinkSent }),
+    setAuthStateDetermined: (determined) => set({ authStateDetermined: determined }),
     setShowSignInModal: async (show) => {
       if (show) {
         // Log reading session state specifically when the modal is being opened
@@ -430,25 +432,29 @@ export const useAuthStore = create<AuthStore>()(
     signInAnonymously: async () => {
       try {
         const { ensureAnonymousUserSingleton } = await import('../utils/anonymousAuth');
-        const { user, isAnonymous } = get();
+        const { user, isAnonymous, setAuthStateDetermined: storeSetAuthStateDetermined, setLoading: storeSetLoading, setUser: storeSetUser } = get();
         
-        console.log('🎭 Using singleton anonymous auth from authStore');
+        console.log('🎭 Calling ensureAnonymousUserSingleton from authStore');
         const result = await ensureAnonymousUserSingleton(
           user, 
           isAnonymous, 
-          (newUser) => set({ user: newUser }),
-          (loading) => set({ loading })
+          storeSetUser,
+          storeSetLoading,
+          storeSetAuthStateDetermined
         );
         
         // For additional authStore-specific logic (analytics, etc.)
         if (result.user && !result.error) {
           setUserContext(result.user);
           identifyUser(result.user);
+        } else if (result.error) {
+          console.error('Error from ensureAnonymousUserSingleton:', result.error);
         }
         
         return { error: result.error };
       } catch (error) {
-        console.error('❌ Error in authStore signInAnonymously:', error);
+        console.error('❌ Error in authStore signInAnonymously wrapper:', error);
+        get().setAuthStateDetermined(true); 
         return { error };
       }
     },
