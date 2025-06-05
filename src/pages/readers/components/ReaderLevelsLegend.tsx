@@ -5,31 +5,31 @@ const levelsData = [
   {
     name: 'Arcane Hierophant',
     color: 'bg-purple-500',
-    dotSize: 'w-4.5 h-4.5', // Largest dot
+    dotSize: 'w-5 h-5', // Changed from w-4.5 h-4.5
     description: 'Supreme mastery and enlightenment'
   },
   {
     name: 'Celestial Oracle',
     color: 'bg-green-500',
-    dotSize: 'w-4 h-4',
+    dotSize: 'w-4 h-4', // Stays w-4 h-4
     description: 'Profound wisdom and esoteric knowledge'
   },
   {
     name: 'Ethereal Guide',
     color: 'bg-yellow-500',
-    dotSize: 'w-3.5 h-3.5',
+    dotSize: 'w-3 h-3', // Changed from w-3.5 h-3.5
     description: 'Advanced understanding of interpretations'
   },
   {
     name: 'Mystic Adept',
     color: 'bg-orange-500',
-    dotSize: 'w-3 h-3',
+    dotSize: 'w-3 h-3', // Stays w-3 h-3
     description: 'Developing deeper insight and intuition'
   },
   {
     name: 'Novice Seer',
     color: 'bg-red-500',
-    dotSize: 'w-2.5 h-2.5', // Smallest dot
+    dotSize: 'w-2 h-2', // Changed from w-2.5 h-2.5
     description: 'Foundational knowledge of tarot'
   }
 ];
