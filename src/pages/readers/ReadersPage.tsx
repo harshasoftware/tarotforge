@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, UserCheck, Users, Filter, Clock, CrownIcon, Star, DollarSign, Loader, SortAsc, SortDesc } from 'lucide-react';
+import { Search, UserCheck, Users, Filter, Clock, CrownIcon, Star, DollarSign, Loader, SortAsc, SortDesc, SlidersHorizontal, X as CloseIcon } from 'lucide-react';
 import ReaderCard from '../../components/readers/ReaderCard';
 import { useAuthStore } from '../../stores/authStore';
 import TarotLogo from '../../components/ui/TarotLogo';
@@ -26,6 +26,7 @@ const ReadersPage: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>('all');
   const [sortOption, setSortOption] = useState<SortOption>('none');
   const [selectedLevelNameFilter, setSelectedLevelNameFilter] = useState<string | null>(null);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const { readers: allReaders, loading: dataLoading, initialLoad, error } = useReaderDataManagement();
   const { filteredReaders } = useReaderFilteringAndSorting(allReaders, searchQuery, activeFilter, sortOption, selectedLevelNameFilter);
@@ -166,61 +167,104 @@ const ReadersPage: React.FC = () => {
           </p>
         </motion.div>
         
+        <div className="lg:hidden mb-4">
+          <button
+            onClick={() => setShowMobileFilters(true)}
+            className="w-full flex items-center justify-center px-4 py-2.5 rounded-md bg-card border border-input hover:bg-secondary/50 transition-colors text-sm font-medium"
+          >
+            <SlidersHorizontal className="h-5 w-5 mr-2" />
+            Filters & Sort
+          </button>
+        </div>
+
         <div className="flex flex-col lg:flex-row gap-8">
-          <aside className="w-full lg:w-1/3 space-y-6 lg:sticky lg:top-20 self-start">
-            <div className="relative w-full">
-              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground pointer-events-none">
-                <Search className="h-5 w-5" />
+          <aside
+            className={`
+              ${showMobileFilters
+                ? 'fixed inset-0 bg-background z-50 p-4 pt-5 flex flex-col overflow-y-auto'
+                : 'hidden'
+              }
+              lg:flex lg:flex-col lg:w-1/3 lg:sticky lg:top-20 lg:self-start lg:p-0 lg:bg-transparent lg:z-auto lg:overflow-y-visible 
+            `}
+          >
+            {showMobileFilters && (
+              <div className="flex items-center justify-between mb-4 px-2 lg:hidden">
+                <h2 className="text-xl font-semibold font-serif">Filters & Sort</h2>
+                <button onClick={() => setShowMobileFilters(false)} className="p-2 -mr-2 text-muted-foreground hover:text-foreground">
+                  <CloseIcon className="h-6 w-6" />
+                </button>
               </div>
-              <input 
-                type="text"
-                placeholder="Search readers or specialties..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-md bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary"
+            )}
+
+            <div className={`
+              ${showMobileFilters ? 'flex-grow space-y-5 px-2' : ''} 
+              lg:space-y-6
+            `}>
+              <div className="relative w-full">
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground pointer-events-none">
+                  <Search className="h-5 w-5" />
+                </div>
+                <input 
+                  type="text"
+                  placeholder="Search readers or specialties..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-md bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              
+              <div className="space-y-1.5">
+                <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2">Filter By Category</h3>
+                <FilterButton active={activeFilter === 'all' && !selectedLevelNameFilter} onClick={() => { setActiveFilter('all'); setSelectedLevelNameFilter(null); }} icon={<Users />}>All Readers</FilterButton>
+                <FilterButton active={activeFilter === 'new' && !selectedLevelNameFilter} onClick={() => { setActiveFilter('new'); setSelectedLevelNameFilter(null); }} icon={<Clock />}>Newest</FilterButton>
+                <FilterButton active={activeFilter === 'top-rated' && !selectedLevelNameFilter} onClick={() => { setActiveFilter('top-rated'); setSelectedLevelNameFilter(null); }} icon={<Star />}>Top Rated</FilterButton>
+                <FilterButton active={activeFilter === 'advanced' && !selectedLevelNameFilter} onClick={() => { setActiveFilter('advanced'); setSelectedLevelNameFilter(null); }} icon={<CrownIcon />}>Advanced Levels</FilterButton>
+              </div>
+              
+              <ReaderLevelsLegend 
+                selectedLevelName={selectedLevelNameFilter}
+                onLevelSelect={handleLevelSelect}
+                onResetFilter={handleResetLevelFilter}
               />
+              
+              <div className="space-y-1.5">
+                <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2">Sort By</h3>
+                <SortButton active={sortOption === 'level-asc'} onClick={() => setSortOption(prev => prev === 'level-asc' ? 'none' : 'level-asc')}>
+                  <span className="flex items-center"><CrownIcon className="h-3.5 w-3.5 mr-1.5" />Level</span> {sortOption === 'level-asc' ? <SortAsc className="h-4 w-4 text-accent"/> : <SortDesc className="h-4 w-4 opacity-30"/>}
+                </SortButton>
+                <SortButton active={sortOption === 'level-desc'} onClick={() => setSortOption(prev => prev === 'level-desc' ? 'none' : 'level-desc')}>
+                  <span className="flex items-center"><CrownIcon className="h-3.5 w-3.5 mr-1.5" />Level</span> {sortOption === 'level-desc' ? <SortDesc className="h-4 w-4 text-accent"/> : <SortAsc className="h-4 w-4 opacity-30"/>}
+                </SortButton>
+                <SortButton active={sortOption === 'price-asc'} onClick={() => setSortOption(prev => prev === 'price-asc' ? 'none' : 'price-asc')}>
+                  <span className="flex items-center"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Price</span> {sortOption === 'price-asc' ? <SortAsc className="h-4 w-4 text-accent"/> : <SortDesc className="h-4 w-4 opacity-30"/>}
+                </SortButton>
+                <SortButton active={sortOption === 'price-desc'} onClick={() => setSortOption(prev => prev === 'price-desc' ? 'none' : 'price-desc')}>
+                  <span className="flex items-center"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Price</span> {sortOption === 'price-desc' ? <SortDesc className="h-4 w-4 text-accent"/> : <SortAsc className="h-4 w-4 opacity-30"/>}
+                </SortButton>
+              </div>
+              
+              <div className="text-xs text-muted-foreground pt-2">
+                Showing {displayedReaders.length} of {filteredReaders.length} {filteredReaders.length === 1 ? 'reader' : 'readers'}
+                {sortOption !== 'none' && ( <span className="block">Sorted by: {getSortLabel(sortOption)}</span> )}
+                {selectedLevelNameFilter && ( <span className="block">Filtered by Level: {selectedLevelNameFilter}</span>)}
+              </div>
+              
+              {(searchQuery || sortOption !== 'none' || activeFilter !== 'all' || selectedLevelNameFilter) && (
+                <button onClick={handleClearFilters} className="w-full btn btn-secondary py-2.5 flex items-center justify-center text-sm">
+                  <Filter className="h-4 w-4 mr-2" /> Clear All Filters
+                </button>
+              )}
             </div>
-            
-            <div className="space-y-1.5">
-              <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2">Filter By Category</h3>
-              <FilterButton active={activeFilter === 'all' && !selectedLevelNameFilter} onClick={() => { setActiveFilter('all'); setSelectedLevelNameFilter(null); }} icon={<Users />}>All Readers</FilterButton>
-              <FilterButton active={activeFilter === 'new' && !selectedLevelNameFilter} onClick={() => { setActiveFilter('new'); setSelectedLevelNameFilter(null); }} icon={<Clock />}>Newest</FilterButton>
-              <FilterButton active={activeFilter === 'top-rated' && !selectedLevelNameFilter} onClick={() => { setActiveFilter('top-rated'); setSelectedLevelNameFilter(null); }} icon={<Star />}>Top Rated</FilterButton>
-              <FilterButton active={activeFilter === 'advanced' && !selectedLevelNameFilter} onClick={() => { setActiveFilter('advanced'); setSelectedLevelNameFilter(null); }} icon={<CrownIcon />}>Advanced Levels</FilterButton>
-            </div>
-            
-            <ReaderLevelsLegend 
-              selectedLevelName={selectedLevelNameFilter}
-              onLevelSelect={handleLevelSelect}
-              onResetFilter={handleResetLevelFilter}
-            />
-            
-            <div className="space-y-1.5">
-              <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2">Sort By</h3>
-              <SortButton active={sortOption === 'level-asc'} onClick={() => setSortOption(prev => prev === 'level-asc' ? 'none' : 'level-asc')}>
-                <span className="flex items-center"><CrownIcon className="h-3.5 w-3.5 mr-1.5" />Level</span> {sortOption === 'level-asc' ? <SortAsc className="h-4 w-4 text-accent"/> : <SortDesc className="h-4 w-4 opacity-30"/>}
-              </SortButton>
-              <SortButton active={sortOption === 'level-desc'} onClick={() => setSortOption(prev => prev === 'level-desc' ? 'none' : 'level-desc')}>
-                <span className="flex items-center"><CrownIcon className="h-3.5 w-3.5 mr-1.5" />Level</span> {sortOption === 'level-desc' ? <SortDesc className="h-4 w-4 text-accent"/> : <SortAsc className="h-4 w-4 opacity-30"/>}
-              </SortButton>
-              <SortButton active={sortOption === 'price-asc'} onClick={() => setSortOption(prev => prev === 'price-asc' ? 'none' : 'price-asc')}>
-                <span className="flex items-center"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Price</span> {sortOption === 'price-asc' ? <SortAsc className="h-4 w-4 text-accent"/> : <SortDesc className="h-4 w-4 opacity-30"/>}
-              </SortButton>
-              <SortButton active={sortOption === 'price-desc'} onClick={() => setSortOption(prev => prev === 'price-desc' ? 'none' : 'price-desc')}>
-                <span className="flex items-center"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Price</span> {sortOption === 'price-desc' ? <SortDesc className="h-4 w-4 text-accent"/> : <SortAsc className="h-4 w-4 opacity-30"/>}
-              </SortButton>
-            </div>
-            
-            <div className="text-xs text-muted-foreground pt-2">
-              Showing {displayedReaders.length} of {filteredReaders.length} {filteredReaders.length === 1 ? 'reader' : 'readers'}
-              {sortOption !== 'none' && ( <span className="block">Sorted by: {getSortLabel(sortOption)}</span> )}
-              {selectedLevelNameFilter && ( <span className="block">Filtered by Level: {selectedLevelNameFilter}</span>)}
-            </div>
-            
-            {(searchQuery || sortOption !== 'none' || activeFilter !== 'all' || selectedLevelNameFilter) && (
-              <button onClick={handleClearFilters} className="w-full btn btn-secondary py-2.5 flex items-center justify-center text-sm">
-                <Filter className="h-4 w-4 mr-2" /> Clear All Filters
-              </button>
+
+            {showMobileFilters && (
+              <div className="mt-auto p-4 pt-4 border-t border-border lg:hidden">
+                <button
+                  onClick={() => setShowMobileFilters(false)}
+                  className="w-full btn btn-primary py-2.5 text-base"
+                >
+                  View Results
+                </button>
+              </div>
             )}
           </aside>
           
