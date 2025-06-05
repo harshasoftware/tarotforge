@@ -6,6 +6,7 @@ import { User, ReaderLevel, ReaderReview, QuizQuestion as QuizQuestionType } fro
  * @returns Array of User objects with reader information
  */
 export const fetchAllReaders = async (): Promise<User[]> => {
+  console.log('[fetchAllReaders] Starting Supabase query');
   try {
     // Fetch users who are readers
     const { data: readersData, error: readersError } = await supabase
@@ -25,9 +26,11 @@ export const fetchAllReaders = async (): Promise<User[]> => {
       .order('average_rating', { ascending: false });
       
     if (readersError) {
-      console.error('Error fetching readers:', readersError);
+      console.error('[fetchAllReaders] Supabase error:', readersError);
       throw readersError;
     }
+    
+    console.log('[fetchAllReaders] Raw data from Supabase:', readersData);
     
     // Process online status for each reader
     const now = new Date();
@@ -40,9 +43,10 @@ export const fetchAllReaders = async (): Promise<User[]> => {
         : false
     })) || [];
     
+    console.log('[fetchAllReaders] Processed readers:', processedReaders);
     return processedReaders;
   } catch (error) {
-    console.error('Error in fetchAllReaders:', error);
+    console.error('[fetchAllReaders] Error:', error);
     return [];
   }
 };
