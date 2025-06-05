@@ -383,7 +383,17 @@ export const getReaderDetails = async (readerId: string): Promise<User | null> =
       .from('users')
       .select(`
         *,
-        readerLevel:level_id (*)
+        readerLevel:level_id (
+          id,
+          name,
+          rank_order,
+          num_questions,
+          required_quiz_score,
+          description,
+          base_price_per_minute,
+          color_theme,
+          icon
+        )
       `)
       .eq('id', readerId)
       .eq('is_reader', true)
@@ -391,12 +401,19 @@ export const getReaderDetails = async (readerId: string): Promise<User | null> =
       
     if (error) {
       console.error('Error fetching reader details:', error);
-      throw error;
+      return null;
     }
     
-    return data || null;
+    let processedData = data as any;
+    if (data && Array.isArray(data.readerLevel) && data.readerLevel.length > 0) {
+      processedData = { ...data, readerLevel: data.readerLevel[0] };
+    } else if (data && Array.isArray(data.readerLevel) && data.readerLevel.length === 0) {
+      processedData = { ...data, readerLevel: null };
+    }
+
+    return processedData as User | null;
   } catch (error) {
-    console.error('Error in getReaderDetails:', error);
+    console.error('Error in getReaderDetails catch block:', error);
     return null;
   }
 };
