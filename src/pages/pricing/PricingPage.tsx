@@ -8,12 +8,12 @@ import { STRIPE_PRODUCTS } from '../../lib/stripe-config';
 import TarotLogo from '../../components/ui/TarotLogo';
 
 const PricingPage = () => {
-  const { user, setShowSignInModal } = useAuthStore();
+  const { user, setShowSignInModal, isAnonymous } = useAuthStore();
   const navigate = useNavigate();
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
 
-  // If user is logged in, redirect to subscription page
-  if (user) {
+  // If user is fully authenticated (not anonymous), redirect to subscription page
+  if (user && !isAnonymous()) {
     navigate('/subscription');
     return null;
   }

@@ -107,7 +107,7 @@ const Navbar = () => {
             >
               Reading Room
             </button>
-            {user && !isMobile && (
+            {isAuthenticated && !isMobile && (
               <NavLink to="/collection">My Collection</NavLink>
             )}
             {!isAuthenticated && (
@@ -211,7 +211,7 @@ const Navbar = () => {
                 onClick={() => setShowSignInModal(true)}
                 className="btn btn-primary py-1.5 px-4 text-sm"
               >
-                {user && isAnonymous() ? 'Create Account' : 'Sign In'}
+                Sign In
               </button>
             )}
 
@@ -292,7 +292,7 @@ const Navbar = () => {
                     }}
                     className="block w-full text-left py-2 px-4 rounded-md bg-primary text-primary-foreground"
                   >
-                    {user && isAnonymous() ? 'Create Account' : 'Sign In'}
+                    Sign In
                   </button>
                 </>
               )}
