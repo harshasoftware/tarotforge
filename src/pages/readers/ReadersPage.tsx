@@ -57,7 +57,7 @@ const ReadersPage: React.FC = () => {
   };
 
   const renderContent = () => {
-    if (initialLoad || (dataLoading && displayedReaders.length === 0)) {
+    if (initialLoad) {
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -120,28 +120,32 @@ const ReadersPage: React.FC = () => {
       );
     }
 
-    return (
-      <>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {displayedReaders.map((reader, index) => (
-            <div ref={index === displayedReaders.length - 1 ? lastReaderRef : null} key={reader.id}>
-              <ReaderCard reader={reader} />
+    if (displayedReaders.length > 0) {
+      return (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {displayedReaders.map((reader, index) => (
+              <div ref={index === displayedReaders.length - 1 ? lastReaderRef : null} key={reader.id}>
+                <ReaderCard reader={reader} />
+              </div>
+            ))}
+          </div>
+          {loadingMore && (
+            <div className="text-center py-8 flex items-center justify-center">
+              <Loader className="h-6 w-6 text-primary animate-spin mr-2" />
+              <span>Loading more readers...</span>
             </div>
-          ))}
-        </div>
-        {loadingMore && (
-          <div className="text-center py-8 flex items-center justify-center">
-            <Loader className="h-6 w-6 text-primary animate-spin mr-2" />
-            <span>Loading more readers...</span>
-          </div>
-        )}
-        {!hasMore && displayedReaders.length > 0 && !loadingMore && (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No more readers to load</p>
-          </div>
-        )}
-      </>
-    );
+          )}
+          {!hasMore && displayedReaders.length > 0 && !loadingMore && (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No more readers to load</p>
+            </div>
+          )}
+        </>
+      );
+    }
+
+    return null;
   };
 
   return (

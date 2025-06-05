@@ -4,7 +4,7 @@ import { X } from 'lucide-react'; // Import X icon for reset button
 const levelsData = [
   {
     name: 'Arcane Hierophant',
-    color: 'bg-violet-500',
+    color: 'bg-purple-500',
     dotSize: 'w-4.5 h-4.5', // Largest dot
     description: 'Supreme mastery and enlightenment'
   },
