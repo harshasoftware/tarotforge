@@ -797,7 +797,7 @@ const Home = () => {
               const isHoveredNft = hoveredNftInfo.deckId === deck.id && deck.is_nft;
               const priceBadgeText = isHoveredNft ? hoveredNftInfo.displayText : `$${deck.price?.toFixed(2)}`;
               const priceBadgeClassName = `absolute top-3 right-3 font-medium px-3 py-1 rounded-full text-sm transition-colors duration-200 ${ 
-                isHoveredNft ? 'bg-purple-600 text-white' : 'bg-accent/90 text-accent-foreground'
+                isHoveredNft ? 'bg-violet-600 text-white' : 'bg-accent/90 text-accent-foreground'
               }`;
 
               return (
