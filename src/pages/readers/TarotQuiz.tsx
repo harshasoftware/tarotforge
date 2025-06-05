@@ -325,7 +325,7 @@ const TarotQuiz: React.FC = () => {
                 <li className="flex items-start gap-2">
                   <Clock className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
                   <span>
-                    You have <strong>20 minutes</strong> to complete 15 questions. The timer will start once you begin.
+                    You have <strong>15 minutes</strong> to complete 15 questions. The timer will start once you begin.
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
