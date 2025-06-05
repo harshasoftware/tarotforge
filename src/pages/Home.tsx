@@ -4,12 +4,19 @@ import { motion } from 'framer-motion';
 import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw, CreditCard, Check, Clock } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useCredits } from '../context/CreditContext';
+import JourneyAnimation from '../components/ui/JourneyAnimation';
 
 import { generateThemeSuggestions } from '../lib/gemini-ai';
 import TarotLogo from '../components/ui/TarotLogo';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { generateElaborateTheme } from '../lib/gemini-ai';
 import { v4 as uuidv4 } from 'uuid';
+
+// Define a type for the hovered NFT price information
+interface HoveredNftInfo {
+  deckId: string | null;
+  displayText: string | null; 
+}
 
 // Featured decks data
 const featuredDecks = [
@@ -35,13 +42,13 @@ const featuredDecks = [
     id: '8',
     creator_id: 'mysticforge',
     creator_name: 'Mystic Forge',
-    title: 'Mystical Archetypes',
-    description: 'Explore the universal archetypes of the major arcana with this free deck. Great for all experience levels.',
+    title: 'Botanical Angels',
+    description: 'Explore the botanical archetypes of the major arcana with this deck. Great for all experience levels.',
     theme: 'archetypes',
     style: 'watercolor',
     card_count: 22,
-    price: 0,
-    is_free: true,
+    price: 15.99,
+    is_free: false,
     cover_image: 'https://api.tarotforge.xyz/storage/v1/object/sign/card-images/a8c392fb-7759-44bb-9515-8785280622d2/the-world-1747580504415.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9jYTcyNDk2MC0yMGJjLTQ5MDYtOWJiYy01NThhOGRlMzQwMGUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJjYXJkLWltYWdlcy9hOGMzOTJmYi03NzU5LTQ0YmItOTUxNS04Nzg1MjgwNjIyZDIvdGhlLXdvcmxkLTE3NDc1ODA1MDQ0MTUucG5nIiwiaWF0IjoxNzQ4ODYwNjg1LCJleHAiOjQ5MDI0NjA2ODV9.hINMNHe0-Ml3eePg0bDob2V4kx_mMyavNlvZOhXBQm4',
     sample_images: [],
     created_at: '2024-01-01T00:00:00Z',
@@ -152,6 +159,13 @@ const Home = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoEnded, setVideoEnded] = useState(false);
   
+  // State for SOL to USD rate and hovered NFT info
+  const [solUsdRate, setSolUsdRate] = useState<number | null>(null);
+  const [hoveredNftInfo, setHoveredNftInfo] = useState<HoveredNftInfo>({
+    deckId: null,
+    displayText: null,
+  });
+
   // Cookie for tracking if first-time user has used their credits
   const [hasUsedCredits, setHasUsedCredits] = useState(() => {
     const cookie = localStorage.getItem('hasUsedCredits');
@@ -162,6 +176,29 @@ const Home = () => {
   useEffect(() => {
     localStorage.setItem('hasUsedCredits', String(hasUsedCredits));
   }, [hasUsedCredits]);
+  
+  // Fetch SOL to USD rate on component mount
+  useEffect(() => {
+    const fetchSolPrice = async () => {
+      try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+        if (!response.ok) {
+          throw new Error('Failed to fetch SOL price from CoinGecko');
+        }
+        const data = await response.json();
+        if (data.solana && data.solana.usd) {
+          setSolUsdRate(data.solana.usd);
+          console.log('Fetched SOL/USD rate:', data.solana.usd);
+        } else {
+          console.error('SOL price not found in API response:', data);
+        }
+      } catch (error) {
+        console.error('Error fetching SOL price:', error);
+      }
+    };
+
+    fetchSolPrice();
+  }, []);
   
   // Random loading message interval
   useEffect(() => {
@@ -398,6 +435,28 @@ const Home = () => {
     return 0;
   };
   
+  const handleNftMouseEnter = (deck: typeof featuredDecks[0]) => {
+    if (deck.is_nft && deck.price) {
+      if (solUsdRate) {
+        const solPriceValue = deck.price / solUsdRate;
+        setHoveredNftInfo({
+          deckId: deck.id,
+          displayText: solPriceValue.toFixed(4) + ' SOL',
+        });
+      } else {
+        // Rate not yet loaded, show placeholder
+        setHoveredNftInfo({
+            deckId: deck.id,
+            displayText: 'Loading SOL...',
+        });
+      }
+    }
+  };
+
+  const handleNftMouseLeave = () => {
+    setHoveredNftInfo({ deckId: null, displayText: null });
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
@@ -734,63 +793,75 @@ const Home = () => {
           </motion.div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {featuredDecks.map((deck, index) => (
-              <motion.div
-                key={deck.id}
-                className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-xl transition-all"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                whileHover={{ y: -5 }}
-              >
-                <div className="aspect-[3/4] relative overflow-hidden">
-                  <img 
-                    src={deck.cover_image} 
-                    alt={deck.title} 
-                    className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
-                  />
-                  {deck.is_free ? (
-                    <div className="absolute top-3 right-3 bg-success/90 text-success-foreground font-medium px-3 py-1 rounded-full text-sm flex items-center">
-                      <Zap className="h-3 w-3 mr-1" />
-                      Free
-                    </div>
-                  ) : (
-                    <div className="absolute top-3 right-3 bg-accent/90 text-accent-foreground font-medium px-3 py-1 rounded-full text-sm">
-                      ${deck.price.toFixed(2)}
-                    </div>
-                  )}
-                  {deck.is_nft && (
-                    <div className="absolute top-3 left-3 bg-primary/90 text-primary-foreground font-medium px-3 py-1 rounded-full text-xs">
-                      NFT
-                    </div>
-                  )}
-                </div>
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-serif text-xl font-bold">{deck.title}</h3>
-                    {deck.rating && (
-                      <div className="flex items-center text-accent">
-                        <Star className="h-4 w-4 fill-current" />
-                        <span className="ml-1 font-medium">{deck.rating.toFixed(1)}</span>
+            {featuredDecks.map((deck, index) => {
+              const isHoveredNft = hoveredNftInfo.deckId === deck.id && deck.is_nft;
+              const priceBadgeText = isHoveredNft ? hoveredNftInfo.displayText : `$${deck.price?.toFixed(2)}`;
+              const priceBadgeClassName = `absolute top-3 right-3 font-medium px-3 py-1 rounded-full text-sm transition-colors duration-200 ${ 
+                isHoveredNft ? 'bg-purple-600 text-white' : 'bg-accent/90 text-accent-foreground'
+              }`;
+
+              return (
+                <motion.div
+                  key={deck.id}
+                  className="bg-card border border-border rounded-xl hover:shadow-xl transition-all"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  whileHover={{ y: -5 }}
+                >
+                  <div className="aspect-[3/4] relative overflow-hidden rounded-xl">
+                    <img 
+                      src={deck.cover_image} 
+                      alt={deck.title} 
+                      className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                    />
+                    {deck.is_free ? (
+                      <div className="absolute top-3 right-3 bg-success/90 text-success-foreground font-medium px-3 py-1 rounded-full text-sm flex items-center">
+                        <Zap className="h-3 w-3 mr-1" />
+                        Free
+                      </div>
+                    ) : (
+                      <div 
+                        className={priceBadgeClassName}
+                        onMouseEnter={deck.is_nft ? () => handleNftMouseEnter(deck) : undefined}
+                        onMouseLeave={deck.is_nft ? handleNftMouseLeave : undefined}
+                      >
+                        {priceBadgeText}
+                      </div>
+                    )}
+                    {deck.is_nft && (
+                      <div className="absolute top-3 left-3 bg-primary/90 text-primary-foreground font-medium px-3 py-1 rounded-full text-xs">
+                        NFT
                       </div>
                     )}
                   </div>
-                  <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
-                    {deck.description}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">By {deck.creator_name}</span>
-                    <Link 
-                      to={`/marketplace/${deck.id}`} 
-                      className="btn btn-secondary py-1 px-3 text-xs"
-                    >
-                      View Deck
-                    </Link>
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-serif text-xl font-bold">{deck.title}</h3>
+                      {deck.rating && (
+                        <div className="flex items-center text-accent">
+                          <Star className="h-4 w-4 fill-current" />
+                          <span className="ml-1 font-medium">{deck.rating.toFixed(1)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
+                      {deck.description}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">By {deck.creator_name}</span>
+                      <Link 
+                        to={`/marketplace/${deck.id}`} 
+                        className="btn btn-secondary py-1 px-3 text-xs hidden"
+                      >
+                        View Deck
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -1085,14 +1156,14 @@ const Home = () => {
       <section className="py-20 px-4 bg-gradient-to-b from-background to-primary/5">
         <div className="container mx-auto">
           <motion.div
-            className="bg-card border border-border rounded-xl p-8 md:p-12 text-center max-w-4xl mx-auto"
+            className="bg-card/70 backdrop-blur-sm border border-border rounded-xl p-8 md:p-12 text-center max-w-4xl mx-auto shadow-2xl"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             viewport={{ once: true }}
           >
             <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Wand2 className="h-8 w-8 text-primary" />
+              <JourneyAnimation size="sm" />
             </div>
             <h2 className="text-3xl md:text-4xl font-serif font-bold mb-4">Ready to Begin Your Journey?</h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
