@@ -13,6 +13,7 @@ import LogRocket from 'logrocket';
 import { trackPageView } from './utils/analytics';
 import { sessionCleanupService } from './utils/sessionCleanup';
 import { readerPresenceService } from './lib/reader-presence';
+import { useAnonymousAuth } from './hooks/useAnonymousAuth';
 
 // Initialize LogRocket React plugin
 setupLogRocketReact(LogRocket);
@@ -101,6 +102,7 @@ function App() {
   const { checkAuth, loading, user, initializeAuth } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
+  const { ensureAnonymousUser } = useAnonymousAuth();
 
   // Initialize auth store on component mount
   useEffect(() => {
@@ -166,6 +168,23 @@ function App() {
       url: window.location.href
     });
   }, [location.pathname]);
+
+  // Ensure anonymous user if no authenticated user is present
+  useEffect(() => {
+    const autoSignInAnonymous = async () => {
+      if (!loading && !user) {
+        console.log('App.tsx: No authenticated user, ensuring anonymous user.');
+        try {
+          await ensureAnonymousUser();
+          console.log('App.tsx: Anonymous user ensured.');
+        } catch (error) {
+          console.error('App.tsx: Error ensuring anonymous user:', error);
+          // Optionally, display a toast or message to the user
+        }
+      }
+    };
+    autoSignInAnonymous();
+  }, [loading, user, ensureAnonymousUser]);
 
   return (
     <SentryErrorBoundary>
