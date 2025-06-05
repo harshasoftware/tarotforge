@@ -1,533 +1,251 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Search, UserCheck, Users, Filter, Clock, CrownIcon, Star, Flame, Sparkles, Heart, Sun, SortAsc, SortDesc, DollarSign, Loader } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Search, UserCheck, Users, Filter, Clock, CrownIcon, Star, DollarSign, Loader, SortAsc, SortDesc } from 'lucide-react';
 import ReaderCard from '../../components/readers/ReaderCard';
-import { User } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
-import { fetchAllReaders } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
 
-// Sort options type
-type SortOption = 'level-asc' | 'level-desc' | 'price-asc' | 'price-desc' | 'none';
+// Import hooks
+import { useReaderDataManagement } from './hooks/useReaderDataManagement';
+import { useReaderFilteringAndSorting } from './hooks/useReaderFilteringAndSorting';
+import { useReaderPagination } from './hooks/useReaderPagination';
+
+// Import components
+import FilterButton from './components/FilterButton';
+import SortButton from './components/SortButton';
+import ReaderLevelsLegend from './components/ReaderLevelsLegend';
+
+// Import types
+import { SortOption, ActiveFilter } from './types';
 
 const ReadersPage: React.FC = () => {
   const { user } = useAuthStore();
-  const [readers, setReaders] = useState<User[]>([]);
-  const [filteredReaders, setFilteredReaders] = useState<User[]>([]);
-  const [displayedReaders, setDisplayedReaders] = useState<User[]>([]);
+  
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'new' | 'top-rated' | 'advanced'>('all');
+  const [activeFilter, setActiveFilter] = useState<ActiveFilter>('all');
   const [sortOption, setSortOption] = useState<SortOption>('none');
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [initialLoad, setInitialLoad] = useState(true);
-  
-  // Refs for intersection observer
-  const observer = useRef<IntersectionObserver | null>(null);
-  const lastReaderElementRef = useRef<HTMLDivElement | null>(null);
+  const [selectedLevelNameFilter, setSelectedLevelNameFilter] = useState<string | null>(null);
 
-  const ITEMS_PER_PAGE = 9;
-  
-  // Initial data load
-  useEffect(() => {
-    const loadReaders = async () => {
-      try {
-        setLoading(true);
-        const readersData = await fetchAllReaders();
-        setReaders(readersData);
-        setLoading(false);
-        setInitialLoad(false);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load readers');
-        setLoading(false);
-        setInitialLoad(false);
-      }
-    };
-    
-    loadReaders();
+  const { readers: allReaders, loading: dataLoading, initialLoad, error } = useReaderDataManagement();
+  const { filteredReaders } = useReaderFilteringAndSorting(allReaders, searchQuery, activeFilter, sortOption, selectedLevelNameFilter);
+  const { displayedReaders, loadingMore, hasMore, lastReaderRef } = useReaderPagination(filteredReaders);
 
-    // Refresh reader data every 2 minutes to update online status
-    const refreshInterval = setInterval(() => {
-      loadReaders();
-    }, 120000); // 2 minutes
+  const handleLevelSelect = (levelName: string) => {
+    setSelectedLevelNameFilter(levelName);
+  };
 
-    return () => clearInterval(refreshInterval);
-  }, []);
+  const handleResetLevelFilter = () => {
+    setSelectedLevelNameFilter(null);
+  };
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setSortOption('none');
+    setActiveFilter('all');
+    setSelectedLevelNameFilter(null);
+  };
   
-  // Filter readers based on search query and active filter
-  useEffect(() => {
-    let filtered = [...readers];
-    
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        r => r.username?.toLowerCase().includes(query) || 
-             r.email.toLowerCase().includes(query) || 
-             r.bio?.toLowerCase().includes(query)
+  const getSortLabel = (currentSort: SortOption) => {
+    switch(currentSort) {
+        case 'level-asc': return 'Level (Low to High)';
+        case 'level-desc': return 'Level (High to Low)';
+        case 'price-asc': return 'Price (Low to High)';
+        case 'price-desc': return 'Price (High to Low)';
+        default: return '';
+    }
+  };
+
+  const renderContent = () => {
+    if (initialLoad || (dataLoading && displayedReaders.length === 0)) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-xl p-6 animate-pulse">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-full bg-muted/50" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-5 w-3/4 bg-muted/50 rounded" />
+                  <div className="h-4 w-1/2 bg-muted/50 rounded" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="h-4 bg-muted/50 rounded" />
+                <div className="h-4 bg-muted/50 rounded" />
+                <div className="h-4 w-5/6 bg-muted/50 rounded mb-2" />
+              </div>
+              <div className="flex gap-2 mt-3 pt-3 border-t border-border">
+                <div className="flex-1 h-9 bg-muted/50 rounded" />
+                <div className="flex-1 h-9 bg-muted/50 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
       );
     }
-    
-    // Apply category filter
-    switch (activeFilter) {
-      case 'new':
-        // Sort by reader_since, newest first
-        filtered = [...filtered].sort(
-          (a, b) => new Date(b.reader_since || '').getTime() - new Date(a.reader_since || '').getTime()
-        );
-        break;
-      case 'top-rated':
-        // Sort by average rating, highest first
-        filtered = [...filtered].sort(
-          (a, b) => (b.average_rating || 5) - (a.average_rating || 5)
-        );
-        break;
-      case 'advanced':
-        // Filter to show only readers with higher levels (rank 3+)
-        filtered = filtered.filter(
-          r => r.readerLevel && r.readerLevel.rank_order >= 3
-        );
-        break;
-      default:
-        // Keep default order
-        break;
-    }
-    
-    // Apply sort option
-    switch(sortOption) {
-      case 'level-asc':
-        // Sort by level, lowest to highest
-        filtered = [...filtered].sort(
-          (a, b) => (a.readerLevel?.rank_order || 1) - (b.readerLevel?.rank_order || 1)
-        );
-        break;
-      case 'level-desc':
-        // Sort by level, highest to lowest
-        filtered = [...filtered].sort(
-          (a, b) => (b.readerLevel?.rank_order || 1) - (a.readerLevel?.rank_order || 1)
-        );
-        break;
-      case 'price-asc':
-        // Sort by price, lowest to highest
-        filtered = [...filtered].sort(
-          (a, b) => (a.readerLevel?.base_price_per_minute || 0.25) - (b.readerLevel?.base_price_per_minute || 0.25)
-        );
-        break;
-      case 'price-desc':
-        // Sort by price, highest to lowest
-        filtered = [...filtered].sort(
-          (a, b) => (b.readerLevel?.base_price_per_minute || 0.25) - (a.readerLevel?.base_price_per_minute || 0.25)
-        );
-        break;
-      default:
-        // Use the filter sort order established above
-        break;
-    }
-    
-    setFilteredReaders(filtered);
-    setPage(0);
-    setHasMore(filtered.length > ITEMS_PER_PAGE);
-    setDisplayedReaders(filtered.slice(0, ITEMS_PER_PAGE));
-  }, [searchQuery, activeFilter, readers, sortOption]);
-  
-  // Intersection observer for infinite scrolling
-  const lastReaderRef = useCallback((node: HTMLDivElement | null) => {
-    if (loading || loadingMore) return;
-    
-    if (observer.current) observer.current.disconnect();
-    
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
-        loadMoreReaders();
-      }
-    });
-    
-    if (node) {
-      observer.current.observe(node);
-      lastReaderElementRef.current = node;
-    }
-  }, [loading, loadingMore, hasMore]);
 
-  // Load more readers
-  const loadMoreReaders = useCallback(() => {
-    if (!hasMore || loadingMore) return;
-    
-    setLoadingMore(true);
-    
-    // Simulate loading delay
-    setTimeout(() => {
-      const nextPage = page + 1;
-      const start = nextPage * ITEMS_PER_PAGE;
-      const end = start + ITEMS_PER_PAGE;
-      const newItems = filteredReaders.slice(start, end);
-      
-      if (newItems.length > 0) {
-        setDisplayedReaders(prev => [...prev, ...newItems]);
-        setPage(nextPage);
-        setHasMore(end < filteredReaders.length);
-      } else {
-        setHasMore(false);
-      }
-      
-      setLoadingMore(false);
-    }, 600);
-  }, [page, filteredReaders, hasMore, loadingMore]);
-  
-  // Filter button component
-  const FilterButton: React.FC<{
-    active: boolean;
-    onClick: () => void;
-    icon: React.ReactNode;
-    children: React.ReactNode;
-  }> = ({ active, onClick, icon, children }) => (
-    <button
-      onClick={onClick}
-      className={`flex items-center px-4 py-2 rounded-md text-sm transition-colors ${
-        active ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary/50'
-      }`}
-    >
-      {React.cloneElement(icon as React.ReactElement, { className: 'h-4 w-4 mr-2' })}
-      {children}
-    </button>
-  );
-  
-  // Sort button component
-  const SortButton: React.FC<{
-    active: boolean;
-    onClick: () => void;
-    children: React.ReactNode;
-  }> = ({ active, onClick, children }) => (
-    <button
-      onClick={onClick}
-      className={`flex items-center px-4 py-1.5 rounded text-xs transition-colors ${
-        active ? 'bg-accent/20 text-accent-foreground' : 'bg-muted/30 hover:bg-muted/50'
-      }`}
-    >
-      {children}
-    </button>
-  );
-  
+    if (error) {
+      return (
+        <div className="text-center py-12">
+          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-6 max-w-md mx-auto">
+            <UserCheck className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <h2 className="text-xl font-medium mb-2">Unable to Load Readers</h2>
+            <p className="text-muted-foreground mb-6">{error}</p>
+            <button onClick={() => window.location.reload()} className="btn btn-primary px-6 py-2">
+              Try Again
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (filteredReaders.length === 0 && !dataLoading) {
+      return (
+        <div className="text-center py-12">
+          <div className="bg-muted/20 border border-border rounded-lg p-8 max-w-md mx-auto">
+            <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h2 className="text-xl font-medium mb-2">No Readers Found</h2>
+            <p className="text-muted-foreground mb-4">
+              {searchQuery || sortOption !== 'none' || activeFilter !== 'all' || selectedLevelNameFilter
+                ? "No readers match your search or filter criteria. Try adjusting your filters."
+                : "We don't have any certified readers available right now. Check back soon!"}
+            </p>
+            {(searchQuery || sortOption !== 'none' || activeFilter !== 'all' || selectedLevelNameFilter) && (
+              <button onClick={handleClearFilters} className="btn btn-secondary px-6 py-2">
+                Clear All Filters
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {displayedReaders.map((reader, index) => (
+            <div ref={index === displayedReaders.length - 1 ? lastReaderRef : null} key={reader.id}>
+              <ReaderCard reader={reader} />
+            </div>
+          ))}
+        </div>
+        {loadingMore && (
+          <div className="text-center py-8 flex items-center justify-center">
+            <Loader className="h-6 w-6 text-primary animate-spin mr-2" />
+            <span>Loading more readers...</span>
+          </div>
+        )}
+        {!hasMore && displayedReaders.length > 0 && !loadingMore && (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No more readers to load</p>
+          </div>
+        )}
+      </>
+    );
+  };
+
   return (
-    <div className="min-h-screen pt-12 pb-20">
+    <div className="min-h-screen pt-12 pb-20 bg-background text-foreground">
       <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="py-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-center py-8 mb-10"
+        >
+          <div className="inline-block rounded-full bg-accent/20 p-3 mb-4">
+            <UserCheck className="h-10 w-10 text-accent" />
+          </div>
+          <h1 className="text-3xl md:text-4xl font-serif font-bold mb-3">Certified Tarot Readers</h1>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Connect with certified readers for personalized insights on your spiritual journey.
+          </p>
+        </motion.div>
+        
+        <div className="flex flex-col lg:flex-row gap-8">
+          <aside className="w-full lg:w-1/3 space-y-6 lg:sticky lg:top-20 self-start">
+            <div className="relative w-full">
+              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground pointer-events-none">
+                <Search className="h-5 w-5" />
+              </div>
+              <input 
+                type="text"
+                placeholder="Search readers or specialties..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-md bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            
+            <div className="space-y-1.5">
+              <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2">Filter By Category</h3>
+              <FilterButton active={activeFilter === 'all' && !selectedLevelNameFilter} onClick={() => { setActiveFilter('all'); setSelectedLevelNameFilter(null); }} icon={<Users />}>All Readers</FilterButton>
+              <FilterButton active={activeFilter === 'new' && !selectedLevelNameFilter} onClick={() => { setActiveFilter('new'); setSelectedLevelNameFilter(null); }} icon={<Clock />}>Newest</FilterButton>
+              <FilterButton active={activeFilter === 'top-rated' && !selectedLevelNameFilter} onClick={() => { setActiveFilter('top-rated'); setSelectedLevelNameFilter(null); }} icon={<Star />}>Top Rated</FilterButton>
+              <FilterButton active={activeFilter === 'advanced' && !selectedLevelNameFilter} onClick={() => { setActiveFilter('advanced'); setSelectedLevelNameFilter(null); }} icon={<CrownIcon />}>Advanced Levels</FilterButton>
+            </div>
+            
+            <ReaderLevelsLegend 
+              selectedLevelName={selectedLevelNameFilter}
+              onLevelSelect={handleLevelSelect}
+              onResetFilter={handleResetLevelFilter}
+            />
+            
+            <div className="space-y-1.5">
+              <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2">Sort By</h3>
+              <SortButton active={sortOption === 'level-asc'} onClick={() => setSortOption(prev => prev === 'level-asc' ? 'none' : 'level-asc')}>
+                <span className="flex items-center"><CrownIcon className="h-3.5 w-3.5 mr-1.5" />Level</span> {sortOption === 'level-asc' ? <SortAsc className="h-4 w-4 text-accent"/> : <SortDesc className="h-4 w-4 opacity-30"/>}
+              </SortButton>
+              <SortButton active={sortOption === 'level-desc'} onClick={() => setSortOption(prev => prev === 'level-desc' ? 'none' : 'level-desc')}>
+                <span className="flex items-center"><CrownIcon className="h-3.5 w-3.5 mr-1.5" />Level</span> {sortOption === 'level-desc' ? <SortDesc className="h-4 w-4 text-accent"/> : <SortAsc className="h-4 w-4 opacity-30"/>}
+              </SortButton>
+              <SortButton active={sortOption === 'price-asc'} onClick={() => setSortOption(prev => prev === 'price-asc' ? 'none' : 'price-asc')}>
+                <span className="flex items-center"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Price</span> {sortOption === 'price-asc' ? <SortAsc className="h-4 w-4 text-accent"/> : <SortDesc className="h-4 w-4 opacity-30"/>}
+              </SortButton>
+              <SortButton active={sortOption === 'price-desc'} onClick={() => setSortOption(prev => prev === 'price-desc' ? 'none' : 'price-desc')}>
+                <span className="flex items-center"><DollarSign className="h-3.5 w-3.5 mr-1.5" />Price</span> {sortOption === 'price-desc' ? <SortDesc className="h-4 w-4 text-accent"/> : <SortAsc className="h-4 w-4 opacity-30"/>}
+              </SortButton>
+            </div>
+            
+            <div className="text-xs text-muted-foreground pt-2">
+              Showing {displayedReaders.length} of {filteredReaders.length} {filteredReaders.length === 1 ? 'reader' : 'readers'}
+              {sortOption !== 'none' && ( <span className="block">Sorted by: {getSortLabel(sortOption)}</span> )}
+              {selectedLevelNameFilter && ( <span className="block">Filtered by Level: {selectedLevelNameFilter}</span>)}
+            </div>
+            
+            {(searchQuery || sortOption !== 'none' || activeFilter !== 'all' || selectedLevelNameFilter) && (
+              <button onClick={handleClearFilters} className="w-full btn btn-secondary py-2.5 flex items-center justify-center text-sm">
+                <Filter className="h-4 w-4 mr-2" /> Clear All Filters
+              </button>
+            )}
+          </aside>
+          
+          <main className="w-full lg:w-2/3">
+            {renderContent()}
+          </main>
+        </div>
+        
+        {user && !user.is_reader && !initialLoad && !error && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-center mb-12"
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="mt-16 bg-gradient-to-br from-primary/15 to-accent/15 border border-border rounded-xl p-8 text-center"
           >
-            <div className="flex justify-center mb-4">
-              <div className="rounded-full bg-accent/20 p-3">
-                <UserCheck className="h-10 w-10 text-accent" />
+            <div className="max-w-xl mx-auto">
+              <div className="inline-block rounded-full bg-primary/20 p-3 mb-4">
+                <TarotLogo className="h-8 w-8 text-primary" />
               </div>
+              <h2 className="text-2xl font-serif font-bold mb-3">Share Your Tarot Wisdom</h2>
+              <p className="mb-6 text-muted-foreground">
+                Join our community. Take the certification quiz to showcase your tarot knowledge and connect with seekers.
+              </p>
+              <Link to="/become-reader" className="btn btn-primary px-6 py-2.5 inline-flex items-center text-sm">
+                <CrownIcon className="h-4 w-4 mr-2" /> Become a Certified Reader
+              </Link>
             </div>
-            <h1 className="text-3xl md:text-4xl font-serif font-bold mb-3">Certified Tarot Readers</h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Connect with our community of certified readers for personalized insights and guidance on your spiritual journey.
-            </p>
           </motion.div>
-          
-          {/* Main content with sidebar layout */}
-          <div className="flex flex-col lg:flex-row gap-8">
-            {/* Sidebar for search and filters - 33.3% */}
-            <div className="w-full lg:w-1/3 space-y-6">
-              {/* Search */}
-              <div className="relative w-full">
-                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-                  <Search className="h-5 w-5" />
-                </div>
-                <input 
-                  type="text"
-                  placeholder="Search by reader name or specialties..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-md bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-              
-              {/* Filter categories */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium mb-2">Filter Readers</h3>
-                <div className="flex flex-col space-y-2">
-                  <FilterButton 
-                    active={activeFilter === 'all'} 
-                    onClick={() => setActiveFilter('all')} 
-                    icon={<Users />}
-                  >
-                    All Readers
-                  </FilterButton>
-                  <FilterButton 
-                    active={activeFilter === 'new'} 
-                    onClick={() => setActiveFilter('new')} 
-                    icon={<Clock />}
-                  >
-                    Newest
-                  </FilterButton>
-                  <FilterButton 
-                    active={activeFilter === 'top-rated'} 
-                    onClick={() => setActiveFilter('top-rated')} 
-                    icon={<Star />}
-                  >
-                    Top Rated
-                  </FilterButton>
-                  <FilterButton 
-                    active={activeFilter === 'advanced'} 
-                    onClick={() => setActiveFilter('advanced')} 
-                    icon={<CrownIcon />}
-                  >
-                    Advanced Levels
-                  </FilterButton>
-                </div>
-              </div>
-              
-              {/* Sort options */}
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium mb-2">Sort By</h3>
-                <div className="flex flex-col space-y-2">
-                  <SortButton 
-                    active={sortOption === 'level-asc'} 
-                    onClick={() => setSortOption(sortOption === 'level-asc' ? 'none' : 'level-asc')}
-                  >
-                    <CrownIcon className="h-3 w-3 mr-1" />
-                    Level (Low to High)
-                    <SortAsc className="h-3 w-3 ml-1" />
-                  </SortButton>
-                  
-                  <SortButton 
-                    active={sortOption === 'level-desc'} 
-                    onClick={() => setSortOption(sortOption === 'level-desc' ? 'none' : 'level-desc')}
-                  >
-                    <CrownIcon className="h-3 w-3 mr-1" />
-                    Level (High to Low) 
-                    <SortDesc className="h-3 w-3 ml-1" />
-                  </SortButton>
-                  
-                  <SortButton 
-                    active={sortOption === 'price-asc'} 
-                    onClick={() => setSortOption(sortOption === 'price-asc' ? 'none' : 'price-asc')}
-                  >
-                    <DollarSign className="h-3 w-3 mr-1" />
-                    Price (Low to High)
-                    <SortAsc className="h-3 w-3 ml-1" />
-                  </SortButton>
-                  
-                  <SortButton 
-                    active={sortOption === 'price-desc'} 
-                    onClick={() => setSortOption(sortOption === 'price-desc' ? 'none' : 'price-desc')}
-                  >
-                    <DollarSign className="h-3 w-3 mr-1" />
-                    Price (High to Low)
-                    <SortDesc className="h-3 w-3 ml-1" />
-                  </SortButton>
-                </div>
-              </div>
-              
-              {/* Reader levels legend - Using chakra system colors */}
-              <div className="bg-card/50 border border-border rounded-lg p-4">
-                <h3 className="font-medium mb-3">Reader Certification Levels</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <div className="w-4 h-4 bg-red-500 rounded-full mr-2"></div>
-                    <span className="text-sm">Novice Seer</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-4 h-4 bg-orange-500 rounded-full mr-2"></div>
-                    <span className="text-sm">Mystic Adept</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-4 h-4 bg-yellow-500 rounded-full mr-2"></div>
-                    <span className="text-sm">Ethereal Guide</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
-                    <span className="text-sm">Celestial Oracle</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-4 h-4 bg-violet-500 rounded-full mr-2"></div>
-                    <span className="text-sm">Arcane Hierophant</span>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Readers progress through levels by demonstrating expertise, maintaining high ratings, and completing readings.
-                </p>
-              </div>
-              
-              {/* Results count */}
-              <div className="text-sm text-muted-foreground">
-                Showing {displayedReaders.length} of {filteredReaders.length} {filteredReaders.length === 1 ? 'reader' : 'readers'}
-                {sortOption !== 'none' && (
-                  <span> • Sorted by: {
-                    sortOption === 'level-asc' ? 'Level (Low to High)' :
-                    sortOption === 'level-desc' ? 'Level (High to Low)' :
-                    sortOption === 'price-asc' ? 'Price (Low to High)' :
-                    'Price (High to Low)'
-                  }</span>
-                )}
-              </div>
-              
-              {/* Clear filters button */}
-              {(searchQuery || sortOption !== 'none' || activeFilter !== 'all') && (
-                <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSortOption('none');
-                    setActiveFilter('all');
-                  }}
-                  className="w-full btn btn-secondary py-2 flex items-center justify-center"
-                >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Clear All Filters
-                </button>
-              )}
-            </div>
-            
-            {/* Main content - 66.7% */}
-            <div className="w-full lg:w-2/3">
-              {initialLoad ? (
-                // Loading state
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {[1, 2, 3, 4, 5, 6].map(i => (
-                    <div key={i} className="bg-card border border-border rounded-xl overflow-hidden">
-                      <div className="p-6">
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="w-16 h-16 rounded-full bg-muted/50 animate-pulse" />
-                          <div className="flex-1">
-                            <div className="h-6 w-32 bg-muted/50 rounded animate-pulse mb-2" />
-                            <div className="h-4 w-24 bg-muted/50 rounded animate-pulse" />
-                          </div>
-                        </div>
-                        <div className="h-4 bg-muted/50 rounded animate-pulse mb-2" />
-                        <div className="h-4 bg-muted/50 rounded animate-pulse mb-2" />
-                        <div className="h-4 w-3/4 bg-muted/50 rounded animate-pulse mb-4" />
-                        <div className="flex gap-2 mb-4">
-                          <div className="h-6 w-20 bg-muted/50 rounded-full animate-pulse" />
-                          <div className="h-6 w-24 bg-muted/50 rounded-full animate-pulse" />
-                        </div>
-                        <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-                          <div className="flex-1 h-10 bg-muted/50 rounded animate-pulse" />
-                          <div className="flex-1 h-10 bg-muted/50 rounded animate-pulse" />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : error ? (
-                // Error state
-                <div className="text-center py-12">
-                  <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-6 max-w-md mx-auto">
-                    <UserCheck className="h-12 w-12 text-destructive mx-auto mb-4" />
-                    <h2 className="text-xl font-medium mb-2">Unable to Load Readers</h2>
-                    <p className="text-muted-foreground mb-6">{error}</p>
-                    <button 
-                      onClick={() => window.location.reload()}
-                      className="btn btn-primary px-6 py-2"
-                    >
-                      Try Again
-                    </button>
-                  </div>
-                </div>
-              ) : filteredReaders.length === 0 ? (
-                // Empty results state
-                <div className="text-center py-12">
-                  <div className="bg-muted/20 border border-border rounded-lg p-8 max-w-md mx-auto">
-                    <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h2 className="text-xl font-medium mb-2">No Readers Found</h2>
-                    {searchQuery || sortOption !== 'none' ? (
-                      <p className="text-muted-foreground mb-4">
-                        No readers match your search or filter criteria. Try different keywords or clear your filters.
-                      </p>
-                    ) : (
-                      <p className="text-muted-foreground mb-4">
-                        We don't have any certified readers available at the moment. Check back soon!
-                      </p>
-                    )}
-                    {(searchQuery || sortOption !== 'none' || activeFilter !== 'all') && (
-                      <button
-                        onClick={() => {
-                          setSearchQuery('');
-                          setSortOption('none');
-                          setActiveFilter('all');
-                        }}
-                        className="btn btn-secondary px-6 py-2"
-                      >
-                        Clear All Filters
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {/* Readers grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {displayedReaders.map((reader, index) => {
-                      // Add ref to last item for infinite scrolling
-                      if (index === displayedReaders.length - 1) {
-                        return (
-                          <div ref={lastReaderRef} key={reader.id}>
-                            <ReaderCard reader={reader} />
-                          </div>
-                        );
-                      }
-                      return <ReaderCard key={reader.id} reader={reader} />;
-                    })}
-                  </div>
-                  
-                  {/* Loading more indicator */}
-                  {loadingMore && (
-                    <div className="text-center py-8">
-                      <div className="flex items-center justify-center">
-                        <Loader className="h-6 w-6 text-primary animate-spin mr-2" />
-                        <span>Loading more readers...</span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* No more readers indicator */}
-                  {!hasMore && displayedReaders.length > 0 && !loadingMore && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>No more readers to load</p>
-                    </div>
-                  )}
-                </>
-              )}
-              
-              {/* Become a reader CTA - only show if user is not already a reader */}
-              {user && !user.is_reader && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                  className="mt-16 bg-gradient-to-br from-primary/20 to-accent/20 border border-border rounded-xl p-8 text-center"
-                >
-                  <div className="max-w-2xl mx-auto">
-                    <div className="flex justify-center mb-4">
-                      <div className="rounded-full bg-primary/20 p-3">
-                        <TarotLogo className="h-8 w-8 text-primary" />
-                      </div>
-                    </div>
-                    <h2 className="text-2xl font-serif font-bold mb-3">Share Your Tarot Wisdom</h2>
-                    <p className="mb-6">
-                      Join our community of certified tarot readers. Take the certification quiz to showcase your tarot knowledge and connect with seekers from around the world.
-                    </p>
-                    <Link 
-                      to="/become-reader" 
-                      className="btn btn-primary px-6 py-2 inline-flex items-center"
-                    >
-                      <CrownIcon className="h-4 w-4 mr-2" />
-                      Become a Certified Reader
-                    </Link>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
