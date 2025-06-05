@@ -170,7 +170,6 @@ export const startTarotQuiz = async (userId: string) => {
           id,
           name,
           rank_order,
-          time_limit_minutes,
           num_questions,
           required_quiz_score,
           description,
