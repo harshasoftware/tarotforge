@@ -161,54 +161,91 @@ export const getUserQuizAttempts = async (userId: string) => {
  */
 export const startTarotQuiz = async (userId: string) => {
   try {
-    // Get the appropriate difficulty level for the user
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select(`
-        *,
+        id,
+        is_reader,
         readerLevel:level_id (
-          id, 
+          id,
           name,
-          rank_order
+          rank_order,
+          time_limit_minutes,
+          num_questions,
+          required_quiz_score,
+          description,
+          base_price_per_minute,
+          color_theme,
+          icon
         )
       `)
       .eq('id', userId)
       .single();
-      
+
     if (userError) {
-      console.error('Error fetching user data:', userError);
+      console.error('Error fetching user data for quiz start:', userError);
       throw userError;
     }
-    
-    // Determine difficulty level based on current reader level
-    let difficultyLevel = 'novice';
-    if (userData?.is_reader && userData?.readerLevel) {
-      const rankOrder = userData.readerLevel.rank_order;
-      
-      if (rankOrder >= 4) difficultyLevel = 'archmage';
-      else if (rankOrder >= 3) difficultyLevel = 'oracle';
-      else if (rankOrder >= 2) difficultyLevel = 'mystic';
-      else if (rankOrder >= 1) difficultyLevel = 'adept';
+
+    if (!userData) {
+      throw new Error('User not found when trying to start quiz.');
     }
-    
-    // Create the quiz attempt in the database
+
+    let currentActualReaderLevel: ReaderLevel | null = null;
+    if (Array.isArray(userData.readerLevel)) {
+      if (userData.readerLevel.length > 0) {
+        currentActualReaderLevel = userData.readerLevel[0] as ReaderLevel;
+      } else {
+        currentActualReaderLevel = null;
+      }
+    } else {
+      currentActualReaderLevel = userData.readerLevel as ReaderLevel | null;
+    }
+
+    const currentRankOrder = currentActualReaderLevel?.rank_order || 0;
+    const nextRankOrder = currentRankOrder + 1;
+
+    const { data: nextLevelData, error: nextLevelError } = await supabase
+      .from('reader_levels')
+      .select('id, name, num_questions, required_quiz_score, rank_order')
+      .eq('rank_order', nextRankOrder)
+      .single();
+
+    if (nextLevelError || !nextLevelData) {
+      console.error(`Error fetching next quiz level (rank ${nextRankOrder}):`, nextLevelError);
+      throw new Error(`Could not determine the next quiz level. Current rank: ${currentRankOrder}. Attempted rank: ${nextRankOrder}`);
+    }
+
+    const quizDifficulty = nextLevelData.name.toLowerCase().replace(/\s+/g, '-');
+    const timeLimitInSeconds = 15 * 60;
+    const numberOfQuestions = nextLevelData.num_questions || 15;
+
+    const questionsForQuiz = Array.from({ length: numberOfQuestions }, (_, i) => ({
+        id: `q${i + 1}`,
+        question: `Sample question ${i + 1} for ${quizDifficulty} level?`,
+        options: ['Option A', 'Option B', 'Option C', 'Option D'],
+        correctAnswer: Math.floor(Math.random() * 4),
+        explanation: `This is an explanation for sample question ${i + 1}.`
+    }));
+
     const { data: attempt, error: attemptError } = await supabase
       .from('quiz_attempts')
       .insert([{
         user_id: userId,
-        questions: [],
-        time_limit: 20 * 60, // 20 minutes in seconds
+        reader_level_id_attempted: nextLevelData.id,
+        questions: questionsForQuiz, 
+        time_limit: timeLimitInSeconds,
         status: 'in_progress',
-        difficulty_level: difficultyLevel
+        difficulty_level: quizDifficulty
       }])
-      .select()
+      .select('id, questions, time_limit, difficulty_level')
       .single();
-      
+
     if (attemptError) {
       console.error('Error creating quiz attempt:', attemptError);
       throw attemptError;
     }
-    
+
     return {
       quizId: attempt.id,
       questions: attempt.questions,
@@ -230,7 +267,7 @@ export const fetchQuizById = async (quizId: string) => {
   try {
     const { data, error } = await supabase
       .from('quiz_attempts')
-      .select('*')
+      .select('*, reader_level_id_attempted ( name, rank_order ) ')
       .eq('id', quizId)
       .single();
       
@@ -239,15 +276,16 @@ export const fetchQuizById = async (quizId: string) => {
       throw error;
     }
     
-    // Calculate remaining time
+    // Calculate remaining time based on the stored time_limit from the attempt
     const startTime = new Date(data.started_at).getTime();
     const currentTime = Date.now();
     const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
-    const timeRemaining = Math.max(0, data.time_limit - elapsedSeconds);
+    const timeRemaining = Math.max(0, data.time_limit - elapsedSeconds); // data.time_limit is now always 900 (15 min)
     
     return {
       ...data,
-      timeRemaining
+      timeRemaining,
+      difficultyLevel: data.difficulty_level
     };
   } catch (error) {
     console.error('Error in fetchQuizById:', error);
