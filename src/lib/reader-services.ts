@@ -230,7 +230,6 @@ export const startTarotQuiz = async (userId: string) => {
       .from('quiz_attempts')
       .insert([{
         user_id: userId,
-        reader_level_id_attempted: nextLevelData.id,
         questions: questionsForQuiz, 
         time_limit: timeLimitInSeconds, 
         status: 'in_progress',
@@ -265,7 +264,7 @@ export const fetchQuizById = async (quizId: string) => {
   try {
     const { data, error } = await supabase
       .from('quiz_attempts')
-      .select('*, reader_level_id_attempted ( name, rank_order ) ')
+      .select('*')
       .eq('id', quizId)
       .single();
       
