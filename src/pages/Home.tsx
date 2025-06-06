@@ -18,6 +18,9 @@ interface HoveredNftInfo {
   displayText: string | null; 
 }
 
+const SOL_RATE_CACHE_KEY = 'solUsdRateData';
+const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
+
 // Featured decks data
 const featuredDecks = [
   {
@@ -161,6 +164,8 @@ const Home = () => {
   
   // State for SOL to USD rate and hovered NFT info
   const [solUsdRate, setSolUsdRate] = useState<number | null>(null);
+  const [solUsdRateTimestamp, setSolUsdRateTimestamp] = useState<number | null>(null);
+  const [isFetchingSolRate, setIsFetchingSolRate] = useState<boolean>(false);
   const [hoveredNftInfo, setHoveredNftInfo] = useState<HoveredNftInfo>({
     deckId: null,
     displayText: null,
@@ -177,27 +182,29 @@ const Home = () => {
     localStorage.setItem('hasUsedCredits', String(hasUsedCredits));
   }, [hasUsedCredits]);
   
-  // Fetch SOL to USD rate on component mount
+  // Load SOL to USD rate from cache on component mount
   useEffect(() => {
-    const fetchSolPrice = async () => {
+    const cachedDataRaw = localStorage.getItem(SOL_RATE_CACHE_KEY);
+    if (cachedDataRaw) {
       try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
-        if (!response.ok) {
-          throw new Error('Failed to fetch SOL price from CoinGecko');
-        }
-        const data = await response.json();
-        if (data.solana && data.solana.usd) {
-          setSolUsdRate(data.solana.usd);
-          console.log('Fetched SOL/USD rate:', data.solana.usd);
+        const cachedData = JSON.parse(cachedDataRaw);
+        if (cachedData && typeof cachedData.rate === 'number' && typeof cachedData.timestamp === 'number') {
+          if (Date.now() - cachedData.timestamp < CACHE_DURATION_MS) {
+            setSolUsdRate(cachedData.rate);
+            setSolUsdRateTimestamp(cachedData.timestamp);
+            console.log('Loaded SOL/USD rate from cache:', cachedData.rate);
+          } else {
+            localStorage.removeItem(SOL_RATE_CACHE_KEY); // Stale data
+            console.log('Cleared stale SOL/USD rate cache.');
+          }
         } else {
-          console.error('SOL price not found in API response:', data);
+          localStorage.removeItem(SOL_RATE_CACHE_KEY); // Invalid data format
         }
       } catch (error) {
-        console.error('Error fetching SOL price:', error);
+        console.error('Error parsing SOL rate from cache:', error);
+        localStorage.removeItem(SOL_RATE_CACHE_KEY); // Corrupted data
       }
-    };
-
-    fetchSolPrice();
+    }
   }, []);
   
   // Random loading message interval
@@ -435,22 +442,56 @@ const Home = () => {
     return 0;
   };
   
-  const handleNftMouseEnter = (deck: typeof featuredDecks[0]) => {
-    if (deck.is_nft && deck.price) {
-      if (solUsdRate) {
-        const solPriceValue = deck.price / solUsdRate;
-        setHoveredNftInfo({
-          deckId: deck.id,
-          displayText: solPriceValue.toFixed(4) + ' SOL',
-        });
-      } else {
-        // Rate not yet loaded, show placeholder
-        setHoveredNftInfo({
-            deckId: deck.id,
-            displayText: 'Loading SOL...',
-        });
-      }
+  const performSolRateFetch = async () => {
+    if (isFetchingSolRate) {
+      return; // Another fetch is already in progress
     }
+    // Also, if rate is somehow now current, don't fetch
+    if (solUsdRate && solUsdRateTimestamp && (Date.now() - solUsdRateTimestamp < CACHE_DURATION_MS)) {
+      return;
+    }
+
+    setIsFetchingSolRate(true);
+    try {
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+      if (!response.ok) {
+        throw new Error('Failed to fetch SOL price from CoinGecko');
+      }
+      const data = await response.json();
+      if (data.solana && data.solana.usd) {
+        const newRate = data.solana.usd;
+        const newTimestamp = Date.now();
+        setSolUsdRate(newRate);
+        setSolUsdRateTimestamp(newTimestamp);
+        localStorage.setItem(SOL_RATE_CACHE_KEY, JSON.stringify({ rate: newRate, timestamp: newTimestamp }));
+        console.log('Fetched and cached SOL/USD rate:', newRate);
+      } else {
+        console.error('SOL price not found in API response:', data);
+      }
+    } catch (error) {
+      console.error('Error fetching SOL price:', error);
+    } finally {
+      setIsFetchingSolRate(false);
+    }
+  };
+
+  const handleNftMouseEnter = (deck: typeof featuredDecks[0]) => {
+    if (!deck.is_nft || !deck.price) return;
+
+    // Set this deck as the hovered one. Display text will be determined by render logic.
+    setHoveredNftInfo({
+      deckId: deck.id,
+      displayText: null, // Render logic will determine what to show based on solUsdRate state
+    });
+
+    const isRateCurrentlyValid = solUsdRate && solUsdRateTimestamp && (Date.now() - solUsdRateTimestamp < CACHE_DURATION_MS);
+
+    if (!isRateCurrentlyValid && !isFetchingSolRate) {
+      // If rate is not valid and no fetch is in progress, start one.
+      performSolRateFetch();
+    }
+    // If rate is valid, render logic will use it.
+    // If fetch is in progress, render logic will show "Loading...".
   };
 
   const handleNftMouseLeave = () => {
@@ -795,10 +836,23 @@ const Home = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {featuredDecks.map((deck, index) => {
               const isHoveredNft = hoveredNftInfo.deckId === deck.id && deck.is_nft;
-              const priceBadgeText = isHoveredNft ? hoveredNftInfo.displayText : `$${deck.price?.toFixed(2)}`;
               const priceBadgeClassName = `absolute top-3 right-3 font-medium px-3 py-1 rounded-full text-sm transition-colors duration-200 ${ 
-                isHoveredNft ? 'bg-violet-600 text-white' : 'bg-accent/90 text-accent-foreground'
+                isHoveredNft && solUsdRate ? 'bg-violet-600 text-white' : 'bg-accent/90 text-accent-foreground'
               }`;
+              
+              let priceBadgeText;
+              if (isHoveredNft) {
+                const isRateValidForHover = solUsdRate && solUsdRateTimestamp && (Date.now() - solUsdRateTimestamp < CACHE_DURATION_MS);
+                if (isRateValidForHover && deck.price && solUsdRate) {
+                    priceBadgeText = (deck.price / solUsdRate).toFixed(4) + ' SOL';
+                } else if (isFetchingSolRate) {
+                    priceBadgeText = 'Loading SOL...';
+                } else {
+                    priceBadgeText = 'Error'; // Fallback if rate not valid and not fetching (e.g. previous fetch failed)
+                }
+              } else if (deck.price) {
+                priceBadgeText = `$${deck.price.toFixed(2)}`;
+              }
 
               return (
                 <motion.div
