@@ -7,7 +7,7 @@ plugins = []
 [functions."*"]
 
 [build]
-publish = "/Users/itsnappyboy/Desktop/TarotForge/tarotforge/dist"
+publish = "/Users/itsnappyboy/Documents/GitHub/Tarot/tarotforge/dist"
 publishOrigin = "config"
 commandOrigin = "config"
 command = "npm run build"
