@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { Deck, Card } from '../types';
 import { riderWaiteDeck as rwDeck, riderWaiteCards } from '../data/riderWaiteDeck';
+import { solaBuscaDeck as sbDeck, solaBuscaCards } from '../data/solaBuscaDeck';
 
 /**
  * Fetches all decks from the marketplace including system-provided RiderWaite deck
@@ -28,13 +29,13 @@ export const fetchAllDecks = async (): Promise<Deck[]> => {
       ...deck,
       creator_name: deck.creator?.username || deck.creator?.email?.split('@')[0] || 'Unknown Creator'
     }));
-    
-    // Add Rider Waite deck to the beginning of the array
-    return [rwDeck, ...formattedDecks];
+
+    // Add system decks to the beginning of the array
+    return [rwDeck, sbDeck, ...formattedDecks];
   } catch (error) {
     console.error('Error in fetchAllDecks:', error);
-    // If there's an error, at least return the Rider Waite deck
-    return [rwDeck];
+    // If there's an error, at least return the system decks
+    return [rwDeck, sbDeck];
   }
 };
 
@@ -44,9 +45,12 @@ export const fetchAllDecks = async (): Promise<Deck[]> => {
  * @returns The deck with the specified ID, or Rider Waite deck if ID matches, or null if not found
  */
 export const fetchDeckById = async (deckId: string): Promise<Deck | null> => {
-  // If the deckId is for the Rider Waite deck, return it directly
+  // If the deckId is for a system deck, return it directly
   if (deckId === 'rider-waite-classic') {
     return rwDeck;
+  }
+  if (deckId === 'sola-busca-classic') {
+    return sbDeck;
   }
   
   try {
@@ -84,9 +88,12 @@ export const fetchDeckById = async (deckId: string): Promise<Deck | null> => {
  * @returns Array of cards for the specified deck
  */
 export const fetchCardsByDeckId = async (deckId: string): Promise<Card[]> => {
-  // If the deckId is for the Rider Waite deck, return its cards directly
+  // If the deckId is for a system deck, return its cards directly
   if (deckId === 'rider-waite-classic') {
     return riderWaiteCards;
+  }
+  if (deckId === 'sola-busca-classic') {
+    return solaBuscaCards;
   }
   
   try {
@@ -135,13 +142,13 @@ export const fetchFreeDecks = async (): Promise<Deck[]> => {
       ...deck,
       creator_name: deck.creator?.username || deck.creator?.email?.split('@')[0] || 'Unknown Creator'
     }));
-    
-    // Add Rider Waite deck to the beginning of the array
-    return [rwDeck, ...formattedDecks];
+
+    // Add system decks to the beginning of the array
+    return [rwDeck, sbDeck, ...formattedDecks];
   } catch (error) {
     console.error('Error in fetchFreeDecks:', error);
-    // If there's an error, at least return the Rider Waite deck
-    return [rwDeck];
+    // If there's an error, at least return the system decks
+    return [rwDeck, sbDeck];
   }
 };
 
@@ -207,7 +214,7 @@ export const fetchUserOwnedDecks = async (userId?: string): Promise<Deck[]> => {
     return ownedDecks;
   } catch (error) {
     console.error('Error in fetchUserOwnedDecks:', error);
-    // If there's an error, at least return the Rider Waite deck
-    return [rwDeck];
+    // If there's an error, at least return the system decks
+    return [rwDeck, sbDeck];
   }
 };
