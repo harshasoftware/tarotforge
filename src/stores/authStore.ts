@@ -6,9 +6,18 @@ import { processGoogleProfileImage } from '../lib/user-profile';
 import { generateMysticalUsername } from '../lib/gemini-ai';
 import { setUserContext, clearUserContext } from '../utils/errorTracking';
 import { identifyUser } from '../utils/analytics';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import type { Address } from 'viem';
 
 export type { User }; // Re-export the User type
+
+export interface LinkedWallet {
+  id: string;
+  user_id: string;
+  wallet_address: string;
+  wallet_type: string;
+  linked_at: string;
+  is_primary: boolean;
+}
 
 interface AuthStore {
   user: User | null;
@@ -19,6 +28,7 @@ interface AuthStore {
   lastCheckTime: number;
   authStateDetermined: boolean;
   nonceRef: string;
+  linkedWallets: LinkedWallet[];
   
   // Actions
   setUser: (user: User | null) => void;
@@ -41,6 +51,10 @@ interface AuthStore {
   linkToExistingAccount: (email: string, anonymousUserId: string) => Promise<{ error: any }>;
   restoreAnonymousSession: () => Promise<{ error: any }>;
   cleanupUpgradeProcess: () => void;
+  linkBaseWallet: (address: Address, signature: `0x${string}`, message: string, nonce: string) => Promise<{ error: any }>;
+  unlinkBaseWallet: (walletAddress: Address) => Promise<{ error: any }>;
+  fetchLinkedWallets: () => Promise<void>;
+  setLinkedWallets: (wallets: LinkedWallet[]) => void;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -53,6 +67,7 @@ export const useAuthStore = create<AuthStore>()(
     lastCheckTime: 0,
     authStateDetermined: false,
     nonceRef: '',
+    linkedWallets: [],
 
     setUser: (user) => set({ user }),
     setLoading: (loading) => set({ loading }),
@@ -1274,17 +1289,105 @@ export const useAuthStore = create<AuthStore>()(
     // Cleanup function for when user abandons upgrade process
     cleanupUpgradeProcess: () => {
       console.log('🧹 Cleaning up abandoned upgrade process');
-      
+
       // Remove any pending upgrade flags
       localStorage.removeItem('pending_google_link');
       localStorage.removeItem('pending_email_upgrade');
-      
+
       // If there's a backup session, it will expire after 1 hour automatically
       // But we can clean it up now if the user explicitly cancels
       const backupExists = localStorage.getItem('backup_anonymous_session');
       if (backupExists) {
         console.log('💾 Keeping backup session in case user wants to retry');
         // Keep backup for potential retry - it will auto-expire
+      }
+    },
+
+    // Base Wallet Methods
+    setLinkedWallets: (wallets) => set({ linkedWallets: wallets }),
+
+    fetchLinkedWallets: async () => {
+      const { user } = get();
+      if (!user) {
+        console.log('No user logged in, cannot fetch wallets');
+        return;
+      }
+
+      try {
+        const { getUserWallets } = await import('../lib/baseWalletAuth');
+        const { wallets, error } = await getUserWallets(user.id);
+
+        if (error) {
+          console.error('Error fetching linked wallets:', error);
+          return;
+        }
+
+        set({ linkedWallets: wallets });
+        console.log(`✅ Fetched ${wallets.length} linked wallets`);
+      } catch (error) {
+        console.error('Error fetching linked wallets:', error);
+      }
+    },
+
+    linkBaseWallet: async (address, signature, message, nonce) => {
+      try {
+        const { user } = get();
+        if (!user) {
+          return { error: 'No user logged in' };
+        }
+
+        console.log('🔗 Linking Base wallet to account:', address);
+
+        const { verifyWalletSignature } = await import('../lib/baseWalletAuth');
+        const result = await verifyWalletSignature({
+          message,
+          signature,
+          address,
+          nonce,
+          userId: user.id,
+        });
+
+        if (!result.success) {
+          console.error('Failed to link wallet:', result.error);
+          return { error: result.error || 'Failed to link wallet' };
+        }
+
+        // Refresh the linked wallets list
+        await get().fetchLinkedWallets();
+
+        console.log('✅ Base wallet linked successfully');
+        return { error: null };
+      } catch (error) {
+        console.error('Error linking Base wallet:', error);
+        return { error: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    },
+
+    unlinkBaseWallet: async (walletAddress) => {
+      try {
+        const { user } = get();
+        if (!user) {
+          return { error: 'No user logged in' };
+        }
+
+        console.log('🔓 Unlinking Base wallet from account:', walletAddress);
+
+        const { unlinkWallet } = await import('../lib/baseWalletAuth');
+        const result = await unlinkWallet(user.id, walletAddress);
+
+        if (!result.success) {
+          console.error('Failed to unlink wallet:', result.error);
+          return { error: result.error || 'Failed to unlink wallet' };
+        }
+
+        // Refresh the linked wallets list
+        await get().fetchLinkedWallets();
+
+        console.log('✅ Base wallet unlinked successfully');
+        return { error: null };
+      } catch (error) {
+        console.error('Error unlinking Base wallet:', error);
+        return { error: error instanceof Error ? error.message : 'Unknown error' };
       }
     }
   }))

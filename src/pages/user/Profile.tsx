@@ -12,6 +12,7 @@ import DeckQuotaOverview from '../../components/profile/DeckQuotaOverview';
 import DeckGenerationActivity from '../../components/profile/DeckGenerationActivity';
 import RegenerationPacks from '../../components/regeneration/RegenerationPacks';
 import CreditTransactionHistory from '../../components/profile/CreditTransactionHistory';
+import { LinkedWallets } from '../../components/wallet/LinkedWallets';
 
 interface ProfileFormData {
   username: string;
@@ -204,7 +205,7 @@ const Profile = () => {
               </div>
               
               {/* Account Security */}
-              <motion.div 
+              <motion.div
                 className="bg-card rounded-xl border border-border overflow-hidden mt-6"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -215,7 +216,7 @@ const Profile = () => {
                     <Shield className="h-5 w-5 mr-2 text-muted-foreground" />
                     <h3 className="font-medium">Account Security</h3>
                   </div>
-                  
+
                   <div className="p-4 bg-muted/10 rounded-lg mb-4">
                     <p className="text-sm text-muted-foreground mb-2">
                       Your account is secured using:
@@ -228,6 +229,18 @@ const Profile = () => {
                       Sign in with magic link or Google
                     </p>
                   </div>
+                </div>
+              </motion.div>
+
+              {/* Base Wallet Integration */}
+              <motion.div
+                className="bg-card rounded-xl border border-border overflow-hidden mt-6"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+              >
+                <div className="p-4">
+                  <LinkedWallets />
                 </div>
               </motion.div>
             </div>

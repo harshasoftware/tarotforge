@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './components/providers/AuthProvider';
+import { WagmiProvider } from './components/providers/WagmiProvider';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 import { 
@@ -95,9 +96,11 @@ async function initPWAFeatures() {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <WagmiProvider>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </WagmiProvider>
     </BrowserRouter>
   </StrictMode>
 );
