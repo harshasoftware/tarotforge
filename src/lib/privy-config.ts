@@ -173,9 +173,14 @@ export const privyConfigDev: PrivyClientConfig = {
 /**
  * Get the appropriate Privy config based on environment
  */
-export const getPrivyConfig = (): PrivyClientConfig => {
+export const getPrivyConfig = () => {
   const isDev = import.meta.env.DEV || import.meta.env.MODE === 'development';
-  return isDev ? privyConfigDev : privyConfig;
+  const baseConfig = isDev ? privyConfigDev : privyConfig;
+
+  return {
+    appId: PRIVY_APP_ID,
+    ...baseConfig,
+  };
 };
 
 /**
