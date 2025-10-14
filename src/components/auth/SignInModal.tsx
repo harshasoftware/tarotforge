@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Mail, ArrowRight, AlertCircle, Check, User } from 'lucide-react';
+import { X, Mail, ArrowRight, AlertCircle, Check, User, Wallet } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useAuthStore } from '../../stores/authStore';
+import { useHybridAuth } from '../../hooks/useHybridAuth';
 
 interface SignInModalProps {
   isOpen: boolean;
@@ -16,23 +17,25 @@ interface SignInFormData {
 }
 
 const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
-  const { 
-    signIn, 
-    signUp, 
-    signInWithGoogle, 
-    linkWithEmail, 
-    linkWithGoogle, 
+  const {
+    signIn,
+    signUp,
+    signInWithGoogle,
+    linkWithEmail,
+    linkWithGoogle,
     linkToExistingAccount,
     isAnonymous,
-    magicLinkSent, 
-    setMagicLinkSent 
+    magicLinkSent,
+    setMagicLinkSent
   } = useAuthStore();
+  const { connectWallet } = useHybridAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isWalletLoading, setIsWalletLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showExistingAccountPrompt, setShowExistingAccountPrompt] = useState<{email: string, anonymousUserId: string} | null>(null);
-  
+
   // Check if current user is anonymous
   const isCurrentlyAnonymous = isAnonymous();
   
@@ -118,19 +121,19 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
     try {
       setIsGoogleLoading(true);
       setError(null);
-      
+
       // Add a small delay to ensure no concurrent credential requests
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       let result;
 
       // Get the LATEST anonymous status AT THE MOMENT OF CLICK
-      const stillAnonymousOnClick = useAuthStore.getState().isAnonymous(); 
+      const stillAnonymousOnClick = useAuthStore.getState().isAnonymous();
 
       if (stillAnonymousOnClick) { // Use the fresh value for the condition
         // User is anonymous - use linking
         console.log('🔗 Using Google account linking flow');
-        
+
         // Log current reading session state from readingSessionStore
         const readingSessionStore = (await import('../../stores/readingSessionStore')).useReadingSessionStore.getState();
         if (readingSessionStore.sessionState) {
@@ -152,7 +155,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
         console.log('🔗 NOT using Google linking flow. stillAnonymousOnClick was false. User may have changed or was never anonymous here.');
         result = await signInWithGoogle();
       }
-      
+
       if (result.error) {
         // Handle specific linking errors
         if (result.error.message?.includes('Identity is already linked to another user')) {
@@ -162,11 +165,30 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
         }
         throw new Error(result.error.message || 'Failed to sign in with Google');
       }
-      
+
       // The Google flow will redirect to Google's auth page
     } catch (err: any) {
       setError(err.message || 'An error occurred with Google sign-in');
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handleWalletConnect = async () => {
+    try {
+      setIsWalletLoading(true);
+      setError(null);
+
+      await connectWallet();
+
+      // Close modal after successful wallet connection
+      onClose();
+
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred connecting wallet');
+      setIsWalletLoading(false);
     }
   };
   
@@ -189,7 +211,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
           <h3 className="font-serif font-bold">
             {isSignUp ? 'Create Account' : 'Sign In'}
           </h3>
-          <button 
+          <button
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground"
           >
@@ -256,7 +278,7 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
               <button
                 onClick={handleGoogleSignIn}
                 disabled={isGoogleLoading}
-                className="w-full btn btn-outline border-input hover:bg-secondary/50 py-2 mb-6 flex items-center justify-center relative"
+                className="w-full btn btn-outline border-input hover:bg-secondary/50 py-2 mb-4 flex items-center justify-center relative"
               >
                 {isGoogleLoading ? (
                   <span className="flex items-center justify-center">
@@ -277,7 +299,31 @@ const SignInModal = ({ isOpen, onClose, onSuccess }: SignInModalProps) => {
                   </>
                 )}
               </button>
-              
+
+              {/* NEW: Wallet Connect Button */}
+              <button
+                onClick={handleWalletConnect}
+                disabled={isWalletLoading}
+                className="w-full btn btn-outline border-primary/50 hover:bg-primary/10 py-2 mb-6 flex items-center justify-center relative mystical-gradient-border"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%)'
+                }}
+              >
+                {isWalletLoading ? (
+                  <span className="flex items-center justify-center">
+                    <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2"></span>
+                    Connecting...
+                  </span>
+                ) : (
+                  <>
+                    <Wallet className="h-5 w-5 mr-2 text-primary" />
+                    <span className="bg-gradient-to-r from-primary to-pink-500 bg-clip-text text-transparent font-semibold">
+                      Connect Wallet
+                    </span>
+                  </>
+                )}
+              </button>
+
               <div className="relative flex items-center justify-center mb-6">
                 <div className="border-t border-border w-full"></div>
                 <span className="bg-card px-2 text-xs text-muted-foreground absolute">or</span>

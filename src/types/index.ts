@@ -16,6 +16,11 @@ export interface User {
   custom_price_per_minute?: number | null | undefined;
   is_online?: boolean;
   last_seen_at?: string;
+
+  // Web3/Wallet fields
+  wallet_addresses?: Record<string, string>; // { ethereum: '0x...', solana: '...', etc }
+  privy_user_id?: string;
+  nft_features_enabled?: boolean;
 }
 
 export interface Deck {
