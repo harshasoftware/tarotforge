@@ -21,11 +21,22 @@ export const convertPrivyUserToTarotUser = async (privyUser: PrivyUser): Promise
   const emailPrefix = email?.split('@')[0];
   const defaultUsername = googleName || emailPrefix || `User_${privyUser.id.slice(-6)}`;
 
-  // Check if user exists in Supabase database
+  // Step 1: Get or create UUID for Privy DID
+  const { data: uuidData, error: uuidError } = await supabase
+    .rpc('get_or_create_uuid_for_privy_did', { p_privy_did: privyUser.id });
+
+  if (uuidError) {
+    console.error('Error getting UUID for Privy DID in convert:', uuidError);
+    // Fall back to using Privy ID directly if mapping fails
+  }
+
+  const userUuid = uuidData as string;
+
+  // Check if user exists in Supabase database using UUID
   const { data: existingUser } = await supabase
     .from('users')
     .select('*')
-    .eq('privy_id', privyUser.id)
+    .eq('id', userUuid)
     .single();
 
   // Try to get profile picture from various OAuth providers
@@ -52,7 +63,7 @@ export const convertPrivyUserToTarotUser = async (privyUser: PrivyUser): Promise
 
   // Return user object with Privy data
   const user: User = {
-    id: privyUser.id,
+    id: userUuid || privyUser.id, // Use UUID from mapping, fallback to Privy ID
     privy_id: privyUser.id,
     email: email,
     username: existingUser?.username || defaultUsername,
@@ -84,6 +95,18 @@ export const convertPrivyUserToTarotUser = async (privyUser: PrivyUser): Promise
 export const syncPrivyUserToSupabase = async (privyUser: PrivyUser): Promise<{ error: any }> => {
   try {
     const tarotUser = await convertPrivyUserToTarotUser(privyUser);
+
+    // Step 1: Get or create UUID mapping for Privy DID
+    const { data: uuidData, error: uuidError } = await supabase
+      .rpc('get_or_create_uuid_for_privy_did', { p_privy_did: privyUser.id });
+
+    if (uuidError) {
+      console.error('Error getting UUID for Privy DID:', uuidError);
+      return { error: uuidError };
+    }
+
+    const userUuid = uuidData as string;
+    console.log(`✅ Mapped Privy DID ${privyUser.id} to UUID ${userUuid}`);
 
     // Get embedded wallet addresses from linkedAccounts
     // Wallet accounts have type 'wallet' and include address, chainType, walletClientType
@@ -133,12 +156,12 @@ export const syncPrivyUserToSupabase = async (privyUser: PrivyUser): Promise<{ e
     else if (privyUser.twitter) authMethod = 'twitter';
     else if (privyUser.wallet) authMethod = 'wallet';
 
-    // Upsert user data to Supabase
+    // Step 2: Upsert user data to Supabase using the UUID
     const { error } = await supabase
       .from('users')
       .upsert({
-        id: privyUser.id,
-        privy_id: privyUser.id,
+        id: userUuid, // Use UUID instead of Privy DID
+        privy_id: privyUser.id, // Store Privy DID for reference
         email: tarotUser.email,
         username: tarotUser.username,
         full_name: tarotUser.full_name,
@@ -149,7 +172,7 @@ export const syncPrivyUserToSupabase = async (privyUser: PrivyUser): Promise<{ e
         auth_method: authMethod,
         created_at: tarotUser.created_at,
       }, {
-        onConflict: 'privy_id',
+        onConflict: 'id', // Conflict on UUID primary key
       });
 
     if (error) {
