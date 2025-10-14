@@ -9,6 +9,9 @@
         "@privy-io/server-auth": "^1.32.5",
         "@sentry/react": "^7.107.0",
         "@sentry/tracing": "^7.107.0",
+        "@solana-program/address-lookup-table": "^0.9.0",
+        "@solana-program/compute-budget": "^0.10.0",
+        "@solana-program/memo": "^0.9.0",
         "@solana-program/system": "^0.9.0",
         "@solana-program/token": "^0.7.0",
         "@solana-program/token-2022": "^0.6.0",
@@ -712,6 +715,12 @@
     "@sindresorhus/slugify": ["@sindresorhus/slugify@2.2.1", "", { "dependencies": { "@sindresorhus/transliterate": "^1.0.0", "escape-string-regexp": "^5.0.0" } }, "sha512-MkngSCRZ8JdSOCHRaYd+D01XhvU3Hjy6MGl06zhOk614hp9EOAp5gIkBeQg7wtmxpitU6eAL4kdiRMcJa2dlrw=="],
 
     "@sindresorhus/transliterate": ["@sindresorhus/transliterate@1.5.0", "", { "dependencies": { "escape-string-regexp": "^5.0.0", "lodash.deburr": "^4.1.0" } }, "sha512-/sfSkoNelLq5riqNRp5uBjHIKBi1MWZk9ubRT1WiBQuTfmDf7BeQkph2DJzRB83QagMPHk2VDjuvpy0VuwyzdA=="],
+
+    "@solana-program/address-lookup-table": ["@solana-program/address-lookup-table@0.9.0", "", { "peerDependencies": { "@solana/kit": "^4.0" } }, "sha512-kZu7SJWrTsZ+JcoBJ/521ZDdQykKV7DYsrpggg1mulAgC7RnKm3GrGuDF4D30rY+KKbnwhyZHyCtEHvwyZ205Q=="],
+
+    "@solana-program/compute-budget": ["@solana-program/compute-budget@0.10.0", "", { "peerDependencies": { "@solana/kit": "^4.0" } }, "sha512-UAJpPViY4N/6HtaxBfE92YGob6RDaasIb2v9BiVf44JIpue5b7pNJ2wbFxE/89EPX91xhGCwkDP/+ZgsuCQT1A=="],
+
+    "@solana-program/memo": ["@solana-program/memo@0.9.0", "", { "peerDependencies": { "@solana/kit": "^4.0" } }, "sha512-I544p9gFeaguGbM+U09tjc9Prbs71vh7votxRahEoiOlxVID9NtZTah4KQnL0jK7JboxFxXo4+VOBaIE3HYPOw=="],
 
     "@solana-program/system": ["@solana-program/system@0.9.0", "", { "peerDependencies": { "@solana/kit": "^4.0" } }, "sha512-yu+i0SZ+c+0E9Cy+btoMiCbxRnP/FLQuv/Ba8l2klZApAiOX1Ja/2IGkctFV36fglsI7PwD9czkSkHm8og+QeA=="],
 
