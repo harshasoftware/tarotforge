@@ -26,13 +26,14 @@ export const PrivyProviderWrapper: React.FC<PrivyProviderWrapperProps> = ({ chil
           showWalletLoginFirst: false, // Keep Google/Email primary
         },
 
-        // OAuth redirect URL
-        redirectUrl: 'https://euqhrxgmbmcgzmdunprq.supabase.co/auth/v1/callback',
-
         // Embedded wallets - create wallet for users automatically
         embeddedWallets: {
-          createOnLogin: 'users-without-wallets', // Auto-create for new users
-          noPromptOnSignature: false, // Show signature prompts
+          ethereum: {
+            createOnLogin: 'users-without-wallets', // Auto-create ETH wallet for new users
+          },
+          solana: {
+            createOnLogin: 'users-without-wallets', // Auto-create Solana wallet for new users
+          },
         },
 
         // Login methods
