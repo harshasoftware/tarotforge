@@ -15,7 +15,7 @@ export const config = createConfig({
     injected(),
     coinbaseWallet({
       appName: 'TarotForge',
-      appLogoUrl: 'https://tarotforge.xyz/logo.png',
+      appLogoUrl: 'https://tarotforge.xyz/logo.svg',
       preference: 'smartWalletOnly', // Use smart wallets by default
     }),
     walletConnect({
@@ -25,7 +25,7 @@ export const config = createConfig({
         name: 'TarotForge',
         description: 'Connect your wallet to TarotForge',
         url: 'https://tarotforge.xyz',
-        icons: ['https://tarotforge.xyz/logo.png'],
+        icons: ['https://tarotforge.xyz/logo.svg'],
       },
     }),
   ],
