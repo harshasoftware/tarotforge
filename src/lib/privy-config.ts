@@ -6,6 +6,7 @@
  */
 
 import { PrivyClientConfig } from '@privy-io/react-auth';
+import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
 
 /**
  * Privy App ID from environment variables
@@ -20,12 +21,18 @@ export const WEB3_FEATURES_ENABLED =
   import.meta.env.VITE_ENABLE_WEB3_FEATURES === 'true';
 
 /**
+ * Initialize Solana wallet connectors for external wallets
+ * This enables Phantom, Solflare, Backpack, and other Solana wallets
+ */
+const solanaConnectors = toSolanaWalletConnectors({
+  // Auto-connect to previously connected wallets
+  shouldAutoConnect: true,
+});
+
+/**
  * Privy configuration for React client
  */
 export const privyConfig: PrivyClientConfig = {
-  // App identification
-  appId: PRIVY_APP_ID,
-
   // Supported login methods (email/social for Web2 UX)
   loginMethods: ['email', 'google', 'wallet'],
 
@@ -39,9 +46,20 @@ export const privyConfig: PrivyClientConfig = {
 
   // Embedded wallet configuration
   embeddedWallets: {
-    createOnLogin: 'all-users', // Auto-create for all users (silent)
-    noPromptOnSignature: true, // No wallet popups for signatures
-    requireUserPasswordOnCreate: false, // No password for embedded wallets
+    ethereum: {
+      createOnLogin: 'all-users', // Auto-create Ethereum wallet for all users
+    },
+    solana: {
+      createOnLogin: 'all-users', // Auto-create Solana wallet for all users
+    },
+    showWalletUIs: false, // Don't show wallet UIs by default (progressive revelation)
+  },
+
+  // External wallet configuration
+  externalWallets: {
+    solana: {
+      connectors: solanaConnectors, // Enable Solana wallet connectors
+    },
   },
 
   // Supported chains

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Wallet, Link2, AlertCircle, Check, Loader2 } from 'lucide-react';
+import { Wallet, Link2, AlertCircle, Check, Loader2, ExternalLink } from 'lucide-react';
 import { usePrivy } from '@privy-io/react-auth';
+import { useWallets } from '@privy-io/react-auth/solana';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
@@ -21,8 +22,69 @@ import { showSuccessToast, showErrorToast } from '../../utils/toast';
  */
 const ConnectExternalWallet: React.FC = () => {
   const { user } = useAuthStore();
-  const { connectWallet, ready } = usePrivy();
+  const { connectWallet, ready, user: privyUser, unlinkWallet } = usePrivy();
+  const { wallets: solanaWallets, ready: solanaReady } = useWallets();
   const [connecting, setConnecting] = useState(false);
+  const [connectedWallets, setConnectedWallets] = useState<Array<{ address: string; type: string; walletClientType?: string }>>([]);
+
+  // Track connected external wallets from Privy
+  useEffect(() => {
+    if (privyUser && ready) {
+      // Get all linked wallets (filter out embedded wallets, keep only external)
+      const externalWallets = privyUser.linkedAccounts
+        .filter((account) => {
+          // Check if it's a wallet account
+          if (account.type !== 'wallet') return false;
+
+          // Filter out embedded wallets (keep only external wallets)
+          const walletAccount = account as { walletClientType?: string };
+          return walletAccount.walletClientType !== 'privy' && walletAccount.walletClientType !== 'privy-v2';
+        })
+        .map((account) => {
+          const wallet = account as { address: string; chainType: string; walletClientType?: string };
+          return {
+            address: wallet.address,
+            type: wallet.chainType || 'ethereum',
+            walletClientType: wallet.walletClientType,
+          };
+        });
+
+      setConnectedWallets(externalWallets);
+    }
+  }, [privyUser, ready, solanaWallets]);
+
+  // Store external wallet info in database when connected
+  useEffect(() => {
+    const syncWalletsToDatabase = async () => {
+      if (!user?.id || connectedWallets.length === 0) return;
+
+      try {
+        // Store each connected wallet in the database
+        for (const wallet of connectedWallets) {
+          const { error } = await supabase
+            .from('user_wallets')
+            .upsert({
+              user_id: user.id,
+              wallet_address: wallet.address,
+              chain: wallet.type === 'solana' ? 'solana' : 'base',
+              is_embedded: false,
+              is_visible_to_user: true,
+              wallet_type: wallet.walletClientType || 'unknown',
+            }, {
+              onConflict: 'user_id,wallet_address,chain',
+            });
+
+          if (error) {
+            console.error('Error storing wallet:', error);
+          }
+        }
+      } catch (error) {
+        console.error('Error syncing wallets to database:', error);
+      }
+    };
+
+    syncWalletsToDatabase();
+  }, [connectedWallets, user?.id]);
 
   // Handle connecting external wallet via Privy
   const handleConnectWallet = async () => {
@@ -40,9 +102,10 @@ const ConnectExternalWallet: React.FC = () => {
       setConnecting(true);
 
       // Open Privy's wallet connection modal
-      await connectWallet();
+      connectWallet();
 
-      showSuccessToast('Wallet connected successfully!');
+      // Show success message after modal is opened
+      // The actual connection will update the UI via useEffect
     } catch (error: any) {
       console.error('Error connecting wallet:', error);
 
@@ -54,6 +117,17 @@ const ConnectExternalWallet: React.FC = () => {
       }
     } finally {
       setConnecting(false);
+    }
+  };
+
+  // Handle disconnecting a wallet
+  const handleDisconnectWallet = async (address: string) => {
+    try {
+      await unlinkWallet(address);
+      showSuccessToast('Wallet disconnected successfully!');
+    } catch (error) {
+      console.error('Error disconnecting wallet:', error);
+      showErrorToast('Failed to disconnect wallet. Please try again.');
     }
   };
 
@@ -76,6 +150,39 @@ const ConnectExternalWallet: React.FC = () => {
         </p>
 
         <div className="space-y-4">
+          {/* Connected Wallets List */}
+          {connectedWallets.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Connected External Wallets</p>
+              {connectedWallets.map((wallet) => (
+                <div
+                  key={wallet.address}
+                  className="flex items-center justify-between p-3 bg-muted/10 rounded-lg border border-border"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+                      <Wallet className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">
+                        {wallet.walletClientType || wallet.type}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDisconnectWallet(wallet.address)}
+                    className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Wallet Connection Button */}
           <button
             onClick={handleConnectWallet}
@@ -90,7 +197,7 @@ const ConnectExternalWallet: React.FC = () => {
             ) : (
               <>
                 <Wallet className="h-4 w-4" />
-                Connect Wallet
+                {connectedWallets.length > 0 ? 'Connect Another Wallet' : 'Connect Wallet'}
               </>
             )}
           </button>
