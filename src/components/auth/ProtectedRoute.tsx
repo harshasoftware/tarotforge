@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStorePrivy';
 import LoadingScreen from '../ui/LoadingScreen';
 import { useEffect, useState } from 'react';
 

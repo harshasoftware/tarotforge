@@ -23,6 +23,8 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.2.0",
+    "@privy-io/react-auth": "^3.3.0",
+    "@privy-io/server-auth": "^1.32.5",
     "@sentry/react": "^7.107.0",
     "@sentry/tracing": "^7.107.0",
     "@stripe/react-stripe-js": "^2.4.0",

@@ -16,6 +16,17 @@ export interface User {
   custom_price_per_minute?: number | null | undefined;
   is_online?: boolean;
   last_seen_at?: string;
+
+  // Privy authentication fields
+  privy_id?: string;
+  embedded_eth_wallet?: string;
+  embedded_solana_wallet?: string;
+  external_wallets?: Array<{
+    address: string;
+    type: 'ethereum' | 'solana';
+    walletClient: string;
+  }>;
+  auth_method?: 'email' | 'google' | 'wallet' | 'twitter';
 }
 
 export interface Deck {

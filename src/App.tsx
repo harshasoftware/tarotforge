@@ -1,7 +1,7 @@
 import { useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { useAuthStore } from './stores/authStore';
+import { useAuthStore } from './stores/authStorePrivy';
 import Layout from './components/layout/Layout';
 import LoadingScreen from './components/ui/LoadingScreen';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -13,7 +13,7 @@ import LogRocket from 'logrocket';
 import { trackPageView } from './utils/analytics';
 import { sessionCleanupService } from './utils/sessionCleanup';
 import { readerPresenceService } from './lib/reader-presence';
-import { useAnonymousAuth } from './hooks/useAnonymousAuth';
+import { useAnonymousAuth } from './hooks/useAnonymousAuthPrivy';
 
 // Initialize LogRocket React plugin
 setupLogRocketReact(LogRocket);
@@ -51,7 +51,7 @@ const InvitePage = lazy(() => import('./pages/InvitePage'));
 const InviteHandler = lazy(() => import('./pages/InviteHandler'));
 const Profile = lazy(() => import('./pages/user/Profile'));
 const Checkout = lazy(() => import('./pages/marketplace/Checkout'));
-const AuthCallback = lazy(() => import('./pages/auth/AuthCallback'));
+const AuthCallback = lazy(() => import('./pages/auth/AuthCallbackPrivy'));
 const DeckCreator = lazy(() => import('./pages/creator/DeckCreator'));
 
 // New components for Readers and Reader Quiz
@@ -99,15 +99,13 @@ const SentryErrorBoundary = Sentry.withErrorBoundary(ErrorBoundary, {
 });
 
 function App() {
-  const { checkAuth, loading, user, initializeAuth } = useAuthStore();
+  const { loading, user, authStateDetermined } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
   const { ensureAnonymousUser } = useAnonymousAuth();
 
-  // Initialize auth store on component mount
-  useEffect(() => {
-    initializeAuth();
-  }, [initializeAuth]);
+  // Note: Privy initialization is handled automatically by AuthProvider
+  // No need for manual initializeAuth() call
 
   // Initialize session cleanup service
   useEffect(() => {
@@ -169,22 +167,8 @@ function App() {
     });
   }, [location.pathname]);
 
-  // Ensure anonymous user if no authenticated user is present
-  useEffect(() => {
-    const autoSignInAnonymous = async () => {
-      if (!loading && !user) {
-        console.log('App.tsx: No authenticated user, ensuring anonymous user.');
-        try {
-          await ensureAnonymousUser();
-          console.log('App.tsx: Anonymous user ensured.');
-        } catch (error) {
-          console.error('App.tsx: Error ensuring anonymous user:', error);
-          // Optionally, display a toast or message to the user
-        }
-      }
-    };
-    autoSignInAnonymous();
-  }, [loading, user, ensureAnonymousUser]);
+  // Note: Anonymous/guest users are handled by Privy automatically
+  // We'll implement Privy guest user support in the useAnonymousAuth hook
 
   return (
     <SentryErrorBoundary>

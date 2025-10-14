@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { useAuthStore } from './authStore';
+import { useAuthStore } from './authStorePrivy';
 import { useSubscriptionStore } from './subscriptionStore';
 import { supabase } from '../lib/supabase';
 import { STRIPE_PRODUCTS } from '../lib/stripe-config';

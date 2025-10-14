@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { Wand2, Crown, Check, ArrowRight, TrendingUp, ChevronRight, ChevronLeft, Sparkles, Users, Palette } from 'lucide-react';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStorePrivy';
 import { useSubscription } from '../../stores/subscriptionStore';
 import TarotLogo from '../ui/TarotLogo';
 

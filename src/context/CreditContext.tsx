@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore } from '../stores/authStorePrivy';
 import { useSubscription } from '../stores/subscriptionStore';
 import { supabase } from '../lib/supabase';
 import { STRIPE_PRODUCTS } from '../lib/stripe-config';

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Sparkles, Shield, Zap, ArrowLeft, Loader, CreditCard, Check, AlertCircle, Clock, ChevronsUpDown, TrendingUp } from 'lucide-react';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStorePrivy';
 import { useSubscription } from '../../stores/subscriptionStore';
 import { STRIPE_PRODUCTS, StripeProduct } from '../../lib/stripe-config';
 import { createCheckoutSession } from '../../lib/stripe';

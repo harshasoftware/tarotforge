@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Check, Zap, Star, Crown, Shield, Clock, TrendingUp, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStorePrivy';
 import { StripeProduct } from '../../lib/stripe-config';
 import { createCheckoutSession } from '../../lib/stripe';
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ShoppingCart, Bookmark, Share2, Star, Download, Eye, Users, Calendar, Shield, Info, User, BookOpen, Zap, Video } from 'lucide-react';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStorePrivy';
 import { Deck, Card } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { fetchDeckById, fetchCardsByDeckId } from '../../lib/deck-utils';

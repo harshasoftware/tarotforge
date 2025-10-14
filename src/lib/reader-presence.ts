@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore } from '../stores/authStorePrivy';
 
 // How long to consider a reader "online" (in minutes)
 const ONLINE_THRESHOLD_MINUTES = 5;

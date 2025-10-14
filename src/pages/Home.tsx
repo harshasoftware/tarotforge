@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Sparkles, Wand2, ShoppingBag, BookOpen, Hammer, ArrowRight, Zap, Video, Star, Camera, Users, Download, Shield, ChevronLeft, ChevronRight, RefreshCw, CreditCard, Check, Clock } from 'lucide-react';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore } from '../stores/authStorePrivy';
 import { useCredits } from '../context/CreditContext';
 import JourneyAnimation from '../components/ui/JourneyAnimation';
 import { useSolanaPrice } from '../hooks/useSolanaPrice';

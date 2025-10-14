@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { Mail, Save, Shield, AlertCircle, Check } from 'lucide-react';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStorePrivy';
 import ProfileImageUpload from '../profile/ProfileImageUpload';
 import { getUserProfile, updateUserProfile } from '../../lib/user-profile';
 import { supabase } from '../../lib/supabase';

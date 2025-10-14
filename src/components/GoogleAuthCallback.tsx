@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore } from '../stores/authStorePrivy';
 import LoadingScreen from './ui/LoadingScreen';
 
 const GoogleAuthCallback: React.FC = () => {

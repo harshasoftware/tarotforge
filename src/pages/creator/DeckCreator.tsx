@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Wand2, Sparkles, Save, ArrowRight, AlertCircle, Check, Crown, TrendingUp, RefreshCw, Zap } from 'lucide-react';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStorePrivy';
 import { useSubscription } from '../../stores/subscriptionStore';
 import { useDeckQuotas } from '../../stores/deckQuotaStore';
 import { useDeckLimits } from '../../stores/deckLimitStore';

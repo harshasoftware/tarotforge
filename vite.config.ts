@@ -25,6 +25,8 @@ export default defineConfig({
         navigateFallback: 'index.html',
         skipWaiting: true,
         clientsClaim: true,
+        // Increase file size limit to accommodate Privy SDK (~2.3 MB)
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB
       },
       devOptions: {
         enabled: true,

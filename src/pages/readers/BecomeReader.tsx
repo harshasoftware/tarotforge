@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Award, BookOpen, Check, ChevronRight, Clock, Crown, Shield, Sparkles, UserCheck, AlertTriangle, Info, ArrowRight, Sun, Heart, Flame } from 'lucide-react';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStorePrivy';
 import { checkQuizEligibility, getUserQuizAttempts, fetchReaderLevels } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
 import { ReaderLevel } from '../../types';

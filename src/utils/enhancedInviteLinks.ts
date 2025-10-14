@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore } from '../stores/authStorePrivy';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface InviteOptions {

@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen, Plus, Search, Filter, Grid, List, Star, Share2, Trash2, Eye, Calendar, Package, ShoppingBag, AlertCircle, Zap, Edit, DollarSign } from 'lucide-react';
 import DeckPreview from '../../components/ui/DeckPreview';
 import { Deck } from '../../types';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStorePrivy';
 import { supabase } from '../../lib/supabase';
 import { deleteDeckImages } from '../../lib/storage-utils';
 import { fetchFreeDecks, fetchUserCreatedDecks } from '../../lib/deck-utils';

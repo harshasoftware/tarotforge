@@ -1,221 +1,50 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { usePrivy } from '@privy-io/react-auth';
 import { motion } from 'framer-motion';
-import { Mail, AlertCircle, ArrowRight, Check, User } from 'lucide-react';
-import { useAuthStore } from '../../stores/authStore';
 
-interface SignupFormData {
-  email: string;
-  fullName: string;
-}
-
+/**
+ * Signup Page - Shows Privy authentication modal
+ * Opens Privy's modal directly on the /signup route
+ * (Privy handles both sign-in and sign-up in the same modal)
+ */
 const Signup = () => {
-  const { signUp, signInWithGoogle, magicLinkSent, setMagicLinkSent, user } = useAuthStore();
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  
-  const { 
-    register, 
-    handleSubmit,
-    formState: { errors } 
-  } = useForm<SignupFormData>();
-  
-  // Redirect if already logged in
-  useEffect(() => {
-    if (user) {
-      navigate('/marketplace');
-    }
-  }, [user, navigate]);
-  
-  const onSubmit = async (data: SignupFormData) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      // Sign up with auto-generated username and provided full name (if any)
-      const { error } = await signUp(data.email, undefined, data.fullName);
-      
-      if (error) {
-        throw new Error(error.message || 'Failed to create account');
-      }
-      
-      // Don't navigate yet, wait for user to click the link in their email
-      setIsLoading(false);
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during sign up');
-      setIsLoading(false);
-    }
-  };
+  const { login, authenticated, ready } = usePrivy();
 
-  const handleGoogleSignIn = async () => {
-    try {
-      setIsGoogleLoading(true);
-      setError(null);
-      
-      const { error } = await signInWithGoogle();
-      
-      if (error) {
-        throw new Error(error.message || 'Failed to sign up with Google');
-      }
-      
-      // Don't need to do anything else as Google sign-in redirects to Google
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during Google sign up');
-      setIsGoogleLoading(false);
+  useEffect(() => {
+    // Wait for Privy to be ready
+    if (!ready) return;
+
+    // If already authenticated, redirect to marketplace
+    if (authenticated) {
+      navigate('/marketplace');
+      return;
     }
-  };
-  
+
+    // Store return path
+    const returnPath = localStorage.getItem('authRedirectTo') || '/marketplace';
+    localStorage.setItem('auth_return_path', returnPath);
+
+    // Open Privy login modal automatically (handles both sign-in and sign-up)
+    login();
+  }, [ready, authenticated, navigate, login]);
+
+  // Show loading state while Privy initializes or modal opens
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <motion.div 
-        className="w-full max-w-md"
+      <motion.div
+        className="w-full max-w-md text-center"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-serif font-bold mb-2">Create Your Account</h1>
-          <p className="text-muted-foreground">Join our mystical community of creators and collectors</p>
-        </div>
-        
-        {error && (
-          <div className="mb-6 p-4 border border-destructive/30 bg-destructive/10 rounded-lg flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-            <p className="text-sm text-destructive">{error}</p>
-          </div>
-        )}
-        
-        {magicLinkSent ? (
-          <div className="mb-6 p-6 border border-success/30 bg-success/10 rounded-lg text-center">
-            <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-4">
-              <Check className="h-8 w-8 text-success" />
-            </div>
-            <h2 className="text-xl font-medium mb-2">Magic Link Sent!</h2>
-            <p className="mb-4">We've sent a sign-up link to your email address. Please check your inbox (and spam folder) to finish creating your account.</p>
-            <button 
-              onClick={() => setMagicLinkSent(false)}
-              className="btn btn-primary w-full py-2"
-            >
-              Back to Sign Up
-            </button>
-          </div>
-        ) : (
-          <>
-            {/* Google Sign Up */}
-            <button
-              onClick={handleGoogleSignIn}
-              disabled={isGoogleLoading}
-              className="w-full btn btn-outline border-input hover:bg-secondary/50 py-2 mb-6 flex items-center justify-center relative"
-            >
-              {isGoogleLoading ? (
-                <span className="flex items-center justify-center">
-                  <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2"></span>
-                  Connecting to Google...
-                </span>
-              ) : (
-                <>
-                  <svg viewBox="0 0 24 24" width="24" height="24" className="absolute left-3">
-                    <g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)">
-                      <path fill="#4285F4" d="M -3.264 51.509 C -3.264 50.719 -3.334 49.969 -3.454 49.239 L -14.754 49.239 L -14.754 53.749 L -8.284 53.749 C -8.574 55.229 -9.424 56.479 -10.684 57.329 L -10.684 60.329 L -6.824 60.329 C -4.564 58.239 -3.264 55.159 -3.264 51.509 Z" />
-                      <path fill="#34A853" d="M -14.754 63.239 C -11.514 63.239 -8.804 62.159 -6.824 60.329 L -10.684 57.329 C -11.764 58.049 -13.134 58.489 -14.754 58.489 C -17.884 58.489 -20.534 56.379 -21.484 53.529 L -25.464 53.529 L -25.464 56.619 C -23.494 60.539 -19.444 63.239 -14.754 63.239 Z" />
-                      <path fill="#FBBC05" d="M -21.484 53.529 C -21.734 52.809 -21.864 52.039 -21.864 51.239 C -21.864 50.439 -21.724 49.669 -21.484 48.949 L -21.484 45.859 L -25.464 45.859 C -26.284 47.479 -26.754 49.299 -26.754 51.239 C -26.754 53.179 -26.284 54.999 -25.464 56.619 L -21.484 53.529 Z" />
-                      <path fill="#EA4335" d="M -14.754 43.989 C -12.984 43.989 -11.404 44.599 -10.154 45.789 L -6.734 42.369 C -8.804 40.429 -11.514 39.239 -14.754 39.239 C -19.444 39.239 -23.494 41.939 -25.464 45.859 L -21.484 48.949 C -20.534 46.099 -17.884 43.989 -14.754 43.989 Z" />
-                    </g>
-                  </svg>
-                  <span>Sign up with Google</span>
-                </>
-              )}
-            </button>
-            
-            <div className="relative flex items-center justify-center mb-6">
-              <div className="border-t border-border w-full"></div>
-              <span className="bg-background px-2 text-xs text-muted-foreground absolute">or</span>
-            </div>
-            
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-              <div className="space-y-2">
-                <label htmlFor="email" className="block text-sm font-medium">
-                  Email
-                </label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-                    <Mail className="h-5 w-5" />
-                  </div>
-                  <input
-                    id="email"
-                    type="email"
-                    {...register('email', { 
-                      required: 'Email is required', 
-                      pattern: {
-                        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                        message: 'Invalid email address'
-                      }
-                    })}
-                    className={`w-full pl-10 pr-4 py-2 rounded-md bg-card border ${
-                      errors.email ? 'border-destructive' : 'border-input'
-                    } focus:outline-none focus:ring-2 focus:ring-primary`}
-                    placeholder="you@example.com"
-                  />
-                </div>
-                {errors.email && (
-                  <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
-                )}
-              </div>
-              
-              <div className="space-y-2">
-                <label htmlFor="fullName" className="block text-sm font-medium">
-                  Full Name <span className="text-muted-foreground text-xs">(optional)</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-                    <User className="h-5 w-5" />
-                  </div>
-                  <input
-                    id="fullName"
-                    type="text"
-                    {...register('fullName')}
-                    className="w-full pl-10 pr-4 py-2 rounded-md bg-card border border-input focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Your Name"
-                  />
-                </div>
-              </div>
-              
-              <p className="text-sm text-muted-foreground">
-                We'll send you a magic link to complete your sign-up. No password needed!
-                A mystical username will be automatically generated for you, which you can change later.
-              </p>
-              
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full btn btn-primary py-2 mt-4 disabled:opacity-70"
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center">
-                    <span className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></span>
-                    Sending Link...
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center">
-                    Create Account
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </span>
-                )}
-              </button>
-            </form>
-          </>
-        )}
-        
-        <div className="mt-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            Already have an account?{' '}
-            <Link to="/login" className="text-primary hover:underline">
-              Sign In
-            </Link>
-          </p>
+        <h1 className="text-3xl font-serif font-bold mb-4">Create Your Account</h1>
+        <p className="text-muted-foreground mb-8">
+          Opening sign-up options...
+        </p>
+        <div className="flex justify-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
         </div>
       </motion.div>
     </div>

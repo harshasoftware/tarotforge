@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useVideoCall } from '../../context/VideoCallContext';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStorePrivy';
 import { useReadingSessionStore } from '../../stores/readingSessionStore';
 import { User, Video, X, Phone, Mic, MicOff, VideoOff, Copy, Check, AlertCircle, Share2, Settings, PhoneOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';

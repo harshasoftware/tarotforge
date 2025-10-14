@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
-import { useAuthStore } from './authStore';
+import { useAuthStore } from './authStorePrivy';
 import { ReadingLayout, Card } from '../types';
 import { RealtimeChannel, RealtimePresenceState } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';

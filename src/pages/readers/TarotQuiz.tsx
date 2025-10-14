@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AlertCircle, ArrowLeft, Award, CheckCircle, XCircle, Clock, Star, Moon, Sun, Sparkles, Crown, Flame, Heart } from 'lucide-react';
 import { showErrorToast } from '../../utils/toast';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStorePrivy';
 import QuizQuestion from '../../components/quiz/QuizQuestion';
 import QuizTimer from '../../components/quiz/QuizTimer';
 import { QuizQuestion as QuizQuestionType } from '../../types';

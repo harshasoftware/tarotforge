@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { Mail, Save, Shield, AlertCircle, Check, Camera } from 'lucide-react';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStorePrivy';
 import ProfileImageUpload from '../../components/profile/ProfileImageUpload';
 import { getUserProfile, updateUserProfile } from '../../lib/user-profile';
 import { supabase } from '../../lib/supabase';
@@ -12,6 +12,7 @@ import DeckQuotaOverview from '../../components/profile/DeckQuotaOverview';
 import DeckGenerationActivity from '../../components/profile/DeckGenerationActivity';
 import RegenerationPacks from '../../components/regeneration/RegenerationPacks';
 import CreditTransactionHistory from '../../components/profile/CreditTransactionHistory';
+import WalletSection from '../../components/profile/WalletSection';
 
 interface ProfileFormData {
   username: string;
@@ -204,7 +205,7 @@ const Profile = () => {
               </div>
               
               {/* Account Security */}
-              <motion.div 
+              <motion.div
                 className="bg-card rounded-xl border border-border overflow-hidden mt-6"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -215,7 +216,7 @@ const Profile = () => {
                     <Shield className="h-5 w-5 mr-2 text-muted-foreground" />
                     <h3 className="font-medium">Account Security</h3>
                   </div>
-                  
+
                   <div className="p-4 bg-muted/10 rounded-lg mb-4">
                     <p className="text-sm text-muted-foreground mb-2">
                       Your account is secured using:
@@ -230,6 +231,11 @@ const Profile = () => {
                   </div>
                 </div>
               </motion.div>
+
+              {/* Web3 Wallets */}
+              <div className="mt-6">
+                <WalletSection />
+              </div>
             </div>
             
             {/* Right Column - Profile Details & Transaction History */}

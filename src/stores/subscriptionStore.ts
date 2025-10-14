@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { useAuthStore } from './authStore';
+import { useAuthStore } from './authStorePrivy';
 import { getUserSubscription } from '../lib/stripe';
 import { updateSubscriptionData } from '../utils/analytics';
 import { getPlanNameFromPriceId } from '../utils/analytics';

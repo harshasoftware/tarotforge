@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search, UserCheck, Users, Filter, Clock, CrownIcon, Star, DollarSign, Loader, SortAsc, SortDesc, SlidersHorizontal, X as CloseIcon } from 'lucide-react';
 import ReaderCard from '../../components/readers/ReaderCard';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStorePrivy';
 import TarotLogo from '../../components/ui/TarotLogo';
 
 // Import hooks

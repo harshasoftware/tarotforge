@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { Award, Calendar, Clock, MessageSquare, UserCheck, Users, BarChart4, BookOpen, ChevronRight, Star, ArrowUp, Sparkles, Flame, Heart, Crown, Sun, DollarSign, Edit, Save, XCircle, Check } from 'lucide-react';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStorePrivy';
 import { getReaderDetails, getReaderReviews } from '../../lib/reader-services';
 import TarotLogo from '../../components/ui/TarotLogo';
 import { ReaderLevel, User, ReaderReview } from '../../types';
