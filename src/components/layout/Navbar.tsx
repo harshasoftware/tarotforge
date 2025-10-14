@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Moon, Sun, User, UserCheck, Crown, WalletCards } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
-import SignInModal from '../auth/SignInModal';
+import { usePrivy } from '@privy-io/react-auth';
 import TarotLogo from '../ui/TarotLogo';
 import DeckQuotaBadge from '../ui/CreditBadge';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -15,7 +15,8 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const { user, signOut, showSignInModal, setShowSignInModal, isAnonymous } = useAuthStore();
+  const { user, signOut, isAnonymous } = useAuthStore();
+  const { login: privyLogin } = usePrivy();
   const { isSubscribed } = useSubscription();
   const location = useLocation();
   const navigate = useNavigate();
@@ -208,7 +209,7 @@ const Navbar = () => {
               </div>
             ) : (
               <button
-                onClick={() => setShowSignInModal(true)}
+                onClick={privyLogin}
                 className="btn btn-primary py-1.5 px-4 text-sm"
               >
                 Sign In
@@ -288,7 +289,7 @@ const Navbar = () => {
                   <button
                     onClick={() => {
                       setIsOpen(false);
-                      setShowSignInModal(true);
+                      privyLogin();
                     }}
                     className="block w-full text-left py-2 px-4 rounded-md bg-primary text-primary-foreground"
                   >
@@ -300,12 +301,6 @@ const Navbar = () => {
           </motion.div>
         )}
       </nav>
-
-      {/* Sign In Modal */}
-      <SignInModal 
-        isOpen={showSignInModal}
-        onClose={() => setShowSignInModal(false)}
-      />
     </>
   );
 };

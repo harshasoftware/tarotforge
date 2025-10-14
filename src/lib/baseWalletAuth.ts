@@ -189,6 +189,88 @@ export async function hasLinkedWallet(userId: string): Promise<boolean> {
 }
 
 /**
+ * Generate a SIWE message for wallet-only authentication
+ */
+export async function generateWalletAuthMessage(
+  address: Address,
+  nonce: string,
+  chainId: number = 8453
+): Promise<string> {
+  const domain = window.location.host;
+  const origin = window.location.origin;
+  const statement = 'Sign in to TarotForge with your Base wallet';
+
+  const siweMessage = new SiweMessage({
+    domain,
+    address,
+    statement,
+    uri: origin,
+    version: '1',
+    chainId,
+    nonce,
+    issuedAt: new Date().toISOString(),
+  });
+
+  return siweMessage.prepareMessage();
+}
+
+/**
+ * Authenticate with wallet (creates anonymous account + links wallet)
+ */
+export async function authenticateWithWallet(
+  address: Address,
+  signature: `0x${string}`,
+  message: string,
+  nonce: string
+): Promise<{ success: boolean; userId?: string; error?: string }> {
+  try {
+    // Parse the SIWE message
+    const siweMessage = new SiweMessage(message);
+
+    // Verify the signature
+    const fields = await siweMessage.verify({ signature, nonce });
+
+    if (!fields.success) {
+      return { success: false, error: 'Invalid signature' };
+    }
+
+    // Verify the address matches
+    if (fields.data.address.toLowerCase() !== address.toLowerCase()) {
+      return { success: false, error: 'Address mismatch' };
+    }
+
+    const walletAddressLower = address.toLowerCase();
+
+    // Check if wallet is already registered
+    const { data: existingWallet, error: walletError } = await supabase
+      .from('user_wallets')
+      .select('user_id, users!inner(*)')
+      .eq('wallet_address', walletAddressLower)
+      .single();
+
+    if (walletError && walletError.code !== 'PGRST116') {
+      console.error('Error checking wallet:', walletError);
+      return { success: false, error: 'Database error' };
+    }
+
+    // If wallet exists, return success - user will be logged in via the user_id
+    if (existingWallet) {
+      console.log('✅ Existing wallet user found:', existingWallet.user_id);
+      return { success: true, userId: existingWallet.user_id };
+    }
+
+    // Wallet not found - need to create anonymous user and link wallet
+    return { success: true, userId: undefined }; // Signal that account creation is needed
+  } catch (error) {
+    console.error('Error authenticating with wallet:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
  * Generate a cryptographically secure nonce for SIWE
  */
 export function generateNonce(): string {

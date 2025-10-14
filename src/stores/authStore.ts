@@ -55,6 +55,7 @@ interface AuthStore {
   unlinkBaseWallet: (walletAddress: Address) => Promise<{ error: any }>;
   fetchLinkedWallets: () => Promise<void>;
   setLinkedWallets: (wallets: LinkedWallet[]) => void;
+  signInWithWallet: (address: Address, signature: `0x${string}`, message: string, nonce: string) => Promise<{ error: any }>;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -1387,6 +1388,124 @@ export const useAuthStore = create<AuthStore>()(
         return { error: null };
       } catch (error) {
         console.error('Error unlinking Base wallet:', error);
+        return { error: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    },
+
+    signInWithWallet: async (address, signature, message, nonce) => {
+      try {
+        console.log('🔐 Signing in with wallet:', address);
+        set({ loading: true });
+
+        const { authenticateWithWallet } = await import('../lib/baseWalletAuth');
+        const result = await authenticateWithWallet(address, signature, message, nonce);
+
+        if (!result.success) {
+          console.error('Failed to authenticate with wallet:', result.error);
+          set({ loading: false });
+          return { error: result.error || 'Failed to authenticate with wallet' };
+        }
+
+        // If userId is returned, wallet already exists - load that user
+        if (result.userId) {
+          console.log('✅ Wallet authentication successful, loading user:', result.userId);
+
+          // Fetch user profile
+          const { data: profile, error: profileError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', result.userId)
+            .single();
+
+          if (profileError || !profile) {
+            console.error('Failed to load user profile:', profileError);
+            set({ loading: false });
+            return { error: 'Failed to load user profile' };
+          }
+
+          // Create user object
+          const userObj: User = {
+            id: profile.id,
+            email: profile.email || '',
+            username: profile.username || `wallet_${address.slice(2, 8)}`,
+            full_name: profile.username || `wallet_${address.slice(2, 8)}`,
+            avatar_url: profile.avatar_url,
+            created_at: profile.created_at,
+            is_creator: profile.is_creator || false,
+            is_reader: profile.is_reader || false,
+            bio: profile.bio || '',
+            custom_price_per_minute: profile.custom_price_per_minute,
+          };
+
+          set({ user: userObj, loading: false });
+          setUserContext(userObj);
+          identifyUser(userObj);
+
+          // Fetch linked wallets
+          await get().fetchLinkedWallets();
+
+          console.log('✅ Wallet sign-in complete');
+          return { error: null };
+        }
+
+        // New wallet - create anonymous user and link wallet
+        console.log('🆕 New wallet, creating account...');
+
+        // Create anonymous user
+        const { signInAnonymously } = get();
+        const anonResult = await signInAnonymously();
+
+        if (anonResult.error) {
+          console.error('Failed to create anonymous user:', anonResult.error);
+          set({ loading: false });
+          return { error: 'Failed to create account' };
+        }
+
+        // Wait a moment for user to be set
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const { user: newUser } = get();
+        if (!newUser) {
+          console.error('No user created');
+          set({ loading: false });
+          return { error: 'Failed to create account' };
+        }
+
+        console.log('✅ Anonymous user created, linking wallet...');
+
+        // Link the wallet to the new anonymous user
+        const { verifyWalletSignature } = await import('../lib/baseWalletAuth');
+        const linkResult = await verifyWalletSignature({
+          message,
+          signature,
+          address,
+          nonce,
+          userId: newUser.id,
+        });
+
+        if (!linkResult.success) {
+          console.error('Failed to link wallet:', linkResult.error);
+          set({ loading: false });
+          return { error: linkResult.error || 'Failed to link wallet' };
+        }
+
+        // Update username to be wallet-based
+        const walletUsername = `wallet_${address.slice(2, 8)}`;
+        await supabase
+          .from('users')
+          .update({ username: walletUsername })
+          .eq('id', newUser.id);
+
+        // Refresh user data
+        await get().checkAuth();
+        await get().fetchLinkedWallets();
+
+        console.log('✅ Wallet sign-in complete (new account)');
+        set({ loading: false });
+        return { error: null };
+      } catch (error) {
+        console.error('Error signing in with wallet:', error);
+        set({ loading: false });
         return { error: error instanceof Error ? error.message : 'Unknown error' };
       }
     }

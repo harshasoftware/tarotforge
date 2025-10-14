@@ -12,7 +12,7 @@ import DeckQuotaOverview from '../../components/profile/DeckQuotaOverview';
 import DeckGenerationActivity from '../../components/profile/DeckGenerationActivity';
 import RegenerationPacks from '../../components/regeneration/RegenerationPacks';
 import CreditTransactionHistory from '../../components/profile/CreditTransactionHistory';
-import { LinkedWallets } from '../../components/wallet/LinkedWallets';
+import { LinkedWalletsPrivy } from '../../components/wallet/LinkedWalletsPrivy';
 
 interface ProfileFormData {
   username: string;
@@ -240,7 +240,7 @@ const Profile = () => {
                 transition={{ duration: 0.5, delay: 0.3 }}
               >
                 <div className="p-4">
-                  <LinkedWallets />
+                  <LinkedWalletsPrivy />
                 </div>
               </motion.div>
             </div>

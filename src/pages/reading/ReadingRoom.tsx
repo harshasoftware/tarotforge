@@ -15,8 +15,8 @@ import TarotCardBack from '../../components/ui/TarotCardBack';
 import GuestAccountUpgrade from '../../components/ui/GuestAccountUpgrade';
 import ParticipantsDropdown from '../../components/ui/ParticipantsDropdown';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
-import SignInModal from '../../components/auth/SignInModal';
 import Tooltip from '../../components/ui/Tooltip';
+import { usePrivy } from '@privy-io/react-auth';
 import { showParticipantNotification, showErrorToast, showSuccessToast } from '../../utils/toast';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../../lib/supabase';
@@ -98,7 +98,8 @@ const viewportToPercentage = (
 
 const ReadingRoom = () => {
   const { deckId } = useParams<{ deckId: string }>();
-  const { user, setShowSignInModal, showSignInModal, isAnonymous, signInAnonymously } = useAuthStore();
+  const { user, isAnonymous, signInAnonymously } = useAuthStore();
+  const { login: privyLogin } = usePrivy();
   const { isSubscribed } = useSubscription();
   const navigate = useNavigate();
   const location = useLocation();
@@ -169,15 +170,23 @@ const ReadingRoom = () => {
   
   // Properly detect guest users - anonymous users should be treated as guests
   const isGuest = !user || isAnonymous();
-  
-  // Handle successful authentication from SignInModal - moved before early returns to fix hooks order
-  const handleSignInSuccess = useCallback(() => {
-    // Close the modal - user is now authenticated and can use features
-    setShowSignInModal(false);
-    // Clear the stored path since we're already in the right place
-    localStorage.removeItem('auth_return_path');
-  }, [setShowSignInModal]);
-  
+
+  // State to track if sign-in modal should be shown (for keyboard shortcuts compatibility)
+  const [showSignInModal, setShowSignInModal] = useState(false);
+
+  // Handle sign-in via Privy
+  const handleSignIn = useCallback(() => {
+    privyLogin();
+  }, [privyLogin]);
+
+  // Trigger Privy login when showSignInModal becomes true
+  useEffect(() => {
+    if (showSignInModal) {
+      privyLogin();
+      setShowSignInModal(false);
+    }
+  }, [showSignInModal, privyLogin]);
+
   // Initialize session on mount
   useEffect(() => {
     playAmbientSound(); // Play ambient sound on mount
@@ -4953,13 +4962,6 @@ const ReadingRoom = () => {
           </div>
         )}
       </AnimatePresence>
-
-      {/* Sign In Modal */}
-      <SignInModal 
-        isOpen={showSignInModal}
-        onClose={() => setShowSignInModal(false)}
-        onSuccess={handleSignInSuccess}
-      />
 
       {/* Invite Dropdown Modal */}
       <AnimatePresence>

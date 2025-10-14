@@ -25,6 +25,7 @@ export default defineConfig({
         navigateFallback: 'index.html',
         skipWaiting: true,
         clientsClaim: true,
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // Increase to 3MB to accommodate Privy bundle
       },
       devOptions: {
         enabled: true,
