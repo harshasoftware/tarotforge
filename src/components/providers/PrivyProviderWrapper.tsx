@@ -26,6 +26,9 @@ export const PrivyProviderWrapper: React.FC<PrivyProviderWrapperProps> = ({ chil
           showWalletLoginFirst: false, // Keep Google/Email primary
         },
 
+        // OAuth redirect URL
+        redirectUrl: 'https://euqhrxgmbmcgzmdunprq.supabase.co/auth/v1/callback',
+
         // Embedded wallets - create wallet for users automatically
         embeddedWallets: {
           createOnLogin: 'users-without-wallets', // Auto-create for new users
