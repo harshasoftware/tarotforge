@@ -1,7 +1,6 @@
 import { ReactNode } from 'react';
 import { PrivyProvider as BasePrivyProvider } from '@privy-io/react-auth';
 import { base, baseSepolia, mainnet, sepolia } from 'viem/chains';
-import { solana, solanaDevnet } from '@privy-io/react-auth';
 
 interface PrivyProviderWrapperProps {
   children: ReactNode;
@@ -25,7 +24,7 @@ export const PrivyProviderWrapper = ({ children }: PrivyProviderWrapperProps) =>
           accentColor: '#8B5CF6', // Purple accent matching your theme
           logo: '/logo.png',
           showWalletLoginFirst: false, // Keep Web2 auth primary
-          walletChainType: 'ethereum-and-solana', // Support both chains
+          walletChainType: 'ethereum-and-solana', // Support both EVM and Solana chains
         },
 
         // Embedded wallets - create for users who don't have wallets
@@ -38,14 +37,12 @@ export const PrivyProviderWrapper = ({ children }: PrivyProviderWrapperProps) =>
         // Login methods - prioritize Web2 first
         loginMethods: ['email', 'google', 'wallet'],
 
-        // Supported chains
+        // Supported chains (EVM chains only - Solana support is automatic with walletChainType)
         supportedChains: [
           base,
           baseSepolia,
           mainnet,
           sepolia,
-          solana,
-          solanaDevnet,
         ],
 
         // Default chain

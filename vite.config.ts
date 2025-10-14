@@ -25,6 +25,8 @@ export default defineConfig({
         navigateFallback: 'index.html',
         skipWaiting: true,
         clientsClaim: true,
+        // Increase cache limit to accommodate Privy and other large dependencies
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4MB (was 2MB)
       },
       devOptions: {
         enabled: true,
@@ -56,11 +58,13 @@ export default defineConfig({
           'ui-vendor': ['framer-motion', 'lucide-react'],
           'analytics': ['logrocket', 'logrocket-react', 'mixpanel-browser', '@sentry/react', '@sentry/tracing'],
           'crypto': ['crypto-js'],
-          'pdf': ['html2canvas', 'jspdf']
+          'pdf': ['html2canvas', 'jspdf'],
+          // Separate Privy and Web3 dependencies into their own chunk
+          'web3-vendor': ['@privy-io/react-auth', '@privy-io/wagmi', '@solana/web3.js', '@solana/wallet-adapter-react']
         }
       }
     },
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 1500, // Increased for Web3 dependencies
     target: 'esnext',
     minify: 'esbuild'
   },
