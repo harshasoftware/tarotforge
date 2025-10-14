@@ -27,6 +27,7 @@
     "@privy-io/server-auth": "^1.32.5",
     "@sentry/react": "^7.107.0",
     "@sentry/tracing": "^7.107.0",
+    "@solana/web3.js": "^1.98.4",
     "@stripe/react-stripe-js": "^2.4.0",
     "@stripe/stripe-js": "^2.2.0",
     "@supabase/supabase-js": "^2.39.0",
