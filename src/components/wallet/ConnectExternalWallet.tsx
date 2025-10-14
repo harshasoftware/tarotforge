@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Wallet, Link2, AlertCircle, Check, Loader2, ExternalLink } from 'lucide-react';
+import { Wallet, Link2, AlertCircle, Check, Loader2 } from 'lucide-react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth/solana';
 import { useAuthStore } from '../../stores/authStore';

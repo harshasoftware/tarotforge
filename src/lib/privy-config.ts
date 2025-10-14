@@ -42,6 +42,7 @@ export const privyConfig: PrivyClientConfig = {
     accentColor: '#8b5cf6', // Purple accent matching your tarot theme
     logo: '/tarotforge-logo.png',
     showWalletLoginFirst: false, // Email/social first for Web2 UX
+    walletChainType: 'ethereum-and-solana', // Support both chains for external wallets
   },
 
   // Embedded wallet configuration
@@ -114,8 +115,9 @@ export const privyConfig: PrivyClientConfig = {
     privacyPolicyUrl: 'https://tarotforge.com/privacy',
   },
 
-  // Wallet configuration
-  walletConnectCloudProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
+  // Wallet configuration - WalletConnect enables broader wallet support
+  // Get your project ID from https://cloud.walletconnect.com
+  walletConnectCloudProjectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || undefined,
 };
 
 /**
