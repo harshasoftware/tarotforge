@@ -109,10 +109,24 @@ const ConnectExternalWallet: React.FC = () => {
     } catch (error: any) {
       console.error('Error connecting wallet:', error);
 
-      // Handle user cancellation gracefully
-      if (error.message?.includes('user closed') || error.message?.includes('User rejected')) {
+      // Handle specific error cases gracefully
+      const errorMessage = error?.message?.toLowerCase() || '';
+
+      if (
+        errorMessage.includes('user denied') ||
+        errorMessage.includes('user rejected') ||
+        errorMessage.includes('user closed') ||
+        errorMessage.includes('user cancelled')
+      ) {
+        // User deliberately cancelled - this is normal, just log it
         console.log('User cancelled wallet connection');
+        // Don't show error toast for user cancellation
+      } else if (errorMessage.includes('already connected')) {
+        showErrorToast('This wallet is already connected.');
+      } else if (errorMessage.includes('no wallet')) {
+        showErrorToast('No wallet found. Please install a wallet extension like MetaMask or Phantom.');
       } else {
+        // Unknown error - show generic message
         showErrorToast('Failed to connect wallet. Please try again.');
       }
     } finally {
