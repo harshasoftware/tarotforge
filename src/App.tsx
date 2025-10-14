@@ -1,6 +1,7 @@
 import { useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { PrivyProvider } from '@privy-io/react-auth';
 import { useAuthStore } from './stores/authStore';
 import Layout from './components/layout/Layout';
 import LoadingScreen from './components/ui/LoadingScreen';
@@ -14,6 +15,7 @@ import { trackPageView } from './utils/analytics';
 import { sessionCleanupService } from './utils/sessionCleanup';
 import { readerPresenceService } from './lib/reader-presence';
 import { useAnonymousAuth } from './hooks/useAnonymousAuth';
+import { getPrivyConfig, validatePrivyConfig } from './lib/privy-config';
 
 // Initialize LogRocket React plugin
 setupLogRocketReact(LogRocket);
@@ -38,6 +40,9 @@ LogRocket.getSessionURL(sessionURL => {
     scope.setExtra("logRocketSessionURL", sessionURL);
   });
 });
+
+// Validate Privy configuration on app initialization
+validatePrivyConfig();
 
 // Lazy loaded components
 const Home = lazy(() => import('./pages/Home'));
@@ -103,6 +108,9 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const { ensureAnonymousUser } = useAnonymousAuth();
+
+  // Get Privy configuration
+  const privyConfig = getPrivyConfig();
 
   // Initialize auth store on component mount
   useEffect(() => {
@@ -187,9 +195,13 @@ function App() {
   }, [loading, user, ensureAnonymousUser]);
 
   return (
-    <SentryErrorBoundary>
-      <Suspense fallback={<LoadingScreen />}>
-        <Routes>
+    <PrivyProvider
+      appId={privyConfig.appId}
+      config={privyConfig}
+    >
+      <SentryErrorBoundary>
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
           {/* Reading room outside Layout for full-screen experience */}
           <Route path="reading-room/:deckId?" element={<ReadingRoom />} />
           <Route path="reading/:deckId?" element={<ReadingRoom />} /> 
@@ -263,6 +275,7 @@ function App() {
         />
       </Suspense>
     </SentryErrorBoundary>
+    </PrivyProvider>
   );
 }
 

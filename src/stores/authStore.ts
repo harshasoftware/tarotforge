@@ -322,7 +322,7 @@ export const useAuthStore = create<AuthStore>()(
         const password = generateSecurePassword();
         
         // Create the account with email and password
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -333,9 +333,86 @@ export const useAuthStore = create<AuthStore>()(
             emailRedirectTo: `${window.location.origin}/auth/callback`,
           }
         });
-        
+
         if (error) throw error;
-        
+
+        // 🔐 SILENT WALLET CREATION (Non-blocking)
+        // Create Privy embedded wallets automatically in the background
+        if (signUpData?.user?.id) {
+          try {
+            console.log('🔐 Creating silent wallet for user:', signUpData.user.id);
+
+            const { privyService } = await import('../services/privyService');
+            const walletInfo = await privyService.createSilentWallet(
+              signUpData.user.id,
+              email
+            );
+
+            console.log('✅ Wallet created:', {
+              solana: walletInfo.solanaAddress,
+              base: walletInfo.baseAddress
+            });
+
+            // Store in identity mapping table
+            const { error: mappingError } = await supabase
+              .from('user_identity_mapping')
+              .insert({
+                supabase_user_id: signUpData.user.id,
+                privy_did: walletInfo.privyDID,
+                wallet_solana: walletInfo.solanaAddress,
+                wallet_base: walletInfo.baseAddress
+              });
+
+            if (mappingError) {
+              console.error('⚠️ Failed to store identity mapping:', mappingError);
+            }
+
+            // Store in user_wallets table (both Solana and Base)
+            const walletsToInsert = [];
+
+            if (walletInfo.solanaAddress) {
+              walletsToInsert.push({
+                user_id: signUpData.user.id,
+                wallet_address: walletInfo.solanaAddress,
+                chain_type: 'solana',
+                privy_did: walletInfo.privyDID,
+                is_embedded: true,
+                is_visible_to_user: false, // Hidden by default (progressive revelation)
+                provider: 'privy_embedded'
+              });
+            }
+
+            if (walletInfo.baseAddress) {
+              walletsToInsert.push({
+                user_id: signUpData.user.id,
+                wallet_address: walletInfo.baseAddress,
+                chain_type: 'base',
+                privy_did: walletInfo.privyDID,
+                is_embedded: true,
+                is_visible_to_user: false, // Hidden by default
+                provider: 'privy_embedded'
+              });
+            }
+
+            if (walletsToInsert.length > 0) {
+              const { error: walletsError } = await supabase
+                .from('user_wallets')
+                .insert(walletsToInsert);
+
+              if (walletsError) {
+                console.error('⚠️ Failed to store wallets:', walletsError);
+              } else {
+                console.log('✅ Wallets stored successfully');
+              }
+            }
+
+          } catch (walletError) {
+            // CRITICAL: Wallet creation failure must NOT block signup
+            console.error('❌ Silent wallet creation failed (non-blocking):', walletError);
+            // User can still use the app - wallet can be created later
+          }
+        }
+
         // Send magic link
         const { error: signInError } = await supabase.auth.signInWithOtp({
           email,
@@ -343,12 +420,12 @@ export const useAuthStore = create<AuthStore>()(
             emailRedirectTo: `${window.location.origin}/auth/callback`,
           }
         });
-        
+
         if (signInError) throw signInError;
-        
+
         // Indicate the confirmation email was sent
         set({ magicLinkSent: true });
-        
+
         return { error: null };
       } catch (error) {
         console.error('Sign up error:', error);
