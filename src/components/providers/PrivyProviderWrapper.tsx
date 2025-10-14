@@ -22,7 +22,7 @@ export const PrivyProviderWrapper: React.FC<PrivyProviderWrapperProps> = ({ chil
         appearance: {
           theme: 'dark',
           accentColor: '#8B5CF6', // Purple accent
-          logo: 'https://tarotforge.xyz/logo.svg',
+          logo: 'https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/public/assets/logotarot.png',
           showWalletLoginFirst: false, // Keep Google/Email primary
         },
 
