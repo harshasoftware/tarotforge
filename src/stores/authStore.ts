@@ -810,28 +810,32 @@ export const useAuthStore = create<AuthStore>()(
 
     handleGoogleRedirect: async () => {
       console.log('Processing authentication callback');
-      
+
       try {
         // Use getSession() which handles the callback automatically
         // This is more reliable than manual exchangeCodeForSession
         const { data: { session }, error } = await supabase.auth.getSession();
-        
+
         if (error) {
           console.error('Error getting session:', error);
+          set({ authStateDetermined: true, loading: false });
           throw error;
         }
-        
+
         if (session) {
-          console.log('✅ Successfully authenticated via callback');
-          // Update auth state
+          console.log('✅ Successfully authenticated via callback, user:', session.user.id);
+          // Update auth state and wait for it to complete
           await get().checkAuth();
+          console.log('✅ Auth state updated after callback');
           return { error: null };
         } else {
           console.log('No session found in callback');
+          set({ authStateDetermined: true, loading: false });
           return { error: 'No session found' };
         }
       } catch (error) {
         console.error('Error handling authentication callback:', error);
+        set({ authStateDetermined: true, loading: false });
         return { error };
       }
     },

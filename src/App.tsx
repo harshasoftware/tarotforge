@@ -104,7 +104,7 @@ const SentryErrorBoundary = Sentry.withErrorBoundary(ErrorBoundary, {
 });
 
 function App() {
-  const { checkAuth, loading, user, initializeAuth } = useAuthStore();
+  const { loading, user, initializeAuth, authStateDetermined } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
   const { ensureAnonymousUser } = useAnonymousAuth();
@@ -180,8 +180,17 @@ function App() {
   // Ensure anonymous user if no authenticated user is present
   useEffect(() => {
     const autoSignInAnonymous = async () => {
-      if (!loading && !user) {
-        console.log('App.tsx: No authenticated user, ensuring anonymous user.');
+      // Only create anonymous user after auth state is fully determined
+      // This prevents race conditions during OAuth callbacks
+      // Also skip if we're on the auth callback page or have pending migrations
+      const isAuthCallback = location.pathname === '/auth/callback';
+      const hasPendingMigration =
+        localStorage.getItem('pending_google_link') ||
+        localStorage.getItem('pending_email_upgrade') ||
+        localStorage.getItem('pending_migration');
+
+      if (authStateDetermined && !user && !isAuthCallback && !hasPendingMigration) {
+        console.log('App.tsx: Auth state determined, no authenticated user. Ensuring anonymous user.');
         try {
           await ensureAnonymousUser();
           console.log('App.tsx: Anonymous user ensured.');
@@ -189,10 +198,14 @@ function App() {
           console.error('App.tsx: Error ensuring anonymous user:', error);
           // Optionally, display a toast or message to the user
         }
+      } else if (isAuthCallback) {
+        console.log('App.tsx: Skipping anonymous user creation - on auth callback page');
+      } else if (hasPendingMigration) {
+        console.log('App.tsx: Skipping anonymous user creation - pending migration detected');
       }
     };
     autoSignInAnonymous();
-  }, [loading, user, ensureAnonymousUser]);
+  }, [authStateDetermined, user, ensureAnonymousUser, location.pathname]);
 
   return (
     <PrivyProvider

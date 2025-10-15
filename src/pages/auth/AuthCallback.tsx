@@ -220,7 +220,11 @@ const AuthCallback = () => {
       setLoading(true); // Ensure loading is true at the start
 
       try {
-        const { handleGoogleRedirect, checkAuth } = useAuthStore.getState();
+        const { handleGoogleRedirect, checkAuth, setAuthStateDetermined } = useAuthStore.getState();
+
+        // Mark auth as determined immediately to prevent race condition
+        setAuthStateDetermined(true);
+
         const authResult = await handleGoogleRedirect();
 
         if (authResult.error) {
@@ -230,14 +234,19 @@ const AuthCallback = () => {
           return;
         }
 
+        // Wait for auth state to be fully updated
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         const pendingMigration = localStorage.getItem('pending_migration');
         if (pendingMigration) {
           await handleInitialAnonymousDataMigration(pendingMigration);
         }
-        
+
         const authState = useAuthStore.getState(); // Get current auth state
         let currentUserId = authState.user?.id;
         let currentUserEmail = authState.user?.email;
+
+        console.log('AuthCallback: Auth state after handleGoogleRedirect:', { currentUserId, currentUserEmail, hasUser: !!authState.user });
 
         const pendingEmailUpgrade = localStorage.getItem('pending_email_upgrade');
         const pendingGoogleLink = localStorage.getItem('pending_google_link');

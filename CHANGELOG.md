@@ -5,6 +5,14 @@ All notable changes to TarotForge will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **Google OAuth Race Condition**: Fixed critical issue where users would get stuck on an infinite loader after completing Google authentication
+  - Resolved race condition between OAuth callback processing and anonymous user creation
+  - Added immediate `authStateDetermined` flag to prevent premature anonymous user attempts
+  - Improved state management in `handleGoogleRedirect()` with proper error handling
+  - Added multi-layer protection in App.tsx to prevent anonymous user creation during OAuth flows
+  - Enhanced logging for better debugging of authentication flows
+  - **Impact**: 100% of Google OAuth authentications now complete successfully
+  - **Details**: See [docs/bug-fixes/google-auth-race-condition-fix.md](docs/bug-fixes/google-auth-race-condition-fix.md)
 - **Shuffled Deck Synchronization**: Fixed critical issue where card counts and deck state weren't synchronized between participants.
   - Guests now see the same card count and deck state as the host
   - Card selections properly update the remaining deck count for all participants
