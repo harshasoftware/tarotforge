@@ -286,12 +286,18 @@ export const useAuthStore = create<AuthStore>()(
             // 🔐 BACKFILL: Ensure existing users have embedded wallets
             // This runs silently in the background for users who signed up before Privy integration
             if (sessionUser.email) {
+              console.log('🔐 authStore: Starting wallet backfill check for user:', sessionUser.id);
               (async () => {
                 try {
                   const { ensureUserHasEmbeddedWallets } = await import('../utils/walletBackfill');
-                  await ensureUserHasEmbeddedWallets(sessionUser.id, sessionUser.email!);
+                  const success = await ensureUserHasEmbeddedWallets(sessionUser.id, sessionUser.email!);
+                  if (success) {
+                    console.log('✅ authStore: Wallet backfill completed successfully');
+                  } else {
+                    console.log('⚠️ authStore: Wallet backfill returned false (may already have wallets)');
+                  }
                 } catch (error) {
-                  console.error('❌ Wallet backfill failed (non-blocking):', error);
+                  console.error('❌ authStore: Wallet backfill failed (non-blocking):', error);
                 }
               })();
             }

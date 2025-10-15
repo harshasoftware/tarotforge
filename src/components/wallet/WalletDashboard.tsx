@@ -43,15 +43,22 @@ const WalletDashboard: React.FC = () => {
 
       try {
         // Check if user has any wallets (embedded or external)
+        console.log('💳 WalletDashboard: Checking for wallets for user:', user.id);
         const { data, error } = await supabase
           .from('user_wallets')
           .select('wallet_address, chain_type, is_embedded, is_visible_to_user')
           .eq('user_id', user.id)
           .order('created_at', { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ WalletDashboard: Error fetching wallets:', error);
+          throw error;
+        }
+
+        console.log('💳 WalletDashboard: Found wallets:', data);
 
         if (data && data.length > 0) {
+          console.log(`✅ WalletDashboard: User has ${data.length} wallet(s)`);
           setHasWallets(true);
 
           // Transform data to WalletInfo format
@@ -64,10 +71,11 @@ const WalletDashboard: React.FC = () => {
 
           setWallets(walletInfos);
         } else {
+          console.log('⚠️ WalletDashboard: No wallets found for user');
           setHasWallets(false);
         }
       } catch (error) {
-        console.error('Error checking for wallets:', error);
+        console.error('❌ WalletDashboard: Error checking for wallets:', error);
         setHasWallets(false);
       } finally {
         setLoading(false);

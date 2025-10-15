@@ -25,8 +25,8 @@ export const WEB3_FEATURES_ENABLED =
  * This enables Phantom, Solflare, Backpack, and other Solana wallets
  */
 const solanaConnectors = toSolanaWalletConnectors({
-  // Auto-connect to previously connected wallets
-  shouldAutoConnect: true,
+  // Disable auto-connect to avoid "Proposal expired" errors
+  shouldAutoConnect: false,
 });
 
 /**

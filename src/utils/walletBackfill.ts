@@ -20,11 +20,15 @@ interface BackfillResult {
   error?: string;
 }
 
+// Track users currently being processed to prevent duplicate calls
+const processingUsers = new Set<string>();
+
 /**
  * Check if user already has embedded wallets
  */
 export async function userHasEmbeddedWallets(userId: string): Promise<boolean> {
   try {
+    console.log('🔍 Checking if user has embedded wallets:', userId);
     const { data, error } = await supabase
       .from('user_wallets')
       .select('id')
@@ -33,13 +37,15 @@ export async function userHasEmbeddedWallets(userId: string): Promise<boolean> {
       .limit(1);
 
     if (error) {
-      console.error('Error checking for embedded wallets:', error);
+      console.error('❌ Error checking for embedded wallets:', error);
       return false;
     }
 
-    return (data && data.length > 0);
+    const hasWallets = (data && data.length > 0);
+    console.log(hasWallets ? '✅ User has embedded wallets' : '⚠️ User does NOT have embedded wallets');
+    return hasWallets;
   } catch (error) {
-    console.error('Error in userHasEmbeddedWallets:', error);
+    console.error('❌ Error in userHasEmbeddedWallets:', error);
     return false;
   }
 }
@@ -154,10 +160,19 @@ export async function ensureUserHasEmbeddedWallets(
   userId: string,
   userEmail: string
 ): Promise<boolean> {
+  // Prevent concurrent calls for same user
+  if (processingUsers.has(userId)) {
+    console.log('⏭️ Wallet creation already in progress for user, skipping...');
+    return true; // Return true to avoid blocking
+  }
+
   try {
+    processingUsers.add(userId);
+
     // Check if user already has embedded wallets
     const hasWallets = await userHasEmbeddedWallets(userId);
     if (hasWallets) {
+      console.log('✅ User already has wallets, no action needed');
       return true; // User already has wallets, nothing to do
     }
 
@@ -175,6 +190,9 @@ export async function ensureUserHasEmbeddedWallets(
   } catch (error) {
     console.error('❌ Error in ensureUserHasEmbeddedWallets:', error);
     return false;
+  } finally {
+    // Always remove from processing set
+    processingUsers.delete(userId);
   }
 }
 

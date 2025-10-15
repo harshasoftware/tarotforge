@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import WalletDashboard from './WalletDashboard';
 import ConnectExternalWallet from './ConnectExternalWallet';
+import ManualWalletCreator from './ManualWalletCreator';
 
 /**
  * WalletSettings Component
@@ -27,6 +28,9 @@ const WalletSettings: React.FC = () => {
           Manage your blockchain wallets and Web3 features
         </p>
       </motion.div>
+
+      {/* DEBUG: Manual Wallet Creator */}
+      <ManualWalletCreator />
 
       {/* Wallet Dashboard (hidden by default, shows embedded wallets) */}
       <WalletDashboard />

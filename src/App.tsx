@@ -194,10 +194,29 @@ function App() {
     autoSignInAnonymous();
   }, [loading, user, ensureAnonymousUser]);
 
+  // Handle Privy errors (suppress WalletConnect "Proposal expired" errors)
+  const handlePrivyError = (error: Error) => {
+    const errorMessage = error?.message?.toLowerCase() || '';
+
+    // Suppress known non-critical errors
+    if (
+      errorMessage.includes('proposal expired') ||
+      errorMessage.includes('connection proposal') ||
+      errorMessage.includes('user rejected')
+    ) {
+      console.log('ℹ️ Suppressed non-critical Privy error:', error.message);
+      return;
+    }
+
+    // Log other errors to console
+    console.error('Privy error:', error);
+  };
+
   return (
     <PrivyProvider
       appId={privyConfig.appId}
       config={privyConfig}
+      onError={handlePrivyError}
     >
       <SentryErrorBoundary>
         <Suspense fallback={<LoadingScreen />}>
