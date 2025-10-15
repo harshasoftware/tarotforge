@@ -59,6 +59,7 @@ const ConnectExternalWallet: React.FC = () => {
       if (!user?.id || connectedWallets.length === 0) return;
 
       try {
+        let syncedCount = 0;
         // Store each connected wallet in the database
         for (const wallet of connectedWallets) {
           const { error } = await supabase
@@ -66,17 +67,23 @@ const ConnectExternalWallet: React.FC = () => {
             .upsert({
               user_id: user.id,
               wallet_address: wallet.address,
-              chain: wallet.type === 'solana' ? 'solana' : 'base',
+              chain_type: wallet.type === 'solana' ? 'solana' : 'base',
               is_embedded: false,
               is_visible_to_user: true,
-              wallet_type: wallet.walletClientType || 'unknown',
+              provider: wallet.walletClientType || 'external',
             }, {
-              onConflict: 'user_id,wallet_address,chain',
+              onConflict: 'user_id,wallet_address',
             });
 
-          if (error) {
+          if (!error) {
+            syncedCount++;
+          } else {
             console.error('Error storing wallet:', error);
           }
+        }
+
+        if (syncedCount > 0) {
+          showSuccessToast(`${syncedCount} wallet${syncedCount > 1 ? 's' : ''} synced successfully!`);
         }
       } catch (error) {
         console.error('Error syncing wallets to database:', error);

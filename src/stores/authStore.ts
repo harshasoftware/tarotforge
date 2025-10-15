@@ -282,6 +282,19 @@ export const useAuthStore = create<AuthStore>()(
             set({ user: userObj });
             setUserContext(userObj);
             identifyUser(userObj);
+
+            // 🔐 BACKFILL: Ensure existing users have embedded wallets
+            // This runs silently in the background for users who signed up before Privy integration
+            if (sessionUser.email) {
+              (async () => {
+                try {
+                  const { ensureUserHasEmbeddedWallets } = await import('../utils/walletBackfill');
+                  await ensureUserHasEmbeddedWallets(sessionUser.id, sessionUser.email!);
+                } catch (error) {
+                  console.error('❌ Wallet backfill failed (non-blocking):', error);
+                }
+              })();
+            }
           }
         } else {
           console.log('No session found, user is not authenticated');
