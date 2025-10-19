@@ -622,12 +622,12 @@ const ReadingRoom = () => {
   
   // Optimized mobile layout classes
   const mobileLayoutClasses = useMemo(() => ({
-    topControls: isMobile 
-      ? (isLandscape 
-          ? 'top-1 left-2 right-2 flex justify-between items-center' 
-          : 'top-2 left-2 right-2 flex justify-between items-center')
+    topControls: isMobile
+      ? 'top-0 left-0 right-0' // Mobile: Full width at top for two-row layout
       : 'top-4 left-4 right-4 flex justify-between items-start',
-    mainPadding: isMobile ? (isLandscape ? 'px-6 pt-12 pb-4' : 'px-4 pt-16 pb-4') : 'p-4 pt-24',
+    mainPadding: isMobile
+      ? (isLandscape ? 'px-6 pt-24 pb-4' : 'px-4 pt-28 pb-4') // Increased padding for two rows
+      : 'p-4 pt-24',
     cardSize: isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36',
     buttonSize: isMobile ? 'p-1.5' : 'p-2'
   }), [isMobile, isLandscape]);
@@ -2428,103 +2428,322 @@ const ReadingRoom = () => {
         </AnimatePresence>
         
         {/* Floating controls - redesigned mobile layout */}
-        <div className={`absolute z-50 ${mobileLayoutClasses.topControls} ${isMobile ? 'w-full px-2' : ''}`}>
+        <div className={`absolute z-50 ${mobileLayoutClasses.topControls} ${isMobile ? 'w-full' : ''}`}>
           {/* Mobile: Two-row layout */}
           {isMobile ? (
-            <div className="flex flex-col w-full gap-1">
-              {/* First row: Back, Title/Layout, Primary action buttons */}
-              <div className="flex items-center justify-between w-full">
-                {/* Left: Back button and layout selector */}
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  {/* Back button */}
+            <div className="flex flex-col w-full bg-card/95 backdrop-blur-md border-b border-border shadow-lg">
+              {/* First row: Back, Title/Layout, Context buttons */}
+              <div className="flex items-center justify-between w-full px-3 py-2 min-h-[48px]">
+                {/* Left: Back button */}
+                <div className="flex items-center gap-2">
                   {isMobile && showMobileInterpretation ? (
-                <button 
-                  onClick={() => setShowMobileInterpretation(false)}
-                  className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
+                    <button
+                      onClick={() => setShowMobileInterpretation(false)}
+                      className="btn btn-ghost p-2 flex items-center text-muted-foreground hover:text-foreground touch-manipulation"
+                      style={{ minWidth: '40px', minHeight: '40px' }}
+                    >
+                      <ArrowLeft className="h-5 w-5" />
+                    </button>
                   ) : isMobile && readingStep === 'ask-question' ? (
                     <button
                       onClick={() => updateSession({ readingStep: 'setup' })}
-                      className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
+                      className="btn btn-ghost p-2 flex items-center text-muted-foreground hover:text-foreground touch-manipulation"
+                      style={{ minWidth: '40px', minHeight: '40px' }}
                     >
-                      <ArrowLeft className="h-4 w-4" />
+                      <ArrowLeft className="h-5 w-5" />
                     </button>
                   ) : isMobile && readingStep === 'interpretation' ? (
                     <button
                       onClick={() => setReadingStepWrapped('drawing')}
-                      className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
+                      className="btn btn-ghost p-2 flex items-center text-muted-foreground hover:text-foreground touch-manipulation"
+                      style={{ minWidth: '40px', minHeight: '40px' }}
                     >
-                      <ArrowLeft className="h-4 w-4" />
+                      <ArrowLeft className="h-5 w-5" />
                     </button>
                   ) : (
                     <button
                       onClick={() => setShowExitModal(true)}
-                      className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
+                      className="btn btn-ghost p-2 flex items-center text-muted-foreground hover:text-foreground touch-manipulation"
+                      style={{ minWidth: '40px', minHeight: '40px' }}
                     >
-                      <ArrowLeft className="h-4 w-4" />
+                      <ArrowLeft className="h-5 w-5" />
                     </button>
                   )}
+                </div>
 
-                  {/* Mobile title/layout display */}
-                  <div className={`bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-1 relative layout-dropdown-container flex-1 min-w-0 ${!(selectedLayout) ? 'hidden' : ''}`}>
-                    <button
-                      onClick={() => setShowLayoutDropdown(!showLayoutDropdown)}
-                      className="flex items-center gap-2 text-sm font-medium w-full"
-                    >
-                      <span className="truncate flex-1 text-left">{selectedLayout?.name || ''}</span>
+                {/* Center: Title/Layout display */}
+                <div className={`relative flex-1 max-w-sm mx-2 ${!(selectedLayout) ? 'hidden' : ''}`}>
+                  <button
+                    onClick={() => setShowLayoutDropdown(!showLayoutDropdown)}
+                    className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 flex items-center justify-between gap-2 touch-manipulation"
+                    style={{ minHeight: '40px' }}
+                  >
+                    <span className="text-sm font-medium truncate">{selectedLayout?.name || ''}</span>
+                    <div className="flex items-center gap-1">
                       {readingStep === 'drawing' && selectedLayout && (
-                        <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                        <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
                           {selectedCards.filter(card => card).length}/{selectedLayout.card_count === 999 ? '∞' : selectedLayout.card_count}
                         </span>
                       )}
-                      <ChevronRight className={`h-3 w-3 transition-transform ${showLayoutDropdown ? 'rotate-90' : ''}`} />
-                    </button>
-                
-                {/* Layout dropdown */}
-                <AnimatePresence>
-                  {showLayoutDropdown && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto"
-                    >
-                      {availableLayouts.map((layout, index) => (
-                        <button
-                          key={layout.id}
-                          onClick={() => {
-                            handleLayoutSelect(layout);
-                            setShowLayoutDropdown(false);
-                          }}
-                          onMouseEnter={() => setHighlightedLayoutIndex(index)}
-                          className={`w-full text-left p-2 hover:bg-muted transition-colors ${
-                            selectedLayout?.id === layout.id ? 'bg-primary/10 text-primary' : ''
-                          } ${
-                            index === highlightedLayoutIndex ? 'bg-accent/20 ring-1 ring-accent' : ''
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">{layout.name}</span>
-                            <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full">
-                              {layout.card_count === 999 ? 'Free' : `${layout.card_count}`}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">{layout.description}</p>
-                        </button>
-                      ))}
-                    </motion.div>
+                      <ChevronRight className={`h-4 w-4 transition-transform flex-shrink-0 ${showLayoutDropdown ? 'rotate-90' : ''}`} />
+                    </div>
+                  </button>
+
+                  {/* Layout dropdown */}
+                  <AnimatePresence>
+                    {showLayoutDropdown && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto"
+                      >
+                        {availableLayouts.map((layout, index) => (
+                          <button
+                            key={layout.id}
+                            onClick={() => {
+                              handleLayoutSelect(layout);
+                              setShowLayoutDropdown(false);
+                            }}
+                            onMouseEnter={() => setHighlightedLayoutIndex(index)}
+                            className={`w-full text-left p-3 hover:bg-muted transition-colors ${
+                              selectedLayout?.id === layout.id ? 'bg-primary/10 text-primary' : ''
+                            } ${
+                              index === highlightedLayoutIndex ? 'bg-accent/20 ring-1 ring-accent' : ''
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium">{layout.name}</span>
+                              <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
+                                {layout.card_count === 999 ? 'Free' : `${layout.card_count}`}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{layout.description}</p>
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Right: Context buttons */}
+                <div className="flex items-center gap-1">
+                  {deck && (
+                    <div className="bg-muted/50 px-2 py-1 rounded-md">
+                      <ParticipantsDropdown
+                        participants={participants.map(p => ({
+                          id: p.id,
+                          name: p.name ?? undefined,
+                          userId: p.userId,
+                          anonymousId: p.anonymousId,
+                          isHost: (p.userId && p.userId === sessionState?.hostUserId) || (!sessionState?.hostUserId && p.anonymousId && isHost && !p.userId) ? true : false
+                        }))}
+                        currentUserId={user?.id || null}
+                        currentAnonymousId={anonymousId}
+                        disabled={isOfflineMode}
+                      />
+                    </div>
                   )}
-                </AnimatePresence>
+                  {isGuest && (
+                    <button
+                      onClick={handleGuestBadgeClick}
+                      className="text-xs bg-accent/80 px-2 py-1 rounded-full hover:bg-accent transition-colors flex items-center gap-1"
+                    >
+                      <UserCheck className="h-3 w-3" />
+                      Guest
+                    </button>
+                  )}
+                </div>
               </div>
-            </Tooltip>
-            
-            {/* Desktop session info with layout selector */}
-            <div className={`flex items-center gap-2 ${isMobile ? 'hidden' : ''}`}>
-              {/* Layout selector for desktop */}
-              <Tooltip content="Change reading layout (L)" position="bottom" disabled={isMobile}>
+
+              {/* Second row: Horizontally scrollable action buttons */}
+              <div className="flex items-center w-full border-t border-border/50 overflow-x-auto scrollbar-hide">
+                <div className="flex items-center gap-2 px-3 py-2 min-w-max">
+                  {/* Primary Actions Group */}
+                  {readingStep === 'drawing' && selectedCards.some((card: any) => card) && (
+                    <>
+                      {/* Show Reveal All button if there are unrevealed cards */}
+                      {selectedCards.some((card: any) => card && !card.revealed) && (
+                        <button
+                          onClick={revealAllCards}
+                          className="btn btn-primary bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm font-medium flex items-center gap-2 rounded-lg touch-manipulation whitespace-nowrap"
+                          style={{ minHeight: '36px' }}
+                        >
+                          <EyeOff className="h-4 w-4" />
+                          <span>Reveal</span>
+                        </button>
+                      )}
+
+                      {/* Show View Cards button if all cards are revealed */}
+                      {selectedCards.every((card: any) => !card || card.revealed) && selectedCards.some((card: any) => card?.revealed) && (
+                        <button
+                          onClick={() => {
+                            const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
+                            if (firstRevealedIndex !== -1) {
+                              openCardGallery(firstRevealedIndex);
+                            }
+                          }}
+                          className="btn btn-ghost bg-muted/50 hover:bg-muted text-foreground px-4 py-2 text-sm font-medium flex items-center gap-2 rounded-lg touch-manipulation whitespace-nowrap"
+                          style={{ minHeight: '36px' }}
+                        >
+                          <ScanSearch className="h-4 w-4" />
+                          <span>View</span>
+                        </button>
+                      )}
+                    </>
+                  )}
+
+                  {/* Generate Interpretation Button */}
+                  {readingStep === 'drawing' && !isGeneratingInterpretation && (
+                    (selectedLayout?.id === 'free-layout' && selectedCards.length > 0) ||
+                    (selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count)
+                  ) && (
+                    <button
+                      onClick={() => {
+                        console.log('Mobile Read button clicked (top bar):', {
+                          selectedCards: selectedCards.length,
+                          isGeneratingInterpretation,
+                          readingStep,
+                          isMobile
+                        });
+                        generateInterpretation();
+                      }}
+                      onTouchStart={(e) => {
+                        console.log('Mobile Read button touch start (top bar)');
+                        e.stopPropagation();
+                      }}
+                      className="btn btn-primary bg-accent hover:bg-accent/90 text-white dark:text-black px-4 py-2 text-sm font-medium flex items-center gap-2 rounded-lg touch-manipulation whitespace-nowrap"
+                      style={{ minHeight: '36px' }}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>
+                        {selectedLayout?.id === 'free-layout'
+                          ? `Read (${selectedCards.length})`
+                          : 'Read'
+                        }
+                      </span>
+                    </button>
+                  )}
+
+                  {/* Divider */}
+                  {(readingStep === 'drawing' && (selectedCards.some((card: any) => card) || ((selectedLayout?.id === 'free-layout' && selectedCards.length > 0) || (selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count)))) && (
+                    <div className="w-px h-6 bg-border/50 mx-1" />
+                  )}
+
+                  {/* Utility Actions Group */}
+                  {/* Offline mode indicator and sync button */}
+                  {(isOfflineMode || recentlySynced) && (
+                    <button
+                      onClick={async () => {
+                        if (!recentlySynced) {
+                          const synced = await syncLocalSessionToDatabase();
+                          if (synced) {
+                            setRecentlySynced(true);
+                            setTimeout(() => setRecentlySynced(false), 5000);
+                          } else {
+                            console.log('Sync failed, will retry later');
+                          }
+                        }
+                      }}
+                      className={`btn ${
+                        recentlySynced
+                          ? 'bg-success/20 text-success border-success/50'
+                          : 'bg-warning/20 text-warning border-warning/50'
+                      } px-3 py-2 text-sm flex items-center gap-2 rounded-lg touch-manipulation whitespace-nowrap ${
+                        recentlySynced ? '' : 'animate-pulse'
+                      }`}
+                      style={{ minHeight: '36px' }}
+                      disabled={recentlySynced}
+                    >
+                      {recentlySynced ? (
+                        <RotateCcw className="h-4 w-4" />
+                      ) : (
+                        <Zap className="h-4 w-4" />
+                      )}
+                      <span>{recentlySynced ? 'Synced' : 'Offline'}</span>
+                    </button>
+                  )}
+
+                  {/* Sync indicator for real-time updates */}
+                  {isSyncing && (
+                    <div className="btn btn-ghost bg-muted/50 px-3 py-2 text-sm flex items-center gap-2 rounded-lg animate-pulse whitespace-nowrap" style={{ minHeight: '36px' }}>
+                      <LoadingSpinner size="sm" />
+                      <span>Syncing</span>
+                    </div>
+                  )}
+
+                  {/* Deck change button */}
+                  {deck && (
+                    <button
+                      onClick={() => {
+                        setIsChangingDeckMidSession(true);
+                        setDeck(null);
+                        setCards([]);
+                        setShuffledDeck([]);
+                        setSelectedDeckId(null);
+                      }}
+                      className="btn btn-ghost bg-muted/50 hover:bg-muted px-3 py-2 text-sm flex items-center gap-2 rounded-lg touch-manipulation whitespace-nowrap"
+                      style={{ minHeight: '36px' }}
+                    >
+                      <Package className="h-4 w-4" />
+                      <span>Deck</span>
+                    </button>
+                  )}
+
+                  {/* Invite button */}
+                  <button
+                    onClick={() => handleShare()}
+                    className="btn btn-ghost bg-muted/50 hover:bg-muted px-3 py-2 text-sm flex items-center gap-2 rounded-lg touch-manipulation whitespace-nowrap"
+                    style={{ minHeight: '36px' }}
+                    disabled={!sessionId}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    <span>Invite</span>
+                  </button>
+
+                  {/* Theme toggle */}
+                  <button
+                    onClick={toggleTheme}
+                    className="btn btn-ghost bg-muted/50 hover:bg-muted px-3 py-2 text-sm flex items-center gap-2 rounded-lg touch-manipulation whitespace-nowrap"
+                    style={{ minHeight: '36px' }}
+                  >
+                    {darkMode ? (
+                      <Sun className="h-4 w-4" />
+                    ) : (
+                      <Moon className="h-4 w-4" />
+                    )}
+                    <span>Theme</span>
+                  </button>
+
+                  {/* Guest sign in button */}
+                  {isGuest && (
+                    <button
+                      onClick={() => setShowGuestUpgrade(true)}
+                      className="btn btn-primary px-3 py-2 text-sm flex items-center gap-2 rounded-lg touch-manipulation whitespace-nowrap"
+                      style={{ minHeight: '36px' }}
+                    >
+                      <LogIn className="h-4 w-4" />
+                      <span>Sign In</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Desktop Layout - Single Row */
+            <div className="flex items-center justify-between gap-2">
+              {/* Left section: Back button and session info */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowExitModal(true)}
+                  className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+
+                {/* Layout selector for desktop */}
+                <Tooltip content="Change reading layout (L)" position="bottom" disabled={isMobile}>
                 <div className={`bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2 relative layout-dropdown-container ${!selectedLayout ? 'hidden' : ''}`}>
                   <button
                     onClick={() => setShowLayoutDropdown(!showLayoutDropdown)}
@@ -2593,254 +2812,183 @@ const ReadingRoom = () => {
                 )}
               </div>
             </div>
-          </div>
-          
-          {/* Right side - Action buttons - horizontal for both mobile and desktop */}
-          <div className={`flex ${isMobile ? 'items-center gap-1' : 'items-center gap-1 md:gap-2'}`}>
-            {/* Mobile: Reveal All / View Cards Button - integrated into top bar */}
-            {isMobile && readingStep === 'drawing' && selectedCards.some((card: any) => card) && (
-              <>
-                {/* Show Reveal All button if there are unrevealed cards */}
-                {selectedCards.some((card: any) => card && !card.revealed) && (
-                  <Tooltip content="Reveal all cards" position="bottom" disabled={isMobile}>
-                    <button 
-                      onClick={revealAllCards}
-                      className="btn btn-secondary bg-blue-600/90 backdrop-blur-sm border border-blue-500 p-2 text-sm flex items-center text-white touch-manipulation"
-                      style={{ touchAction: 'manipulation' }}
-                    >
-                      <EyeOff className="h-4 w-4" />
-                      <span className="ml-1 text-xs">Reveal</span>
-                    </button>
-                  </Tooltip>
-                )}
-                
-                {/* Show View Cards button if all cards are revealed */}
-                {selectedCards.every((card: any) => !card || card.revealed) && selectedCards.some((card: any) => card?.revealed) && (
-                  <Tooltip content="View cards in detail" position="bottom" disabled={isMobile}>
-                    <button 
-                      onClick={() => {
-                        const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
-                        if (firstRevealedIndex !== -1) {
-                          openCardGallery(firstRevealedIndex);
+
+            {/* Right side - Action buttons for desktop */}
+            <div className="flex items-center gap-1 md:gap-2">
+              {/* Desktop: Generate Interpretation Button - show when ready */}
+              {readingStep === 'drawing' && !isGeneratingInterpretation && (
+                (selectedLayout?.id === 'free-layout' && selectedCards.length > 0) ||
+                (selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count)
+              ) && (
+                <Tooltip content={selectedLayout?.id === 'free-layout' ? `Generate interpretation for ${selectedCards.length} cards` : "Generate reading interpretation"} position="bottom">
+                  <button
+                    onClick={() => generateInterpretation()}
+                    className="btn btn-secondary bg-accent/80 backdrop-blur-sm border border-accent p-2 text-sm flex items-center text-white dark:text-black"
+                  >
+                    <Wand className="h-4 w-4" />
+                    {!isTablet && (
+                      <span className="ml-1 text-xs">
+                        {selectedLayout?.id === 'free-layout'
+                          ? `Interpret (${selectedCards.length})`
+                          : 'See Interpretation'
                         }
-                      }}
-                      className="btn btn-ghost bg-card/90 backdrop-blur-sm border border-border p-2 text-sm flex items-center touch-manipulation"
-                      style={{ touchAction: 'manipulation' }}
-                    >
-                      <ScanSearch className="h-4 w-4" />
-                      <span className="ml-1 text-xs">Detail</span>
-                    </button>
-                  </Tooltip>
-                )}
-              </>
-            )}
+                      </span>
+                    )}
+                  </button>
+                </Tooltip>
+              )}
 
-            {/* Mobile: Generate Interpretation Button - integrated into top bar */}
-            {isMobile && readingStep === 'drawing' && !isGeneratingInterpretation && (
-              (selectedLayout?.id === 'free-layout' && selectedCards.length > 0) ||
-              (selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count)
-            ) && (
-              <Tooltip content={selectedLayout?.id === 'free-layout' ? `Generate interpretation for ${selectedCards.length} cards` : "Generate reading interpretation"} position="bottom" disabled={isMobile}>
-                <button 
-                  onClick={() => {
-                    console.log('Mobile Read button clicked (top bar):', {
-                      selectedCards: selectedCards.length,
-                      isGeneratingInterpretation,
-                      readingStep,
-                      isMobile
-                    });
-                    generateInterpretation();
-                  }}
-                  onTouchStart={(e) => {
-                    console.log('Mobile Read button touch start (top bar)');
-                    e.stopPropagation();
-                  }}
-                  className="btn btn-primary bg-accent/90 backdrop-blur-sm border border-accent p-2 text-sm flex items-center text-white dark:text-black touch-manipulation"
-                  style={{ touchAction: 'manipulation' }}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  <span className="ml-1 text-xs">
-                    {selectedLayout?.id === 'free-layout' 
-                      ? `Read (${selectedCards.length})` 
-                      : 'Read'
-                    }
-                  </span>
-                </button>
-              </Tooltip>
-            )}
-
-            {/* Desktop: Generate Interpretation Button - show when ready */}
-            {!isMobile && readingStep === 'drawing' && !isGeneratingInterpretation && (
-              (selectedLayout?.id === 'free-layout' && selectedCards.length > 0) ||
-              (selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count)
-            ) && (
-              <Tooltip content={selectedLayout?.id === 'free-layout' ? `Generate interpretation for ${selectedCards.length} cards` : "Generate reading interpretation"} position="bottom">
-                <button 
-                  onClick={() => generateInterpretation()}
-                  className="btn btn-secondary bg-accent/80 backdrop-blur-sm border border-accent p-2 text-sm flex items-center text-white dark:text-black"
-                >
-                  <Wand className="h-4 w-4" />
-                  {!isTablet && (
-                    <span className="ml-1 text-xs">
-                      {selectedLayout?.id === 'free-layout' 
-                        ? `Interpret (${selectedCards.length})` 
-                        : 'See Interpretation'
-                      }
-                    </span>
+              {/* Desktop: Reveal All / View Cards Button - show when cards are placed - moved to front */}
+              {selectedCards.some((card: any) => card) && (
+                <>
+                  {/* Show Reveal All button if there are unrevealed cards */}
+                  {selectedCards.some((card: any) => card && !card.revealed) && (
+                    <Tooltip content="Reveal all cards (R)" position="bottom">
+                      <button
+                        onClick={revealAllCards}
+                        className="btn btn-secondary bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center"
+                      >
+                        <EyeOff className="h-4 w-4" />
+                        {!isTablet && <span className="ml-1 text-xs">Reveal All</span>}
+                      </button>
+                    </Tooltip>
                   )}
-                </button>
-              </Tooltip>
-            )}
-            
-            {/* Desktop: Reveal All / View Cards Button - show when cards are placed - moved to front */}
-            {!isMobile && selectedCards.some((card: any) => card) && (
-              <>
-                {/* Show Reveal All button if there are unrevealed cards */}
-                {selectedCards.some((card: any) => card && !card.revealed) && (
-                                <Tooltip content="Reveal all cards (R)" position="bottom">
-                <button 
-                  onClick={revealAllCards}
-                  className="btn btn-secondary bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center"
-                >
-                  <EyeOff className="h-4 w-4" />
-                  {!isTablet && <span className="ml-1 text-xs">Reveal All</span>}
-                </button>
-              </Tooltip>
-                )}
-                
-                {/* Show View Cards button if all cards are revealed */}
-                {selectedCards.every((card: any) => !card || card.revealed) && selectedCards.some((card: any) => card?.revealed) && (
-                  <Tooltip content="View cards in detail (V)" position="bottom">
-                    <button 
-                      onClick={() => {
-                        const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
-                        if (firstRevealedIndex !== -1) {
-                          openCardGallery(firstRevealedIndex);
-                        }
-                      }}
-                      className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center"
-                    >
-                      <ScanSearch className="h-4 w-4" />
-                      {!isTablet && <span className="ml-1 text-xs">View Detail</span>}
-                    </button>
-                  </Tooltip>
-                )}
-              </>
-            )}
 
-            {/* Offline mode indicator and sync button */}
-            {(isOfflineMode || recentlySynced) && (
-              <Tooltip 
-                content={
-                  recentlySynced 
-                    ? "Session synced to cloud" 
-                    : "Working offline - click to sync to cloud"
-                } 
-                position="bottom" 
-                disabled={isMobile}
-              >
-                <button 
-                  onClick={async () => {
-                    if (!recentlySynced) {
-                      const synced = await syncLocalSessionToDatabase();
-                      if (synced) {
-                        setRecentlySynced(true);
-                        setTimeout(() => setRecentlySynced(false), 5000); // Show synced state for 5 seconds
-                      } else {
-                        console.log('Sync failed, will retry later');
-                      }
-                    }
-                  }}
-                  className={`btn ${
-                    recentlySynced 
-                      ? 'btn-success bg-success/80 border-success/50' 
-                      : 'btn-warning bg-warning/80 border-warning/50'
-                  } backdrop-blur-sm ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} ${
-                    recentlySynced ? '' : 'animate-pulse'
-                  }`}
-                  disabled={recentlySynced}
+                  {/* Show View Cards button if all cards are revealed */}
+                  {selectedCards.every((card: any) => !card || card.revealed) && selectedCards.some((card: any) => card?.revealed) && (
+                    <Tooltip content="View cards in detail (V)" position="bottom">
+                      <button
+                        onClick={() => {
+                          const firstRevealedIndex = selectedCards.findIndex((card: any) => card?.revealed);
+                          if (firstRevealedIndex !== -1) {
+                            openCardGallery(firstRevealedIndex);
+                          }
+                        }}
+                        className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center"
+                      >
+                        <ScanSearch className="h-4 w-4" />
+                        {!isTablet && <span className="ml-1 text-xs">View Detail</span>}
+                      </button>
+                    </Tooltip>
+                  )}
+                </>
+              )}
+
+              {/* Offline mode indicator and sync button */}
+              {(isOfflineMode || recentlySynced) && (
+                <Tooltip
+                  content={
+                    recentlySynced
+                      ? "Session synced to cloud"
+                      : "Working offline - click to sync to cloud"
+                  }
+                  position="bottom"
+                  disabled={isMobile}
                 >
-                  {recentlySynced ? (
-                    <RotateCcw className="h-4 w-4" />
+                  <button
+                    onClick={async () => {
+                      if (!recentlySynced) {
+                        const synced = await syncLocalSessionToDatabase();
+                        if (synced) {
+                          setRecentlySynced(true);
+                          setTimeout(() => setRecentlySynced(false), 5000);
+                        } else {
+                          console.log('Sync failed, will retry later');
+                        }
+                      }
+                    }}
+                    className={`btn ${
+                      recentlySynced
+                        ? 'btn-success bg-success/80 border-success/50'
+                        : 'btn-warning bg-warning/80 border-warning/50'
+                    } backdrop-blur-sm p-2 text-sm flex items-center gap-1 ${
+                      recentlySynced ? '' : 'animate-pulse'
+                    }`}
+                    disabled={recentlySynced}
+                  >
+                    {recentlySynced ? (
+                      <RotateCcw className="h-4 w-4" />
+                    ) : (
+                      <Zap className="h-4 w-4" />
+                    )}
+                    {!isTablet && (
+                      <span className="text-xs">
+                        {recentlySynced ? 'Synced' : 'Offline'}
+                      </span>
+                    )}
+                  </button>
+                </Tooltip>
+              )}
+
+              {/* Sync indicator for real-time updates */}
+              {isSyncing && (
+                <Tooltip content="Synchronizing session state..." position="bottom" disabled={isMobile}>
+                  <div className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center gap-1 animate-pulse">
+                    <LoadingSpinner size="sm" />
+                    {!isTablet && <span className="text-xs">Syncing</span>}
+                  </div>
+                </Tooltip>
+              )}
+
+              {/* Deck change button - show when deck is selected */}
+              {deck && (
+                <Tooltip content="Change deck (D)" position="bottom" disabled={isMobile}>
+                  <button
+                    onClick={() => {
+                      setIsChangingDeckMidSession(true);
+                      setDeck(null);
+                      setCards([]);
+                      setShuffledDeck([]);
+                      setSelectedDeckId(null);
+                    }}
+                    className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center gap-1"
+                  >
+                    <Package className="h-4 w-4" />
+                    {!isTablet && <span className="text-xs">Deck</span>}
+                  </button>
+                </Tooltip>
+              )}
+
+              <Tooltip content="Add people to session" position="bottom" disabled={isMobile}>
+                <button
+                  onClick={() => handleShare()}
+                  className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center gap-1"
+                  disabled={!sessionId}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  {!isTablet && <span className="text-xs">Invite</span>}
+                </button>
+              </Tooltip>
+
+              <Tooltip content="Toggle theme (T)" position="bottom" disabled={isMobile}>
+                <button
+                  onClick={toggleTheme}
+                  className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center gap-1"
+                >
+                  {darkMode ? (
+                    <Sun className="h-4 w-4" />
                   ) : (
-                    <Zap className="h-4 w-4" />
+                    <Moon className="h-4 w-4" />
                   )}
-                  {!isMobile && !isTablet && (
-                    <span className="text-xs">
-                      {recentlySynced ? 'Synced' : 'Offline'}
-                    </span>
-                  )}
+                  {!isTablet && <span className="text-xs">Theme</span>}
                 </button>
               </Tooltip>
-            )}
 
-            {/* Sync indicator for real-time updates */}
-            {isSyncing && (
-              <Tooltip content="Synchronizing session state..." position="bottom" disabled={isMobile}>
-                <div className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} animate-pulse`}>
-                  <LoadingSpinner size="sm" />
-                  {!isMobile && !isTablet && <span className="text-xs">Syncing</span>}
-                </div>
-              </Tooltip>
-            )}
-            
-            {/* Deck change button - show when deck is selected */}
-            <Tooltip content="Change deck (D)" position="bottom" disabled={isMobile}>
-              <button 
-                onClick={() => {
-                  // Enter deck change mode while preserving session state
-                  setIsChangingDeckMidSession(true);
-                  setDeck(null);
-                  setCards([]);
-                  setShuffledDeck([]);
-                  setSelectedDeckId(null);
-                  // Don't reset URL or session state
-                }}
-                className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} ${!deck ? 'hidden' : ''}`}
-              >
-                <Package className="h-4 w-4" />
-                {!isMobile && !isTablet && <span className="text-xs">Deck</span>}
-              </button>
-            </Tooltip>
-            
-            <Tooltip content="Add people to session" position="bottom" disabled={isMobile}>
-              <button 
-                onClick={() => handleShare()}
-                className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''}`}
-                disabled={!sessionId}
-              >
-                <UserPlus className="h-4 w-4" />
-                {!isMobile && !isTablet && <span className="text-xs">Invite</span>}
-              </button>
-            </Tooltip>
-            
-            <Tooltip content="Toggle theme (T)" position="bottom" disabled={isMobile}>
-              <button 
-                onClick={toggleTheme}
-                className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''}`}
-              >
-                {darkMode ? (
-                  <Sun className="h-4 w-4" />
-                ) : (
-                  <Moon className="h-4 w-4" />
-                )}
-                {!isMobile && !isTablet && <span className="text-xs">Theme</span>}
-              </button>
-            </Tooltip>
-
-            
-            {/* Guest sign in button - moved to end */}
-            <Tooltip content="Create account to save your progress" position="bottom" disabled={isMobile}>
-              <button 
-                onClick={() => setShowGuestUpgrade(true)}
-                className={`btn btn-primary ${isMobile ? 'p-1.5' : 'p-2'} text-sm flex items-center ${!isMobile ? 'gap-1' : ''} ${!isGuest ? 'hidden' : ''}`}
-              >
-                <LogIn className="h-4 w-4" />
-                {!isMobile && !isTablet && <span className="text-xs">Sign In</span>}
-              </button>
-            </Tooltip>
-
+              {/* Guest sign in button - moved to end */}
+              {isGuest && (
+                <Tooltip content="Create account to save your progress" position="bottom" disabled={isMobile}>
+                  <button
+                    onClick={() => setShowGuestUpgrade(true)}
+                    className="btn btn-primary p-2 text-sm flex items-center gap-1"
+                  >
+                    <LogIn className="h-4 w-4" />
+                    {!isTablet && <span className="text-xs">Sign In</span>}
+                  </button>
+                </Tooltip>
+              )}
+            </div>
           </div>
+          )}
         </div>
 
         {/* Reading table */}
@@ -3506,7 +3654,7 @@ const ReadingRoom = () => {
           
           {/* Step 2: Drawing Cards */}
           {readingStep === 'drawing' && selectedLayout && (
-            <div className={`absolute inset-0 flex flex-col ${isMobile ? (isLandscape ? 'pt-8' : 'pt-12') : 'pt-20'}`}>
+            <div className={`absolute inset-0 flex flex-col ${isMobile ? (isLandscape ? 'pt-24' : 'pt-28') : 'pt-20'}`}>
               {/* Reading table with mobile-friendly zoom controls */}
               <div 
                 className="flex-1 relative" 
@@ -4228,7 +4376,7 @@ const ReadingRoom = () => {
           
           {/* Step 3: Interpretation - mobile responsive layout */}
           {readingStep === 'interpretation' && (
-            <div className={`absolute inset-0 ${isMobile ? (isLandscape && !showMobileInterpretation ? 'flex pt-8' : 'flex-col pt-12') : 'pt-20'}`}> {/* Desktop: No longer flex, pt-20 for header */}
+            <div className={`absolute inset-0 ${isMobile ? (isLandscape && !showMobileInterpretation ? 'flex pt-24' : 'flex-col pt-28') : 'pt-20'}`}> {/* Desktop: No longer flex, pt-20 for header */}
               {/* Card Display Area & Fixed Controls Container */}
               <div className={`relative h-full ${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-3/5' : (showMobileInterpretation ? 'hidden' : 'flex-1 w-full')) : 'w-full'}`}> 
                 
