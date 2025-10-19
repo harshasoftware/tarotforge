@@ -1404,6 +1404,35 @@ const ReadingRoom = () => {
     setHoveredPosition(null);
   };
   
+  // Function to draw the next available card to a position (for mobile tap)
+  const drawCardToPosition = (positionIndex: number) => {
+    if (!selectedLayout || selectedCards[positionIndex]) {
+      return; // Position already filled or no layout selected
+    }
+
+    // Find the first available card from the deck
+    const availableDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
+    const usedCardIds = selectedCards.filter(Boolean).map(c => c.id);
+    const nextCard = availableDeck.find(card => !usedCardIds.includes(card.id));
+
+    if (!nextCard) {
+      return; // No more cards available
+    }
+
+    // Place the card in the position
+    const newSelectedCards = [...selectedCards];
+    newSelectedCards[positionIndex] = nextCard;
+    setSelectedCards(newSelectedCards);
+
+    // Update session state if needed
+    updateSessionState({ selectedCards: newSelectedCards });
+
+    // Play sound if enabled
+    if (soundEnabled) {
+      playSound('cardDrop');
+    }
+  };
+
   const handleCardDrop = (positionIndex?: number, freePosition?: { x: number; y: number }) => {
     if (!draggedCard || !selectedLayout) {
       handleDragEnd(); // Ensure drag state is reset even if no action is taken
@@ -3804,6 +3833,9 @@ const ReadingRoom = () => {
                         onClick={() => {
                           if (isDragging && draggedCard && !selectedCard) {
                             handleCardDrop(index);
+                          } else if (isMobile && !selectedCard) {
+                            // On mobile, allow tapping empty positions to draw cards
+                            drawCardToPosition(index);
                           }
                         }}
                         onTouchEnd={(e) => {
@@ -3811,6 +3843,11 @@ const ReadingRoom = () => {
                             e.preventDefault();
                             e.stopPropagation(); // Prevent event from bubbling to document listener
                             handleCardDrop(index);
+                          } else if (isMobile && !isDragging && !selectedCard) {
+                            // Handle tap to draw card on mobile
+                            e.preventDefault();
+                            e.stopPropagation();
+                            drawCardToPosition(index);
                           }
                         }}
                       >
@@ -3820,7 +3857,9 @@ const ReadingRoom = () => {
                             data-dropzone-index={index} // Added data attribute
                             className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} border-2 border-dashed ${
                               isHovered ? 'border-primary bg-primary/10' : 'border-muted-foreground/30'
-                            } rounded-md flex flex-col items-center justify-center transition-colors`}
+                            } rounded-md flex flex-col items-center justify-center transition-colors ${
+                              isMobile ? 'active:bg-primary/20 active:border-primary cursor-pointer' : ''
+                            }`}
                             style={{ 
                               transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none',
                               transformOrigin: 'center center'
@@ -3829,8 +3868,11 @@ const ReadingRoom = () => {
                             <span className={`text-xs text-center px-1 ${isHovered ? 'text-primary' : 'text-muted-foreground'}`}>
                               {position.name}
                             </span>
-                            {isHovered && (
+                            {isHovered && !isMobile && (
                               <span className="text-xs text-primary mt-1">Drop here</span>
+                            )}
+                            {isMobile && !isHovered && (
+                              <span className="text-xs text-muted-foreground/70 mt-1">Tap to draw</span>
                             )}
                           </div>
                         )}
