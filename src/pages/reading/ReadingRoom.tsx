@@ -1437,16 +1437,13 @@ const ReadingRoom = () => {
     // Place the card in the position
     const newSelectedCards = [...selectedCards];
     newSelectedCards[positionIndex] = nextCard;
-    setSelectedCards(newSelectedCards);
 
-    // Update session state if needed
-    if (updateSessionState) {
-      updateSessionState({ selectedCards: newSelectedCards });
-    }
+    // Update session state using updateSession
+    updateSession({ selectedCards: newSelectedCards });
 
-    // Play sound if enabled and available
-    if (soundEnabled && playSound) {
-      playSound('cardDrop');
+    // Play sound if enabled
+    if (soundEnabled) {
+      playSoundEffect('pop');
     }
   };
 
