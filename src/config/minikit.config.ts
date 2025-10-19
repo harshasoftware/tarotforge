@@ -30,6 +30,9 @@ export const minikitConfig = {
     ogTitle: "Tarot Forge - AI Tarot Deck Creator & Marketplace",
     ogDescription: "Create unique AI-generated tarot decks, get professional readings, and trade in the marketplace. Experience the future of digital divination.",
     ogImageUrl: `https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/public/assets/readingroom.webp`,
+    castShareUrl: ROOT_URL,
+    imageUrl: `https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/public/assets/9dbf50f7-ed02-4615-8866-1efa4c3bf6c0.png`,
+    buttonTitle: "Open Tarot Forge",
   },
   baseBuilder: {
     ownerAddress: "0x7a32D0c29155B56517a152368F9FA506AF971Fd4"
