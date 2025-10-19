@@ -1,4 +1,9 @@
 {
+  "accountAssociation": {
+    "header": "eyJmaWQiOjEzNTA1NTksInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhmODZmN2ExOTQyN2Q3YjU4MjE3MjFGMmNBNUU4MTM1MTM1QTU3RDM0In0",
+    "payload": "eyJkb21haW4iOiJ0YXJvdGZvcmdlLnh5eiJ9",
+    "signature": "YaoK9mZKONgMwgz4yUd4/HMRmitVp1rwoMnNb1mDUqoUd+2C8bAtbYh+n8o9Avvja/VJ63JRI8OVD/7FobBkERs="
+  },
   "baseBuilder": {
     "ownerAddress": "0x7a32D0c29155B56517a152368F9FA506AF971Fd4"
   }

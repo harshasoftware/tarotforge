@@ -3,10 +3,9 @@ const ROOT_URL = import.meta.env.VITE_APP_URL || 'https://tarotforge.xyz';
 
 export const minikitConfig = {
   accountAssociation: {
-    // These will be populated during the account association flow
-    header: "",
-    payload: "",
-    signature: ""
+    header: "eyJmaWQiOjEzNTA1NTksInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhmODZmN2ExOTQyN2Q3YjU4MjE3MjFGMmNBNUU4MTM1MTM1QTU3RDM0In0",
+    payload: "eyJkb21haW4iOiJ0YXJvdGZvcmdlLnh5eiJ9",
+    signature: "YaoK9mZKONgMwgz4yUd4/HMRmitVp1rwoMnNb1mDUqoUd+2C8bAtbYh+n8o9Avvja/VJ63JRI8OVD/7FobBkERs="
   },
   miniapp: {
     version: "1",
