@@ -27,7 +27,7 @@
     "ogTitle": "Tarot Forge",
     "ogDescription": "Create unique tarot decks, and trade in the marketplace.",
     "ogImageUrl": "https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/public/assets/9dbf50f7-ed02-4615-8866-1efa4c3bf6c0.png",
-    "noIndex": false
+    "noindex": false
   },
   "baseBuilder": {
     "ownerAddress": "0x7a32D0c29155B56517a152368F9FA506AF971Fd4"
