@@ -5,6 +5,13 @@
 [build.environment]
   NODE_VERSION = "22.16.0"
 
+# Serve .well-known files directly (bypass SPA redirect)
+[[redirects]]
+  from = "/.well-known/*"
+  to = "/.well-known/:splat"
+  status = 200
+  force = true
+
 # SPA redirect for client-side routing
 [[redirects]]
   from = "/*"
@@ -30,4 +37,13 @@
 [[headers]]
   for = "/sw.js"
   [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate" 
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Serve .well-known directory with proper headers
+[[headers]]
+  for = "/.well-known/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, OPTIONS"
+    Content-Type = "application/json"
+    Cache-Control = "public, max-age=3600" 
