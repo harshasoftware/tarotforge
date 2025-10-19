@@ -1,16 +1,15 @@
+functionsDirectory = "/Users/itsnappyboy/Documents/GitHub/Tarot/tarotforge/netlify/functions"
+functionsDirectoryOrigin = "default"
 headersOrigin = "config"
 redirectsOrigin = "config"
 plugins = []
-
-[functions]
-
-[functions."*"]
 
 [build]
 publish = "/Users/itsnappyboy/Documents/GitHub/Tarot/tarotforge/dist"
 publishOrigin = "config"
 commandOrigin = "config"
 command = "npm run build"
+functions = "/Users/itsnappyboy/Documents/GitHub/Tarot/tarotforge/netlify/functions"
 
 [build.environment]
 NODE_VERSION = "22.16.0"
@@ -26,6 +25,10 @@ NODE_VERSION = "22.16.0"
 [build.processing.js]
 
 [build.services]
+
+[functions]
+
+[functions."*"]
 
 [[headers]]
 for = "/*"
@@ -47,6 +50,27 @@ for = "/sw.js"
 
 [headers.values]
 Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+for = "/.well-known/*"
+
+[headers.values]
+Access-Control-Allow-Origin = "*"
+Access-Control-Allow-Methods = "GET, OPTIONS"
+Content-Type = "application/json"
+Cache-Control = "public, max-age=3600"
+
+[[redirects]]
+from = "/.well-known/*"
+to = "/.well-known/:splat"
+status = 200.0
+force = true
+
+[redirects.query]
+
+[redirects.conditions]
+
+[redirects.headers]
 
 [[redirects]]
 from = "/*"

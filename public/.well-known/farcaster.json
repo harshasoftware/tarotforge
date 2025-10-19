@@ -1,16 +1,5 @@
 {
   "baseBuilder": {
     "ownerAddress": "0x7a32D0c29155B56517a152368F9FA506AF971Fd4"
-  },
-  "miniapp": {
-    "version": "1",
-    "name": "Tarot Forge",
-    "subtitle": "AI-Powered Tarot Deck Creator",
-    "description": "Create and collect unique AI-generated tarot decks. Experience professional readings with custom decks, buy and sell in the marketplace.",
-    "iconUrl": "https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/public/assets/logotarot.png",
-    "splashImageUrl": "https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/public/assets/logotarot.png",
-    "splashBackgroundColor": "#000000",
-    "primaryCategory": "entertainment",
-    "tags": ["tarot", "ai", "marketplace", "spiritual", "web3", "nft", "collectibles", "readings"]
   }
 }
