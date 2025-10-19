@@ -20,7 +20,7 @@ import Tooltip from '../../components/ui/Tooltip';
 import { showParticipantNotification, showErrorToast, showSuccessToast } from '../../utils/toast';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../../lib/supabase';
-import { readingLayouts } from './constants/layouts'; 
+import { readingLayouts, getThreeCardPositions } from './constants/layouts'; 
 import { questionCategories } from './constants/questionCategories';
 import { cardAnimationConfig, zoomAnimationConfig, cardFlipConfig } from './utils/animationConfigs';
 import { getPlatformShortcut, KEY_CODES, KEY_VALUES } from './constants/shortcuts'; 
@@ -1379,7 +1379,7 @@ const ReadingRoom = () => {
       resetType: 'full'
     });
   }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId,
-    anonymousId, getDefaultZoomLevel, selectedLayout]);
+    anonymousId, getDefaultZoomLevel, selectedLayout, isMobile]);
   
   const resetCards = useCallback(() => {
     // Shuffle and restore all cards to create a fresh deck
@@ -1396,7 +1396,7 @@ const ReadingRoom = () => {
       interpretation: '',
       activeCardIndex: null,
       readingStep: 'drawing',
-      zoomLevel: getDefaultZoomLevel(selectedLayout),
+      zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile),
       shuffledDeck: freshlyShuffled
     });
     
@@ -1414,7 +1414,7 @@ const ReadingRoom = () => {
       isAnonymous: !user
     });
   }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId,
-    anonymousId, getDefaultZoomLevel, selectedLayout]);
+    anonymousId, getDefaultZoomLevel, selectedLayout, isMobile]);
   
   // Drag and Drop Functions
   const handleDragStart = (card: Card, index: number, e: any) => {
@@ -3768,27 +3768,32 @@ const ReadingRoom = () => {
               >
                 {/* Zoom controls with shuffle button - repositioned for mobile */}
                 <div className={`zoom-controls absolute ${
-                  isMobile 
+                  isMobile
                     ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
                     : 'top-4 left-4 flex-col'
                 } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-2 rounded-md z-40 items-center`}>
-                                    <Tooltip content="Zoom in (+ / =)" position="right" disabled={isMobile}>
-                    <button onClick={zoomIn} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <ZoomIn className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                
-                  <Tooltip content="Reset zoom (Z)" position="right" disabled={isMobile}>
-                    <button onClick={resetZoom} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <RotateCcw className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
+                  {/* Hide zoom controls on mobile */}
+                  {!isMobile && (
+                    <>
+                      <Tooltip content="Zoom in (+ / =)" position="right" disabled={isMobile}>
+                        <button onClick={zoomIn} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
+                          <ZoomIn className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
 
-                  <Tooltip content="Zoom out (- / _)" position="right" disabled={isMobile}>
-                    <button onClick={zoomOut} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <ZoomOut className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
+                      <Tooltip content="Reset zoom (Z)" position="right" disabled={isMobile}>
+                        <button onClick={resetZoom} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
+                          <RotateCcw className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
+
+                      <Tooltip content="Zoom out (- / _)" position="right" disabled={isMobile}>
+                        <button onClick={zoomOut} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
+                          <ZoomOut className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
+                    </>
+                  )}
 
                   
                   {/* Desktop Directional Joypad */}
@@ -3850,61 +3855,70 @@ const ReadingRoom = () => {
                     </>
                   )}
                   
+                  {/* Shuffle button - always visible */}
                   <Tooltip content="Shuffle deck (Left Shift)" position="right" disabled={isMobile}>
                     <button onClick={shuffleDeck} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
                       <Shuffle className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content={`Show help (${getPlatformShortcut('help')})`} position="right" disabled={isMobile}>
-                    <button onClick={toggleHelpModal} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
-                      <HelpCircle className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
+
+                  {/* Clear/Reset button - always visible */}
                   <Tooltip content={`Reset cards (${getPlatformShortcut('reset', true)})`} position="right" disabled={isMobile}>
                     <button onClick={resetCards} className="p-1.5 hover:bg-muted rounded-sm text-red-500 hover:text-red-600 flex items-center justify-center">
                       <XCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
-                  <Tooltip content={isMuted ? "Unmute (M)" : "Mute (M)"} position="right" disabled={isMobile}>
-                     <div
-                      onMouseEnter={() => {
-                        if (volumeSliderTimeoutRef.current) clearTimeout(volumeSliderTimeoutRef.current);
-                        setShowVolumeSlider(true);
-                      }}
-                      onMouseLeave={() => {
-                        volumeSliderTimeoutRef.current = setTimeout(() => setShowVolumeSlider(false), 1500);
-                      }}
-                      className="relative p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"
-                    >
-                      <button onClick={toggleMute}>
-                        <Music className={`h-4 w-4 ${isMuted ? 'text-red-500' : ''}`} />
-                      </button>
-                      {showVolumeSlider && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -5 }}
-                          className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-card border border-border p-2 rounded-md shadow-lg z-50"
+
+                  {/* Hide other buttons on mobile */}
+                  {!isMobile && (
+                    <>
+                      <Tooltip content={`Show help (${getPlatformShortcut('help')})`} position="right" disabled={isMobile}>
+                        <button onClick={toggleHelpModal} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
+                          <HelpCircle className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
+                      <Tooltip content={isMuted ? "Unmute (M)" : "Mute (M)"} position="right" disabled={isMobile}>
+                        <div
                           onMouseEnter={() => {
                             if (volumeSliderTimeoutRef.current) clearTimeout(volumeSliderTimeoutRef.current);
+                            setShowVolumeSlider(true);
                           }}
                           onMouseLeave={() => {
                             volumeSliderTimeoutRef.current = setTimeout(() => setShowVolumeSlider(false), 1500);
                           }}
+                          className="relative p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"
                         >
-                          <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.01"
-                            value={volume}
-                            onChange={(e) => setGlobalVolume(parseFloat(e.target.value))}
-                            className="w-20 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
-                          />
-                        </motion.div>
-                      )}
-                    </div>
-                  </Tooltip>
+                          <button onClick={toggleMute}>
+                            <Music className={`h-4 w-4 ${isMuted ? 'text-red-500' : ''}`} />
+                          </button>
+                          {showVolumeSlider && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -5 }}
+                              className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-card border border-border p-2 rounded-md shadow-lg z-50"
+                              onMouseEnter={() => {
+                                if (volumeSliderTimeoutRef.current) clearTimeout(volumeSliderTimeoutRef.current);
+                              }}
+                              onMouseLeave={() => {
+                                volumeSliderTimeoutRef.current = setTimeout(() => setShowVolumeSlider(false), 1500);
+                              }}
+                            >
+                              <input
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.01"
+                                value={volume}
+                                onChange={(e) => setGlobalVolume(parseFloat(e.target.value))}
+                                className="w-20 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
+                              />
+                            </motion.div>
+                          )}
+                        </div>
+                      </Tooltip>
+                    </>
+                  )}
                 </div>
 
                 {/* Layout visualization with mobile-responsive card sizes */}
@@ -4001,16 +4015,22 @@ const ReadingRoom = () => {
                   {selectedLayout?.id !== 'free-layout' && selectedLayout?.positions && selectedLayout.positions.map((position: any, index: number) => {
                     const selectedCard = selectedCards[index];
                     const isHovered = hoveredPosition === index && isDragging;
-                    
+
                     // Special handling for Celtic Cross Present (0) and Challenge (1) positions
                     const isCelticCross = selectedLayout?.id === 'celtic-cross';
                     const isPresentPosition = isCelticCross && index === 0;
                     const isChallengePosition = isCelticCross && index === 1;
                     const presentCard = isCelticCross ? selectedCards[0] : null;
                     const challengeCard = isCelticCross ? selectedCards[1] : null;
-                    
+
                     // For Celtic Cross, adjust positioning for drop zones only
                     let adjustedPosition = { ...position };
+
+                    // Apply mobile-specific three-card spacing
+                    if (isMobile && selectedLayout?.id === 'three-card') {
+                      const mobilePositions = getThreeCardPositions(true);
+                      adjustedPosition = mobilePositions[index] || position;
+                    }
                     if (isCelticCross && (isPresentPosition || isChallengePosition)) {
                       // For drop zones: offset Challenge position slightly when both positions are empty
                       // or when only Present card is placed, so users can distinguish between the two drop areas
@@ -4455,14 +4475,19 @@ const ReadingRoom = () => {
               <div className={`relative h-full ${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-3/5' : (showMobileInterpretation ? 'hidden' : 'flex-1 w-full')) : 'w-full'}`}> 
                 
                 {/* Zoom Controls: Positioned absolutely relative to this container, fixed during pan/zoom of canvas */}
-                <div className={`zoom-controls absolute ${ 
-                  isMobile 
-                    ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' 
+                <div className={`zoom-controls absolute ${
+                  isMobile
+                    ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col'
                     : 'top-4 left-4 flex-col'
                 } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-2 rounded-md z-40 items-center`}>
-                  <Tooltip content="Zoom out (- / _)" position="right" disabled={isMobile}><button onClick={zoomOut} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"><ZoomOut className="h-4 w-4" /></button></Tooltip>
-                  <Tooltip content="Reset zoom (Z)" position="right" disabled={isMobile}><button onClick={resetZoom} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"><RotateCcw className="h-4 w-4" /></button></Tooltip>
-                  <Tooltip content="Zoom in (+ / =)" position="right" disabled={isMobile}><button onClick={zoomIn} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"><ZoomIn className="h-4 w-4" /></button></Tooltip>
+                  {/* Hide zoom controls on mobile */}
+                  {!isMobile && (
+                    <>
+                      <Tooltip content="Zoom out (- / _)" position="right" disabled={isMobile}><button onClick={zoomOut} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"><ZoomOut className="h-4 w-4" /></button></Tooltip>
+                      <Tooltip content="Reset zoom (Z)" position="right" disabled={isMobile}><button onClick={resetZoom} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"><RotateCcw className="h-4 w-4" /></button></Tooltip>
+                      <Tooltip content="Zoom in (+ / =)" position="right" disabled={isMobile}><button onClick={zoomIn} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"><ZoomIn className="h-4 w-4" /></button></Tooltip>
+                    </>
+                  )}
                   {!isMobile && (
                     <>
                       <div className="w-full h-px bg-border my-2"></div>
@@ -4534,11 +4559,16 @@ const ReadingRoom = () => {
                   );}) 
                   }
                   {selectedLayout?.id !== 'free-layout' && selectedLayout && selectedLayout.positions.map((position: any, index: number) => {
-                    const cardData = selectedCards[index] as any; 
+                    const cardData = selectedCards[index] as any;
                     if (!cardData) return null;
                     const isCelticCross = selectedLayout?.id === 'celtic-cross'; const isChallengePosition = isCelticCross && index === 1;
-                    const adjustedPosition = { ...position }; let displayX = adjustedPosition.x;
-                    if (isMobile && selectedLayout?.id === 'three-card') { if (index === 0) displayX = 25; else if (index === 1) displayX = 50; else if (index === 2) displayX = 75; }
+                    // Use dynamic positions for three-card layout on mobile
+                    let adjustedPosition = { ...position };
+                    if (isMobile && selectedLayout?.id === 'three-card') {
+                      const mobilePositions = getThreeCardPositions(true);
+                      adjustedPosition = mobilePositions[index] || position;
+                    }
+                    let displayX = adjustedPosition.x;
                     return (
                       <div key={position.id} className="absolute transform -translate-x-1/2 -translate-y-1/2" style={{ left: `${displayX}%`, top: `${adjustedPosition.y}%`, zIndex: activeCardIndex === index ? 20 : (isChallengePosition ? 12 : 10 + index) }}>
                         <motion.div className="relative" data-card-element="true" onTouchEnd={(e) => { if (isMobile) { e.preventDefault(); handleCardDoubleTap(index, e); } }} whileHover={{ scale: 1.05 }} animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}>

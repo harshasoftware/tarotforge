@@ -1,5 +1,24 @@
 import { ReadingLayout } from '../../../types';
 
+// Helper function to get layout positions based on device type
+export const getThreeCardPositions = (isMobile: boolean = false) => {
+  if (isMobile) {
+    // Tighter spacing for mobile - cards closer together
+    return [
+      { id: 0, name: 'Past', meaning: 'Represents influences from the past that led to your current situation', x: 43, y: 50 },
+      { id: 1, name: 'Present', meaning: 'Shows the current situation and energies surrounding your question', x: 50, y: 50 },
+      { id: 2, name: 'Future', meaning: 'Potential outcome based on the current path you are on', x: 57, y: 50 }
+    ];
+  } else {
+    // Original spacing for desktop
+    return [
+      { id: 0, name: 'Past', meaning: 'Represents influences from the past that led to your current situation', x: 40, y: 50 },
+      { id: 1, name: 'Present', meaning: 'Shows the current situation and energies surrounding your question', x: 50, y: 50 },
+      { id: 2, name: 'Future', meaning: 'Potential outcome based on the current path you are on', x: 60, y: 50 }
+    ];
+  }
+};
+
 // Mock reading layouts
 export const readingLayouts: ReadingLayout[] = [
   {
@@ -16,11 +35,7 @@ export const readingLayouts: ReadingLayout[] = [
     name: 'Three Card Spread',
     description: 'Past, Present, Future reading to understand your current situation',
     card_count: 3,
-    positions: [
-      { id: 0, name: 'Past', meaning: 'Represents influences from the past that led to your current situation', x: 40, y: 50 },
-      { id: 1, name: 'Present', meaning: 'Shows the current situation and energies surrounding your question', x: 50, y: 50 },
-      { id: 2, name: 'Future', meaning: 'Potential outcome based on the current path you are on', x: 60, y: 50 }
-    ]
+    positions: getThreeCardPositions(false) // Default to desktop positions
   },
   {
     id: 'celtic-cross',
