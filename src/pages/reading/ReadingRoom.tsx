@@ -1406,18 +1406,33 @@ const ReadingRoom = () => {
   
   // Function to draw the next available card to a position (for mobile tap)
   const drawCardToPosition = (positionIndex: number) => {
-    if (!selectedLayout || selectedCards[positionIndex]) {
-      return; // Position already filled or no layout selected
+    console.log('[DrawCard] Attempting to draw card to position:', positionIndex);
+
+    if (!selectedLayout) {
+      console.log('[DrawCard] No layout selected');
+      return;
+    }
+
+    if (selectedCards[positionIndex]) {
+      console.log('[DrawCard] Position already filled');
+      return;
     }
 
     // Find the first available card from the deck
     const availableDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
+    console.log('[DrawCard] Available deck size:', availableDeck.length);
+
     const usedCardIds = selectedCards.filter(Boolean).map(c => c.id);
+    console.log('[DrawCard] Used card IDs:', usedCardIds);
+
     const nextCard = availableDeck.find(card => !usedCardIds.includes(card.id));
 
     if (!nextCard) {
-      return; // No more cards available
+      console.log('[DrawCard] No more cards available');
+      return;
     }
+
+    console.log('[DrawCard] Drawing card:', nextCard.name, 'to position:', positionIndex);
 
     // Place the card in the position
     const newSelectedCards = [...selectedCards];
@@ -1425,10 +1440,12 @@ const ReadingRoom = () => {
     setSelectedCards(newSelectedCards);
 
     // Update session state if needed
-    updateSessionState({ selectedCards: newSelectedCards });
+    if (updateSessionState) {
+      updateSessionState({ selectedCards: newSelectedCards });
+    }
 
-    // Play sound if enabled
-    if (soundEnabled) {
+    // Play sound if enabled and available
+    if (soundEnabled && playSound) {
       playSound('cardDrop');
     }
   };
@@ -3831,20 +3848,38 @@ const ReadingRoom = () => {
                           }
                         }}
                         onClick={() => {
+                          console.log('[Click] Position clicked:', index, 'isDragging:', isDragging, 'selectedCard:', !!selectedCard);
+                          // Desktop click or mobile tap (as fallback)
                           if (isDragging && draggedCard && !selectedCard) {
                             handleCardDrop(index);
-                          } else if (isMobile && !selectedCard) {
-                            // On mobile, allow tapping empty positions to draw cards
+                          } else if (!selectedCard && !isDragging) {
+                            // Allow clicking/tapping empty positions to draw cards
                             drawCardToPosition(index);
                           }
                         }}
+                        onTouchStart={(e) => {
+                          console.log('[TouchStart] Position:', index, 'isMobile:', isMobile, 'selectedCard:', !!selectedCard);
+                          // Track touch start for tap detection
+                          if (!selectedCard && !isDragging) {
+                            e.currentTarget.dataset.touchStartTime = Date.now().toString();
+                          }
+                        }}
                         onTouchEnd={(e) => {
-                          if (isMobile && isDragging && draggedCard && !selectedCard) {
+                          console.log('[TouchEnd] Position:', index, 'isMobile:', isMobile, 'isDragging:', isDragging);
+
+                          const touchStartTime = parseInt(e.currentTarget.dataset.touchStartTime || '0');
+                          const touchDuration = Date.now() - touchStartTime;
+                          console.log('[TouchEnd] Duration:', touchDuration, 'ms');
+
+                          if (isDragging && draggedCard && !selectedCard) {
+                            // Handle card drop from drag
+                            console.log('[TouchEnd] Dropping dragged card');
                             e.preventDefault();
-                            e.stopPropagation(); // Prevent event from bubbling to document listener
+                            e.stopPropagation();
                             handleCardDrop(index);
-                          } else if (isMobile && !isDragging && !selectedCard) {
-                            // Handle tap to draw card on mobile
+                          } else if (!isDragging && !selectedCard && touchDuration < 500) {
+                            // Handle tap (quick touch) to draw card
+                            console.log('[TouchEnd] Drawing card via tap');
                             e.preventDefault();
                             e.stopPropagation();
                             drawCardToPosition(index);
