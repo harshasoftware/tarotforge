@@ -456,6 +456,11 @@ const ReadingRoom = () => {
   const [showLayoutDropdown, setShowLayoutDropdown] = useState(false);
   const [highlightedLayoutIndex, setHighlightedLayoutIndex] = useState(0);
   const [highlightedSetupLayoutIndex, setHighlightedSetupLayoutIndex] = useState(0);
+
+  // Carousel navigation state for mobile action bar
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const actionBarRef = useRef<HTMLDivElement>(null);
   
   // Video chat state
   const [showVideoChat, setShowVideoChat] = useState(false);
@@ -653,7 +658,47 @@ const ReadingRoom = () => {
   const hideHint = useCallback(() => {
     setShowPinchHint(false);
   }, []);
-  
+
+  // Check scroll position for carousel navigation
+  const checkScrollPosition = useCallback(() => {
+    if (!actionBarRef.current) return;
+
+    const { scrollLeft, scrollWidth, clientWidth } = actionBarRef.current;
+    setCanScrollLeft(scrollLeft > 0);
+    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+  }, []);
+
+  // Handle carousel navigation
+  const scrollActionBar = useCallback((direction: 'left' | 'right') => {
+    if (!actionBarRef.current) return;
+
+    const scrollAmount = 200; // Scroll by 200px
+    const currentScroll = actionBarRef.current.scrollLeft;
+
+    actionBarRef.current.scrollTo({
+      left: direction === 'left' ? currentScroll - scrollAmount : currentScroll + scrollAmount,
+      behavior: 'smooth'
+    });
+
+    // Check scroll position after animation
+    setTimeout(checkScrollPosition, 300);
+  }, [checkScrollPosition]);
+
+  // Monitor scroll changes
+  useEffect(() => {
+    const element = actionBarRef.current;
+    if (!element || !isMobile) return;
+
+    checkScrollPosition();
+    element.addEventListener('scroll', checkScrollPosition);
+    window.addEventListener('resize', checkScrollPosition);
+
+    return () => {
+      element.removeEventListener('scroll', checkScrollPosition);
+      window.removeEventListener('resize', checkScrollPosition);
+    };
+  }, [checkScrollPosition, isMobile]);
+
   // Update session wrappers for state changes (moved before touch handlers)
   const setZoomLevelWrapped = useCallback((newZoomLevel: number) => {
     updateSession({ zoomLevel: newZoomLevel });
@@ -2558,8 +2603,25 @@ const ReadingRoom = () => {
               </div>
 
               {/* Second row: Horizontally scrollable action buttons */}
-              <div className="flex items-center w-full border-t border-border/50 overflow-x-auto scrollbar-hide">
-                <div className="flex items-center gap-2 px-3 py-2 min-w-max">
+              <div className="relative flex items-center w-full border-t border-border/50">
+                {/* Left scroll button */}
+                {canScrollLeft && (
+                  <button
+                    onClick={() => scrollActionBar('left')}
+                    className="absolute left-0 z-10 bg-gradient-to-r from-card via-card to-transparent pl-1 pr-3 py-2 touch-manipulation"
+                    style={{ minHeight: '52px' }}
+                  >
+                    <ChevronLeft className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+                  </button>
+                )}
+
+                {/* Scrollable action buttons container */}
+                <div
+                  ref={actionBarRef}
+                  className="flex items-center w-full overflow-x-auto scrollbar-hide scroll-smooth"
+                  onScroll={checkScrollPosition}
+                >
+                  <div className="flex items-center gap-2 px-3 py-2 min-w-max">
                   {/* Primary Actions Group */}
                   {readingStep === 'drawing' && selectedCards.some((card: any) => card) && (
                     <>
@@ -2727,7 +2789,19 @@ const ReadingRoom = () => {
                       <span>Sign In</span>
                     </button>
                   )}
+                  </div>
                 </div>
+
+                {/* Right scroll button */}
+                {canScrollRight && (
+                  <button
+                    onClick={() => scrollActionBar('right')}
+                    className="absolute right-0 z-10 bg-gradient-to-l from-card via-card to-transparent pr-1 pl-3 py-2 touch-manipulation"
+                    style={{ minHeight: '52px' }}
+                  >
+                    <ChevronRight className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+                  </button>
+                )}
               </div>
             </div>
           ) : (
