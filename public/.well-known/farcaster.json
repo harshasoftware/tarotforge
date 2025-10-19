@@ -21,12 +21,12 @@
     "homeUrl": "https://tarotforge.xyz",
     "webhookUrl": "https://euqhrxgmbmcgzmdunprq.supabase.co/functions/v1/base-webhook",
     "primaryCategory": "entertainment",
-    "tags": ["tarot", "ai", "marketplace", "spiritual", "web3", "nft", "collectibles", "readings"],
-    "heroImageUrl": "https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/public/assets/readingroom.webp",
-    "tagline": "Forge Your Destiny with AI-Powered Tarot",
-    "ogTitle": "Tarot Forge - AI Tarot Deck Creator & Marketplace",
-    "ogDescription": "Create unique AI-generated tarot decks, get professional readings, and trade in the marketplace. Experience the future of digital divination.",
-    "ogImageUrl": "https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/public/assets/readingroom.webp"
+    "tags": ["tarot", "readings", "marketplace", "nft", "collectibles"],
+    "heroImageUrl": "https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/public/assets/9dbf50f7-ed02-4615-8866-1efa4c3bf6c0.png",
+    "tagline": "Forge Your Destiny with Tarot",
+    "ogTitle": "Tarot Forge - Tarot Deck Reader",
+    "ogDescription": "Create unique tarot decks, and trade in the marketplace.",
+    "ogImageUrl": "https://euqhrxgmbmcgzmdunprq.supabase.co/storage/v1/object/public/assets/9dbf50f7-ed02-4615-8866-1efa4c3bf6c0.png"
   },
   "baseBuilder": {
     "ownerAddress": "0x7a32D0c29155B56517a152368F9FA506AF971Fd4"
