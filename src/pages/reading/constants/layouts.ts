@@ -3,11 +3,32 @@ import { ReadingLayout } from '../../../types';
 // Helper function to get layout positions based on device type
 export const getThreeCardPositions = (isMobile: boolean = false) => {
   if (isMobile) {
-    // Tighter spacing for mobile - cards closer together
+    // Fan-style layout for mobile - cards spread at angles to maximize space
     return [
-      { id: 0, name: 'Past', meaning: 'Represents influences from the past that led to your current situation', x: 43, y: 50 },
-      { id: 1, name: 'Present', meaning: 'Shows the current situation and energies surrounding your question', x: 50, y: 50 },
-      { id: 2, name: 'Future', meaning: 'Potential outcome based on the current path you are on', x: 57, y: 50 }
+      {
+        id: 0,
+        name: 'Past',
+        meaning: 'Represents influences from the past that led to your current situation',
+        x: 25,  // Left side
+        y: 55,  // Slightly lower
+        rotation: -15  // Tilt left
+      },
+      {
+        id: 1,
+        name: 'Present',
+        meaning: 'Shows the current situation and energies surrounding your question',
+        x: 50,  // Center
+        y: 45,  // Higher/forward
+        rotation: 0  // Straight
+      },
+      {
+        id: 2,
+        name: 'Future',
+        meaning: 'Potential outcome based on the current path you are on',
+        x: 75,  // Right side
+        y: 55,  // Slightly lower
+        rotation: 15  // Tilt right
+      }
     ];
   } else {
     // Original spacing for desktop

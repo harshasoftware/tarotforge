@@ -633,7 +633,7 @@ const ReadingRoom = () => {
     mainPadding: isMobile
       ? (isLandscape ? 'px-6 pt-24 pb-4' : 'px-4 pt-28 pb-4') // Increased padding for two rows
       : 'p-4 pt-24',
-    cardSize: isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36',
+    cardSize: isMobile ? 'w-20 h-30' : 'w-20 h-30 md:w-24 md:h-36',
     buttonSize: isMobile ? 'p-1.5' : 'p-2'
   }), [isMobile, isLandscape]);
 
@@ -1396,7 +1396,7 @@ const ReadingRoom = () => {
       interpretation: '',
       activeCardIndex: null,
       readingStep: 'drawing',
-      zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile),
+      zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile, isLandscape),
       shuffledDeck: freshlyShuffled
     });
     
@@ -3971,7 +3971,7 @@ const ReadingRoom = () => {
                       }}
                     >
                       <motion.div 
-                        className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} shadow-lg cursor-pointer transition-shadow p-0.5 rounded-md ${
+                        className={`${isMobile ? 'w-20 h-30' : 'w-20 h-30 md:w-24 md:h-36'} shadow-lg cursor-pointer transition-shadow p-0.5 rounded-md ${
                           activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''
                         }`}
                         animate={{ 
@@ -4123,13 +4123,13 @@ const ReadingRoom = () => {
                         {!selectedCard && (
                           <div 
                             data-dropzone-index={index} // Added data attribute
-                            className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} border-2 border-dashed ${
+                            className={`${isMobile ? 'w-20 h-30' : 'w-20 h-30 md:w-24 md:h-36'} border-2 border-dashed ${
                               isHovered ? 'border-primary bg-primary/10' : 'border-muted-foreground/30'
                             } rounded-md flex flex-col items-center justify-center transition-colors ${
                               isMobile ? 'active:bg-primary/20 active:border-primary cursor-pointer' : ''
                             }`}
-                            style={{ 
-                              transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none',
+                            style={{
+                              transform: adjustedPosition.rotation ? `rotate(${adjustedPosition.rotation}deg)` : 'none',
                               transformOrigin: 'center center'
                             }}
                           >
@@ -4155,9 +4155,9 @@ const ReadingRoom = () => {
                             }}
                             transition={cardAnimationConfig}
                             className={`relative ${
-                              position.rotation === 90 
-                                ? (isMobile ? 'w-24 h-16' : 'w-30 h-20 md:h-24 md:w-36') // Swap dimensions for rotated cards
-                                : (isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36') // Normal dimensions
+                              adjustedPosition.rotation === 90
+                                ? (isMobile ? 'w-30 h-20' : 'w-30 h-20 md:h-24 md:w-36') // Swap dimensions for rotated cards
+                                : (isMobile ? 'w-20 h-30' : 'w-20 h-30 md:w-24 md:h-36') // Normal dimensions
                             }`}
                             data-card-element="true"
                             onTouchEnd={(e) => {
@@ -4169,13 +4169,13 @@ const ReadingRoom = () => {
                             whileHover={{ scale: 1.05 }}
                           >
                             <motion.div 
-                              className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} shadow-lg cursor-pointer p-0.5 rounded-md`} // Added rounded-md
+                              className={`${isMobile ? 'w-20 h-30' : 'w-20 h-30 md:w-24 md:h-36'} shadow-lg cursor-pointer p-0.5 rounded-md`} // Added rounded-md
                               style={{ 
                                 transformOrigin: 'center center'
                               }}
                               animate={{ 
                                 rotateY: (selectedCard as any).revealed ? 0 : 180,
-                                rotateZ: position.rotation || 0
+                                rotateZ: adjustedPosition.rotation || 0
                               }}
                               transition={cardAnimationConfig}
                               onClick={() => {
@@ -4204,7 +4204,7 @@ const ReadingRoom = () => {
                             </motion.div>
                             <div 
                               className={`absolute whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move ${
-                                position.rotation === 90 
+                                adjustedPosition.rotation === 90
                                   ? '-right-16 top-1/2 transform -translate-y-1/2' // Position to the right for rotated cards
                                   : '-bottom-6 left-1/2 transform -translate-x-1/2' // Position below for normal cards
                               }`}
@@ -4549,7 +4549,7 @@ const ReadingRoom = () => {
                       onDoubleClick={(e) => { if (!isMobile && cardData.revealed) { handleCardDoubleClick(index, e); } }}
                       onTouchEnd={(e) => { if (isMobile) { e.preventDefault(); handleCardDoubleTap(index, e); } }}
                     >
-                      <motion.div className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''}`} animate={{ rotateY: cardData.revealed ? 0 : 180 }} transition={cardAnimationConfig}>
+                      <motion.div className={`${isMobile ? 'w-20 h-30' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''}`} animate={{ rotateY: cardData.revealed ? 0 : 180 }} transition={cardAnimationConfig}>
                         {cardData.revealed ? <img src={cardData.image_url} alt={cardData.name} className={`w-full h-full object-cover rounded-md ${cardData.isReversed ? 'rotate-180' : ''}`} /> : <TarotCardBack />}
                       </motion.div>
                       <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move" onClick={(e) => e.stopPropagation()}>
@@ -4572,7 +4572,7 @@ const ReadingRoom = () => {
                     return (
                       <div key={position.id} className="absolute transform -translate-x-1/2 -translate-y-1/2" style={{ left: `${displayX}%`, top: `${adjustedPosition.y}%`, zIndex: activeCardIndex === index ? 20 : (isChallengePosition ? 12 : 10 + index) }}>
                         <motion.div className="relative" data-card-element="true" onTouchEnd={(e) => { if (isMobile) { e.preventDefault(); handleCardDoubleTap(index, e); } }} whileHover={{ scale: 1.05 }} animate={activeCardIndex === index ? { scale: 1.1 } : { scale: 1 }}>
-                          <motion.div className={`${isMobile ? 'w-16 h-24' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`} style={{ transform: position.rotation ? `rotate(${position.rotation}deg)` : 'none' }} animate={{ rotateY: cardData.revealed ? 0 : 180 }} transition={cardAnimationConfig}
+                          <motion.div className={`${isMobile ? 'w-20 h-30' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`} style={{ transform: adjustedPosition.rotation ? `rotate(${adjustedPosition.rotation}deg)` : 'none' }} animate={{ rotateY: cardData.revealed ? 0 : 180 }} transition={cardAnimationConfig}
                             onClick={() => { if (cardData.revealed) { updateSharedModalState({ isOpen: true, cardIndex: index, showDescription: false, triggeredBy: participantId || null }); } else { handleCardFlip(index); } }}
                           >
                             {cardData.revealed ? <img src={cardData.image_url} alt={cardData.name} className={`w-full h-full object-cover rounded-md ${cardData.isReversed ? 'rotate-180' : ''}`} /> : <TarotCardBack />}
