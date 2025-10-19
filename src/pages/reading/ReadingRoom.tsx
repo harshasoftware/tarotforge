@@ -2428,65 +2428,59 @@ const ReadingRoom = () => {
         </AnimatePresence>
         
         {/* Floating controls - redesigned mobile layout */}
-        <div className={`absolute z-50 ${mobileLayoutClasses.topControls}`}>
-          {/* Left side - Back button and title for mobile, back button and session info for desktop */}
-          <div className={`flex ${isMobile ? 'items-center gap-2' : 'items-center gap-1 md:gap-2'}`}>
-            <Tooltip content={
-              isMobile && showMobileInterpretation 
-                ? "Close interpretation" 
-                : isMobile && readingStep === 'ask-question'
-                ? "Back to setup"
-                : isMobile && readingStep === 'interpretation'
-                ? "Back to cards"
-                : (user ? "Back to Collection (Esc)" : "Back to Home (Esc)")
-            } position="bottom" disabled={isMobile}>
-              {isMobile && showMobileInterpretation ? (
+        <div className={`absolute z-50 ${mobileLayoutClasses.topControls} ${isMobile ? 'w-full px-2' : ''}`}>
+          {/* Mobile: Two-row layout */}
+          {isMobile ? (
+            <div className="flex flex-col w-full gap-1">
+              {/* First row: Back, Title/Layout, Primary action buttons */}
+              <div className="flex items-center justify-between w-full">
+                {/* Left: Back button and layout selector */}
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {/* Back button */}
+                  {isMobile && showMobileInterpretation ? (
                 <button 
                   onClick={() => setShowMobileInterpretation(false)}
                   className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
-              ) : isMobile && readingStep === 'ask-question' ? (
-                <button 
-                  onClick={() => updateSession({ readingStep: 'setup' })}
-                  className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
-              ) : isMobile && readingStep === 'interpretation' ? (
-                <button 
-                  onClick={() => setReadingStepWrapped('drawing')}
-                  className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
-              ) : (
-                <button 
-                  onClick={() => setShowExitModal(true)}
-                  className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border ${isMobile ? 'p-1.5' : 'p-2'} flex items-center text-muted-foreground hover:text-foreground`}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  {!isMobile && <span className="ml-1 text-sm">Exit</span>}
-                </button>
-              )}
-            </Tooltip>
-            
-            {/* Mobile title display */}
-            <Tooltip content="Change reading layout (L)" position="bottom" disabled={isMobile}>
-              <div className={`bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-1 relative layout-dropdown-container ${!(isMobile && selectedLayout) ? 'hidden' : ''}`}>
-                <button
-                  onClick={() => setShowLayoutDropdown(!showLayoutDropdown)}
-                  className="flex items-center gap-2 text-sm font-medium"
-                >
-                  <span className="truncate">{selectedLayout?.name || ''}</span>
-                  {readingStep === 'drawing' && selectedLayout && (
-                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full whitespace-nowrap">
-                      {selectedCards.filter(card => card).length}/{selectedLayout.card_count === 999 ? '∞' : selectedLayout.card_count}
-                    </span>
+                  ) : isMobile && readingStep === 'ask-question' ? (
+                    <button
+                      onClick={() => updateSession({ readingStep: 'setup' })}
+                      className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                  ) : isMobile && readingStep === 'interpretation' ? (
+                    <button
+                      onClick={() => setReadingStepWrapped('drawing')}
+                      className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setShowExitModal(true)}
+                      className={`btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-1.5 flex items-center text-muted-foreground hover:text-foreground`}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
                   )}
-                  <ChevronRight className={`h-3 w-3 transition-transform ${showLayoutDropdown ? 'rotate-90' : ''}`} />
-                </button>
+
+                  {/* Mobile title/layout display */}
+                  <div className={`bg-card/80 backdrop-blur-sm border border-border rounded-lg px-3 py-1 relative layout-dropdown-container flex-1 min-w-0 ${!(selectedLayout) ? 'hidden' : ''}`}>
+                    <button
+                      onClick={() => setShowLayoutDropdown(!showLayoutDropdown)}
+                      className="flex items-center gap-2 text-sm font-medium w-full"
+                    >
+                      <span className="truncate flex-1 text-left">{selectedLayout?.name || ''}</span>
+                      {readingStep === 'drawing' && selectedLayout && (
+                        <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                          {selectedCards.filter(card => card).length}/{selectedLayout.card_count === 999 ? '∞' : selectedLayout.card_count}
+                        </span>
+                      )}
+                      <ChevronRight className={`h-3 w-3 transition-transform ${showLayoutDropdown ? 'rotate-90' : ''}`} />
+                    </button>
                 
                 {/* Layout dropdown */}
                 <AnimatePresence>
