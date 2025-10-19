@@ -1486,8 +1486,8 @@ const ReadingRoom = () => {
     // Update session state using updateSession
     updateSession({ selectedCards: newSelectedCards });
 
-    // Play sound if enabled
-    if (soundEnabled) {
+    // Play sound if not muted
+    if (!isMuted) {
       playSoundEffect('pop');
     }
   };
