@@ -157,6 +157,16 @@ const ReadingRoom = () => {
   // Use the new hook for device and orientation detection first
   const { isMobile, isTablet, isLandscape } = useDeviceAndOrientationDetection(); // Changed from useMobileDetection
   const { darkMode, toggleTheme } = useTheme();
+
+  // Filter layouts for mobile - only show single-card and three-card spreads
+  const availableLayouts = useMemo(() => {
+    if (isMobile) {
+      return readingLayouts.filter(layout =>
+        layout.id === 'single-card' || layout.id === 'three-card'
+      );
+    }
+    return readingLayouts;
+  }, [isMobile]);
   const { 
     showGuestUpgrade, 
     setShowGuestUpgrade, 
@@ -1943,7 +1953,7 @@ const ReadingRoom = () => {
     setHighlightedLayoutIndex,
     setHighlightedSetupLayoutIndex,
     handleLayoutSelect,
-    readingLayouts,
+    availableLayouts,
     handleCategorySelect,
     questionCategories,
     handleQuestionSelect,
@@ -2445,7 +2455,7 @@ const ReadingRoom = () => {
                       transition={{ duration: 0.2 }}
                       className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto"
                     >
-                      {readingLayouts.map((layout, index) => (
+                      {availableLayouts.map((layout, index) => (
                         <button
                           key={layout.id}
                           onClick={() => {
@@ -2502,7 +2512,7 @@ const ReadingRoom = () => {
                         transition={{ duration: 0.2 }}
                         className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto min-w-80"
                       >
-                        {readingLayouts.map((layout, index) => (
+                        {availableLayouts.map((layout, index) => (
                           <button
                             key={layout.id}
                             onClick={() => {
@@ -3264,7 +3274,7 @@ const ReadingRoom = () => {
                 <h2 className={`${isMobile ? 'text-lg' : 'text-lg md:text-xl'} font-serif font-bold ${isMobile ? 'mb-3' : 'mb-4'}`}>Select a Layout</h2>
                 
                 <div className={`space-y-2 ${isMobile ? 'mb-3' : 'mb-4'}`}>
-                  {readingLayouts.map((layout, index) => (
+                  {availableLayouts.map((layout, index) => (
                     <div 
                       key={layout.id}
                       className={`border rounded-lg ${isMobile ? 'p-2' : 'p-3'} cursor-pointer transition-colors hover:border-accent/50 active:bg-accent/5 ${
