@@ -935,21 +935,7 @@ const ReadingRoom = () => {
         readingStep: targetReadingStep,
         interpretation: '',
         activeCardIndex: null,
-        zoomLevel: isMobile
-          ? isLandscape // Mobile Landscape
-            ? layout.id === 'celtic-cross'
-              ? 0.8 // Celtic Cross mobile landscape
-              : 1.0 // All other layouts (including three-card, single-card) mobile landscape
-            : // Mobile Portrait
-              layout.id === 'celtic-cross'
-              ? 0.6 // Celtic Cross mobile portrait
-              : 0.8 // All other layouts (including three-card, single-card) mobile portrait
-          : // Desktop
-            layout.id === 'celtic-cross'
-            ? 1.0 // Celtic Cross desktop
-            : layout.id === 'three-card' || layout.id === 'single-card'
-            ? 2.0 // Three-card & Single-card desktop
-            : 1.6 // All other layouts desktop
+        zoomLevel: getDefaultZoomLevel(layout, isMobile, isLandscape)
       };
       
       // Only shuffle if cards are loaded and not already in session state
@@ -1055,16 +1041,27 @@ const ReadingRoom = () => {
   
   const handleQuestionSelect = useCallback((selectedQuestion: string) => {
     playSoundEffect('pop');
-    updateSession({ question: selectedQuestion, readingStep: 'drawing' });
-  }, [updateSession, playSoundEffect]);
-  
+    updateSession({
+      question: selectedQuestion,
+      readingStep: 'drawing',
+      zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile, isLandscape)
+    });
+  }, [updateSession, playSoundEffect, selectedLayout, isMobile, isLandscape]);
+
   const handleSkipQuestion = useCallback(() => {
-    updateSession({ readingStep: 'drawing' });
-  }, [updateSession]);
-  
+    updateSession({
+      readingStep: 'drawing',
+      zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile, isLandscape)
+    });
+  }, [updateSession, selectedLayout, isMobile, isLandscape]);
+
   const handleCustomQuestion = useCallback((customQuestion: string) => {
-    updateSession({ question: customQuestion, readingStep: 'drawing' });
-  }, [updateSession]);
+    updateSession({
+      question: customQuestion,
+      readingStep: 'drawing',
+      zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile, isLandscape)
+    });
+  }, [updateSession, selectedLayout, isMobile, isLandscape]);
   
   // Handle deck selection
   const handleDeckSelect = useCallback(async (deck: Deck) => {
@@ -1146,7 +1143,7 @@ const ReadingRoom = () => {
   
   const debouncedZoomUpdate = useMemo(
     () => debounce((scale: number) => {
-      setZoomLevelWrapped(Math.max(0.5, Math.min(2, scale)));
+      setZoomLevelWrapped(Math.max(0.5, Math.min(isMobile ? 5 : 2, scale)));
     }, 8), // Reduced to ~120fps for smoother zooming
     [setZoomLevelWrapped]
   );
@@ -1304,18 +1301,18 @@ const ReadingRoom = () => {
   }, [selectedLayout?.id, selectedCards, updateSession, zoomLevel, panOffset, zoomFocus]); // Added zoomFocus to dependencies
   
   const zoomIn = useCallback(() => {
-    setZoomLevelWrapped(Math.min(zoomLevel + 0.2, 2));
-  }, [setZoomLevelWrapped, zoomLevel]);
-  
+    setZoomLevelWrapped(Math.min(zoomLevel + 0.2, isMobile ? 5 : 2));
+  }, [setZoomLevelWrapped, zoomLevel, isMobile]);
+
   const zoomOut = useCallback(() => {
     setZoomLevelWrapped(Math.max(zoomLevel - 0.2, 0.5));
   }, [setZoomLevelWrapped, zoomLevel]);
   
   const resetZoom = useCallback(() => {
-    setZoomLevelWrapped(1);
+    setZoomLevelWrapped(getDefaultZoomLevel(selectedLayout, isMobile, isLandscape));
     setZoomFocusWrapped(null);
     setPanOffsetWrapped({ x: 0, y: 0 });
-  }, [setZoomLevelWrapped, setZoomFocusWrapped, setPanOffsetWrapped]);
+  }, [setZoomLevelWrapped, setZoomFocusWrapped, setPanOffsetWrapped, selectedLayout, isMobile, isLandscape]);
   
   // Reset pan to center
   const resetPan = useCallback(() => {
@@ -3758,7 +3755,7 @@ const ReadingRoom = () => {
                     e.preventDefault();
                     const delta = e.deltaY;
                     const zoomFactor = delta > 0 ? 0.9 : 1.1;
-                    const newZoom = Math.max(0.5, Math.min(2, zoomLevel * zoomFactor));
+                    const newZoom = Math.max(0.5, Math.min(isMobile ? 5 : 2, zoomLevel * zoomFactor));
                     setZoomLevelWrapped(newZoom);
                   }
                 }}
@@ -4523,7 +4520,7 @@ const ReadingRoom = () => {
                   onWheel={(e) => {
                     if (!isMobile && (e.ctrlKey || e.metaKey)) {
                       e.preventDefault(); const delta = e.deltaY; const zoomFactor = delta > 0 ? 0.9 : 1.1;
-                      const newZoom = Math.max(0.5, Math.min(2, zoomLevel * zoomFactor)); setZoomLevelWrapped(newZoom);
+                      const newZoom = Math.max(0.5, Math.min(isMobile ? 5 : 2, zoomLevel * zoomFactor)); setZoomLevelWrapped(newZoom);
                     }
                   }}
                   style={{
