@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, Info, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Wand, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX, LogIn, Keyboard, Navigation, BookOpen, Lightbulb, Sun, Moon, DoorOpen, ScanSearch, Music } from 'lucide-react';
+import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Wand, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX, LogIn, Keyboard, Navigation, BookOpen, Lightbulb, Sun, Moon, DoorOpen, ScanSearch, Music } from 'lucide-react';
 import { Deck, Card, ReadingLayout } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSubscription } from '../../stores/subscriptionStore';
@@ -2653,20 +2653,27 @@ const ReadingRoom = () => {
                     </>
                   )}
 
-                  {/* Generate Interpretation Button */}
-                  {readingStep === 'drawing' && !isGeneratingInterpretation && (
+                  {/* Generate/View Interpretation Button */}
+                  {((readingStep === 'drawing' && !isGeneratingInterpretation && (
                     (selectedLayout?.id === 'free-layout' && selectedCards.length > 0) ||
                     (selectedLayout?.id !== 'free-layout' && selectedCards.filter((card: any) => card).length === selectedLayout?.card_count)
-                  ) && (
+                  )) || (readingStep === 'interpretation' && interpretation)) && (
                     <button
                       onClick={() => {
                         console.log('Mobile Read button clicked (top bar):', {
                           selectedCards: selectedCards.length,
                           isGeneratingInterpretation,
                           readingStep,
+                          hasInterpretation: !!interpretation,
                           isMobile
                         });
-                        generateInterpretation();
+                        if (readingStep === 'interpretation' && interpretation) {
+                          // If already in interpretation view, show the mobile interpretation pane
+                          setShowMobileInterpretation(true);
+                        } else {
+                          // Generate new interpretation
+                          generateInterpretation();
+                        }
                       }}
                       onTouchStart={(e) => {
                         console.log('Mobile Read button touch start (top bar)');
@@ -2677,7 +2684,9 @@ const ReadingRoom = () => {
                     >
                       <Sparkles className="h-4 w-4" />
                       <span>
-                        {selectedLayout?.id === 'free-layout'
+                        {readingStep === 'interpretation' && interpretation
+                          ? 'View Reading'
+                          : selectedLayout?.id === 'free-layout'
                           ? `Read (${selectedCards.length})`
                           : 'Read'
                         }
@@ -4583,12 +4592,21 @@ const ReadingRoom = () => {
                   })}
                 </div>
                 
-                {/* Reading controls (Back to Table, New Reading) */}
-                <div className={`absolute ${isMobile ? 'top-2 right-2' : 'bottom-6 right-6'} flex gap-1 md:gap-3 z-40`}>
-                  <Tooltip content="View interpretation" position="left" disabled={isMobile}><button onClick={() => setShowMobileInterpretation(true)} className={`btn btn-primary px-2 py-1 text-xs mobile-interpretation-button ${!(isMobile && !isLandscape && !showMobileInterpretation) ? 'hidden' : ''}`}><Info className="h-4 w-4" /></button></Tooltip>
-                  <Tooltip content="Return to card table" position="left" disabled={isMobile}><button onClick={() => setReadingStepWrapped('drawing')} className={`btn btn-secondary ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}>{isMobile ? 'Back' : 'Back to Table'}</button></Tooltip>
-                  <Tooltip content="Start a new reading" position="left" disabled={isMobile}><button onClick={resetReading} className={`btn btn-ghost border border-input ${isMobile ? 'px-2 py-1 text-xs' : 'px-3 md:px-4 py-1.5 md:py-2 text-sm'}`}>{isMobile ? 'New' : 'New Reading'}</button></Tooltip>
-                </div>
+                {/* Desktop Reading controls (Back to Table, New Reading) - Hidden on mobile since we have universal controls */}
+                {!isMobile && (
+                  <div className="absolute bottom-6 right-6 flex gap-3 z-40">
+                    <Tooltip content="Return to card table" position="left">
+                      <button onClick={() => setReadingStepWrapped('drawing')} className="btn btn-secondary px-3 md:px-4 py-1.5 md:py-2 text-sm">
+                        Back to Table
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Start a new reading" position="left">
+                      <button onClick={resetReading} className="btn btn-ghost border border-input px-3 md:px-4 py-1.5 md:py-2 text-sm">
+                        New Reading
+                      </button>
+                    </Tooltip>
+                  </div>
+                )}
               </div> 
               
               {/* Interpretation panel - overlay on desktop */}
