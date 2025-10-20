@@ -158,6 +158,27 @@ const ReadingRoom = () => {
   const { isMobile, isTablet, isLandscape } = useDeviceAndOrientationDetection(); // Changed from useMobileDetection
   const { darkMode, toggleTheme } = useTheme();
 
+  // Track screen dimensions for dynamic zoom calculation
+  const [screenDimensions, setScreenDimensions] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 0,
+    height: typeof window !== 'undefined' ? window.innerHeight : 0,
+  });
+
+  // Update screen dimensions on resize
+  useEffect(() => {
+    const updateDimensions = () => {
+      setScreenDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+
+    window.addEventListener('resize', updateDimensions);
+    updateDimensions(); // Initial call
+
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
   // Filter layouts for mobile - only show single-card and three-card spreads
   const availableLayouts = useMemo(() => {
     if (isMobile) {
@@ -745,7 +766,22 @@ const ReadingRoom = () => {
       currentUser: user, // Pass the user from authStore as currentUser
       currentParticipantId: participantId, // This is participantId from readingSessionStore
       // currentAnonymousId is handled internally by the hook
-  });  
+  });
+
+  // Automatically update zoom when layout changes or screen resizes on mobile
+  useEffect(() => {
+    if (isMobile && selectedLayout) {
+      const optimalZoom = getDefaultZoomLevel(
+        selectedLayout,
+        isMobile,
+        isLandscape,
+        screenDimensions.width,
+        screenDimensions.height
+      );
+      console.log('🔍 Setting optimal zoom for mobile:', optimalZoom);
+      setZoomLevelWrapped(optimalZoom);
+    }
+  }, [selectedLayout?.id, screenDimensions, isMobile, isLandscape, setZoomLevelWrapped]);
 
   // Modal synchronization wrapper
   const updateSharedModalState = useCallback((modalState: {
@@ -935,7 +971,7 @@ const ReadingRoom = () => {
         readingStep: targetReadingStep,
         interpretation: '',
         activeCardIndex: null,
-        zoomLevel: getDefaultZoomLevel(layout, isMobile, isLandscape)
+        zoomLevel: getDefaultZoomLevel(layout, isMobile, isLandscape, screenDimensions.width, screenDimensions.height)
       };
       
       // Only shuffle if cards are loaded and not already in session state
@@ -1044,14 +1080,14 @@ const ReadingRoom = () => {
     updateSession({
       question: selectedQuestion,
       readingStep: 'drawing',
-      zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile, isLandscape)
+      zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile, isLandscape, screenDimensions.width, screenDimensions.height)
     });
   }, [updateSession, playSoundEffect, selectedLayout, isMobile, isLandscape]);
 
   const handleSkipQuestion = useCallback(() => {
     updateSession({
       readingStep: 'drawing',
-      zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile, isLandscape)
+      zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile, isLandscape, screenDimensions.width, screenDimensions.height)
     });
   }, [updateSession, selectedLayout, isMobile, isLandscape]);
 
@@ -1059,7 +1095,7 @@ const ReadingRoom = () => {
     updateSession({
       question: customQuestion,
       readingStep: 'drawing',
-      zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile, isLandscape)
+      zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile, isLandscape, screenDimensions.width, screenDimensions.height)
     });
   }, [updateSession, selectedLayout, isMobile, isLandscape]);
   
@@ -1309,10 +1345,10 @@ const ReadingRoom = () => {
   }, [setZoomLevelWrapped, zoomLevel]);
   
   const resetZoom = useCallback(() => {
-    setZoomLevelWrapped(getDefaultZoomLevel(selectedLayout, isMobile, isLandscape));
+    setZoomLevelWrapped(getDefaultZoomLevel(selectedLayout, isMobile, isLandscape, screenDimensions.width, screenDimensions.height));
     setZoomFocusWrapped(null);
     setPanOffsetWrapped({ x: 0, y: 0 });
-  }, [setZoomLevelWrapped, setZoomFocusWrapped, setPanOffsetWrapped, selectedLayout, isMobile, isLandscape]);
+  }, [setZoomLevelWrapped, setZoomFocusWrapped, setPanOffsetWrapped, selectedLayout, isMobile, isLandscape, screenDimensions]);
   
   // Reset pan to center
   const resetPan = useCallback(() => {
@@ -1394,7 +1430,7 @@ const ReadingRoom = () => {
       interpretation: '',
       activeCardIndex: null,
       readingStep: 'drawing',
-      zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile, isLandscape),
+      zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile, isLandscape, screenDimensions.width, screenDimensions.height),
       shuffledDeck: freshlyShuffled
     });
     
