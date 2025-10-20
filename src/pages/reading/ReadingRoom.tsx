@@ -4467,7 +4467,7 @@ const ReadingRoom = () => {
           
           {/* Step 3: Interpretation - mobile responsive layout */}
           {readingStep === 'interpretation' && (
-            <div className={`absolute inset-0 ${isMobile ? (isLandscape && !showMobileInterpretation ? 'flex pt-24' : 'flex-col pt-28') : 'pt-20'}`}> {/* Desktop: No longer flex, pt-20 for header */}
+            <div className={`absolute inset-0 flex ${isMobile ? (isLandscape && !showMobileInterpretation ? 'flex-row pt-24' : 'flex-col pt-28') : 'flex-col pt-20'}`}> {/* Ensure flex layout for proper height distribution */}
               {/* Card Display Area & Fixed Controls Container */}
               <div className={`relative h-full ${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-3/5' : (showMobileInterpretation ? 'hidden' : 'flex-1 w-full')) : 'w-full'}`}> 
                 
@@ -4593,11 +4593,11 @@ const ReadingRoom = () => {
               
               {/* Interpretation panel - overlay on desktop */}
               <div className={`
-                ${isMobile 
-                  ? (isLandscape && !showMobileInterpretation ? 'w-2/5 border-l' : (showMobileInterpretation ? 'flex-1 w-full' : 'hidden')) 
+                ${isMobile
+                  ? (isLandscape && !showMobileInterpretation ? 'w-2/5 border-l h-full overflow-hidden' : (showMobileInterpretation ? 'flex-1 w-full h-full overflow-hidden' : 'hidden'))
                   : 'absolute top-20 right-0 bottom-0 w-2/5 max-w-md bg-card border-l border-border shadow-xl flex flex-col z-50' /* Desktop: Absolute overlay styling, max-width added */
                 }
-                 bg-card border-border flex flex-col h-auto transition-transform duration-300 ease-in-out
+                 bg-card border-border flex flex-col transition-transform duration-300 ease-in-out
                  ${isMobile && showMobileInterpretation ? 'translate-x-0' : ''}
                  ${isMobile && !showMobileInterpretation && readingStep === 'interpretation' ? 'translate-x-full' : ''}
               `}>
@@ -4608,7 +4608,7 @@ const ReadingRoom = () => {
                   </div>
                   <Tooltip content="Back to table" position="left" disabled={isMobile}><button onClick={() => setReadingStepWrapped('drawing')} className={`text-muted-foreground hover:text-foreground ${isMobile ? 'hidden' : ''}`}><XCircle className="h-4 w-4" /></button></Tooltip>
                 </div>
-                <div className={`flex-1 ${isMobile ? 'p-2' : 'p-3 md:p-4'} overflow-y-auto`}>
+                <div className={`flex-1 ${isMobile ? 'p-2' : 'p-3 md:p-4'} overflow-y-auto scrollbar-hide min-h-0`}>
                   {activeCardIndex !== null && activeCardIndex !== undefined && selectedCards[activeCardIndex] && (
                     <div className={`${isMobile ? 'mb-3 p-2' : 'mb-4 md:mb-6 p-2 md:p-3'} bg-muted/30 border border-border rounded-lg`}>
                       <div className={`flex ${isMobile ? 'gap-1' : 'gap-2 md:gap-3'}`}>
@@ -4623,7 +4623,7 @@ const ReadingRoom = () => {
                       </div>
                     </div>
                   )}
-                  <div className="space-y-2">
+                  <div className="space-y-2 pb-4">
                     {cleanMarkdownText(interpretation).map((line, i: number) => (
                       <div key={i}>
                         {line.isHeader ? <h4 className={`font-semibold text-primary ${isMobile ? 'text-sm' : 'text-base'} mb-2`}>{line.content}</h4>
