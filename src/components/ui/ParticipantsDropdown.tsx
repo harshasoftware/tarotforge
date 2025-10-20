@@ -15,13 +15,15 @@ interface ParticipantsDropdownProps {
   disabled?: boolean;
   currentUserId?: string | null;
   currentAnonymousId?: string | null;
+  isMobile?: boolean;
 }
 
 const ParticipantsDropdown: React.FC<ParticipantsDropdownProps> = ({
   participants,
   disabled = false,
   currentUserId,
-  currentAnonymousId
+  currentAnonymousId,
+  isMobile = false
 }) => {
   console.log('🎯 ParticipantsDropdown render:', {
     participantsCount: participants.length,
@@ -154,7 +156,9 @@ const ParticipantsDropdown: React.FC<ParticipantsDropdownProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 min-w-48"
+            className={`absolute top-full mt-1 bg-card border border-border rounded-lg shadow-lg z-50 min-w-48 ${
+              isMobile ? 'right-0' : 'left-0'
+            }`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
           >
