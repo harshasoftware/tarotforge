@@ -1379,6 +1379,7 @@ const ReadingRoom = () => {
     anonymousId, getDefaultZoomLevel, selectedLayout, isMobile]);
   
   const resetCards = useCallback(() => {
+    console.log('Reset cards called', { isMobile, cardsLength: cards.length });
     // Shuffle and restore all cards to create a fresh deck
     let freshlyShuffled: Card[] = [];
     if (cards.length > 0) {
@@ -3789,7 +3790,7 @@ const ReadingRoom = () => {
                 {/* Zoom controls with shuffle button - repositioned for mobile */}
                 <div className={`zoom-controls absolute ${
                   isMobile
-                    ? 'left-2 top-1/2 transform -translate-y-1/2 flex-col' // Always left side vertical on mobile
+                    ? 'left-2 top-2 flex-row' // Top-left horizontal on mobile
                     : 'top-4 left-4 flex-col'
                 } flex gap-1 md:gap-2 bg-card/90 backdrop-blur-sm p-2 rounded-md z-40 items-center`}>
                   {/* Hide zoom controls on mobile */}
@@ -3877,14 +3878,32 @@ const ReadingRoom = () => {
                   
                   {/* Shuffle button - always visible */}
                   <Tooltip content="Shuffle deck (Left Shift)" position="right" disabled={isMobile}>
-                    <button onClick={shuffleDeck} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center">
+                    <button
+                      onClick={shuffleDeck}
+                      onTouchEnd={(e) => {
+                        if (isMobile) {
+                          e.preventDefault();
+                          shuffleDeck();
+                        }
+                      }}
+                      className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"
+                    >
                       <Shuffle className="h-4 w-4" />
                     </button>
                   </Tooltip>
 
                   {/* Clear/Reset button - always visible */}
                   <Tooltip content={`Reset cards (${getPlatformShortcut('reset', true)})`} position="right" disabled={isMobile}>
-                    <button onClick={resetCards} className="p-1.5 hover:bg-muted rounded-sm text-red-500 hover:text-red-600 flex items-center justify-center">
+                    <button
+                      onClick={resetCards}
+                      onTouchEnd={(e) => {
+                        if (isMobile) {
+                          e.preventDefault();
+                          resetCards();
+                        }
+                      }}
+                      className="p-1.5 hover:bg-muted rounded-sm text-red-500 hover:text-red-600 flex items-center justify-center"
+                    >
                       <XCircle className="h-4 w-4" />
                     </button>
                   </Tooltip>
@@ -4143,7 +4162,7 @@ const ReadingRoom = () => {
                         {!selectedCard && (
                           <div 
                             data-dropzone-index={index} // Added data attribute
-                            className={`${isMobile ? 'w-20 h-30' : 'w-20 h-30 md:w-24 md:h-36'} border-2 border-dashed ${
+                            className={`${isMobile ? 'w-24 h-36' : 'w-20 h-30 md:w-24 md:h-36'} border-2 border-dashed ${
                               isHovered ? 'border-primary bg-primary/10' : 'border-muted-foreground/30'
                             } rounded-md flex flex-col items-center justify-center transition-colors ${
                               isMobile ? 'active:bg-primary/20 active:border-primary cursor-pointer' : ''
