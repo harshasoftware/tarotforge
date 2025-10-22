@@ -648,9 +648,6 @@ const ReadingRoom = () => {
   
   // Optimized mobile layout classes
   const mobileLayoutClasses = useMemo(() => ({
-    topControls: isMobile
-      ? 'top-0 left-0 right-0' // Mobile: Full width at top for two-row layout
-      : 'top-4 left-4 right-4 flex justify-between items-start',
     mainPadding: isMobile
       ? (isLandscape ? 'px-6 pt-24 pb-4' : 'px-4 pt-28 pb-4') // Increased padding for two rows
       : 'p-4 pt-24',
@@ -2507,7 +2504,7 @@ const ReadingRoom = () => {
         </AnimatePresence>
         
         {/* Floating controls - redesigned mobile layout */}
-        <div className={`absolute z-50 ${mobileLayoutClasses.topControls} ${isMobile ? 'w-full' : ''}`}>
+        <div className={`absolute z-50 ${isMobile ? 'top-0 left-0 right-0 w-full' : 'top-4 left-4 right-4'}`}>
           {/* Mobile: Two-row layout */}
           {isMobile ? (
             <div className="flex flex-col w-full bg-card/95 backdrop-blur-md border-b border-border shadow-lg">
