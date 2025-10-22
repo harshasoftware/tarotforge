@@ -576,11 +576,23 @@ export const useAuthStore = create<AuthStore>()(
         // Store current session context for post-auth restoration
         const sessionStore = (await import('./readingSessionStore')).useReadingSessionStore.getState();
         if (sessionStore.sessionState) {
+          // Ensure session is synced to database before proceeding with auth
+          if (sessionStore.syncLocalSessionToDatabase) {
+            console.log('💾 Syncing local session to database before authentication...');
+            await sessionStore.syncLocalSessionToDatabase();
+          }
+
           console.log(
             '💾🔍 authStore.initiateLoginOrSignupWithContext: Pre-localStorage save: shuffledDeck length:',
             sessionStore.sessionState.shuffledDeck?.length,
             'readingStep:',
-            sessionStore.sessionState.readingStep
+            sessionStore.sessionState.readingStep,
+            'selectedCards length:',
+            sessionStore.sessionState.selectedCards?.length,
+            'layout:',
+            sessionStore.sessionState.selectedLayout?.id,
+            sessionStore.sessionState.selectedLayout?.id === 'free-layout' ?
+              `(Freestyle with ${sessionStore.sessionState.selectedCards?.filter((c: any) => c.x !== undefined && c.y !== undefined).length} positioned cards)` : ''
           );
           localStorage.setItem('auth_session_context', JSON.stringify({
             sessionId: sessionStore.sessionState.id,
@@ -718,11 +730,23 @@ export const useAuthStore = create<AuthStore>()(
         // Store current session context for post-auth restoration
         const sessionStore = (await import('./readingSessionStore')).useReadingSessionStore.getState();
         if (sessionStore.sessionState) {
+          // Ensure session is synced to database before proceeding with auth
+          if (sessionStore.syncLocalSessionToDatabase) {
+            console.log('💾 Syncing local session to database before Google authentication...');
+            await sessionStore.syncLocalSessionToDatabase();
+          }
+
           console.log(
             '💾🔍 authStore.linkWithGoogle: Pre-localStorage save: shuffledDeck length:',
             sessionStore.sessionState.shuffledDeck?.length,
             'readingStep:',
-            sessionStore.sessionState.readingStep
+            sessionStore.sessionState.readingStep,
+            'selectedCards length:',
+            sessionStore.sessionState.selectedCards?.length,
+            'layout:',
+            sessionStore.sessionState.selectedLayout?.id,
+            sessionStore.sessionState.selectedLayout?.id === 'free-layout' ?
+              `(Freestyle with ${sessionStore.sessionState.selectedCards?.filter((c: any) => c.x !== undefined && c.y !== undefined).length} positioned cards)` : ''
           );
           localStorage.setItem('auth_session_context', JSON.stringify({
             sessionId: sessionStore.sessionState.id,
