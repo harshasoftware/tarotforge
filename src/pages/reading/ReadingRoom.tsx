@@ -2463,8 +2463,8 @@ const ReadingRoom = () => {
   }
   
   return (
-    <Div100vh 
-      className={`flex flex-col ${!isMobile ? 'h-screen overflow-hidden' : 'overflow-hidden'}`}
+    <Div100vh
+      className={`flex flex-col select-none ${!isMobile ? 'h-screen overflow-hidden' : 'overflow-hidden'}`}
       style={isMobile ? { 
         width: '100vw',
         position: 'relative',
@@ -4092,17 +4092,18 @@ const ReadingRoom = () => {
                         }}
                       >
                         {(selectedCard as any).revealed ? (
-                          <img 
-                            src={selectedCard.image_url} 
-                            alt={selectedCard.name} 
-                            className={`w-full h-full object-cover rounded-md ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
+                          <img
+                            src={selectedCard.image_url}
+                            alt={selectedCard.name}
+                            className={`w-full h-full object-cover rounded-md select-none ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
+                            draggable="false"
                           />
                         ) : (
                           <TarotCardBack />
                         )}
                       </motion.div>
-                      <div 
-                        className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move"
+                      <div
+                        className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move select-none"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {selectedCard.position} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
@@ -4220,11 +4221,11 @@ const ReadingRoom = () => {
                       >
                         {/* Card position indicator - responsive size */}
                         {!selectedCard && (
-                          <div 
+                          <div
                             data-dropzone-index={index} // Added data attribute
                             className={`${isMobile ? 'w-24 h-36' : 'w-20 h-30 md:w-24 md:h-36'} border-2 border-dashed ${
                               isHovered ? 'border-primary bg-primary/10' : 'border-muted-foreground/30'
-                            } rounded-md flex flex-col items-center justify-center transition-colors ${
+                            } rounded-md flex flex-col items-center justify-center transition-colors select-none ${
                               isMobile ? 'active:bg-primary/20 active:border-primary cursor-pointer' : ''
                             }`}
                             style={{
@@ -4292,17 +4293,18 @@ const ReadingRoom = () => {
                               }}
                             >
                               {(selectedCard as any).revealed ? (
-                                <img 
-                                  src={selectedCard.image_url} 
-                                  alt={selectedCard.name} 
-                                  className={`w-full h-full object-cover rounded-md ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
+                                <img
+                                  src={selectedCard.image_url}
+                                  alt={selectedCard.name}
+                                  className={`w-full h-full object-cover rounded-md select-none ${(selectedCard as any).isReversed ? 'rotate-180' : ''}`}
+                                  draggable="false"
                                 />
                               ) : (
                                 <TarotCardBack />
                               )}
                             </motion.div>
-                            <div 
-                              className={`absolute whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move ${
+                            <div
+                              className={`absolute whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move select-none ${
                                 adjustedPosition.rotation === 90
                                   ? '-right-16 top-1/2 transform -translate-y-1/2' // Position to the right for rotated cards
                                   : '-bottom-6 left-1/2 transform -translate-x-1/2' // Position below for normal cards
@@ -4450,7 +4452,7 @@ const ReadingRoom = () => {
                                   </div>
                                 </TarotCardBack>
                                   {index === Math.floor(totalCards / 2) && (
-                                    <div className="absolute -top-2 -right-1 bg-accent text-accent-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center shadow-md z-[300]">
+                                    <div className="absolute -top-2 -right-1 bg-accent text-accent-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center shadow-md z-[300] select-none">
                                       {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length}
                                     </div>
                                   )}
@@ -4460,7 +4462,7 @@ const ReadingRoom = () => {
                         </div>
                         
                         {/* Mobile navigation hints */}
-                        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 bg-muted/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs text-muted-foreground">
+                        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 bg-muted/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs text-muted-foreground select-none">
                           ← Swipe to browse all {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length} cards →
                         </div>
                         
@@ -4524,7 +4526,7 @@ const ReadingRoom = () => {
                         })}
 
                         {/* Card count indicator */}
-                        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-accent text-accent-foreground rounded-full w-8 h-8 text-sm flex items-center justify-center shadow-lg z-[300]">
+                        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-accent text-accent-foreground rounded-full w-8 h-8 text-sm flex items-center justify-center shadow-lg z-[300] select-none">
                           {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length}
                         </div>
                       </div>
@@ -4649,9 +4651,9 @@ const ReadingRoom = () => {
                       onTouchEnd={(e) => { if (isMobile) { e.preventDefault(); handleCardDoubleTap(index, e); } }}
                     >
                       <motion.div className={`${isMobile ? 'w-20 h-30' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''}`} animate={{ rotateY: cardData.revealed ? 0 : 180 }} transition={cardAnimationConfig}>
-                        {cardData.revealed ? <img src={cardData.image_url} alt={cardData.name} className={`w-full h-full object-cover rounded-md ${cardData.isReversed ? 'rotate-180' : ''}`} /> : <TarotCardBack />}
+                        {cardData.revealed ? <img src={cardData.image_url} alt={cardData.name} className={`w-full h-full object-cover rounded-md select-none ${cardData.isReversed ? 'rotate-180' : ''}`} draggable="false" /> : <TarotCardBack />}
                       </motion.div>
-                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move" onClick={(e) => e.stopPropagation()}>
+                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move select-none" onClick={(e) => e.stopPropagation()}>
                         {cardData.position} {cardData.revealed && cardData.isReversed && '(R)'}
                       </div>
                     </motion.div>
@@ -4674,9 +4676,9 @@ const ReadingRoom = () => {
                           <motion.div className={`${isMobile ? 'w-20 h-30' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer`} style={{ transform: adjustedPosition.rotation ? `rotate(${adjustedPosition.rotation}deg)` : 'none' }} animate={{ rotateY: cardData.revealed ? 0 : 180 }} transition={cardAnimationConfig}
                             onClick={() => { if (cardData.revealed) { updateSharedModalState({ isOpen: true, cardIndex: index, showDescription: false, triggeredBy: participantId || null }); } else { handleCardFlip(index); } }}
                           >
-                            {cardData.revealed ? <img src={cardData.image_url} alt={cardData.name} className={`w-full h-full object-cover rounded-md ${cardData.isReversed ? 'rotate-180' : ''}`} /> : <TarotCardBack />}
+                            {cardData.revealed ? <img src={cardData.image_url} alt={cardData.name} className={`w-full h-full object-cover rounded-md select-none ${cardData.isReversed ? 'rotate-180' : ''}`} draggable="false" /> : <TarotCardBack />}
                           </motion.div>
-                          <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move" onClick={(e) => e.stopPropagation()}>
+                          <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move select-none" onClick={(e) => e.stopPropagation()}>
                             {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {cardData.revealed && cardData.isReversed && '(R)'}
                           </div>
                         </motion.div>
@@ -4724,7 +4726,7 @@ const ReadingRoom = () => {
                     <div className={`${isMobile ? 'mb-3 p-2' : 'mb-4 md:mb-6 p-2 md:p-3'} bg-muted/30 border border-border rounded-lg`}>
                       <div className={`flex ${isMobile ? 'gap-1' : 'gap-2 md:gap-3'}`}>
                         <div className={`shrink-0 ${isMobile ? 'w-8 h-12' : 'w-10 h-15 md:w-12 md:h-18'} p-0.5`}>
-                          <img src={(selectedCards[activeCardIndex] as Card).image_url} alt={(selectedCards[activeCardIndex] as Card).name} className={`w-full h-full object-cover rounded-md ${(selectedCards[activeCardIndex] as any).isReversed ? 'rotate-180' : ''}`} />
+                          <img src={(selectedCards[activeCardIndex] as Card).image_url} alt={(selectedCards[activeCardIndex] as Card).name} className={`w-full h-full object-cover rounded-md select-none ${(selectedCards[activeCardIndex] as any).isReversed ? 'rotate-180' : ''}`} draggable="false" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <h4 className={`font-medium ${isMobile ? 'text-xs' : 'text-sm md:text-base'}`}>{(selectedCards[activeCardIndex] as Card).name} {(selectedCards[activeCardIndex] as any).isReversed && '(Reversed)'}</h4>
