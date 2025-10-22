@@ -4335,26 +4335,33 @@ const ReadingRoom = () => {
                 </div>
                 
                 {/* Deck pile - show cards that can be dragged */}
-                {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length > 0 && (
-                  <motion.div 
-                    key={`deck-pile-${deckRefreshKey}`} 
-                    className={`deck-pile absolute ${isMobile ? 'bottom-4 left-0 right-0' : 'bottom-8 left-1/2 transform -translate-x-1/2'} z-20`}
-                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                  >
-                    {isMobile ? (
-                      /* Mobile: Full deck with horizontal panning - all 78 cards */
-                      <div className="relative w-full h-28 overflow-x-auto flex justify-center">
-                        <div 
-                          className="relative h-28 flex items-end justify-center"
-                          style={{ 
-                            width: `${shuffledDeck.length * 8}px`,
-                            minWidth: '100%'
-                          }}
-                        >
-                          {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).map((card: Card, index: number) => {
-                            const totalCards = (shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length;
+                {(() => {
+                  const currentDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
+                  const usedCardIds = selectedCards.filter(Boolean).map((c: any) => c.id);
+                  const availableCards = currentDeck.filter((card: Card) => !usedCardIds.includes(card.id));
+
+                  if (availableCards.length === 0) return null;
+
+                  return (
+                    <motion.div
+                      key={`deck-pile-${deckRefreshKey}`}
+                      className={`deck-pile absolute ${isMobile ? 'bottom-4 left-0 right-0' : 'bottom-8 left-1/2 transform -translate-x-1/2'} z-20`}
+                      initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      transition={{ duration: 0.5, ease: "easeOut" }}
+                    >
+                      {isMobile ? (
+                        /* Mobile: Full deck with horizontal panning - showing only available cards */
+                        <div className="relative w-full h-28 overflow-x-auto flex justify-center">
+                          <div
+                            className="relative h-28 flex items-end justify-center"
+                            style={{
+                              width: `${Math.max(availableCards.length * 8, 100)}px`,
+                              minWidth: '100%'
+                            }}
+                          >
+                            {availableCards.map((card: Card, index: number) => {
+                              const totalCards = availableCards.length;
                             const angle = (index - (totalCards - 1) / 2) * 1.2; // 1.2 degrees between cards for mobile shallow arc
                             const radius = 200; // Radius for mobile arc
                             const x = Math.sin((angle * Math.PI) / 180) * radius; // Remove the offset that was pushing right
@@ -4453,7 +4460,7 @@ const ReadingRoom = () => {
                                 </TarotCardBack>
                                   {index === Math.floor(totalCards / 2) && (
                                     <div className="absolute -top-2 -right-1 bg-accent text-accent-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center shadow-md z-[300] select-none">
-                                      {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length}
+                                      {availableCards.length}
                                     </div>
                                   )}
                                 </motion.div>
@@ -4463,16 +4470,16 @@ const ReadingRoom = () => {
                         
                         {/* Mobile navigation hints */}
                         <div className="absolute top-0 left-1/2 transform -translate-x-1/2 bg-muted/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs text-muted-foreground select-none">
-                          ← Swipe to browse all {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length} cards →
+                          ← Swipe to browse {availableCards.length} available cards →
                         </div>
                         
 
                       </div>
                     ) : (
-                      /* Desktop: Wide fan spread showing all cards - larger and more readable */
+                      /* Desktop: Wide fan spread showing available cards - larger and more readable */
                       <div className="relative w-full h-36">
-                        {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).map((card: Card, index: number) => {
-                          const totalCards = (shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length;
+                        {availableCards.map((card: Card, index: number) => {
+                          const totalCards = availableCards.length;
                           const angle = (index - (totalCards - 1) / 2) * 2.2; // 2.2 degrees between cards for wider spread
                           const radius = 600; // Larger radius for gentler curve
                           const x = Math.sin((angle * Math.PI) / 180) * radius;
@@ -4527,12 +4534,13 @@ const ReadingRoom = () => {
 
                         {/* Card count indicator */}
                         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-accent text-accent-foreground rounded-full w-8 h-8 text-sm flex items-center justify-center shadow-lg z-[300] select-none">
-                          {(shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck).length}
+                          {availableCards.length}
                         </div>
                       </div>
                     )}
                   </motion.div>
-                )}
+                  );
+                })()}
                 
 
                 
