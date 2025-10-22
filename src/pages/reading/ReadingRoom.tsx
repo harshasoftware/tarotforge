@@ -2592,7 +2592,7 @@ const ReadingRoom = () => {
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-sm font-medium">{layout.name}</span>
                               <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
-                                {layout.card_count === 999 ? 'Free' : `${layout.card_count}`}
+                                {layout.card_count === 999 ? 'Freestyle' : `${layout.card_count}`}
                               </span>
                             </div>
                             <p className="text-xs text-muted-foreground">{layout.description}</p>
