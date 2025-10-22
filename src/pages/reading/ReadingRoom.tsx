@@ -248,7 +248,34 @@ const ReadingRoom = () => {
       } else { // Already an authenticated user in store
           console.log('👤 Existing authenticated user in auth store. ID:', auth.user.id);
       }
-      
+
+      // Check if we have a restored session context (after auth upgrade)
+      const restoredContext = localStorage.getItem('session_context_restored');
+      if (restoredContext) {
+        try {
+          const context = JSON.parse(restoredContext);
+          console.log('🔄 Found restored session context in ReadingRoom:', context);
+
+          if (context.sessionId && context.migrationComplete) {
+            // We have a restored session, use it instead of creating new
+            console.log('📌 Using restored session ID from auth upgrade:', context.sessionId);
+            setInitialSessionId(context.sessionId);
+            setDeckId(deckId || 'rider-waite-classic');
+            await initializeSession();
+
+            // Update URL to reflect the restored session
+            const currentPath = window.location.pathname;
+            const newUrl = deckId && currentPath.includes(deckId)
+              ? `/reading-room/${deckId}?join=${context.sessionId}`
+              : `/reading-room?join=${context.sessionId}`;
+            window.history.replaceState({}, '', newUrl);
+            return; // Exit early, we're done
+          }
+        } catch (e) {
+          console.error('Error parsing restored session context:', e);
+        }
+      }
+
       if (shouldCreateSession) {
         // Create a new session and update URL
         try {
@@ -274,7 +301,7 @@ const ReadingRoom = () => {
       } else {
         setInitialSessionId(joinSessionId);
       }
-      
+
       setDeckId(deckId || 'rider-waite-classic');
       // By now, useAuthStore().user should be stable (either anon or real).
       // initializeSession in useReadingSessionStore will use this stable user.

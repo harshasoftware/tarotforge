@@ -150,9 +150,17 @@ async function restoreReadingSessionContext(sessionContextString: string, curren
     if (returnPath && returnPath.includes('/reading-room')) {
       const deckMatch = returnPath.match(/\/reading-room\/([^?]+)/);
       const deckId = deckMatch ? deckMatch[1] : '';
-      const newPath = deckId ? `/reading-room/${deckId}?join=${sessionId}` : `/reading-room?join=${sessionId}`;
-      localStorage.setItem('auth_return_path', newPath);
-      console.log('📍 Updated return path to use restored session:', newPath);
+      // Check if the return path already has a join parameter
+      const existingJoinMatch = returnPath.match(/[?&]join=([^&]+)/);
+      if (existingJoinMatch) {
+        // Preserve the existing join parameter
+        console.log('📍 Return path already has join parameter, preserving it:', returnPath);
+      } else {
+        // Add the join parameter with the restored session ID
+        const newPath = deckId ? `/reading-room/${deckId}?join=${sessionId}` : `/reading-room?join=${sessionId}`;
+        localStorage.setItem('auth_return_path', newPath);
+        console.log('📍 Updated return path to use restored session:', newPath);
+      }
     }
     localStorage.removeItem('auth_session_context');
     console.log('✅ Session context restored with migration complete flag');
@@ -199,7 +207,7 @@ const AuthCallback = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [processingStep, setProcessingStep] = useState<string>('Whispers from the Ether: Awakening Your Connection...');
-  const [loading, setLoading] = useState(true); // Start with loading true
+  const [_loading, setLoading] = useState(true); // Start with loading true
   const [progressPercent, setProgressPercent] = useState<number>(10);
   
   useEffect(() => {
