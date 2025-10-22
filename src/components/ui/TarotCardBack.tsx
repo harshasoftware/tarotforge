@@ -7,12 +7,12 @@ interface TarotCardBackProps {
 
 const TarotCardBack: React.FC<TarotCardBackProps> = ({ className = "w-full h-full", children }) => {
   return (
-    <div className={`${className} relative overflow-hidden rounded-md`}>
+    <div className={`${className} relative overflow-hidden rounded-md border border-border`}>
       {/* Bohemian mystical card back design - responsive to app theme */}
-      <div 
-        className="absolute inset-0"
+      <div
+        className="absolute inset-0 bg-card"
         style={{
-          background: 'linear-gradient(to bottom, hsl(var(--card)), hsl(var(--muted)), hsl(var(--background)))'
+          background: 'linear-gradient(135deg, hsl(var(--card)), hsl(var(--muted)), hsl(var(--card)))'
         }}
       >
         {/* Ornate border with corner decorations */}
