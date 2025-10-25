@@ -101,16 +101,26 @@ export async function processInviteLink(inviteId: string): Promise<{
       return { success: false, error: 'This invite link has reached its usage limit' };
     }
 
-    // Check if session still exists and is active
+    // Check if session still exists
+    // Note: We allow joining sessions even if is_active=false, as sessions should
+    // reactivate when participants join via invite
     const { data: session, error: sessionError } = await supabase
       .from('reading_sessions')
-      .select('id, is_active')
+      .select('id, is_active, updated_at')
       .eq('id', invite.session_id)
-      .eq('is_active', true)
       .single();
 
     if (sessionError || !session) {
+      console.error('Session not found for invite:', invite.session_id, sessionError);
       return { success: false, error: 'The reading session is no longer available' };
+    }
+
+    // Reactivate the session if it was inactive
+    if (!session.is_active) {
+      await supabase
+        .from('reading_sessions')
+        .update({ is_active: true })
+        .eq('id', invite.session_id);
     }
 
     // Increment click count
