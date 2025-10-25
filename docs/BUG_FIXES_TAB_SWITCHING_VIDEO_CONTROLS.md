@@ -16,10 +16,10 @@ After a tab switch, some browsers interfere with pointer events or React's event
 
 ### Solution
 
-#### 1. Window Focus/Blur Event Listeners
-**File:** `src/pages/reading/ReadingRoom.tsx` (lines 182-199)
+#### 1. Window Focus/Blur/Visibility Event Listeners
+**File:** `src/pages/reading/ReadingRoom.tsx` (lines 182-227)
 
-Added event listeners to detect when the window regains focus and forcefully re-enable pointer events:
+Added comprehensive event listeners to detect when the window regains focus and forcefully re-enable pointer events:
 
 ```typescript
 // Add focus event listener to re-enable interactions after tab switch
@@ -27,14 +27,40 @@ const handleWindowFocus = () => {
   console.log('[Focus] Window regained focus, re-enabling interactions');
   // Force a re-render to ensure event listeners are properly attached
   document.body.style.pointerEvents = 'auto';
+
+  // Clear any lingering pointer-events: none from elements
+  setTimeout(() => {
+    const allElements = document.querySelectorAll('[style*="pointer-events"]');
+    allElements.forEach((el) => {
+      const htmlEl = el as HTMLElement;
+      if (htmlEl.style.pointerEvents === 'none' &&
+          !htmlEl.classList.contains('pointer-events-none') &&
+          !htmlEl.hasAttribute('disabled')) {
+        console.log('[Focus] Clearing pointer-events: none from element', htmlEl);
+        htmlEl.style.pointerEvents = '';
+      }
+    });
+  }, 100);
 };
 
 const handleWindowBlur = () => {
   console.log('[Blur] Window lost focus');
 };
 
+const handleVisibilityChange = () => {
+  if (!document.hidden) {
+    console.log('[Visibility] Page became visible, re-enabling interactions');
+    document.body.style.pointerEvents = 'auto';
+    // Trigger the same cleanup as focus
+    setTimeout(() => {
+      handleWindowFocus();
+    }, 50);
+  }
+};
+
 window.addEventListener('focus', handleWindowFocus);
 window.addEventListener('blur', handleWindowBlur);
+document.addEventListener('visibilitychange', handleVisibilityChange);
 ```
 
 #### 2. Enhanced handleShare Function
@@ -60,7 +86,48 @@ const handleShare = async () => {
 }
 ```
 
-#### 3. Improved Button Click Handlers
+#### 3. Enhanced Modal Overlay and Close Handlers
+
+**All Modals Updated:**
+- Help Modal (lines 4891-4920, 5177-5187)
+- Exit Modal (lines 5211-5230, 5259-5269)
+- Invite Dropdown Modal (lines 5556-5576)
+
+Added explicit pointer-events and enhanced event handling to all modal overlays and close buttons:
+
+```typescript
+// Modal Overlay
+<motion.div
+  className="fixed inset-0 bg-black/50 ..."
+  style={{ pointerEvents: 'auto' }}
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowModal(false);
+  }}
+>
+  {/* Modal Content */}
+  <motion.div
+    className="bg-card ..."
+    style={{ pointerEvents: 'auto' }}
+    onClick={(e) => e.stopPropagation()}
+  >
+    {/* Close Button */}
+    <button
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowModal(false);
+      }}
+      style={{ pointerEvents: 'auto' }}
+    >
+      <X />
+    </button>
+  </motion.div>
+</motion.div>
+```
+
+#### 4. Improved Button Click Handlers
 **File:** `src/pages/reading/ReadingRoom.tsx` (lines 2903-2907, 3190-3194)
 
 Enhanced invite button handlers with explicit event handling and pointer-events:
@@ -82,9 +149,12 @@ Enhanced invite button handlers with explicit event handling and pointer-events:
 
 ### Benefits
 - ✅ Modals open reliably after tab switching
+- ✅ Modals close reliably with both backdrop clicks and close buttons
 - ✅ All interactive elements remain functional
 - ✅ Proper event propagation control
 - ✅ Explicit pointer-events guarantee interactions work
+- ✅ Visibility change events caught (tab switching vs window minimizing)
+- ✅ Automatic cleanup of stale pointer-events: none from DOM elements
 
 ---
 

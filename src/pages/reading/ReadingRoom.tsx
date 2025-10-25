@@ -183,19 +183,47 @@ const ReadingRoom = () => {
       console.log('[Focus] Window regained focus, re-enabling interactions');
       // Force a re-render to ensure event listeners are properly attached
       document.body.style.pointerEvents = 'auto';
+
+      // Clear any lingering pointer-events: none from elements
+      setTimeout(() => {
+        const allElements = document.querySelectorAll('[style*="pointer-events"]');
+        allElements.forEach((el) => {
+          const htmlEl = el as HTMLElement;
+          const computedStyle = window.getComputedStyle(htmlEl);
+          if (htmlEl.style.pointerEvents === 'none' &&
+              !htmlEl.classList.contains('pointer-events-none') &&
+              !htmlEl.hasAttribute('disabled')) {
+            console.log('[Focus] Clearing pointer-events: none from element', htmlEl);
+            htmlEl.style.pointerEvents = '';
+          }
+        });
+      }, 100);
     };
 
     const handleWindowBlur = () => {
       console.log('[Blur] Window lost focus');
     };
 
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('[Visibility] Page became visible, re-enabling interactions');
+        document.body.style.pointerEvents = 'auto';
+        // Trigger the same cleanup as focus
+        setTimeout(() => {
+          handleWindowFocus();
+        }, 50);
+      }
+    };
+
     window.addEventListener('focus', handleWindowFocus);
     window.addEventListener('blur', handleWindowBlur);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('resize', updateDimensions);
       window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('blur', handleWindowBlur);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -4860,23 +4888,34 @@ const ReadingRoom = () => {
       {/* Help Modal - Desktop */}
       <AnimatePresence>
         {showHelpModal && (
-          <div 
+          <div
             className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
-            onClick={() => setShowHelpModal(false)} // Explicit close
+            style={{ pointerEvents: 'auto' }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowHelpModal(false);
+            }}
           >
-            <motion.div 
+            <motion.div
               className="relative bg-card max-w-4xl w-full max-h-[90vh] rounded-xl overflow-hidden"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.3 }}
+              style={{ pointerEvents: 'auto' }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
                 <h3 className="font-serif font-bold text-xl">TarotForge Reading Room Guide</h3>
-                <button 
-                  onClick={() => setShowHelpModal(false)} // Explicit close
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowHelpModal(false);
+                  }}
                   className="text-muted-foreground hover:text-foreground transition-colors"
+                  style={{ pointerEvents: 'auto' }}
                 >
                   <X className="h-6 w-6" />
                 </button>
@@ -5136,8 +5175,13 @@ const ReadingRoom = () => {
                     Need more help? Visit our documentation or contact support.
                   </p>
                   <button
-                    onClick={() => setShowHelpModal(false)} // Explicit close
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowHelpModal(false);
+                    }}
                     className="btn btn-primary px-6 py-2 mt-4"
+                    style={{ pointerEvents: 'auto' }}
                   >
                     Got it!
                   </button>
@@ -5170,7 +5214,12 @@ const ReadingRoom = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            onClick={() => setShowExitModal(false)}
+            style={{ pointerEvents: 'auto' }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowExitModal(false);
+            }}
           >
             <motion.div
               className={`bg-card border border-border rounded-lg shadow-lg ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md'} p-6`}
@@ -5178,6 +5227,7 @@ const ReadingRoom = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.2 }}
+              style={{ pointerEvents: 'auto' }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-3 mb-4">
@@ -5207,8 +5257,13 @@ const ReadingRoom = () => {
               
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowExitModal(false)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowExitModal(false);
+                  }}
                   className="flex-1 px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors"
+                  style={{ pointerEvents: 'auto' }}
                 >
                   Stay in Session
                 </button>
@@ -5504,7 +5559,12 @@ const ReadingRoom = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            onClick={() => setShowInviteDropdown(false)}
+            style={{ pointerEvents: 'auto' }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowInviteDropdown(false);
+            }}
           >
             <motion.div
               className={`bg-card border border-border rounded-lg shadow-lg ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md'} p-6`}
@@ -5512,6 +5572,7 @@ const ReadingRoom = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.2 }}
+              style={{ pointerEvents: 'auto' }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-3 mb-4">
