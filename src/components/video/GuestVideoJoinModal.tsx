@@ -6,7 +6,7 @@ interface GuestVideoJoinModalProps {
   isOpen: boolean;
   onClose: () => void;
   onJoin: () => Promise<void>;
-  participantCount: number;
+  participantCount: number; // Should be videoCallParticipants.length (NOT +1, as this is only remote participants)
   hostName?: string;
   sessionInfo?: {
     layout?: string;
@@ -95,7 +95,8 @@ const GuestVideoJoinModal: React.FC<GuestVideoJoinModalProps> = ({
             <div className="flex items-center gap-2 mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <Users className="h-4 w-4 text-blue-600" />
               <span className="text-sm text-blue-800 dark:text-blue-200">
-                {participantCount} {participantCount === 1 ? 'person' : 'people'} in video call
+                {/* participantCount is remote participants count, +1 for yourself when you join */}
+                {participantCount + 1} {participantCount + 1 === 1 ? 'person' : 'people'} in video call
               </span>
             </div>
 
