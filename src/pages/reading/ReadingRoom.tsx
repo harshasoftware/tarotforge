@@ -2161,7 +2161,11 @@ const ReadingRoom = () => {
 
   // Handle sharing with native share API on mobile or modal on desktop
   const handleShare = async () => {
-    if (!sessionId) return;
+    console.log('handleShare called, sessionId:', sessionId);
+    if (!sessionId) {
+      console.log('No sessionId, returning early');
+      return;
+    }
 
     // Check if user is a guest and prompt for account upgrade
     if (isGuest) {
@@ -2181,22 +2185,28 @@ const ReadingRoom = () => {
       return;
     }
 
-    // Ensure session state is up to date before sharing
-    if (sessionState?.id && isHost) {
-      console.log('Updating session state before sharing...');
-      await updateSession({
-        selectedLayout,
-        question,
-        readingStep,
-        selectedCards,
-        interpretation,
-        zoomLevel,
-        activeCardIndex
-      });
+    try {
+      // Ensure session state is up to date before sharing
+      if (sessionState?.id && isHost) {
+        console.log('Updating session state before sharing...');
+        await updateSession({
+          selectedLayout,
+          question,
+          readingStep,
+          selectedCards,
+          interpretation,
+          zoomLevel,
+          activeCardIndex
+        });
+        console.log('Session update complete');
+      }
+    } catch (error) {
+      console.error('Error updating session:', error);
+      // Continue anyway - don't block sharing
     }
 
     // Show invite dropdown instead of auto-starting video
-    console.log('Setting showInviteDropdown to true');
+    console.log('Setting showInviteDropdown to true, current value:', showInviteDropdown);
     setShowInviteDropdown(true);
     console.log('Invite dropdown should now be visible');
   };
@@ -5434,7 +5444,7 @@ const ReadingRoom = () => {
       <AnimatePresence>
         {showInviteDropdown && (
           <motion.div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[200] p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
