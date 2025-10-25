@@ -22,8 +22,8 @@ const InvitePage: React.FC = () => {
         const result = await processInviteLink(inviteId);
         
         if (result.success && result.sessionId) {
-          // Redirect to reading room with invite flag
-          navigate(`/reading/rider-waite-classic?join=${result.sessionId}&invite=true`, {
+          // Redirect to reading room with invite flag and enable video
+          navigate(`/reading/rider-waite-classic?join=${result.sessionId}&invite=true&enableVideo=true`, {
             replace: true
           });
         } else {

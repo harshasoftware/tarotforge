@@ -118,6 +118,7 @@ const ReadingRoom = () => {
   const joinSessionId = urlParams.get('join');
   const shouldCreateSession = urlParams.get('create') === 'true';
   const isInviteAccess = urlParams.get('invite') === 'true';
+  const shouldEnableVideo = urlParams.get('enableVideo') === 'true';
   
   // Initialize reading session store
   const {
@@ -953,10 +954,26 @@ const ReadingRoom = () => {
     }
   }, [participants, fetchCombinedCollection, user?.id]);
 
-  // Auto-show video chat when user is in a video call or when participants are detected
+  // Auto-show video chat when user is in a video call or when enableVideo is true
   useEffect(() => {
-    // Only show video chat UI when user is actively in a video call
-    // Remove auto-show when participants are detected - video should only start when explicitly requested
+    // Auto-start video if joining via invite with enableVideo param
+    if (shouldEnableVideo && !isInCall && !showVideoChat &&
+        (readingStep === 'drawing' || readingStep === 'interpretation') &&
+        sessionState?.id && participantId) {
+      console.log('Auto-starting video chat for invite with enableVideo:', {
+        shouldEnableVideo,
+        readingStep,
+        sessionId: sessionState.id
+      });
+      // Automatically start the video call
+      startCall().then(() => {
+        setShowVideoChat(true);
+      }).catch(err => {
+        console.error('Failed to auto-start video call:', err);
+      });
+    }
+
+    // Show video chat UI when user is actively in a video call
     if (isInCall && !showVideoChat && (readingStep === 'drawing' || readingStep === 'interpretation')) {
       console.log('Showing video chat UI - user is in video call:', {
         isInCall,
@@ -964,7 +981,7 @@ const ReadingRoom = () => {
       });
       setShowVideoChat(true);
     }
-    
+
     // Hide video chat UI when user leaves video call or exits drawing/interpretation steps
     if (showVideoChat && (!isInCall || (readingStep !== 'drawing' && readingStep !== 'interpretation'))) {
       console.log('Hiding video chat UI - user left video call or exited drawing/interpretation step:', {
@@ -973,7 +990,7 @@ const ReadingRoom = () => {
       });
       setShowVideoChat(false);
     }
-  }, [isInCall, showVideoChat, readingStep]);
+  }, [isInCall, showVideoChat, readingStep, shouldEnableVideo, sessionState?.id, participantId, startCall]);
 
 
 
@@ -5554,6 +5571,14 @@ const ReadingRoom = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Video Chat Bubbles */}
+      {showVideoChat && (
+        <VideoBubbles
+          onClose={() => setShowVideoChat(false)}
+          readingStep={readingStep}
+        />
+      )}
 
     </Div100vh>
   );

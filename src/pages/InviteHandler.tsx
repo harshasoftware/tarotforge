@@ -36,8 +36,9 @@ const InviteHandler = () => {
 
         // Redirect to reading room with appropriate parameters
         setTimeout(() => {
-          const joinUrl = `/reading-room?join=${result.sessionId}&invite=true`;
-          
+          // Use the correct route path for reading room
+          const joinUrl = `/reading/rider-waite-classic?join=${result.sessionId}&invite=true&enableVideo=true`;
+
           // Add role parameter for reader invites
           if (result.role === 'reader' && result.shouldTransferHost) {
             navigate(joinUrl + '&role=reader');
