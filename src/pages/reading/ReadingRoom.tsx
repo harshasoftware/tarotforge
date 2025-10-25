@@ -167,6 +167,9 @@ const ReadingRoom = () => {
   });
 
   // Update screen dimensions on resize
+  // Track tab visibility to force re-render when tab becomes visible
+  const [, setTabVisible] = useState(true);
+
   useEffect(() => {
     const updateDimensions = () => {
       setScreenDimensions({
@@ -179,6 +182,21 @@ const ReadingRoom = () => {
     updateDimensions(); // Initial call
 
     return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
+  // Force React to re-render when tab becomes visible again
+  // This re-attaches all event listeners that may have been disrupted
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('[Tab Visibility] Tab became visible, forcing re-render');
+        // Force a re-render by updating state
+        setTabVisible(prev => !prev);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   // Filter layouts for mobile - only show single-card and three-card spreads
