@@ -178,7 +178,25 @@ const ReadingRoom = () => {
     window.addEventListener('resize', updateDimensions);
     updateDimensions(); // Initial call
 
-    return () => window.removeEventListener('resize', updateDimensions);
+    // Add focus event listener to re-enable interactions after tab switch
+    const handleWindowFocus = () => {
+      console.log('[Focus] Window regained focus, re-enabling interactions');
+      // Force a re-render to ensure event listeners are properly attached
+      document.body.style.pointerEvents = 'auto';
+    };
+
+    const handleWindowBlur = () => {
+      console.log('[Blur] Window lost focus');
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('blur', handleWindowBlur);
+
+    return () => {
+      window.removeEventListener('resize', updateDimensions);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
   }, []);
 
   // Filter layouts for mobile - only show single-card and three-card spreads
@@ -2183,6 +2201,13 @@ const ReadingRoom = () => {
   // Handle sharing with native share API on mobile or modal on desktop
   const handleShare = async () => {
     console.log('handleShare called, sessionId:', sessionId);
+
+    // Ensure pointer events are enabled (in case they were disabled after tab switch)
+    if (document.body.style.pointerEvents === 'none') {
+      console.log('[handleShare] Re-enabling pointer events');
+      document.body.style.pointerEvents = 'auto';
+    }
+
     if (!sessionId) {
       console.log('No sessionId, returning early');
       return;
@@ -2875,9 +2900,13 @@ const ReadingRoom = () => {
 
                   {/* Invite button */}
                   <button
-                    onClick={() => handleShare()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleShare();
+                    }}
                     className="btn btn-ghost bg-muted/50 hover:bg-muted px-3 py-2 text-sm flex items-center gap-2 rounded-lg touch-manipulation whitespace-nowrap"
-                    style={{ minHeight: '36px' }}
+                    style={{ minHeight: '36px', pointerEvents: 'auto' }}
                     disabled={!sessionId}
                   >
                     <UserPlus className="h-4 w-4" />
@@ -3158,8 +3187,13 @@ const ReadingRoom = () => {
 
               <Tooltip content="Add people to session" position="bottom" disabled={isMobile}>
                 <button
-                  onClick={() => handleShare()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleShare();
+                  }}
                   className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center gap-1"
+                  style={{ pointerEvents: 'auto' }}
                   disabled={!sessionId}
                 >
                   <UserPlus className="h-4 w-4" />
