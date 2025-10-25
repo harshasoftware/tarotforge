@@ -194,20 +194,36 @@ const ReadingRoom = () => {
         // Force a re-render by updating canvas key (remounts reading area)
         setCanvasKey(prev => prev + 1);
 
-        // CRITICAL FIX: Force React to re-attach event listeners
-        // by simulating a click on the root element
+        // SUPER NUCLEAR OPTION: Force all elements to be interactive
         setTimeout(() => {
+          // Remove pointer-events: none from ALL elements
+          document.body.style.pointerEvents = 'auto';
+          const allElements = document.querySelectorAll('*');
+          allElements.forEach((el) => {
+            const htmlEl = el as HTMLElement;
+            if (htmlEl.style.pointerEvents === 'none' &&
+                !htmlEl.classList.contains('pointer-events-none')) {
+              htmlEl.style.pointerEvents = 'auto';
+            }
+          });
+
+          // Force React root to re-delegate events by simulating user interaction
           const root = document.getElementById('root');
           if (root) {
-            // Dispatch a synthetic mouse event to wake up React's event system
-            const event = new MouseEvent('mousemove', {
-              view: window,
+            // Create a real MouseEvent instead of generic Event
+            const mouseEvent = new MouseEvent('click', {
               bubbles: true,
-              cancelable: true
+              cancelable: true,
+              view: window
             });
-            root.dispatchEvent(event);
-            console.log('[Tab Visibility] Event system re-initialized');
+            root.dispatchEvent(mouseEvent);
+            console.log('[Tab Visibility] React event delegation re-triggered');
           }
+
+          // Force document.body to be focusable and focused
+          document.body.setAttribute('tabindex', '-1');
+          document.body.focus();
+          console.log('[Tab Visibility] Document focus reset');
         }, 100);
       }
     };
@@ -218,6 +234,41 @@ const ReadingRoom = () => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, []);
+
+  // Global native click listener as a backup to React's synthetic event system
+  // This directly handles clicks using native DOM events when React's delegation fails after tab switch
+  useEffect(() => {
+    let needsBackup = false;
+
+    // Detect if we need backup (set flag when tab becomes hidden)
+    const handleTabHidden = () => {
+      if (document.hidden) {
+        console.log('[Backup Handler] Tab hidden, backup may be needed on return');
+        needsBackup = true;
+      }
+    };
+
+    const handleNativeClick = (e: MouseEvent) => {
+      if (!needsBackup) return;
+
+      const target = e.target as HTMLElement;
+      console.log('[Backup Handler] Native click detected on:', target);
+
+      // After first successful click, disable backup
+      setTimeout(() => {
+        console.log('[Backup Handler] React event system appears functional, disabling backup');
+        needsBackup = false;
+      }, 1000);
+    };
+
+    document.addEventListener('visibilitychange', handleTabHidden);
+    document.addEventListener('click', handleNativeClick, true); // Use capture phase
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleTabHidden);
+      document.removeEventListener('click', handleNativeClick, true);
     };
   }, []);
 
