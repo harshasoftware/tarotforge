@@ -189,14 +189,36 @@ const ReadingRoom = () => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log('[Tab Visibility] Tab became visible, forcing re-render');
+        console.log('[Tab Visibility] Tab became visible, re-initializing event system');
+
         // Force a re-render by updating state
         setTabVisible(prev => !prev);
+
+        // CRITICAL FIX: Force React to re-attach event listeners
+        // by simulating a click on the root element
+        setTimeout(() => {
+          const root = document.getElementById('root');
+          if (root) {
+            // Dispatch a synthetic mouse event to wake up React's event system
+            const event = new MouseEvent('mousemove', {
+              view: window,
+              bubbles: true,
+              cancelable: true
+            });
+            root.dispatchEvent(event);
+            console.log('[Tab Visibility] Event system re-initialized');
+          }
+        }, 100);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
   }, []);
 
   // Filter layouts for mobile - only show single-card and three-card spreads
@@ -2287,14 +2309,14 @@ const ReadingRoom = () => {
     const handleInviteKeyDown = (event: KeyboardEvent) => {
       if (event.key === KEY_VALUES.I_LOWER) { // Handles 'i' and 'I' implicitly
         // Only trigger if not typing in an input/textarea
-        if (event.target instanceof HTMLElement && 
-            (event.target.tagName === 'INPUT' || 
-             event.target.tagName === 'TEXTAREA' || 
+        if (event.target instanceof HTMLElement &&
+            (event.target.tagName === 'INPUT' ||
+             event.target.tagName === 'TEXTAREA' ||
              event.target.contentEditable === 'true')) {
           return;
         }
-        
-        event.preventDefault();
+
+        // DO NOT call event.preventDefault() here - it breaks event handling after tab switching
         handleShare();
       }
     };
