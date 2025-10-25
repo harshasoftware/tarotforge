@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, memo, flushSync } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { ArrowLeft, HelpCircle, Share2, Shuffle, Save, XCircle, Video, Zap, Copy, Check, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Menu, Users, UserPlus, UserMinus, Package, ShoppingBag, Plus, Home, Sparkles, Wand, Eye, EyeOff, X, ArrowUp, ArrowDown, FileText, UserCheck, UserX, LogIn, Keyboard, Navigation, BookOpen, Lightbulb, Sun, Moon, DoorOpen, ScanSearch, Music } from 'lucide-react';
@@ -1990,14 +1990,11 @@ const ReadingRoom = () => {
   const openCardGallery = useCallback((cardIndex: number) => {
   const selectedCard = selectedCards[cardIndex];
     if ((selectedCard as any)?.revealed) {
-      // Use flushSync to force immediate update (fixes tab switching issue)
-      flushSync(() => {
-        updateSharedModalState({
-          isOpen: true,
-          cardIndex: cardIndex,
-          showDescription: false,
-          triggeredBy: participantId || 'unknown'
-        });
+      updateSharedModalState({
+        isOpen: true,
+        cardIndex: cardIndex,
+        showDescription: false,
+        triggeredBy: participantId || 'unknown'
       });
     }
   }, [selectedCards, updateSharedModalState, participantId]);
@@ -2271,10 +2268,7 @@ const ReadingRoom = () => {
 
     // Show invite dropdown instead of auto-starting video
     console.log('Setting showInviteDropdown to true, current value:', showInviteDropdown);
-    // Use flushSync to force immediate state update (fixes tab switching issue)
-    flushSync(() => {
-      setShowInviteDropdown(true);
-    });
+    setShowInviteDropdown(true);
     console.log('Invite dropdown should now be visible');
   };
 
@@ -2663,7 +2657,7 @@ const ReadingRoom = () => {
                     </button>
                   ) : (
                     <button
-                      onClick={() => flushSync(() => setShowExitModal(true))}
+                      onClick={() => setShowExitModal(true)}
                       className="btn btn-ghost p-2 flex items-center text-muted-foreground hover:text-foreground touch-manipulation"
                       style={{ minWidth: '40px', minHeight: '40px' }}
                     >
@@ -2829,7 +2823,7 @@ const ReadingRoom = () => {
                         });
                         if (readingStep === 'interpretation' && interpretation) {
                           // If already in interpretation view, show the mobile interpretation pane
-                          flushSync(() => setShowMobileInterpretation(true));
+                          setShowMobileInterpretation(true);
                         } else {
                           // Generate new interpretation
                           generateInterpretation();
@@ -2976,7 +2970,7 @@ const ReadingRoom = () => {
               {/* Left section: Back button and session info */}
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => flushSync(() => setShowExitModal(true))}
+                  onClick={() => setShowExitModal(true)}
                   className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center text-muted-foreground hover:text-foreground"
                 >
                   <ArrowLeft className="h-4 w-4" />
@@ -3906,10 +3900,9 @@ const ReadingRoom = () => {
           
           {/* Step 2: Drawing Cards */}
           {readingStep === 'drawing' && selectedLayout && (
-            <div className={`absolute inset-0 flex flex-col ${isMobile ? (isLandscape ? 'pt-24' : 'pt-28') : 'pt-20'}`}>
+            <div key={`drawing-step-${canvasKey}`} className={`absolute inset-0 flex flex-col ${isMobile ? (isLandscape ? 'pt-24' : 'pt-28') : 'pt-20'}`}>
               {/* Reading table with mobile-friendly zoom controls */}
               <div
-                key={`reading-area-${canvasKey}`}
                 className="flex-1 relative"
                 ref={readingAreaRef}
                 onDrop={selectedLayout?.id === 'free-layout' ? handleFreeLayoutDrop : undefined}
@@ -4674,7 +4667,7 @@ const ReadingRoom = () => {
           
           {/* Step 3: Interpretation - mobile responsive layout */}
           {readingStep === 'interpretation' && (
-            <div className={`absolute inset-0 flex ${isMobile ? (isLandscape && !showMobileInterpretation ? 'flex-row pt-24' : 'flex-col pt-28') : 'flex-col pt-20'}`}> {/* Ensure flex layout for proper height distribution */}
+            <div key={`interpretation-step-${canvasKey}`} className={`absolute inset-0 flex ${isMobile ? (isLandscape && !showMobileInterpretation ? 'flex-row pt-24' : 'flex-col pt-28') : 'flex-col pt-20'}`}> {/* Ensure flex layout for proper height distribution */}
               {/* Card Display Area & Fixed Controls Container */}
               <div className={`relative h-full ${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-3/5' : (showMobileInterpretation ? 'hidden' : 'flex-1 w-full')) : 'w-full'}`}> 
                 
