@@ -872,7 +872,7 @@ const VideoBubbles: React.FC<VideoBubblesProps> = ({ onClose, readingStep }) => 
                       {showLocalControls && (
                         <motion.div
                           className="absolute inset-0 bg-black/50 flex items-center justify-center gap-1 z-10"
-                          style={{ pointerEvents: 'auto' }}
+                          
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
@@ -888,7 +888,7 @@ const VideoBubbles: React.FC<VideoBubblesProps> = ({ onClose, readingStep }) => 
                                 ? 'bg-gray-700 hover:bg-gray-600'
                                 : 'bg-red-600 hover:bg-red-700'
                             } text-white transition-colors`}
-                            style={{ pointerEvents: 'auto' }}
+                            
                             title={isAudioEnabled ? 'Mute' : 'Unmute'}
                           >
                             {isAudioEnabled ? <Mic className="w-3 h-3" /> : <MicOff className="w-3 h-3" />}
@@ -908,7 +908,7 @@ const VideoBubbles: React.FC<VideoBubblesProps> = ({ onClose, readingStep }) => 
                                   ? 'bg-gray-700 hover:bg-gray-600'
                                   : 'bg-red-600 hover:bg-red-700'
                             } text-white transition-colors`}
-                            style={{ pointerEvents: 'auto' }}
+                            
                             title={
                               shouldForceAudioOnlyOnMobile
                                 ? 'Video disabled (audio-only mode on mobile)'
@@ -925,7 +925,7 @@ const VideoBubbles: React.FC<VideoBubblesProps> = ({ onClose, readingStep }) => 
                               handleExitCall();
                             }}
                             className="p-1 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors"
-                            style={{ pointerEvents: 'auto' }}
+                            
                             title="Leave video call"
                           >
                             <LogOut className="w-3 h-3" />
@@ -999,7 +999,7 @@ const VideoBubbles: React.FC<VideoBubblesProps> = ({ onClose, readingStep }) => 
                           {showControls && (
                             <motion.div
                               className="absolute inset-0 bg-black/50 flex items-center justify-center gap-1 z-10"
-                              style={{ pointerEvents: 'auto' }}
+                              
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
@@ -1015,7 +1015,7 @@ const VideoBubbles: React.FC<VideoBubblesProps> = ({ onClose, readingStep }) => 
                                     ? 'bg-red-600 hover:bg-red-700'
                                     : 'bg-gray-700 hover:bg-gray-600'
                                 } text-white transition-colors`}
-                                style={{ pointerEvents: 'auto' }}
+                                
                                 title={participantState.isAudioMuted ? 'Unmute participant' : 'Mute participant'}
                               >
                                 {participantState.isAudioMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
@@ -1032,7 +1032,7 @@ const VideoBubbles: React.FC<VideoBubblesProps> = ({ onClose, readingStep }) => 
                                     ? 'bg-red-600 hover:bg-red-700'
                                     : 'bg-gray-700 hover:bg-gray-600'
                                 } text-white transition-colors`}
-                                style={{ pointerEvents: 'auto' }}
+                                
                                 title={participantState.isVideoMuted ? 'Show participant video' : 'Hide participant video'}
                               >
                                 {participantState.isVideoMuted ? <VideoOff className="w-3 h-3" /> : <Video className="w-3 h-3" />}
@@ -1134,7 +1134,7 @@ const VideoBubbles: React.FC<VideoBubblesProps> = ({ onClose, readingStep }) => 
                   {showLocalControls && (
                     <motion.div
                       className="absolute inset-0 bg-black/70 flex items-center justify-center gap-1 z-10"
-                      style={{ pointerEvents: 'auto' }}
+                      
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
@@ -1151,7 +1151,7 @@ const VideoBubbles: React.FC<VideoBubblesProps> = ({ onClose, readingStep }) => 
                             ? 'bg-gray-700 hover:bg-gray-600'
                             : 'bg-red-600 hover:bg-red-700'
                         } text-white transition-colors`}
-                        style={{ pointerEvents: 'auto' }}
+                        
                         title={isAudioEnabled ? 'Mute' : 'Unmute'}
                       >
                         {isAudioEnabled ? <Mic className="w-3 h-3" /> : <MicOff className="w-3 h-3" />}
@@ -1171,7 +1171,7 @@ const VideoBubbles: React.FC<VideoBubblesProps> = ({ onClose, readingStep }) => 
                               ? 'bg-gray-700 hover:bg-gray-600'
                               : 'bg-red-600 hover:bg-red-700'
                         } text-white transition-colors`}
-                        style={{ pointerEvents: 'auto' }}
+                        
                         title={
                           shouldForceAudioOnlyOnMobile
                             ? 'Video disabled (audio-only mode on mobile)'
@@ -1188,7 +1188,7 @@ const VideoBubbles: React.FC<VideoBubblesProps> = ({ onClose, readingStep }) => 
                           handleExitCall();
                         }}
                         className="p-1 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors"
-                        style={{ pointerEvents: 'auto' }}
+                        
                         title="Leave video call"
                       >
                         <LogOut className="w-3 h-3" />
@@ -1302,7 +1302,7 @@ const VideoBubbles: React.FC<VideoBubblesProps> = ({ onClose, readingStep }) => 
                       {showControls && (
                         <motion.div
                           className="absolute inset-0 bg-black/70 flex items-center justify-center gap-1 z-10"
-                          style={{ pointerEvents: 'auto' }}
+                          
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
@@ -1319,7 +1319,7 @@ const VideoBubbles: React.FC<VideoBubblesProps> = ({ onClose, readingStep }) => 
                                 ? 'bg-red-600 hover:bg-red-700'
                                 : 'bg-gray-700 hover:bg-gray-600'
                             } text-white transition-colors`}
-                            style={{ pointerEvents: 'auto' }}
+                            
                             title={participantState.isAudioMuted ? 'Unmute participant' : 'Mute participant'}
                           >
                             {participantState.isAudioMuted ? <VolumeX className="w-2 h-2" /> : <Volume2 className="w-2 h-2" />}
@@ -1336,7 +1336,7 @@ const VideoBubbles: React.FC<VideoBubblesProps> = ({ onClose, readingStep }) => 
                                 ? 'bg-red-600 hover:bg-red-700'
                                 : 'bg-gray-700 hover:bg-gray-600'
                             } text-white transition-colors`}
-                            style={{ pointerEvents: 'auto' }}
+                            
                             title={participantState.isVideoMuted ? 'Show participant video' : 'Hide participant video'}
                           >
                             {participantState.isVideoMuted ? <VideoOff className="w-2 h-2" /> : <Video className="w-2 h-2" />}

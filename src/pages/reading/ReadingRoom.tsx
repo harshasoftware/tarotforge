@@ -166,9 +166,6 @@ const ReadingRoom = () => {
     height: typeof window !== 'undefined' ? window.innerHeight : 0,
   });
 
-  // Force re-render counter for tab switching
-  const [, forceUpdate] = useState(0);
-
   // Update screen dimensions on resize
   useEffect(() => {
     const updateDimensions = () => {
@@ -181,71 +178,7 @@ const ReadingRoom = () => {
     window.addEventListener('resize', updateDimensions);
     updateDimensions(); // Initial call
 
-    // Add focus event listener to re-enable interactions after tab switch
-    const handleWindowFocus = () => {
-      console.log('[Focus] Window regained focus, re-enabling interactions');
-
-      // Immediately reset pointer-events everywhere
-      document.body.style.pointerEvents = '';
-      document.documentElement.style.pointerEvents = '';
-
-      // Force React to re-render
-      forceUpdate(prev => prev + 1);
-
-      // More aggressive cleanup - remove all pointer-events: none
-      requestAnimationFrame(() => {
-        // Reset body and html
-        document.body.style.pointerEvents = '';
-        document.documentElement.style.pointerEvents = '';
-
-        // Clear from all elements with inline pointer-events
-        const allElements = document.querySelectorAll('[style*="pointer-events"]');
-        allElements.forEach((el) => {
-          const htmlEl = el as HTMLElement;
-          if (htmlEl.style.pointerEvents === 'none' &&
-              !htmlEl.classList.contains('pointer-events-none') &&
-              !htmlEl.hasAttribute('disabled')) {
-            console.log('[Focus] Clearing pointer-events: none from element', htmlEl);
-            htmlEl.style.pointerEvents = '';
-          }
-        });
-
-        // Force another re-render after cleanup
-        forceUpdate(prev => prev + 1);
-      });
-    };
-
-    const handleWindowBlur = () => {
-      console.log('[Blur] Window lost focus');
-    };
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('[Visibility] Page became visible, re-enabling interactions');
-        // Reset immediately
-        document.body.style.pointerEvents = '';
-        document.documentElement.style.pointerEvents = '';
-
-        // Force re-render
-        forceUpdate(prev => prev + 1);
-
-        // Trigger the same cleanup as focus
-        requestAnimationFrame(() => {
-          handleWindowFocus();
-        });
-      }
-    };
-
-    window.addEventListener('focus', handleWindowFocus);
-    window.addEventListener('blur', handleWindowBlur);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener('resize', updateDimensions);
-      window.removeEventListener('focus', handleWindowFocus);
-      window.removeEventListener('blur', handleWindowBlur);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
   // Filter layouts for mobile - only show single-card and three-card spreads
@@ -2250,13 +2183,6 @@ const ReadingRoom = () => {
   // Handle sharing with native share API on mobile or modal on desktop
   const handleShare = async () => {
     console.log('handleShare called, sessionId:', sessionId);
-
-    // Ensure pointer events are enabled (in case they were disabled after tab switch)
-    if (document.body.style.pointerEvents === 'none') {
-      console.log('[handleShare] Re-enabling pointer events');
-      document.body.style.pointerEvents = 'auto';
-    }
-
     if (!sessionId) {
       console.log('No sessionId, returning early');
       return;
@@ -2955,7 +2881,7 @@ const ReadingRoom = () => {
                       handleShare();
                     }}
                     className="btn btn-ghost bg-muted/50 hover:bg-muted px-3 py-2 text-sm flex items-center gap-2 rounded-lg touch-manipulation whitespace-nowrap"
-                    style={{ minHeight: '36px', pointerEvents: 'auto' }}
+                    style={{ minHeight: '36px' }}
                     disabled={!sessionId}
                   >
                     <UserPlus className="h-4 w-4" />
@@ -3242,7 +3168,7 @@ const ReadingRoom = () => {
                     handleShare();
                   }}
                   className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center gap-1"
-                  style={{ pointerEvents: 'auto' }}
+                  style={{  }}
                   disabled={!sessionId}
                 >
                   <UserPlus className="h-4 w-4" />
@@ -4911,7 +4837,7 @@ const ReadingRoom = () => {
         {showHelpModal && (
           <div
             className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
-            style={{ pointerEvents: 'auto' }}
+            style={{  }}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -4924,7 +4850,7 @@ const ReadingRoom = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              style={{ pointerEvents: 'auto' }}
+              style={{  }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
@@ -4936,7 +4862,7 @@ const ReadingRoom = () => {
                     setShowHelpModal(false);
                   }}
                   className="text-muted-foreground hover:text-foreground transition-colors"
-                  style={{ pointerEvents: 'auto' }}
+                  style={{  }}
                 >
                   <X className="h-6 w-6" />
                 </button>
@@ -5202,7 +5128,7 @@ const ReadingRoom = () => {
                       setShowHelpModal(false);
                     }}
                     className="btn btn-primary px-6 py-2 mt-4"
-                    style={{ pointerEvents: 'auto' }}
+                    style={{  }}
                   >
                     Got it!
                   </button>
@@ -5235,7 +5161,7 @@ const ReadingRoom = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            style={{ pointerEvents: 'auto' }}
+            style={{  }}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -5248,7 +5174,7 @@ const ReadingRoom = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              style={{ pointerEvents: 'auto' }}
+              style={{  }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-3 mb-4">
@@ -5284,7 +5210,7 @@ const ReadingRoom = () => {
                     setShowExitModal(false);
                   }}
                   className="flex-1 px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors"
-                  style={{ pointerEvents: 'auto' }}
+                  style={{  }}
                 >
                   Stay in Session
                 </button>
@@ -5580,7 +5506,7 @@ const ReadingRoom = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            style={{ pointerEvents: 'auto' }}
+            style={{  }}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -5593,7 +5519,7 @@ const ReadingRoom = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              style={{ pointerEvents: 'auto' }}
+              style={{  }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-3 mb-4">
