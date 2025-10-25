@@ -27,6 +27,7 @@ import { getPlatformShortcut, KEY_CODES, KEY_VALUES } from './constants/shortcut
 import { fisherYatesShuffle, cleanMarkdownText, getTransform } from './utils/cardHelpers';
 import { getDefaultZoomLevel } from './utils/layoutHelpers'; 
 import { generateShareableLink, getTodayDateString, isCacheValid, copyRoomLink as copyRoomLinkHelper } from './utils/sessionHelpers'; // Updated import
+import { generateSessionInviteLink } from '../../utils/inviteLinks';
 import { useDeviceAndOrientationDetection } from './hooks/useDeviceAndOrientationDetection';
 import { debounce } from 'lodash';
 import { useTheme } from '../../hooks/useTheme'; 
@@ -432,6 +433,7 @@ const ReadingRoom = () => {
   // UI State
   const [showShareModal, setShowShareModal] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
+  const [copiedButtonType, setCopiedButtonType] = useState<'video' | 'regular' | null>(null);
   const [showMobileInterpretation, setShowMobileInterpretation] = useState(false);
   
   // Pinch zoom hint state
@@ -2194,7 +2196,9 @@ const ReadingRoom = () => {
     }
 
     // Show invite dropdown instead of auto-starting video
+    console.log('Setting showInviteDropdown to true');
     setShowInviteDropdown(true);
+    console.log('Invite dropdown should now be visible');
   };
 
   // Handle guest account upgrade
@@ -5467,9 +5471,7 @@ const ReadingRoom = () => {
                   <div>Layout: {selectedLayout?.name || 'Custom'}</div>
                   {question && <div>Question: "{question}"</div>}
                   <div>Step: {readingStep}</div>
-                  {participants.length > 0 && (
-                    <div>Participants: {participants.length + 1} people</div>
-                  )}
+                  <div>Participants: {participants.length + 1} {participants.length + 1 === 1 ? 'person' : 'people'}</div>
                   {showVideoChat && (
                     <div className="text-green-600">✓ Video chat active</div>
                   )}
@@ -5485,7 +5487,7 @@ const ReadingRoom = () => {
                       if (!showVideoChat && !isVideoConnecting) {
                         console.log('Starting video call for sharing...');
                         setIsVideoConnecting(true);
-                        
+
                         try {
                           await startCall();
                           console.log('Video call started successfully');
@@ -5498,26 +5500,61 @@ const ReadingRoom = () => {
                           setIsVideoConnecting(false);
                         }
                       }
-                      
-                      // Then proceed with sharing
-                      setShowInviteDropdown(false);
-                      setShowShareModal(true);
+
+                      // Generate and copy invite link with video enabled
+                      if (sessionId) {
+                        const inviteLink = await generateSessionInviteLink(
+                          sessionId,
+                          user?.id || null,
+                          anonymousId
+                        );
+
+                        if (inviteLink) {
+                          // Add enableVideo parameter to the invite link
+                          const videoInviteLink = inviteLink + '&enableVideo=true';
+                          navigator.clipboard.writeText(videoInviteLink);
+                          showSuccessToast('Video invite link copied to clipboard!');
+                          console.log('Video invite link generated:', videoInviteLink);
+
+                          // Show copied feedback
+                          setShowCopied(true);
+                          setCopiedButtonType('video');
+                          setTimeout(() => {
+                            setShowCopied(false);
+                            setCopiedButtonType(null);
+                            // Close dropdown after showing feedback
+                            setShowInviteDropdown(false);
+                          }, 2000);
+                        } else {
+                          showErrorToast('Failed to generate invite link');
+                        }
+                      }
                     }}
                     disabled={isVideoConnecting}
                     className="w-full p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors text-left"
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
-                        <Video className="h-5 w-5 text-green-600" />
+                        {showCopied && copiedButtonType === 'video' ? (
+                          <Check className="h-5 w-5 text-green-600" />
+                        ) : (
+                          <Video className="h-5 w-5 text-green-600" />
+                        )}
                       </div>
                       <div className="flex-1">
                         <div className="font-medium">
-                          {showVideoChat ? 'Share with Video Chat' : 'Start Video Chat & Share'}
+                          {showCopied && copiedButtonType === 'video'
+                            ? 'Link Copied!'
+                            : showVideoChat
+                              ? 'Share with Video Chat'
+                              : 'Start Video Chat & Share'}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {showVideoChat 
-                            ? 'Video chat is active. Share link with video enabled.'
-                            : 'Start video call and share invitation link'
+                          {showCopied && copiedButtonType === 'video'
+                            ? 'Share the link with participants'
+                            : showVideoChat
+                              ? 'Video chat is active. Share link with video enabled.'
+                              : 'Start video call and share invitation link'
                           }
                         </div>
                       </div>
@@ -5530,20 +5567,54 @@ const ReadingRoom = () => {
                 
                 {/* Regular share option */}
                 <button
-                  onClick={() => {
-                    setShowInviteDropdown(false);
-                    setShowShareModal(true);
+                  onClick={async () => {
+                    // Generate and copy invite link without video
+                    if (sessionId) {
+                      const inviteLink = await generateSessionInviteLink(
+                        sessionId,
+                        user?.id || null,
+                        anonymousId
+                      );
+
+                      if (inviteLink) {
+                        navigator.clipboard.writeText(inviteLink);
+                        showSuccessToast('Invite link copied to clipboard!');
+                        console.log('Invite link generated:', inviteLink);
+
+                        // Show copied feedback
+                        setShowCopied(true);
+                        setCopiedButtonType('regular');
+                        setTimeout(() => {
+                          setShowCopied(false);
+                          setCopiedButtonType(null);
+                          // Close dropdown after showing feedback
+                          setShowInviteDropdown(false);
+                        }, 2000);
+                      } else {
+                        showErrorToast('Failed to generate invite link');
+                      }
+                    }
                   }}
                   className="w-full p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors text-left"
                 >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                      <Share2 className="h-5 w-5 text-blue-600" />
+                      {showCopied && copiedButtonType === 'regular' ? (
+                        <Check className="h-5 w-5 text-blue-600" />
+                      ) : (
+                        <Share2 className="h-5 w-5 text-blue-600" />
+                      )}
                     </div>
                     <div className="flex-1">
-                      <div className="font-medium">Share Reading Room</div>
+                      <div className="font-medium">
+                        {showCopied && copiedButtonType === 'regular'
+                          ? 'Link Copied!'
+                          : 'Share Reading Room'}
+                      </div>
                       <div className="text-sm text-muted-foreground">
-                        Share invitation link without video chat
+                        {showCopied && copiedButtonType === 'regular'
+                          ? 'Share the link with participants'
+                          : 'Share invitation link without video chat'}
                       </div>
                     </div>
                   </div>
