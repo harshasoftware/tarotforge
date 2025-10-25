@@ -71,16 +71,6 @@ export const useSupabaseHealthWorker = (sessionId: string | null) => {
     });
   }, []);
 
-  // Expose sendDatabaseUpdate globally so store can use it
-  useEffect(() => {
-    if (workerRef.current) {
-      (window as any).__workerDatabaseUpdate = sendDatabaseUpdate;
-    }
-    return () => {
-      delete (window as any).__workerDatabaseUpdate;
-    };
-  }, [sendDatabaseUpdate]);
-
   useEffect(() => {
     // Only initialize worker for database sessions
     if (!sessionId || sessionId.startsWith('local_')) {
@@ -93,6 +83,10 @@ export const useSupabaseHealthWorker = (sessionId: string | null) => {
     // Create worker
     try {
       workerRef.current = new Worker('/supabase-health-worker.js');
+
+      // Expose sendDatabaseUpdate globally AFTER worker is created
+      (window as any).__workerDatabaseUpdate = sendDatabaseUpdate;
+      console.log('[useSupabaseHealthWorker] Exposed global database update function');
 
       // Listen for messages from worker
       workerRef.current.onmessage = (event) => {
@@ -173,6 +167,9 @@ export const useSupabaseHealthWorker = (sessionId: string | null) => {
         console.log('[useSupabaseHealthWorker] Cleaning up worker');
 
         document.removeEventListener('visibilitychange', handleVisibilityChange);
+
+        // Remove global function
+        delete (window as any).__workerDatabaseUpdate;
 
         if (workerRef.current) {
           workerRef.current.postMessage({ type: 'STOP' });
