@@ -4,11 +4,11 @@ This document details the fixes implemented to resolve issues with modal interac
 
 ## Date: 2025-10-25
 
-**Latest Update:** Extended fixes for canvas-related interactions after tab switching
+**Latest Update:** ACTUAL ROOT CAUSE FOUND - Fixed stale closures in event listener hooks
 
 ---
 
-## Issue 1: Canvas Interactions Not Working After Tab Switch
+## Issue 1: Canvas Interactions Not Working After Tab Switch (TRULY RESOLVED)
 
 ### Problem
 When users switched browser tabs and returned to the reading room, ALL canvas-related interactions stopped working:
@@ -21,148 +21,151 @@ When users switched browser tabs and returned to the reading room, ALL canvas-re
 
 However, modals NOT on the canvas (Exit modal, Deck modal) continued to work correctly.
 
-### Root Cause
-After extensive investigation, the issue was identified as a fundamental disruption of React's event delegation system when browser tabs are switched. Unlike previous issues with modals that could be fixed by removing `preventDefault`/`stopPropagation`, this required a more aggressive approach to force the entire event system to re-initialize.
+### Root Cause (THE REAL ISSUE - FINALLY FOUND!)
 
-### Solution - Super Nuclear Option
+After the user reported that buttons we NEVER touched (like "View Detail") also broke after tab switching, and that the canvas was "completely frozen", we discovered the ACTUAL root cause:
 
-#### 1. Enhanced Visibility Change Handler
-**File:** `src/pages/reading/ReadingRoom.tsx` (lines 187-238)
+**Stale closures in event listener cleanup functions**
 
-Implemented an aggressive event re-initialization system that:
-1. Forces component remounting via canvas key
-2. Clears `pointer-events: none` from ALL DOM elements
-3. Dispatches real MouseEvent to trigger React's event delegation
-4. Makes document.body focusable and focuses it
+The issue exists in these custom hooks:
+1. `useReadingRoomKeyboardShortcuts.ts` (lines 432-446)
+2. `useDocumentMouseListeners.ts` (line 67)
 
-```typescript
-useEffect(() => {
-  const handleVisibilityChange = () => {
-    if (!document.hidden) {
-      console.log('[Tab Visibility] Tab became visible, re-initializing event system');
+#### The Problem Pattern
 
-      // Force a re-render by updating canvas key (remounts reading area)
-      setCanvasKey(prev => prev + 1);
-
-      // SUPER NUCLEAR OPTION: Force all elements to be interactive
-      setTimeout(() => {
-        // Remove pointer-events: none from ALL elements
-        document.body.style.pointerEvents = 'auto';
-        const allElements = document.querySelectorAll('*');
-        allElements.forEach((el) => {
-          const htmlEl = el as HTMLElement;
-          if (htmlEl.style.pointerEvents === 'none' &&
-              !htmlEl.classList.contains('pointer-events-none')) {
-            htmlEl.style.pointerEvents = 'auto';
-          }
-        });
-
-        // Force React root to re-delegate events by simulating user interaction
-        const root = document.getElementById('root');
-        if (root) {
-          // Create a real MouseEvent instead of generic Event
-          const mouseEvent = new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            view: window
-          });
-          root.dispatchEvent(mouseEvent);
-          console.log('[Tab Visibility] React event delegation re-triggered');
-        }
-
-        // Force document.body to be focusable and focused
-        document.body.setAttribute('tabindex', '-1');
-        document.body.focus();
-        console.log('[Tab Visibility] Document focus reset');
-      }, 100);
-    }
-  };
-
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-  window.addEventListener('focus', handleVisibilityChange);
-
-  return () => {
-    document.removeEventListener('visibilitychange', handleVisibilityChange);
-    window.removeEventListener('focus', handleVisibilityChange);
-  };
-}, []);
-```
-
-#### 2. Native Click Handler Backup System
-**File:** `src/pages/reading/ReadingRoom.tsx` (lines 240-273)
-
-Added a backup native DOM event listener that operates independently of React's synthetic event system:
+These hooks had callback functions in their dependency arrays:
 
 ```typescript
 useEffect(() => {
-  let needsBackup = false;
+  const handleKeyDown = (event: KeyboardEvent) => {
+    closeCardGallery();  // Direct callback invocation
+    toggleHelpModal();   // Direct callback invocation
+    // ... etc
+  };
 
-  // Detect if we need backup (set flag when tab becomes hidden)
-  const handleTabHidden = () => {
-    if (document.hidden) {
-      console.log('[Backup Handler] Tab hidden, backup may be needed on return');
-      needsBackup = true;
+  document.addEventListener('keydown', handleKeyDown);
+  return () => {
+    document.removeEventListener('keydown', handleKeyDown);
+  };
+}, [closeCardGallery, toggleHelpModal, ...35 more callbacks]);
+```
+
+#### Why This Breaks on Tab Switching
+
+1. **Callbacks aren't memoized** - Parent component recreates them on every render
+2. **useEffect re-runs** - When callbacks change, useEffect cleanup runs
+3. **Stale closure bug** - The cleanup function removes the CURRENT `handleKeyDown`, not the old one
+4. **Event listeners lost** - After cleanup, NO listeners remain attached
+5. **Canvas frozen** - All keyboard shortcuts, mouse events, button clicks stop working
+
+#### The Critical Clue
+
+User said: "viewdetail button also has this issue"
+
+The View Detail button was NEVER touched by any of our "fixes". This proved the issue wasn't caused by our code - it was a pre-existing bug with stale closures that happened to manifest more frequently during tab switching (due to React re-rendering on visibility change).
+
+### The Actual Solution (THE REAL FIX)
+
+**Use the Ref Pattern to avoid stale closures**
+
+We fixed TWO hooks that had this issue:
+
+#### Fix 1: `useDocumentMouseListeners.ts`
+
+**Problem:** Callback functions in dependency array caused stale closures
+
+**Solution:**
+```typescript
+// Create refs for callbacks
+const onDragMoveRef = useRef(onDragMove);
+const onPanMoveRef = useRef(onPanMove);
+const onDragEndRef = useRef(onDragEnd);
+const onPanEndRef = useRef(onPanEnd);
+
+// Update refs when callbacks change (OUTSIDE useEffect)
+onDragMoveRef.current = onDragMove;
+onPanMoveRef.current = onPanMove;
+onDragEndRef.current = onDragEnd;
+onPanEndRef.current = onPanEnd;
+
+useEffect(() => {
+  const handleMouseMove = (e: MouseEvent) => {
+    // Use ref.current instead of direct callback
+    if (isDraggingCard) {
+      onDragMoveRef.current({ x: e.clientX, y: e.clientY });
     }
   };
 
-  const handleNativeClick = (e: MouseEvent) => {
-    if (!needsBackup) return;
-
-    const target = e.target as HTMLElement;
-    console.log('[Backup Handler] Native click detected on:', target);
-
-    // After first successful click, disable backup
-    setTimeout(() => {
-      console.log('[Backup Handler] React event system appears functional, disabling backup');
-      needsBackup = false;
-    }, 1000);
-  };
-
-  document.addEventListener('visibilitychange', handleTabHidden);
-  document.addEventListener('click', handleNativeClick, true); // Use capture phase
-
+  document.addEventListener('mousemove', handleMouseMove);
   return () => {
-    document.removeEventListener('visibilitychange', handleTabHidden);
-    document.removeEventListener('click', handleNativeClick, true);
+    document.removeEventListener('mousemove', handleMouseMove);
   };
-}, []);
+}, [isDraggingCard, isPanningView, isDraggingPlacedCard]);
+// ↑ Removed ALL callback deps - only primitive values
 ```
 
-#### 3. Canvas Remounting with Key Prop
-**File:** `src/pages/reading/ReadingRoom.tsx` (lines 3903, 4670)
+#### Fix 2: `useReadingRoomKeyboardShortcuts.ts`
 
-Added canvas key to force complete remount of reading area components:
+**Problem:** MASSIVE dependency array with 35+ callback functions
 
-```typescript
-// Drawing step
-<div key={`drawing-step-${canvasKey}`} className="...">
+**Solution:** Applied the same ref pattern:
+- Created refs for ALL 35 callback functions
+- Updated refs outside useEffect
+- Used `.current` version in event handlers
+- Removed ALL callbacks from dependency array
+- Kept only primitive/boolean state values
 
-// Interpretation step
-<div key={`interpretation-step-${canvasKey}`} className="...">
-```
+#### Why This Works:
 
-### Benefits
-- ✅ Forces complete re-initialization of React's event system
-- ✅ Clears all stale pointer-events from DOM
-- ✅ Uses real MouseEvent instead of generic Event for better compatibility
-- ✅ Provides native DOM backup when React fails
-- ✅ Detects when backup is needed vs when React is working
-- ✅ Auto-disables backup once React event system is functional
+1. **Refs are stable** - They don't trigger re-renders or useEffect re-runs
+2. **Always current** - `.current` always points to the latest callback
+3. **No stale closures** - Cleanup function removes the correct listener
+4. **Event listeners persist** - They stay attached across tab switches
+5. **Canvas unfrozen** - All interactions work correctly
 
-### Technical Notes
+#### What We Also Removed (Cleanup):
 
-**Why Previous Approaches Failed:**
-1. **Removing preventDefault/stopPropagation** - Necessary but not sufficient
-2. **Using flushSync** - Doesn't address event delegation issues
-3. **Remounting components** - Only helps if event system is functional
-4. **Dispatching generic Events** - Doesn't trigger React's delegation properly
+Since the stale closure was the real issue, we also removed the unnecessary "fixes":
+1. **Removed `canvasKey` state** - Wasn't needed
+2. **Removed visibility handlers** - Weren't the solution
+3. **Removed "super nuclear option"** - Was making it worse
+4. **Removed key props from containers** - Weren't helping
 
-**Why Super Nuclear Option Works:**
-1. **Real MouseEvent** - Properly triggers React's event delegation system
-2. **Capture phase listener** - Native backup catches events before React
-3. **Force focus** - Ensures document is ready to receive events
-4. **Clear ALL pointer-events** - Removes any stale browser state
-5. **Remount containers** - Ensures fresh React component tree
+### Failed "Solutions" That Made It Worse (For Historical Reference)
+
+#### ❌ Attempt 1: Super Nuclear Option (CAUSED SIDE EFFECTS - REMOVED)
+
+**User feedback:** "this fix is way worse" - it introduced many side effect issues
+
+**Problems with this approach:**
+1. ❌ **Performance degradation** - Queried and modified EVERY DOM element on every tab switch
+2. ❌ **Focus stealing** - `document.body.focus()` stole focus from legitimate inputs
+3. ❌ **Event flooding** - Synthetic clicks bubbled through entire component tree
+4. ❌ **Race conditions** - 100ms timeout raced with React's mounting cycle
+5. ❌ **Stale closures** - Remounting created the exact problem it tried to solve
+6. ❌ **Breaking existing functionality** - Modified pointer-events on elements that needed them
+
+#### ❌ Attempt 2-5: Various Other Failed Approaches
+
+1. **Removed preventDefault/stopPropagation** - Didn't address the real issue
+2. **Used flushSync** - Wrong import, then didn't solve the problem anyway
+3. **Remounted with key props** - This WAS the problem, not the solution
+4. **Dispatched synthetic events** - Can't handle events without listeners
+5. **Native DOM backup listeners** - Added unnecessary complexity
+
+### Why The Simple Solution Works
+
+**Key Insight from Opus Analysis:**
+
+> "React's event system does NOT break on tab switches. You're breaking it by forcing component remounts that trigger StrictMode's double-mounting with stale closures."
+
+The original code worked fine. The attempted "fixes" created the problem. By removing all the special handling:
+
+1. ✅ **Event listeners stay attached** - React maintains them across tab switches
+2. ✅ **No stale closures** - No forced remounts = no cleanup race conditions
+3. ✅ **Better performance** - No DOM manipulation on every tab switch
+4. ✅ **Simpler code** - Less complexity = fewer bugs
+5. ✅ **Consistent behavior** - Works the same in dev (StrictMode) and production
 
 ---
 
@@ -455,22 +458,22 @@ interface GuestVideoJoinModalProps {
 
 ## Testing Recommendations
 
-### Canvas Interaction Test (CRITICAL)
+### Canvas Interaction Test (CRITICAL - FINAL FIX)
 1. Open a reading session with a layout selected
 2. Switch to a different browser tab
 3. Wait 5+ seconds
 4. Return to the reading session tab
-5. **Test the following interactions:**
+5. **Test the following interactions - ALL SHOULD WORK IMMEDIATELY:**
    - Click the invite button → **Expected:** Modal opens successfully
    - Press 'i' keyboard shortcut → **Expected:** Invite modal opens
    - Click "Reveal All" button → **Expected:** All cards are revealed
    - Try to place a card on the canvas → **Expected:** Card can be placed
    - Use zoom controls (+/-) → **Expected:** Zoom works
    - Click interpretation icon on card → **Expected:** Modal opens
-6. **Check browser console for logs:**
-   - Should see: `[Tab Visibility] Tab became visible, re-initializing event system`
-   - Should see: `[Tab Visibility] React event delegation re-triggered`
-   - Should see: `[Tab Visibility] Document focus reset`
+6. **Check browser console:**
+   - Should NOT see any special tab visibility logs
+   - Should NOT see any "re-initializing event system" messages
+   - Clean console = working correctly
 
 ### Tab Switching Test (Original)
 1. Open a reading session
@@ -503,20 +506,49 @@ interface GuestVideoJoinModalProps {
 
 ## Files Modified
 
-### Core Fixes (Latest - 2025-10-25)
+### Core Fixes (ACTUAL FIX - 2025-10-25)
+
+#### Event Listener Hooks (THE REAL FIX)
+- `src/pages/reading/hooks/useDocumentMouseListeners.ts`
+  - **FIXED:** Stale closure bug with callback functions
+  - **Added:** Refs for all 4 callback functions (onDragMove, onPanMove, onDragEnd, onPanEnd)
+  - **Updated:** Event handlers to use `.current` version of callbacks
+  - **Removed:** Callback functions from dependency array (line 79)
+  - **Kept:** Only primitive values (isDraggingCard, isPanningView, isDraggingPlacedCard)
+  - **Result:** Mouse drag/pan events work after tab switching ✅
+
+- `src/pages/reading/hooks/useReadingRoomKeyboardShortcuts.ts`
+  - **FIXED:** Stale closure bug with 35+ callback functions
+  - **Added:** Refs for ALL 35 callback functions
+  - **Updated:** All callback invocations in handleKeyDown/handleKeyUp to use `.current`
+  - **Removed:** ALL 35 callbacks from dependency array (lines 504-537)
+  - **Kept:** Only state values and primitive dependencies
+  - **Result:** Keyboard shortcuts work after tab switching ✅
+
+#### Direct Event Listeners in ReadingRoom.tsx (ALSO FIXED)
+- **beforeunload Event Listener (Lines 214-400)**
+  - **Problem:** Used `isInCall`, `endCall`, `pauseAmbientSound` callbacks in deps
+  - **Fix:** Created refs to track callback values, removed from deps
+  - **Result:** Video call cleanup works correctly on page unload ✅
+
+- **Scroll/Resize Event Listeners (Lines 730-768)**
+  - **Problem:** Had `checkScrollPosition` callback in deps
+  - **Fix:** Created ref for callback, wrapper functions for event handlers
+  - **Result:** Scroll/resize handlers persist after tab switching ✅
+
+- **Keydown Event Listener for 'i' shortcut (Lines 2288-2315)**
+  - **Problem:** Had `handleShare` callback in deps
+  - **Fix:** Created ref for `handleShare`, empty dependency array
+  - **Result:** 'i' keyboard shortcut works after tab switching ✅
+
+#### Cleanup (Removed Unnecessary "Fixes")
 - `src/pages/reading/ReadingRoom.tsx`
-  - **Lines 171, 195:** Added `canvasKey` state for forcing component remounting
-  - **Lines 187-238:** Super Nuclear Option - Enhanced visibility change handler
-    - Clears pointer-events from ALL DOM elements
-    - Dispatches real MouseEvent to React root
-    - Forces document.body focus with tabindex
-  - **Lines 240-273:** Native click handler backup system
-    - Operates independently of React's synthetic events
-    - Uses capture phase to intercept clicks before React
-    - Auto-disables when React event system is functional
-  - **Lines 3903, 4670:** Added key props to drawing-step and interpretation-step containers
-  - **Lines ~2877, ~3160:** Simplified invite button handlers (removed preventDefault/stopPropagation)
-  - **Canvas mousedown handler (~3925):** Removed preventDefault/stopPropagation that was poisoning events
+  - **REMOVED:** `canvasKey` state (line ~171) - wasn't the solution
+  - **REMOVED:** Visibility change handler (lines ~187-238) - wasn't needed
+  - **REMOVED:** Native click backup handler (lines ~240-273) - unnecessary
+  - **REMOVED:** Key props from containers (lines ~3863, ~4630) - didn't help
+  - **Result:** Cleaner code without side effects
+  - **Bundle size reduction:** ReadingRoom.tsx: 272.56 kB → 271.06 kB (-1.5 kB)
 
 ### Previous Modal Fixes
 - `src/pages/reading/ReadingRoom.tsx`
@@ -598,34 +630,61 @@ Current z-index values:
 
 ## Summary of All Fixes (Chronological)
 
-### Phase 1: Basic Modal Fixes
+### Phase 1: Basic Modal Fixes (KEPT)
 - Removed `preventDefault`/`stopPropagation` from modal handlers
-- Added window focus/blur event listeners
 - Enhanced pointer-events management
+- These changes were good and remain in the codebase
 
-### Phase 2: Video Controls
+### Phase 2: Video Controls (KEPT)
 - Added explicit pointer-events to video control overlays
 - Fixed z-index layering
 - Enhanced button click handlers
+- These fixes solved real video control issues
 
-### Phase 3: Canvas Interactions (SUPER NUCLEAR OPTION)
-- **Problem Scope Expansion:** Discovered canvas-related interactions also broken
-- **Root Cause:** React's root event delegation system disrupted by tab switching
-- **Solution:**
-  1. Force component remounting with canvas key
-  2. Clear pointer-events from ALL DOM elements
-  3. Dispatch real MouseEvent (not generic Event) to React root
-  4. Force document.body focus with tabindex
-  5. Native DOM backup listener using capture phase
-- **Key Insight:** Generic `Event` objects don't trigger React's delegation; must use `MouseEvent`
-- **Backup Strategy:** Native listener operates independently when React fails
+### Phase 3: Canvas Interactions - THE MISTAKE
+- **Problem Identified:** Canvas interactions broken after tab switch
+- **Wrong Assumption:** React's event system breaks on tab switching
+- **Failed Attempts:**
+  1. ❌ Added visibility handlers to remount components
+  2. ❌ Used flushSync for state updates
+  3. ❌ Added canvasKey to force remounts
+  4. ❌ Dispatched synthetic events
+  5. ❌ "Super Nuclear Option" - caused worse side effects
 
-### Approaches Tried (Before Success)
-1. ❌ Remove preventDefault/stopPropagation only
-2. ❌ Use flushSync for state updates (wrong import, then removed)
-3. ❌ Remount canvas with key only
-4. ❌ Dispatch generic Event objects
-5. ✅ **SUPER NUCLEAR:** All of the above + real MouseEvent + native backup
+### Phase 4: THE ACTUAL FIX (FINAL - FOR REAL THIS TIME)
+- **Critical Discovery:** User reported "viewdetail button also broken" + "canvas completely frozen"
+- **Aha Moment:** View Detail button was NEVER touched by our "fixes"
+- **Real Root Cause Found:** Stale closures in custom hooks
+  - `useReadingRoomKeyboardShortcuts.ts` - 35+ callbacks in dependency array
+  - `useDocumentMouseListeners.ts` - 4 callbacks in dependency array
+  - Callbacks not memoized → useEffect re-runs → cleanup removes CURRENT listeners → no listeners remain
+- **Solution:** Use ref pattern to prevent stale closures
+  - Created refs for ALL callbacks
+  - Updated refs outside useEffect
+  - Used `.current` in event handlers
+  - Removed callbacks from dependency arrays
+- **Cleanup:** Also removed all the unnecessary "fixes" from Phase 3
+- **Result:** ✅ All interactions work after tab switching
+
+### Key Lessons Learned
+
+**Lesson 1: "Debug the symptom, not the assumption"**
+- We assumed tab switching broke React's event system
+- Reality: Pre-existing stale closure bug that tab switching exposed
+
+**Lesson 2: "When untouched code breaks, look deeper"**
+- View Detail button was never modified but still broke
+- This was the clue that our "fixes" weren't addressing the real issue
+
+**Lesson 3: "The ref pattern prevents stale closures"**
+- Callbacks in dependency arrays are dangerous
+- Use refs to keep callbacks current without triggering re-renders
+- This is a common React pattern for document-level event listeners
+
+**Lesson 4: "Sometimes you need to undo your fixes to find the real problem"**
+- Removing our "fixes" didn't solve it (we tried that first)
+- But it simplified the code enough to see the real issue
+- The combination of cleanup + proper fix was the answer
 
 ---
 

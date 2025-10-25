@@ -40,6 +40,7 @@ import { useParticipantNotificationHandler } from './hooks/useParticipantNotific
 import { useTouchInteractions } from './hooks/useTouchInteractions'; 
 import { useDocumentMouseListeners } from './hooks/useDocumentMouseListeners'; // <<< ADD THIS LINE
 import { useSoundManager } from '../../hooks/useSoundManager'; // Added SoundManager
+import { useSupabaseHealthWorker } from '../../hooks/useSupabaseHealthWorker'; // Web Worker for Supabase health monitoring
 
 // Coordinate transformation helper
 const viewportToPercentage = (
@@ -160,6 +161,10 @@ const ReadingRoom = () => {
   const { isMobile, isTablet, isLandscape } = useDeviceAndOrientationDetection(); // Changed from useMobileDetection
   const { darkMode, toggleTheme } = useTheme();
 
+  // Initialize Supabase Health Worker to handle tab visibility changes
+  // Worker runs independently and isn't throttled when tab is hidden
+  useSupabaseHealthWorker(sessionState?.id || null);
+
   // Track screen dimensions for dynamic zoom calculation
   const [screenDimensions, setScreenDimensions] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 0,
@@ -167,9 +172,6 @@ const ReadingRoom = () => {
   });
 
   // Update screen dimensions on resize
-  // Track tab visibility to force re-render when tab becomes visible
-  const [canvasKey, setCanvasKey] = useState(0);
-
   useEffect(() => {
     const updateDimensions = () => {
       setScreenDimensions({
@@ -184,93 +186,18 @@ const ReadingRoom = () => {
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
-  // Force React to re-render when tab becomes visible again
-  // This re-attaches all event listeners that may have been disrupted
+  // Note: Tab visibility changes are now handled by the Supabase Health Worker
+  // See useSupabaseHealthWorker hook above - it runs in a separate thread
+  // and isn't throttled when the tab is hidden
+
+  // DIAGNOSTIC: Track when Zustand state changes and if component re-renders
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('[Tab Visibility] Tab became visible, re-initializing event system');
-
-        // Force a re-render by updating canvas key (remounts reading area)
-        setCanvasKey(prev => prev + 1);
-
-        // SUPER NUCLEAR OPTION: Force all elements to be interactive
-        setTimeout(() => {
-          // Remove pointer-events: none from ALL elements
-          document.body.style.pointerEvents = 'auto';
-          const allElements = document.querySelectorAll('*');
-          allElements.forEach((el) => {
-            const htmlEl = el as HTMLElement;
-            if (htmlEl.style.pointerEvents === 'none' &&
-                !htmlEl.classList.contains('pointer-events-none')) {
-              htmlEl.style.pointerEvents = 'auto';
-            }
-          });
-
-          // Force React root to re-delegate events by simulating user interaction
-          const root = document.getElementById('root');
-          if (root) {
-            // Create a real MouseEvent instead of generic Event
-            const mouseEvent = new MouseEvent('click', {
-              bubbles: true,
-              cancelable: true,
-              view: window
-            });
-            root.dispatchEvent(mouseEvent);
-            console.log('[Tab Visibility] React event delegation re-triggered');
-          }
-
-          // Force document.body to be focusable and focused
-          document.body.setAttribute('tabindex', '-1');
-          document.body.focus();
-          console.log('[Tab Visibility] Document focus reset');
-        }, 100);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleVisibilityChange);
-    };
-  }, []);
-
-  // Global native click listener as a backup to React's synthetic event system
-  // This directly handles clicks using native DOM events when React's delegation fails after tab switch
-  useEffect(() => {
-    let needsBackup = false;
-
-    // Detect if we need backup (set flag when tab becomes hidden)
-    const handleTabHidden = () => {
-      if (document.hidden) {
-        console.log('[Backup Handler] Tab hidden, backup may be needed on return');
-        needsBackup = true;
-      }
-    };
-
-    const handleNativeClick = (e: MouseEvent) => {
-      if (!needsBackup) return;
-
-      const target = e.target as HTMLElement;
-      console.log('[Backup Handler] Native click detected on:', target);
-
-      // After first successful click, disable backup
-      setTimeout(() => {
-        console.log('[Backup Handler] React event system appears functional, disabling backup');
-        needsBackup = false;
-      }, 1000);
-    };
-
-    document.addEventListener('visibilitychange', handleTabHidden);
-    document.addEventListener('click', handleNativeClick, true); // Use capture phase
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleTabHidden);
-      document.removeEventListener('click', handleNativeClick, true);
-    };
-  }, []);
+    console.log('[ZUSTAND-RE-RENDER] Component re-rendered due to sessionState change');
+    console.log('[ZUSTAND-RE-RENDER] Current selectedCards count:', sessionState?.selectedCards?.length || 0);
+    console.log('[ZUSTAND-RE-RENDER] Current selectedCards:', sessionState?.selectedCards);
+    console.log('[ZUSTAND-RE-RENDER] Current tab visibility:', document.hidden ? 'HIDDEN' : 'VISIBLE');
+    console.log('[ZUSTAND-RE-RENDER] Timestamp:', new Date().toISOString());
+  }, [sessionState]);
 
   // Filter layouts for mobile - only show single-card and three-card spreads
   const availableLayouts = useMemo(() => {
@@ -302,6 +229,18 @@ const ReadingRoom = () => {
     localStorage.removeItem('auth_return_path');
   }, [setShowSignInModal]);
   
+  // Refs for event listener callbacks to prevent stale closures
+  const isInCallRef = useRef(isInCall);
+  const endCallRef = useRef(endCall);
+  const pauseAmbientSoundRef = useRef(pauseAmbientSound);
+
+  // Keep refs in sync with current values
+  useEffect(() => {
+    isInCallRef.current = isInCall;
+    endCallRef.current = endCall;
+    pauseAmbientSoundRef.current = pauseAmbientSound;
+  });
+
   // Initialize session on mount
   useEffect(() => {
     playAmbientSound(); // Play ambient sound on mount
@@ -451,9 +390,9 @@ const ReadingRoom = () => {
     
     // Handle browser navigation away from reading room
     const handleBeforeUnload = () => {
-      if (isInCall) {
+      if (isInCallRef.current) {
         console.log('Ending video call before page unload...');
-        endCall();
+        endCallRef.current();
       }
     };
 
@@ -462,21 +401,21 @@ const ReadingRoom = () => {
 
     // Cleanup on unmount
     return () => {
-      pauseAmbientSound(); // Pause ambient sound on unmount
+      pauseAmbientSoundRef.current(); // Pause ambient sound on unmount
       // End video call if user is in one before leaving
-      if (isInCall) {
+      if (isInCallRef.current) {
         console.log('Ending video call before leaving reading room...');
-        endCall();
+        endCallRef.current();
       }
-      
+
       // Remove event listener
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      
+
       cleanup();
       cleanupVideoCall();
       clearInterval(syncInterval);
     };
-  }, [joinSessionId, deckId, shouldCreateSession, user, setInitialSessionId, setDeckId, initializeSession, createSession, signInAnonymously, cleanup, cleanupVideoCall, syncCompleteSessionState, isHost, playAmbientSound, pauseAmbientSound]); // Added user and shouldCreateSession
+  }, [joinSessionId, deckId, shouldCreateSession, user, setInitialSessionId, setDeckId, initializeSession, createSession, signInAnonymously, cleanup, cleanupVideoCall, syncCompleteSessionState, isHost, playAmbientSound]); // Removed pauseAmbientSound from deps - using ref instead
 
   // Initialize video call when session is ready
   useEffect(() => {
@@ -806,6 +745,12 @@ const ReadingRoom = () => {
     setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
   }, []);
 
+  // Ref for checkScrollPosition to prevent stale closures in event listeners
+  const checkScrollPositionRef = useRef(checkScrollPosition);
+  useEffect(() => {
+    checkScrollPositionRef.current = checkScrollPosition;
+  }, [checkScrollPosition]);
+
   // Handle carousel navigation
   const scrollActionBar = useCallback((direction: 'left' | 'right') => {
     if (!actionBarRef.current) return;
@@ -819,23 +764,26 @@ const ReadingRoom = () => {
     });
 
     // Check scroll position after animation
-    setTimeout(checkScrollPosition, 300);
-  }, [checkScrollPosition]);
+    setTimeout(() => checkScrollPositionRef.current(), 300);
+  }, []);
 
   // Monitor scroll changes
   useEffect(() => {
     const element = actionBarRef.current;
     if (!element || !isMobile) return;
 
-    checkScrollPosition();
-    element.addEventListener('scroll', checkScrollPosition);
-    window.addEventListener('resize', checkScrollPosition);
+    const handleScroll = () => checkScrollPositionRef.current();
+    const handleResize = () => checkScrollPositionRef.current();
+
+    checkScrollPositionRef.current();
+    element.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleResize);
 
     return () => {
-      element.removeEventListener('scroll', checkScrollPosition);
-      window.removeEventListener('resize', checkScrollPosition);
+      element.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
     };
-  }, [checkScrollPosition, isMobile]);
+  }, [isMobile]);
 
   // Update session wrappers for state changes (moved before touch handlers)
   const setZoomLevelWrapped = useCallback((newZoomLevel: number) => {
@@ -1743,9 +1691,17 @@ const ReadingRoom = () => {
     }
 
     if (Object.keys(updatesForSession).length > 0) {
+      console.log('[CARD-DROP-DEBUG] Calling updateSession with:', updatesForSession);
+      console.log('[CARD-DROP-DEBUG] selectedCards length before:', selectedCards.length);
       updateSession(updatesForSession);
+      console.log('[CARD-DROP-DEBUG] updateSession called successfully');
+
+      // Log after a brief delay to see if state updated
+      setTimeout(() => {
+        console.log('[CARD-DROP-DEBUG] selectedCards length after update:', selectedCards.length);
+      }, 100);
     }
-    
+
     handleDragEnd();
   };
 
@@ -2354,7 +2310,13 @@ const ReadingRoom = () => {
   const handleGuestBadgeClick = () => {
     setShowGuestUpgrade(true);
   };
-  
+
+  // Ref for handleShare to prevent stale closures in event listeners
+  const handleShareRef = useRef(handleShare);
+  useEffect(() => {
+    handleShareRef.current = handleShare;
+  }, [handleShare]);
+
   // Handle invite keyboard shortcut (I key)
   useEffect(() => {
     const handleInviteKeyDown = (event: KeyboardEvent) => {
@@ -2368,7 +2330,7 @@ const ReadingRoom = () => {
         }
 
         // DO NOT call event.preventDefault() here - it breaks event handling after tab switching
-        handleShare();
+        handleShareRef.current();
       }
     };
 
@@ -2376,7 +2338,7 @@ const ReadingRoom = () => {
     return () => {
       document.removeEventListener('keydown', handleInviteKeyDown);
     };
-  }, [handleShare]);
+  }, []);
 
   
   // Function to fetch marketplace decks
@@ -3951,11 +3913,12 @@ const ReadingRoom = () => {
           
           {/* Step 2: Drawing Cards */}
           {readingStep === 'drawing' && selectedLayout && (
-            <div key={`drawing-step-${canvasKey}`} className={`absolute inset-0 flex flex-col ${isMobile ? (isLandscape ? 'pt-24' : 'pt-28') : 'pt-20'}`}>
+            <div className={`absolute inset-0 flex flex-col ${isMobile ? (isLandscape ? 'pt-24' : 'pt-28') : 'pt-20'}`}>
               {/* Reading table with mobile-friendly zoom controls */}
               <div
                 className="flex-1 relative"
                 ref={readingAreaRef}
+                data-reading-area
                 onDrop={selectedLayout?.id === 'free-layout' ? handleFreeLayoutDrop : undefined}
                 onDragOver={(e) => {
                   if (selectedLayout?.id === 'free-layout') {
@@ -4718,9 +4681,9 @@ const ReadingRoom = () => {
           
           {/* Step 3: Interpretation - mobile responsive layout */}
           {readingStep === 'interpretation' && (
-            <div key={`interpretation-step-${canvasKey}`} className={`absolute inset-0 flex ${isMobile ? (isLandscape && !showMobileInterpretation ? 'flex-row pt-24' : 'flex-col pt-28') : 'flex-col pt-20'}`}> {/* Ensure flex layout for proper height distribution */}
+            <div className={`absolute inset-0 flex ${isMobile ? (isLandscape && !showMobileInterpretation ? 'flex-row pt-24' : 'flex-col pt-28') : 'flex-col pt-20'}`}> {/* Ensure flex layout for proper height distribution */}
               {/* Card Display Area & Fixed Controls Container */}
-              <div className={`relative h-full ${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-3/5' : (showMobileInterpretation ? 'hidden' : 'flex-1 w-full')) : 'w-full'}`}> 
+              <div className={`relative h-full ${isMobile ? (isLandscape && !showMobileInterpretation ? 'w-3/5' : (showMobileInterpretation ? 'hidden' : 'flex-1 w-full')) : 'w-full'}`} data-reading-area> 
                 
                 {/* Zoom Controls: Positioned absolutely relative to this container, fixed during pan/zoom of canvas */}
                 <div className={`zoom-controls absolute ${
@@ -4749,7 +4712,7 @@ const ReadingRoom = () => {
                       <div className="w-full h-px bg-border my-2"></div>
                     </>
                   )}
-                  <Tooltip content="Shuffle deck (Left Shift)" position="right" disabled={isMobile}><button onClick={shuffleDeck} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"><Shuffle className="h-4 w-4" /></button></Tooltip>
+                  <Tooltip content="Shuffle deck (Left Shift)" position="right" disabled={isMobile}><button onClick={shuffleDeck} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center" data-deck-button><Shuffle className="h-4 w-4" /></button></Tooltip>
                   <Tooltip content={`Show help (${getPlatformShortcut('help')})`} position="right" disabled={isMobile}><button onClick={toggleHelpModal} className="p-1.5 hover:bg-muted rounded-sm flex items-center justify-center"><HelpCircle className="h-4 w-4" /></button></Tooltip>
                   <Tooltip content={`Reset cards (${getPlatformShortcut('reset', true)})`} position="right" disabled={isMobile}><button onClick={resetCards} className="p-1.5 hover:bg-muted rounded-sm text-red-500 hover:text-red-600 flex items-center justify-center"><XCircle className="h-4 w-4" /></button></Tooltip>
                   <Tooltip content={isMuted ? "Unmute (M)" : "Mute (M)"} position="right" disabled={isMobile}>
@@ -5723,6 +5686,7 @@ const ReadingRoom = () => {
                     }
                   }}
                   className="w-full p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors text-left"
+                  data-invite-button
                 >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">

@@ -75,9 +75,11 @@ interface ReadingSessionStore {
   isOfflineMode: boolean;
   pendingSyncData: Partial<ReadingSessionState> | null;
   _justRestoredFromPreservedState: boolean;
+  _isSupabaseReady: boolean; // Flag to prevent updates while Supabase is reconnecting after tab visibility change
 
   // Actions
   setSessionState: (sessionState: ReadingSessionState | null) => void;
+  setSupabaseReady: (ready: boolean) => void;
   setParticipants: (participants: SessionParticipant[]) => void;
   setIsHost: (isHost: boolean) => void;
   setIsLoading: (isLoading: boolean) => void;
@@ -729,6 +731,7 @@ const _handleGuestBroadcastUpdate = async (
   await get().broadcastGuestAction('updateSession', updates);
   const currentSessionState = get().sessionState;
   if (currentSessionState) {
+    console.log('[_handleGuestBroadcastUpdate] BEFORE set() - selectedCards count:', currentSessionState.selectedCards?.length || 0);
     set({
       sessionState: {
         ...currentSessionState,
@@ -736,6 +739,8 @@ const _handleGuestBroadcastUpdate = async (
         updatedAt: new Date().toISOString(),
       },
     });
+    console.log('[_handleGuestBroadcastUpdate] AFTER set() - selectedCards count:', get().sessionState?.selectedCards?.length || 0);
+    console.log('[_handleGuestBroadcastUpdate] AFTER set() - Full state:', get().sessionState);
   }
 };
 
@@ -749,7 +754,54 @@ const _performDatabaseSessionUpdate = async (
   get: () => ReadingSessionStore, // For broadcast fallback
   set: (partial: Partial<ReadingSessionStore> | ((state: ReadingSessionStore) => Partial<ReadingSessionStore>)) => void
 ) => {
-  console.log('[_performDatabaseSessionUpdate] Attempting direct database update.');
+  console.log('[_performDatabaseSessionUpdate] Attempting database update.');
+
+  // Check if worker is available for database updates
+  const workerUpdate = (window as any).__workerDatabaseUpdate;
+
+  if (workerUpdate && typeof workerUpdate === 'function') {
+    console.log('[_performDatabaseSessionUpdate] Using Web Worker for database update');
+
+    try {
+      const userInfo = {
+        userId: user?.id || null,
+        isHost,
+        participantId,
+        anonymousId,
+        isAnonymous: !user
+      };
+
+      // Send update to worker and wait for response
+      const success = await workerUpdate(sessionState.id, updates, userInfo);
+
+      if (success) {
+        console.log('[_performDatabaseSessionUpdate] Worker update successful');
+
+        // Update local state
+        set({
+          sessionState: {
+            ...sessionState,
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          },
+        });
+
+        console.log('[_performDatabaseSessionUpdate] Local state updated');
+        return; // Success, exit early
+      } else {
+        console.warn('[_performDatabaseSessionUpdate] Worker update failed, falling back to direct update');
+      }
+    } catch (error: any) {
+      console.error('[_performDatabaseSessionUpdate] Worker update error:', error);
+      console.warn('[_performDatabaseSessionUpdate] Falling back to direct database update');
+    }
+  } else {
+    console.log('[_performDatabaseSessionUpdate] Worker not available, using direct database update');
+  }
+
+  // Fallback to direct database update if worker not available or failed
+  console.log('[_performDatabaseSessionUpdate] Performing direct database update');
+
   try {
     const updateData: any = {};
     if (updates.selectedLayout !== undefined) updateData.selected_layout = updates.selectedLayout;
@@ -785,13 +837,16 @@ const _performDatabaseSessionUpdate = async (
       console.log('[_performDatabaseSessionUpdate] Anonymous host RLS verified.');
     }
 
+    // Simple direct update (worker handles retries when available)
     const { error } = await supabase
       .from('reading_sessions')
       .update(updateData)
       .eq('id', sessionState.id);
 
-    if (error) throw error; // Let the catch block handle it
+    if (error) throw error;
 
+    console.log('[_performDatabaseSessionUpdate] Direct database update successful');
+    console.log('[_performDatabaseSessionUpdate] BEFORE set() - selectedCards count:', sessionState.selectedCards?.length || 0);
     set({
       sessionState: {
         ...sessionState,
@@ -799,6 +854,8 @@ const _performDatabaseSessionUpdate = async (
         updatedAt: new Date().toISOString(),
       },
     });
+    console.log('[_performDatabaseSessionUpdate] AFTER set() - selectedCards count:', get().sessionState?.selectedCards?.length || 0);
+    console.log('[_performDatabaseSessionUpdate] AFTER set() - Full state:', get().sessionState);
     console.log('[_performDatabaseSessionUpdate] Database update successful.');
 
   } catch (err: any) {
@@ -1023,8 +1080,13 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
     isOfflineMode: false,
     pendingSyncData: null,
     _justRestoredFromPreservedState: false,
+    _isSupabaseReady: true, // Start as ready, set to false when tab becomes hidden
 
     setSessionState: (sessionState) => set({ sessionState }),
+    setSupabaseReady: (ready) => {
+      console.log('[setSupabaseReady] Setting Supabase ready state to:', ready);
+      set({ _isSupabaseReady: ready });
+    },
     setParticipants: (participants) => set({ participants }),
     setIsHost: (isHost) => set({ isHost }),
     setIsLoading: (isLoading) => set({ isLoading }),
@@ -1251,26 +1313,45 @@ export const useReadingSessionStore = create<ReadingSessionStore>()(
     },
 
     updateSession: async (updates: Partial<ReadingSessionState>) => {
+      console.log('[updateSession] ENTRY - Called with updates:', updates);
+      console.log('[updateSession] ENTRY - Current visibility:', document.hidden ? 'HIDDEN' : 'VISIBLE');
+
       const { sessionState, isOfflineMode, isHost, participantId, anonymousId } = get();
       const { user } = useAuthStore.getState();
-      
+
+      console.log('[updateSession] ENTRY - Current state:', {
+        hasSessionState: !!sessionState,
+        sessionId: sessionState?.id,
+        isOfflineMode,
+        isHost,
+        hasUser: !!user,
+        participantId,
+        anonymousId,
+        selectedCardsCount: sessionState?.selectedCards?.length || 0
+      });
+
       if (!sessionState?.id) {
         console.warn('[updateSession] No session ID available for update. Aborting.');
         return;
       }
 
       if (isOfflineMode || sessionState.id.startsWith('local_')) {
+        console.log('[updateSession] PATH: Offline mode - calling _handleOfflineSessionUpdate');
         _handleOfflineSessionUpdate(updates, get);
         return;
       }
 
       if (!user && !isHost) { // User is a guest (not authenticated via Supabase auth) AND not the host
+        console.log('[updateSession] PATH: Guest broadcast - calling _handleGuestBroadcastUpdate');
         await _handleGuestBroadcastUpdate(updates, get, set);
         return;
       }
 
       // For authenticated users OR hosts (including anonymous hosts)
+      console.log('[updateSession] PATH: Database update - calling _performDatabaseSessionUpdate');
       await _performDatabaseSessionUpdate(updates, sessionState, user, isHost, participantId, anonymousId, get, set);
+
+      console.log('[updateSession] EXIT - After update, selectedCards count:', get().sessionState?.selectedCards?.length || 0);
     },
 
     updatePresence: async () => {
