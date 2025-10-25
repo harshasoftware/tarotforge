@@ -451,7 +451,6 @@ const ReadingRoom = () => {
   
   // Drag and Drop State
   const [draggedCard, setDraggedCard] = useState<Card | null>(null);
-  const [draggedCardIndex, setDraggedCardIndex] = useState<number | null>(null);
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [hoveredPosition, setHoveredPosition] = useState<number | null>(null);
@@ -1496,7 +1495,6 @@ const ReadingRoom = () => {
   // Drag and Drop Functions
   const handleDragStart = (card: Card, index: number, e: any) => {
     setDraggedCard(card);
-    setDraggedCardIndex(index);
     setIsDragging(true);
     
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -1522,7 +1520,6 @@ const ReadingRoom = () => {
   const handleDragEnd = () => {
     setIsDragging(false);
     setDraggedCard(null);
-    setDraggedCardIndex(null);
     setHoveredPosition(null);
   };
   
@@ -1556,12 +1553,33 @@ const ReadingRoom = () => {
 
     console.log('[DrawCard] Drawing card:', nextCard.name, 'to position:', positionIndex);
 
-    // Place the card in the position
-    const newSelectedCards = [...selectedCards];
-    newSelectedCards[positionIndex] = nextCard;
+    // Place the card in the position with proper attributes
+    const layoutPosition = selectedLayout.positions[positionIndex];
+    const isReversed = Math.random() < 0.2;
+    const cardForPosition: any = {
+      ...nextCard,
+      position: layoutPosition.name,
+      isReversed,
+      revealed: false
+    };
 
-    // Update session state using updateSession
-    updateSession({ selectedCards: newSelectedCards });
+    const newSelectedCards = [...selectedCards];
+    newSelectedCards[positionIndex] = cardForPosition;
+
+    // Also remove the card from the shuffled deck to keep it in sync
+    const currentDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
+    const updatedShuffledDeck = currentDeck.filter((card: Card) => card.id !== nextCard.id);
+
+    // Update session state with both selected cards and updated shuffled deck
+    updateSession({
+      selectedCards: newSelectedCards,
+      shuffledDeck: updatedShuffledDeck
+    });
+
+    // Broadcast the deck update to other participants
+    broadcastGuestAction('updateShuffledDeck', {
+      shuffledDeck: updatedShuffledDeck
+    });
 
     // Play sound if not muted
     if (!isMuted) {
@@ -1616,13 +1634,16 @@ const ReadingRoom = () => {
       updatesForSession.selectedCards = newSelectedCardsArray;
       playSoundEffect('pop');
 
-      if (draggedCardIndex !== null) {
-        newShuffledDeckArray = newShuffledDeckArray.filter((_: any, index: number) => index !== draggedCardIndex);
+      // Find the actual index of the dragged card in the original shuffled deck
+      const actualCardIndex = newShuffledDeckArray.findIndex((card: Card) => card.id === draggedCard.id);
+
+      if (actualCardIndex !== -1) {
+        newShuffledDeckArray = newShuffledDeckArray.filter((_: any, index: number) => index !== actualCardIndex);
         updatesForSession.shuffledDeck = newShuffledDeckArray;
-        
-        broadcastGuestAction('updateShuffledDeck', { 
-          shuffledDeck: newShuffledDeckArray, 
-          removedCardIndex: draggedCardIndex 
+
+        broadcastGuestAction('updateShuffledDeck', {
+          shuffledDeck: newShuffledDeckArray,
+          removedCardIndex: actualCardIndex
         });
       }
     } else {
