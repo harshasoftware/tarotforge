@@ -24,7 +24,7 @@ import { readingLayouts, getThreeCardPositions } from './constants/layouts';
 import { questionCategories } from './constants/questionCategories';
 import { cardAnimationConfig, zoomAnimationConfig, cardFlipConfig } from './utils/animationConfigs';
 import { getPlatformShortcut, KEY_CODES, KEY_VALUES } from './constants/shortcuts'; 
-import { fisherYatesShuffle, cleanMarkdownText, getTransform } from './utils/cardHelpers';
+import { getTransform } from './utils/cardHelpers';
 import { getDefaultZoomLevel } from './utils/layoutHelpers'; 
 import { generateShareableLink, getTodayDateString, isCacheValid, copyRoomLink as copyRoomLinkHelper } from './utils/sessionHelpers'; // Updated import
 import { generateSessionInviteLink } from '../../utils/inviteLinks';
@@ -41,6 +41,9 @@ import { useTouchInteractions } from './hooks/useTouchInteractions';
 import { useDocumentMouseListeners } from './hooks/useDocumentMouseListeners'; // <<< ADD THIS LINE
 import { useSoundManager } from '../../hooks/useSoundManager'; // Added SoundManager
 import { useSupabaseHealthWorker } from '../../hooks/useSupabaseHealthWorker'; // Web Worker for Supabase health monitoring
+import { useCardOperationsWorker } from '../../hooks/useCardOperationsWorker'; // Card operations worker
+import { useTextProcessingWorker } from '../../hooks/useTextProcessingWorker'; // Text processing worker
+import { useCollectionWorker } from '../../hooks/useCollectionWorker'; // Collection operations worker
 
 // Coordinate transformation helper
 const viewportToPercentage = (
@@ -164,6 +167,11 @@ const ReadingRoom = () => {
   // Initialize Supabase Health Worker to handle tab visibility changes
   // Worker runs independently and isn't throttled when tab is hidden
   useSupabaseHealthWorker(sessionState?.id || null);
+
+  // Initialize performance optimization workers
+  const cardOpsWorker = useCardOperationsWorker();
+  const textWorker = useTextProcessingWorker();
+  const collectionWorker = useCollectionWorker();
 
   // Track screen dimensions for dynamic zoom calculation
   const [screenDimensions, setScreenDimensions] = useState({
@@ -361,32 +369,26 @@ const ReadingRoom = () => {
       }
     }, 30000); // Try every 30 seconds
     
-    // Load question cache from localStorage
-    try {
-      const savedCache = localStorage.getItem('tarot_question_cache');
-      if (savedCache) {
-        const parsedCache = JSON.parse(savedCache);
-        // Clean up expired cache entries (older than today)
-        const today = getTodayDateString();
-        const validCache: {[key: string]: {questions: string[], date: string}} = {};
-        
-        Object.entries(parsedCache).forEach(([category, data]: [string, any]) => {
-          if (data.date === today) {
-            validCache[category] = data;
+    // Load question cache from localStorage using worker
+    (async () => {
+      try {
+        const savedCache = localStorage.getItem('tarot_question_cache');
+        if (savedCache) {
+          const today = getTodayDateString();
+          const { validCache, cacheString } = await collectionWorker.parseCache(savedCache, today);
+
+          setQuestionCache(validCache);
+
+          // Save cleaned cache back to localStorage if it changed
+          if (cacheString !== savedCache) {
+            localStorage.setItem('tarot_question_cache', cacheString);
           }
-        });
-        
-        setQuestionCache(validCache);
-        
-        // Save cleaned cache back to localStorage
-        if (Object.keys(validCache).length !== Object.keys(parsedCache).length) {
-          localStorage.setItem('tarot_question_cache', JSON.stringify(validCache));
         }
+      } catch (error) {
+        console.error('Error loading question cache:', error);
+        localStorage.removeItem('tarot_question_cache');
       }
-    } catch (error) {
-      console.error('Error loading question cache:', error);
-      localStorage.removeItem('tarot_question_cache');
-    }
+    })();
     
     // Handle browser navigation away from reading room
     const handleBeforeUnload = () => {
@@ -459,7 +461,8 @@ const ReadingRoom = () => {
   
   const [shuffledDeck, setShuffledDeck] = useState<Card[]>([]);
   const [isGeneratingInterpretation, setIsGeneratingInterpretation] = useState(false);
-  
+  const [cleanedInterpretation, setCleanedInterpretation] = useState<Array<{content: string; isHeader: boolean; isBullet: boolean}>>([]);
+
   // UI State
   const [showShareModal, setShowShareModal] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
@@ -730,6 +733,28 @@ const ReadingRoom = () => {
     }
   }, [isMobile, readingStep, hasShownInitialHint]);
 
+  // Process interpretation with text worker for markdown cleaning
+  useEffect(() => {
+    const interpretation = sessionState?.interpretation;
+
+    if (!interpretation) {
+      setCleanedInterpretation([]);
+      return;
+    }
+
+    const processInterpretation = async () => {
+      try {
+        const cleaned = await textWorker.cleanMarkdown(interpretation);
+        setCleanedInterpretation(cleaned);
+      } catch (error) {
+        console.error('[ReadingRoom] Error cleaning interpretation:', error);
+        // Worker handles fallback internally, just set empty on error
+        setCleanedInterpretation([]);
+      }
+    };
+
+    processInterpretation();
+  }, [sessionState?.interpretation, textWorker]);
 
   // Function to hide hint manually
   const hideHint = useCallback(() => {
@@ -962,9 +987,9 @@ const ReadingRoom = () => {
         }
       }
       
-      // Convert Map back to array and sort by title
-      const combinedDecks = Array.from(allDecks.values()).sort((a, b) => a.title.localeCompare(b.title));
-      
+      // Convert Map back to array and sort by title using worker
+      const combinedDecks = await collectionWorker.processDeckCollection(Array.from(allDecks.values()));
+
       console.log(`Combined collection: ${combinedDecks.length} unique decks from ${loggedInParticipants.length} participants`);
       console.log('Combined decks:', combinedDecks.map(d => ({ id: d.id, title: d.title })));
       
@@ -1036,15 +1061,15 @@ const ReadingRoom = () => {
 
   // Fisher-Yates shuffle algorithm (Durstenfeld modern implementation)
 
-  const handleLayoutSelect = useCallback((layout: ReadingLayout) => {
+  const handleLayoutSelect = useCallback(async (layout: ReadingLayout) => {
     try {
       console.log('Layout selected:', layout);
       playSoundEffect('pop');
-      
+
       // Determine the appropriate reading step based on current state
       // If user is already in a reading session (past setup), skip question step
       const targetReadingStep = (readingStep && readingStep !== 'setup') ? 'drawing' : 'ask-question';
-      
+
       // Prepare the base update object
       const updateData: any = {
         selectedLayout: layout,
@@ -1054,25 +1079,25 @@ const ReadingRoom = () => {
         activeCardIndex: null,
         zoomLevel: getDefaultZoomLevel(layout, isMobile, isLandscape, screenDimensions.width, screenDimensions.height)
       };
-      
+
       // Only shuffle if cards are loaded and not already in session state
       if (cards && cards.length > 0 && !shouldUseSessionDeck) {
-        const newShuffledDeck = fisherYatesShuffle(cards);
+        const newShuffledDeck = await cardOpsWorker.shuffleCards(cards);
         setShuffledDeck(newShuffledDeck);
         // Include shuffled deck in the same update to prevent multiple database calls
         updateData.shuffledDeck = newShuffledDeck;
       }
-      
+
       // Single update session call to prevent flickering
       updateSession(updateData);
-      
+
       // Trigger deck visual refresh animation
       setDeckRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error selecting layout:', error);
       setError('Failed to select layout. Please try again.');
     }
-  }, [updateSession, cards, isMobile, isLandscape, fisherYatesShuffle, readingStep, shouldUseSessionDeck, playSoundEffect]);
+  }, [updateSession, cards, isMobile, isLandscape, cardOpsWorker, readingStep, shouldUseSessionDeck, playSoundEffect]);
 
   const handleQuestionChange = useCallback((newQuestion: string) => {
     updateSession({ question: newQuestion });
@@ -1324,12 +1349,12 @@ const ReadingRoom = () => {
         
         if (cardsData && cardsData.length > 0) {
           setCards(cardsData);
-          const newShuffledDeck = fisherYatesShuffle(cardsData);
+          const newShuffledDeck = await cardOpsWorker.shuffleCards(cardsData);
           setShuffledDeck(newShuffledDeck);
-          
+
           // Update session state with new shuffled deck
           updateSession({ shuffledDeck: newShuffledDeck });
-          
+
           // Preload card images
           cardsData.forEach(card => {
             if (card.image_url) {
@@ -1337,7 +1362,7 @@ const ReadingRoom = () => {
               img.src = card.image_url;
             }
           });
-          
+
           // Trigger deck visual refresh animation when new deck is loaded
           setDeckRefreshKey(prev => prev + 1);
         } else {
@@ -1374,25 +1399,25 @@ const ReadingRoom = () => {
     });
     
     // Add a delay to show the shuffling animation
-    setTimeout(() => {
+    setTimeout(async () => {
       const currentDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
-      const newShuffledDeck = fisherYatesShuffle(currentDeck);
+      const newShuffledDeck = await cardOpsWorker.shuffleCards(currentDeck);
       setShuffledDeck(newShuffledDeck);
       setIsShuffling(false);
       setDeckRefreshKey(prev => prev + 1); // Force deck visual refresh
-      
+
       // Update session state with new shuffled deck and clear loading state
-      updateSession({ 
+      updateSession({
         shuffledDeck: newShuffledDeck,
         loadingStates: null
       });
-      
+
       // Broadcast shuffle action to other participants
-      broadcastGuestAction('shuffleDeck', { 
-        shuffledDeck: newShuffledDeck 
+      broadcastGuestAction('shuffleDeck', {
+        shuffledDeck: newShuffledDeck
       });
     }, 1000); // 1 second delay for shuffling animation
-  }, [fisherYatesShuffle, shuffledDeck, sessionShuffledDeck, shouldUseSessionDeck, updateSession, broadcastGuestAction, participantId, playSoundEffect]);
+  }, [cardOpsWorker, shuffledDeck, sessionShuffledDeck, shouldUseSessionDeck, updateSession, broadcastGuestAction, participantId, playSoundEffect]);
 
   // Handle placed card drag start
   const handlePlacedCardDragStart = useCallback((cardIndex: number) => { // <<< MUST ACCEPT cardIndex
@@ -1467,13 +1492,13 @@ const ReadingRoom = () => {
     setPanOffsetWrapped({ x: newX, y: newY });
   }, [panOffset, setPanOffsetWrapped]);
   
-  const resetReading = useCallback(() => {
+  const resetReading = useCallback(async () => {
     let newShuffledDeck: Card[] = [];
     if (cards.length > 0) {
-      newShuffledDeck = fisherYatesShuffle(cards);
+      newShuffledDeck = await cardOpsWorker.shuffleCards(cards);
       setShuffledDeck(newShuffledDeck);
     }
-    
+
     updateSession({
       readingStep: 'setup',
       selectedLayout: null,
@@ -1483,28 +1508,28 @@ const ReadingRoom = () => {
       zoomLevel: 1, // Reset to 1 when no layout is selected
       shuffledDeck: newShuffledDeck
     });
-    
+
     setShowMobileInterpretation(false);
     setInterpretationCards([]); // Clear interpretation cards tracking
-    
+
     // Broadcast reset reading action to other participants
-    broadcastGuestAction('resetReading', { 
+    broadcastGuestAction('resetReading', {
       shuffledDeck: newShuffledDeck,
       resetType: 'full'
     });
-  }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId,
+  }, [updateSession, cards, cardOpsWorker, broadcastGuestAction, user, participants, participantId,
     anonymousId, getDefaultZoomLevel, selectedLayout, isMobile]);
   
-  const resetCards = useCallback(() => {
+  const resetCards = useCallback(async () => {
     console.log('Reset cards called', { isMobile, cardsLength: cards.length });
     // Shuffle and restore all cards to create a fresh deck
     let freshlyShuffled: Card[] = [];
     if (cards.length > 0) {
       // Force a fresh shuffle by creating a new shuffled array
-      freshlyShuffled = fisherYatesShuffle([...cards]);
+      freshlyShuffled = await cardOpsWorker.shuffleCards([...cards]);
       setShuffledDeck(freshlyShuffled);
     }
-    
+
     // Return cards to deck and go back to drawing step, but keep layout and question
     updateSession({
       selectedCards: [],
@@ -1514,21 +1539,21 @@ const ReadingRoom = () => {
       zoomLevel: getDefaultZoomLevel(selectedLayout, isMobile, isLandscape, screenDimensions.width, screenDimensions.height),
       shuffledDeck: freshlyShuffled
     });
-    
+
     setShowMobileInterpretation(false);
     setZoomFocusWrapped(null);
     setPanOffsetWrapped({ x: 0, y: 0 });
     setInterpretationCards([]); // Clear interpretation cards tracking
     setDeckRefreshKey(prev => prev + 1); // Force deck visual refresh
-    
+
     // Broadcast reset cards action to other participants
-    broadcastGuestAction('resetCards', { 
+    broadcastGuestAction('resetCards', {
       shuffledDeck: freshlyShuffled,
       resetType: 'cards',
       participantName: user?.email?.split('@')[0] || participants.find(p => p.id === participantId)?.name || 'Anonymous',
       isAnonymous: !user
     });
-  }, [updateSession, cards, fisherYatesShuffle, broadcastGuestAction, user, participants, participantId,
+  }, [updateSession, cards, cardOpsWorker, broadcastGuestAction, user, participants, participantId,
     anonymousId, getDefaultZoomLevel, selectedLayout, isMobile]);
   
   // Drag and Drop Functions
@@ -1740,9 +1765,9 @@ const ReadingRoom = () => {
     if (!deck || !cards.length) return;
     
     // Check if interpretation already exists for the same set of cards
-    const cardsSignature = cards.map((card: any) => `${card.name}-${card.position}-${card.isReversed}`).sort().join('|');
-    const existingSignature = interpretationCards.map((card: any) => `${card.name}-${card.position}-${card.isReversed}`).sort().join('|');
-    
+    const cardsSignature = await cardOpsWorker.generateSignature(cards);
+    const existingSignature = await cardOpsWorker.generateSignature(interpretationCards);
+
     if (interpretation && cardsSignature === existingSignature) {
       // Same cards, just go to interpretation view without regenerating
       updateSession({ readingStep: 'interpretation' });
@@ -4847,7 +4872,7 @@ const ReadingRoom = () => {
                     </div>
                   )}
                   <div className="space-y-2 pb-4">
-                    {cleanMarkdownText(interpretation).map((line, i: number) => (
+                    {cleanedInterpretation.map((line, i: number) => (
                       <div key={i}>
                         {line.isHeader ? <h4 className={`font-semibold text-primary ${isMobile ? 'text-sm' : 'text-base'} mb-2`}>{line.content}</h4>
                         : line.isBullet ? <div className={`flex items-start gap-2 ${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground ml-2`}><span className="text-primary mt-1">•</span><span>{line.content}</span></div>
