@@ -45,6 +45,13 @@ import { useCardOperationsWorker } from '../../hooks/useCardOperationsWorker'; /
 import { useTextProcessingWorker } from '../../hooks/useTextProcessingWorker'; // Text processing worker
 import { useCollectionWorker } from '../../hooks/useCollectionWorker'; // Collection operations worker
 
+// Development-only console logging helper
+const devLog = (...args: any[]) => {
+  if (process.env.NODE_ENV === 'development') {
+    devLog(...args);
+  }
+};
+
 // Coordinate transformation helper
 const viewportToPercentage = (
   viewportX: number,
@@ -85,18 +92,18 @@ const viewportToPercentage = (
   let percY = (originalContentY / originalContainerHeight) * 100;
 
   // Logging before constraint
-  // console.log('[vTP] Before constraint PercX/Y:', { percX, percY });
+  // devLog('[vTP] Before constraint PercX/Y:', { percX, percY });
 
   percX = Math.max(5, Math.min(95, percX));
   percY = Math.max(5, Math.min(95, percY));
 
-  console.log('[vTP] Inputs:', { viewportX, viewportY, cL:containerRect.left, cT:containerRect.top, cW:containerRect.width, cH:containerRect.height, zoom:currentZoomLevel, pan:currentPanOffset, focus:currentZoomFocus });
-  console.log('[vTP] relativeX/Y:', { relativeX, relativeY });
-  console.log('[vTP] xAfterZoomAndOriginOffset:', { xCoord: xAfterZoomAndOriginOffset, yCoord: yAfterZoomAndOriginOffset });
-  console.log('[vTP] originPx:', {originX_px, originY_px});
-  console.log('[vTP] originalContentX/Y:', { originalContentX, originalContentY });
-  console.log('[vTP] originalContainer W/H:', { originalContainerWidth, originalContainerHeight });
-  console.log('[vTP] Final PercX/Y (constrained):', { percX, percY });
+  devLog('[vTP] Inputs:', { viewportX, viewportY, cL:containerRect.left, cT:containerRect.top, cW:containerRect.width, cH:containerRect.height, zoom:currentZoomLevel, pan:currentPanOffset, focus:currentZoomFocus });
+  devLog('[vTP] relativeX/Y:', { relativeX, relativeY });
+  devLog('[vTP] xAfterZoomAndOriginOffset:', { xCoord: xAfterZoomAndOriginOffset, yCoord: yAfterZoomAndOriginOffset });
+  devLog('[vTP] originPx:', {originX_px, originY_px});
+  devLog('[vTP] originalContentX/Y:', { originalContentX, originalContentY });
+  devLog('[vTP] originalContainer W/H:', { originalContainerWidth, originalContainerHeight });
+  devLog('[vTP] Final PercX/Y (constrained):', { percX, percY });
 
   return { x: percX, y: percY };
 };
@@ -200,11 +207,11 @@ const ReadingRoom = () => {
 
   // DIAGNOSTIC: Track when Zustand state changes and if component re-renders
   useEffect(() => {
-    console.log('[ZUSTAND-RE-RENDER] Component re-rendered due to sessionState change');
-    console.log('[ZUSTAND-RE-RENDER] Current selectedCards count:', sessionState?.selectedCards?.length || 0);
-    console.log('[ZUSTAND-RE-RENDER] Current selectedCards:', sessionState?.selectedCards);
-    console.log('[ZUSTAND-RE-RENDER] Current tab visibility:', document.hidden ? 'HIDDEN' : 'VISIBLE');
-    console.log('[ZUSTAND-RE-RENDER] Timestamp:', new Date().toISOString());
+    devLog('[ZUSTAND-RE-RENDER] Component re-rendered due to sessionState change');
+    devLog('[ZUSTAND-RE-RENDER] Current selectedCards count:', sessionState?.selectedCards?.length || 0);
+    devLog('[ZUSTAND-RE-RENDER] Current selectedCards:', sessionState?.selectedCards);
+    devLog('[ZUSTAND-RE-RENDER] Current tab visibility:', document.hidden ? 'HIDDEN' : 'VISIBLE');
+    devLog('[ZUSTAND-RE-RENDER] Timestamp:', new Date().toISOString());
   }, [sessionState]);
 
   // Filter layouts for mobile - only show single-card and three-card spreads
@@ -256,7 +263,7 @@ const ReadingRoom = () => {
       const auth = useAuthStore.getState(); // Get initial auth state
 
       if (!auth.user) { // If no user at all initially from store
-        console.log('🎭 No authenticated user found, ensuring anonymous session...');
+        devLog('🎭 No authenticated user found, ensuring anonymous session...');
         try {
           const result = await signInAnonymously(); // This updates authStore internally
 
@@ -270,9 +277,9 @@ const ReadingRoom = () => {
           await new Promise(resolve => setTimeout(resolve, 50)); // Allow store to update
           const updatedAuthUser = useAuthStore.getState().user;
           if (updatedAuthUser && !updatedAuthUser.email) {
-               console.log('✅ Anonymous user session ensured/retrieved. ID:', updatedAuthUser.id);
+               devLog('✅ Anonymous user session ensured/retrieved. ID:', updatedAuthUser.id);
           } else if (updatedAuthUser) {
-              console.log('User is authenticated, not anonymous:', updatedAuthUser.id);
+              devLog('User is authenticated, not anonymous:', updatedAuthUser.id);
           } else {
               console.warn('⚠️ Anonymous user ID not found in auth store even after signInAnonymously call.');
               setError('Authentication failed. Please refresh the page and try again.');
@@ -284,9 +291,9 @@ const ReadingRoom = () => {
           return;
         }
       } else if (auth.user && !auth.user.email) { // Already an anonymous user in store
-          console.log('🎭 Existing anonymous user in auth store. ID:', auth.user.id);
+          devLog('🎭 Existing anonymous user in auth store. ID:', auth.user.id);
       } else { // Already an authenticated user in store
-          console.log('👤 Existing authenticated user in auth store. ID:', auth.user.id);
+          devLog('👤 Existing authenticated user in auth store. ID:', auth.user.id);
       }
 
       // Check if we have a restored session context (after auth upgrade)
@@ -294,11 +301,11 @@ const ReadingRoom = () => {
       if (restoredContext) {
         try {
           const context = JSON.parse(restoredContext);
-          console.log('🔄 Found restored session context in ReadingRoom:', context);
+          devLog('🔄 Found restored session context in ReadingRoom:', context);
 
           if (context.sessionId && context.migrationComplete) {
             // We have a restored session, use it instead of creating new
-            console.log('📌 Using restored session ID from auth upgrade:', context.sessionId);
+            devLog('📌 Using restored session ID from auth upgrade:', context.sessionId);
             setInitialSessionId(context.sessionId);
             setDeckId(deckId || 'rider-waite-classic');
             await initializeSession();
@@ -356,15 +363,15 @@ const ReadingRoom = () => {
     // Set up periodic sync for offline sessions and state synchronization
     const syncInterval = setInterval(async () => {
       if (isOfflineMode && sessionState?.id?.startsWith('local_')) {
-        console.log('Attempting periodic sync of local session...');
+        devLog('Attempting periodic sync of local session...');
         const synced = await syncLocalSessionToDatabase();
         if (synced) {
-          console.log('Periodic sync successful');
+          devLog('Periodic sync successful');
           clearInterval(syncInterval);
         }
       } else if (sessionState?.id && !isHost && !sessionState.id.startsWith('local_')) {
         // For non-host participants, periodically sync state to ensure consistency
-        console.log('Syncing session state for participant...');
+        devLog('Syncing session state for participant...');
         await syncCompleteSessionState(sessionState.id);
       }
     }, 30000); // Try every 30 seconds
@@ -393,7 +400,7 @@ const ReadingRoom = () => {
     // Handle browser navigation away from reading room
     const handleBeforeUnload = () => {
       if (isInCallRef.current) {
-        console.log('Ending video call before page unload...');
+        devLog('Ending video call before page unload...');
         endCallRef.current();
       }
     };
@@ -406,7 +413,7 @@ const ReadingRoom = () => {
       pauseAmbientSoundRef.current(); // Pause ambient sound on unmount
       // End video call if user is in one before leaving
       if (isInCallRef.current) {
-        console.log('Ending video call before leaving reading room...');
+        devLog('Ending video call before leaving reading room...');
         endCallRef.current();
       }
 
@@ -422,7 +429,7 @@ const ReadingRoom = () => {
   // Initialize video call when session is ready
   useEffect(() => {
     if (sessionState?.id && participantId) {
-      console.log('Initializing video call for session:', sessionState.id, 'participant:', participantId);
+      devLog('Initializing video call for session:', sessionState.id, 'participant:', participantId);
       initializeVideoCall(sessionState.id, participantId);
     }
   }, [sessionState?.id, participantId,
@@ -431,7 +438,7 @@ const ReadingRoom = () => {
   // Ensure complete state sync when joining via shared link
   useEffect(() => {
     if (joinSessionId && sessionState?.id && !isHost && !sessionLoading) {
-      console.log('Performing immediate state sync for shared link join...');
+      devLog('Performing immediate state sync for shared link join...');
       setIsSyncing(true);
       syncCompleteSessionState(sessionState.id).finally(() => {
         setIsSyncing(false);
@@ -582,7 +589,7 @@ const ReadingRoom = () => {
   // Sync shuffledDeck with session state when session state changes
   useEffect(() => {
     if (shouldUseSessionDeck) {
-      console.log('Syncing shuffled deck from session state:', sessionShuffledDeck.length, 'cards');
+      devLog('Syncing shuffled deck from session state:', sessionShuffledDeck.length, 'cards');
       setShuffledDeck(sessionShuffledDeck);
     }
   }, [sessionShuffledDeck, shouldUseSessionDeck]);
@@ -590,7 +597,7 @@ const ReadingRoom = () => {
   // Sync loading states with session state when session state changes
   useEffect(() => {
     if (sessionLoadingStates) {
-      console.log('Syncing loading states from session state:', sessionLoadingStates);
+      devLog('Syncing loading states from session state:', sessionLoadingStates);
       setIsShuffling(sessionIsShuffling);
       setIsGeneratingInterpretation(sessionIsGeneratingInterpretation);
     }
@@ -717,6 +724,51 @@ const ReadingRoom = () => {
     buttonSize: isMobile ? 'p-1.5' : 'p-2'
   }), [isMobile, isLandscape]);
 
+  // Optimize transform style object to prevent unnecessary re-renders
+  const transformStyle = useMemo(() => ({
+    ...getTransform(zoomLevel, zoomFocus, panOffset),
+    contain: 'layout style paint',
+  }), [zoomLevel, zoomFocus, panOffset]);
+
+  // Optimize available cards calculation - O(n) with Set instead of O(n²) with includes
+  const availableCards = useMemo(() => {
+    const currentDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
+    const usedCardIds = new Set(selectedCards.filter(Boolean).map((c: any) => c.id));
+    return currentDeck.filter((card: Card) => !usedCardIds.has(card.id));
+  }, [shouldUseSessionDeck, sessionShuffledDeck, shuffledDeck, selectedCards]);
+
+  // Pre-calculate card positions to avoid expensive trig calculations on every render
+  const cardPositions = useMemo(() => {
+    const totalCards = availableCards.length;
+    const angleSpread = isMobile ? 1.2 : 2.2; // degrees between cards
+    const radius = isMobile ? 200 : 600;
+    const curveDepth = isMobile ? 0.12 : 0.08;
+
+    return availableCards.map((card, index) => {
+      const angle = (index - (totalCards - 1) / 2) * angleSpread;
+      const x = Math.sin((angle * Math.PI) / 180) * radius;
+      const y = -Math.cos((angle * Math.PI) / 180) * radius * curveDepth;
+
+      return {
+        id: card.id,
+        angle,
+        x,
+        y,
+        zIndex: totalCards - index
+      };
+    });
+  }, [availableCards, isMobile]);
+
+  // Optimize participants list to prevent dropdown re-renders
+  const participantsList = useMemo(() =>
+    participants.map(p => ({
+      id: p.id,
+      name: p.name ?? undefined,
+      userId: p.userId,
+      anonymousId: p.anonymousId,
+      isHost: Boolean((p.userId && p.userId === sessionState?.hostUserId) || (!sessionState?.hostUserId && p.anonymousId && isHost && !p.userId))
+    }))
+  , [participants, sessionState?.hostUserId, isHost]);
 
   // Show pinch zoom hint when entering drawing step on mobile
   useEffect(() => {
@@ -868,7 +920,7 @@ const ReadingRoom = () => {
         screenDimensions.width,
         screenDimensions.height
       );
-      console.log('🔍 Setting optimal zoom for mobile:', optimalZoom);
+      devLog('🔍 Setting optimal zoom for mobile:', optimalZoom);
       setZoomLevelWrapped(optimalZoom);
     }
   }, [selectedLayout?.id, screenDimensions, isMobile, isLandscape, setZoomLevelWrapped]);
@@ -961,12 +1013,12 @@ const ReadingRoom = () => {
         });
       }
       
-      console.log('Fetching combined collection for participants:', loggedInParticipants.map(p => ({ userId: p.userId, name: p.name })));
-      console.log('Current user:', user?.id ? { id: user.id, email: user.email } : 'No user (guest)');
+      devLog('Fetching combined collection for participants:', loggedInParticipants.map(p => ({ userId: p.userId, name: p.name })));
+      devLog('Current user:', user?.id ? { id: user.id, email: user.email } : 'No user (guest)');
       
       // If no logged-in participants, fetch free decks for guests
       if (loggedInParticipants.length === 0) {
-        console.log('No logged-in participants, fetching free decks for guest access');
+        devLog('No logged-in participants, fetching free decks for guest access');
         const freeDecks = await fetchUserOwnedDecks(); // Call without userId for guest access
         setUserOwnedDecks(freeDecks);
         return;
@@ -990,12 +1042,12 @@ const ReadingRoom = () => {
       // Convert Map back to array and sort by title using worker
       const combinedDecks = await collectionWorker.processDeckCollection(Array.from(allDecks.values()));
 
-      console.log(`Combined collection: ${combinedDecks.length} unique decks from ${loggedInParticipants.length} participants`);
-      console.log('Combined decks:', combinedDecks.map(d => ({ id: d.id, title: d.title })));
+      devLog(`Combined collection: ${combinedDecks.length} unique decks from ${loggedInParticipants.length} participants`);
+      devLog('Combined decks:', combinedDecks.map(d => ({ id: d.id, title: d.title })));
       
       // If no decks found, ensure we at least have the Rider-Waite deck
       if (combinedDecks.length === 0) {
-        console.log('No decks found, adding Rider-Waite deck as fallback');
+        devLog('No decks found, adding Rider-Waite deck as fallback');
         const freeDecks = await fetchUserOwnedDecks(); // Call without userId for guest access
         setUserOwnedDecks(freeDecks);
       } else {
@@ -1005,7 +1057,7 @@ const ReadingRoom = () => {
     } catch (error) {
       console.error('Error fetching combined collection:', error);
       // Fallback to free decks for all users
-      console.log('Error fallback: fetching free decks');
+      devLog('Error fallback: fetching free decks');
       const fallbackDecks = await fetchUserOwnedDecks(user?.id);
       setUserOwnedDecks(fallbackDecks);
     }
@@ -1025,7 +1077,7 @@ const ReadingRoom = () => {
     if (shouldEnableVideo && !isInCall && !showVideoChat &&
         (readingStep === 'drawing' || readingStep === 'interpretation') &&
         sessionState?.id && participantId) {
-      console.log('Auto-starting video chat for invite with enableVideo:', {
+      devLog('Auto-starting video chat for invite with enableVideo:', {
         shouldEnableVideo,
         readingStep,
         sessionId: sessionState.id
@@ -1040,7 +1092,7 @@ const ReadingRoom = () => {
 
     // Show video chat UI when user is actively in a video call
     if (isInCall && !showVideoChat && (readingStep === 'drawing' || readingStep === 'interpretation')) {
-      console.log('Showing video chat UI - user is in video call:', {
+      devLog('Showing video chat UI - user is in video call:', {
         isInCall,
         readingStep
       });
@@ -1049,7 +1101,7 @@ const ReadingRoom = () => {
 
     // Hide video chat UI when user leaves video call or exits drawing/interpretation steps
     if (showVideoChat && (!isInCall || (readingStep !== 'drawing' && readingStep !== 'interpretation'))) {
-      console.log('Hiding video chat UI - user left video call or exited drawing/interpretation step:', {
+      devLog('Hiding video chat UI - user left video call or exited drawing/interpretation step:', {
         isInCall,
         readingStep
       });
@@ -1063,7 +1115,7 @@ const ReadingRoom = () => {
 
   const handleLayoutSelect = useCallback(async (layout: ReadingLayout) => {
     try {
-      console.log('Layout selected:', layout);
+      devLog('Layout selected:', layout);
       playSoundEffect('pop');
 
       // Determine the appropriate reading step based on current state
@@ -1313,7 +1365,7 @@ const ReadingRoom = () => {
         setError(null);
         
         // Fetch combined collection from all logged-in participants
-        console.log('Initial data fetch - calling fetchCombinedCollection');
+        devLog('Initial data fetch - calling fetchCombinedCollection');
         await fetchCombinedCollection();
         
         // If there's a deckId in the URL, use that deck
@@ -1521,7 +1573,7 @@ const ReadingRoom = () => {
     anonymousId, getDefaultZoomLevel, selectedLayout, isMobile]);
   
   const resetCards = useCallback(async () => {
-    console.log('Reset cards called', { isMobile, cardsLength: cards.length });
+    devLog('Reset cards called', { isMobile, cardsLength: cards.length });
     // Shuffle and restore all cards to create a fresh deck
     let freshlyShuffled: Card[] = [];
     if (cards.length > 0) {
@@ -1589,33 +1641,33 @@ const ReadingRoom = () => {
   
   // Function to draw the next available card to a position (for mobile tap)
   const drawCardToPosition = (positionIndex: number) => {
-    console.log('[DrawCard] Attempting to draw card to position:', positionIndex);
+    devLog('[DrawCard] Attempting to draw card to position:', positionIndex);
 
     if (!selectedLayout) {
-      console.log('[DrawCard] No layout selected');
+      devLog('[DrawCard] No layout selected');
       return;
     }
 
     if (selectedCards[positionIndex]) {
-      console.log('[DrawCard] Position already filled');
+      devLog('[DrawCard] Position already filled');
       return;
     }
 
     // Find the first available card from the deck
     const availableDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
-    console.log('[DrawCard] Available deck size:', availableDeck.length);
+    devLog('[DrawCard] Available deck size:', availableDeck.length);
 
     const usedCardIds = selectedCards.filter(Boolean).map(c => c.id);
-    console.log('[DrawCard] Used card IDs:', usedCardIds);
+    devLog('[DrawCard] Used card IDs:', usedCardIds);
 
     const nextCard = availableDeck.find(card => !usedCardIds.includes(card.id));
 
     if (!nextCard) {
-      console.log('[DrawCard] No more cards available');
+      devLog('[DrawCard] No more cards available');
       return;
     }
 
-    console.log('[DrawCard] Drawing card:', nextCard.name, 'to position:', positionIndex);
+    devLog('[DrawCard] Drawing card:', nextCard.name, 'to position:', positionIndex);
 
     // Place the card in the position with proper attributes
     const layoutPosition = selectedLayout.positions[positionIndex];
@@ -1716,14 +1768,14 @@ const ReadingRoom = () => {
     }
 
     if (Object.keys(updatesForSession).length > 0) {
-      console.log('[CARD-DROP-DEBUG] Calling updateSession with:', updatesForSession);
-      console.log('[CARD-DROP-DEBUG] selectedCards length before:', selectedCards.length);
+      devLog('[CARD-DROP-DEBUG] Calling updateSession with:', updatesForSession);
+      devLog('[CARD-DROP-DEBUG] selectedCards length before:', selectedCards.length);
       updateSession(updatesForSession);
-      console.log('[CARD-DROP-DEBUG] updateSession called successfully');
+      devLog('[CARD-DROP-DEBUG] updateSession called successfully');
 
       // Log after a brief delay to see if state updated
       setTimeout(() => {
-        console.log('[CARD-DROP-DEBUG] selectedCards length after update:', selectedCards.length);
+        devLog('[CARD-DROP-DEBUG] selectedCards length after update:', selectedCards.length);
       }, 100);
     }
 
@@ -1785,7 +1837,7 @@ const ReadingRoom = () => {
       const currentPath = window.location.pathname;
       const sessionParam = sessionId ? `?join=${sessionId}` : window.location.search;
       const fullPath = currentPath + sessionParam;
-      console.log('Storing auth_return_path for interpretation:', {
+      devLog('Storing auth_return_path for interpretation:', {
         currentPath,
         sessionId,
         sessionParam,
@@ -1873,7 +1925,7 @@ const ReadingRoom = () => {
       const currentPath = window.location.pathname;
       const sessionParam = sessionId ? `?join=${sessionId}` : window.location.search;
       const fullPath = currentPath + sessionParam;
-      console.log('Storing auth_return_path for video chat:', fullPath);
+      devLog('Storing auth_return_path for video chat:', fullPath);
       localStorage.setItem('auth_return_path', fullPath);
       setShowGuestUpgrade(true);
       return;
@@ -1883,9 +1935,9 @@ const ReadingRoom = () => {
     
     try {
       // Start video call in the session store first
-      console.log('Auto-starting video call for sharing...');
+      devLog('Auto-starting video call for sharing...');
       await startCall();
-      console.log('Video call started successfully');
+      devLog('Video call started successfully');
       setShowVideoChat(true);
     } catch (err) {
       console.error('Error starting video call:', err);
@@ -2254,9 +2306,9 @@ const ReadingRoom = () => {
 
   // Handle sharing with native share API on mobile or modal on desktop
   const handleShare = async () => {
-    console.log('handleShare called, sessionId:', sessionId);
+    devLog('handleShare called, sessionId:', sessionId);
     if (!sessionId) {
-      console.log('No sessionId, returning early');
+      devLog('No sessionId, returning early');
       return;
     }
 
@@ -2266,7 +2318,7 @@ const ReadingRoom = () => {
       const currentPath = window.location.pathname;
       const sessionParam = sessionId ? `?join=${sessionId}` : window.location.search;
       const fullPath = currentPath + sessionParam;
-      console.log('Storing auth_return_path for sharing:', {
+      devLog('Storing auth_return_path for sharing:', {
         currentPath,
         sessionId,
         sessionParam,
@@ -2281,7 +2333,7 @@ const ReadingRoom = () => {
     try {
       // Ensure session state is up to date before sharing
       if (sessionState?.id && isHost) {
-        console.log('Updating session state before sharing...');
+        devLog('Updating session state before sharing...');
         await updateSession({
           selectedLayout,
           question,
@@ -2291,7 +2343,7 @@ const ReadingRoom = () => {
           zoomLevel,
           activeCardIndex
         });
-        console.log('Session update complete');
+        devLog('Session update complete');
       }
     } catch (error) {
       console.error('Error updating session:', error);
@@ -2299,9 +2351,9 @@ const ReadingRoom = () => {
     }
 
     // Show invite dropdown instead of auto-starting video
-    console.log('Setting showInviteDropdown to true, current value:', showInviteDropdown);
+    devLog('Setting showInviteDropdown to true, current value:', showInviteDropdown);
     setShowInviteDropdown(true);
-    console.log('Invite dropdown should now be visible');
+    devLog('Invite dropdown should now be visible');
   };
 
   // Handle guest account upgrade
@@ -2765,13 +2817,7 @@ const ReadingRoom = () => {
                   {deck && (
                     <div className="bg-muted/50 px-2 py-1 rounded-md">
                       <ParticipantsDropdown
-                        participants={participants.map(p => ({
-                          id: p.id,
-                          name: p.name ?? undefined,
-                          userId: p.userId,
-                          anonymousId: p.anonymousId,
-                          isHost: (p.userId && p.userId === sessionState?.hostUserId) || (!sessionState?.hostUserId && p.anonymousId && isHost && !p.userId) ? true : false
-                        }))}
+                        participants={participantsList}
                         currentUserId={user?.id || null}
                         currentAnonymousId={anonymousId}
                         disabled={isOfflineMode}
@@ -2852,7 +2898,7 @@ const ReadingRoom = () => {
                   )) || (readingStep === 'interpretation' && interpretation)) && (
                     <button
                       onClick={() => {
-                        console.log('Mobile Read button clicked (top bar):', {
+                        devLog('Mobile Read button clicked (top bar):', {
                           selectedCards: selectedCards.length,
                           isGeneratingInterpretation,
                           readingStep,
@@ -2868,7 +2914,7 @@ const ReadingRoom = () => {
                         }
                       }}
                       onTouchStart={(e) => {
-                        console.log('Mobile Read button touch start (top bar)');
+                        devLog('Mobile Read button touch start (top bar)');
                         e.stopPropagation();
                       }}
                       className="btn btn-primary bg-accent hover:bg-accent/90 text-white dark:text-black px-4 py-2 text-sm font-medium flex items-center gap-2 rounded-lg touch-manipulation whitespace-nowrap"
@@ -2902,7 +2948,7 @@ const ReadingRoom = () => {
                             setRecentlySynced(true);
                             setTimeout(() => setRecentlySynced(false), 5000);
                           } else {
-                            console.log('Sync failed, will retry later');
+                            devLog('Sync failed, will retry later');
                           }
                         }
                       }}
@@ -3077,13 +3123,7 @@ const ReadingRoom = () => {
                     <button onClick={handleGuestBadgeClick} className="text-xs bg-accent px-2 py-0.5 rounded-full hover:bg-accent/80 transition-colors cursor-pointer flex items-center gap-1" ><UserCheck className="h-3 w-3" />Guest</button>
                   )}
                   <ParticipantsDropdown
-                    participants={participants.map(p => ({
-                      id: p.id,
-                      name: p.name ?? undefined,
-                      userId: p.userId,
-                      anonymousId: p.anonymousId,
-                      isHost: (p.userId && p.userId === sessionState?.hostUserId) || (!sessionState?.hostUserId && p.anonymousId && isHost && !p.userId) ? true : false
-                    }))}
+                    participants={participantsList}
                     currentUserId={user?.id || null}
                     currentAnonymousId={anonymousId}
                     disabled={isOfflineMode}
@@ -3178,7 +3218,7 @@ const ReadingRoom = () => {
                           setRecentlySynced(true);
                           setTimeout(() => setRecentlySynced(false), 5000);
                         } else {
-                          console.log('Sync failed, will retry later');
+                          devLog('Sync failed, will retry later');
                         }
                       }
                     }}
@@ -4150,13 +4190,9 @@ const ReadingRoom = () => {
                 </div>
 
                 {/* Layout visualization with mobile-responsive card sizes */}
-                <div 
+                <div
                   className="reading-content absolute inset-0 transition-transform duration-300 ease-in-out"
-                  style={{
-                    ...getTransform(zoomLevel, zoomFocus, panOffset),
-                    // Additional optimizations for smooth performance
-                    contain: 'layout style paint',
-                  }}
+                  style={transformStyle}
                 >
                   {/* TarotForge Watermark */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
@@ -4309,7 +4345,7 @@ const ReadingRoom = () => {
                           }
                         }}
                         onClick={() => {
-                          console.log('[Click] Position clicked:', index, 'isDragging:', isDragging, 'selectedCard:', !!selectedCard);
+                          devLog('[Click] Position clicked:', index, 'isDragging:', isDragging, 'selectedCard:', !!selectedCard);
                           // Desktop click or mobile tap (as fallback)
                           if (isDragging && draggedCard && !selectedCard) {
                             handleCardDrop(index);
@@ -4319,28 +4355,28 @@ const ReadingRoom = () => {
                           }
                         }}
                         onTouchStart={(e) => {
-                          console.log('[TouchStart] Position:', index, 'isMobile:', isMobile, 'selectedCard:', !!selectedCard);
+                          devLog('[TouchStart] Position:', index, 'isMobile:', isMobile, 'selectedCard:', !!selectedCard);
                           // Track touch start for tap detection
                           if (!selectedCard && !isDragging) {
                             e.currentTarget.dataset.touchStartTime = Date.now().toString();
                           }
                         }}
                         onTouchEnd={(e) => {
-                          console.log('[TouchEnd] Position:', index, 'isMobile:', isMobile, 'isDragging:', isDragging);
+                          devLog('[TouchEnd] Position:', index, 'isMobile:', isMobile, 'isDragging:', isDragging);
 
                           const touchStartTime = parseInt(e.currentTarget.dataset.touchStartTime || '0');
                           const touchDuration = Date.now() - touchStartTime;
-                          console.log('[TouchEnd] Duration:', touchDuration, 'ms');
+                          devLog('[TouchEnd] Duration:', touchDuration, 'ms');
 
                           if (isDragging && draggedCard && !selectedCard) {
                             // Handle card drop from drag
-                            console.log('[TouchEnd] Dropping dragged card');
+                            devLog('[TouchEnd] Dropping dragged card');
                             e.preventDefault();
                             e.stopPropagation();
                             handleCardDrop(index);
                           } else if (!isDragging && !selectedCard && touchDuration < 500) {
                             // Handle tap (quick touch) to draw card
-                            console.log('[TouchEnd] Drawing card via tap');
+                            devLog('[TouchEnd] Drawing card via tap');
                             e.preventDefault();
                             e.stopPropagation();
                             drawCardToPosition(index);
@@ -4463,10 +4499,6 @@ const ReadingRoom = () => {
                 
                 {/* Deck pile - show cards that can be dragged */}
                 {(() => {
-                  const currentDeck = shouldUseSessionDeck ? sessionShuffledDeck : shuffledDeck;
-                  const usedCardIds = selectedCards.filter(Boolean).map((c: any) => c.id);
-                  const availableCards = currentDeck.filter((card: Card) => !usedCardIds.includes(card.id));
-
                   if (availableCards.length === 0) return null;
 
                   return (
@@ -4488,13 +4520,9 @@ const ReadingRoom = () => {
                             }}
                           >
                             {availableCards.map((card: Card, index: number) => {
-                              const totalCards = availableCards.length;
-                            const angle = (index - (totalCards - 1) / 2) * 1.2; // 1.2 degrees between cards for mobile shallow arc
-                            const radius = 200; // Radius for mobile arc
-                            const x = Math.sin((angle * Math.PI) / 180) * radius; // Remove the offset that was pushing right
-                            const y = -Math.cos((angle * Math.PI) / 180) * radius * 0.12; // Very shallow curve for mobile
-                            
-                            return (
+                              const position = cardPositions[index];
+
+                              return (
                               <motion.div
                                 key={`deck-mobile-${index}`}
                                 className="absolute w-10 h-16 cursor-grab active:cursor-grabbing"
@@ -4504,11 +4532,11 @@ const ReadingRoom = () => {
                                   transformOrigin: 'bottom center'
                                 }}
                                 initial={{
-                                  transform: `translateX(-50%) translateX(${x}px) translateY(${y}px) rotate(${angle}deg)`,
-                                  zIndex: totalCards - index,
+                                  transform: `translateX(-50%) translateX(${position.x}px) translateY(${position.y}px) rotate(${position.angle}deg)`,
+                                  zIndex: position.zIndex,
                                 }}
                                 whileHover={{
-                                  transform: `translateX(-50%) translateX(${x}px) translateY(${y - 12}px) rotate(${angle}deg) scale(1.15)`,
+                                  transform: `translateX(-50%) translateX(${position.x}px) translateY(${position.y - 12}px) rotate(${position.angle}deg) scale(1.15)`,
                                   zIndex: 100,
                                   transition: { duration: 0.2 }
                                 }}
@@ -4585,7 +4613,7 @@ const ReadingRoom = () => {
                                     </span>
                                   </div>
                                 </TarotCardBack>
-                                  {index === Math.floor(totalCards / 2) && (
+                                  {index === Math.floor(availableCards.length / 2) && (
                                     <div className="absolute -top-2 -right-1 bg-accent text-accent-foreground rounded-full w-4 h-4 text-xs flex items-center justify-center shadow-md z-[300] select-none">
                                       {availableCards.length}
                                     </div>
@@ -4606,12 +4634,8 @@ const ReadingRoom = () => {
                       /* Desktop: Wide fan spread showing available cards - larger and more readable */
                       <div className="relative w-full h-36">
                         {availableCards.map((card: Card, index: number) => {
-                          const totalCards = availableCards.length;
-                          const angle = (index - (totalCards - 1) / 2) * 2.2; // 2.2 degrees between cards for wider spread
-                          const radius = 600; // Larger radius for gentler curve
-                          const x = Math.sin((angle * Math.PI) / 180) * radius;
-                          const y = -Math.cos((angle * Math.PI) / 180) * radius * 0.08; // Very gentle curve
-                          
+                          const position = cardPositions[index];
+
                           return (
                             <motion.div
                               key={`deck-desktop-${index}`}
@@ -4622,11 +4646,11 @@ const ReadingRoom = () => {
                                 transformOrigin: 'bottom center'
                               }}
                               initial={{
-                                transform: `translateX(-50%) translateX(${x}px) translateY(${y}px) rotate(${angle}deg)`,
-                                zIndex: totalCards - index,
+                                transform: `translateX(-50%) translateX(${position.x}px) translateY(${position.y}px) rotate(${position.angle}deg)`,
+                                zIndex: position.zIndex,
                               }}
                               whileHover={{
-                                transform: `translateX(-50%) translateX(${x}px) translateY(${y - 25}px) rotate(${angle}deg) scale(1.15)`,
+                                transform: `translateX(-50%) translateX(${position.x}px) translateY(${position.y - 25}px) rotate(${position.angle}deg) scale(1.15)`,
                                 zIndex: 200,
                                 transition: { duration: 0.2, ease: "easeOut" }
                               }}
@@ -5268,7 +5292,7 @@ const ReadingRoom = () => {
                   onClick={() => {
                     // End video call if user is in one before leaving
                     if (isInCall) {
-                      console.log('Ending video call before exiting reading room...');
+                      devLog('Ending video call before exiting reading room...');
                       endCall();
                     }
                   }}
@@ -5600,12 +5624,12 @@ const ReadingRoom = () => {
                     onClick={async () => {
                       // Start video call first if not already active
                       if (!showVideoChat && !isVideoConnecting) {
-                        console.log('Starting video call for sharing...');
+                        devLog('Starting video call for sharing...');
                         setIsVideoConnecting(true);
 
                         try {
                           await startCall();
-                          console.log('Video call started successfully');
+                          devLog('Video call started successfully');
                           setTimeout(() => {
                             setIsVideoConnecting(false);
                             setShowVideoChat(true);
@@ -5629,7 +5653,7 @@ const ReadingRoom = () => {
                           const videoInviteLink = inviteLink + '?enableVideo=true';
                           navigator.clipboard.writeText(videoInviteLink);
                           showSuccessToast('Video invite link copied to clipboard!');
-                          console.log('Video invite link generated:', videoInviteLink);
+                          devLog('Video invite link generated:', videoInviteLink);
 
                           // Show copied feedback
                           setShowCopied(true);
@@ -5694,7 +5718,7 @@ const ReadingRoom = () => {
                       if (inviteLink) {
                         navigator.clipboard.writeText(inviteLink);
                         showSuccessToast('Invite link copied to clipboard!');
-                        console.log('Invite link generated:', inviteLink);
+                        devLog('Invite link generated:', inviteLink);
 
                         // Show copied feedback
                         setShowCopied(true);
