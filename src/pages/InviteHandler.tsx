@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { validateInviteLink } from '../utils/enhancedInviteLinks';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { AlertCircle, CheckCircle, Clock, UserPlus, Wand2 } from 'lucide-react';
@@ -10,6 +10,7 @@ type InviteType = 'join' | 'reader';
 const InviteHandler = () => {
   const { type, inviteId } = useParams<{ type: InviteType; inviteId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [status, setStatus] = useState<'validating' | 'success' | 'error' | 'expired'>('validating');
   const [error, setError] = useState<string | null>(null);
   const [inviteData, setInviteData] = useState<any>(null);
@@ -36,8 +37,12 @@ const InviteHandler = () => {
 
         // Redirect to reading room with appropriate parameters
         setTimeout(() => {
+          // Get enableVideo parameter from URL if present
+          const urlParams = new URLSearchParams(location.search);
+          const enableVideo = urlParams.get('enableVideo') === 'true';
+
           // Use the correct route path for reading room
-          const joinUrl = `/reading/rider-waite-classic?join=${result.sessionId}&invite=true&enableVideo=true`;
+          const joinUrl = `/reading/rider-waite-classic?join=${result.sessionId}&invite=true${enableVideo ? '&enableVideo=true' : ''}`;
 
           // Add role parameter for reader invites
           if (result.role === 'reader' && result.shouldTransferHost) {

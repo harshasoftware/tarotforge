@@ -5521,7 +5521,7 @@ const ReadingRoom = () => {
 
                         if (inviteLink) {
                           // Add enableVideo parameter to the invite link
-                          const videoInviteLink = inviteLink + '&enableVideo=true';
+                          const videoInviteLink = inviteLink + '?enableVideo=true';
                           navigator.clipboard.writeText(videoInviteLink);
                           showSuccessToast('Video invite link copied to clipboard!');
                           console.log('Video invite link generated:', videoInviteLink);

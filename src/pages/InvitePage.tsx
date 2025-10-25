@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { processInviteLink } from '../utils/inviteLinks';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { AlertCircle, Users, Clock, ExternalLink } from 'lucide-react';
@@ -7,6 +7,7 @@ import { AlertCircle, Users, Clock, ExternalLink } from 'lucide-react';
 const InvitePage: React.FC = () => {
   const { inviteId } = useParams<{ inviteId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,8 +23,13 @@ const InvitePage: React.FC = () => {
         const result = await processInviteLink(inviteId);
         
         if (result.success && result.sessionId) {
-          // Redirect to reading room with invite flag and enable video
-          navigate(`/reading/rider-waite-classic?join=${result.sessionId}&invite=true&enableVideo=true`, {
+          // Get enableVideo parameter from URL if present
+          const urlParams = new URLSearchParams(location.search);
+          const enableVideo = urlParams.get('enableVideo') === 'true';
+
+          // Redirect to reading room with invite flag and optional video
+          const redirectUrl = `/reading/rider-waite-classic?join=${result.sessionId}&invite=true${enableVideo ? '&enableVideo=true' : ''}`;
+          navigate(redirectUrl, {
             replace: true
           });
         } else {
