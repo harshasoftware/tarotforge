@@ -2875,11 +2875,7 @@ const ReadingRoom = () => {
 
                   {/* Invite button */}
                   <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleShare();
-                    }}
+                    onClick={handleShare}
                     className="btn btn-ghost bg-muted/50 hover:bg-muted px-3 py-2 text-sm flex items-center gap-2 rounded-lg touch-manipulation whitespace-nowrap"
                     style={{ minHeight: '36px' }}
                     disabled={!sessionId}
@@ -3162,13 +3158,8 @@ const ReadingRoom = () => {
 
               <Tooltip content="Add people to session" position="bottom" disabled={isMobile}>
                 <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleShare();
-                  }}
+                  onClick={handleShare}
                   className="btn btn-ghost bg-card/80 backdrop-blur-sm border border-border p-2 text-sm flex items-center gap-1"
-                  style={{  }}
                   disabled={!sessionId}
                 >
                   <UserPlus className="h-4 w-4" />
@@ -3211,7 +3202,7 @@ const ReadingRoom = () => {
         <div className={`h-full relative ${darkMode ? 'bg-gradient-to-b from-slate-900 to-slate-800 dark:from-background dark:to-background/80' : 'bg-gradient-to-r from-primary/10 to-accent/10'}`}>
           {/* Step 0: Deck Selection Screen */}
           {(!deck && !deckSelectionLoading) && (
-            <div 
+            <div
               className={`absolute inset-0 z-[100] bg-black/50 flex items-center justify-center ${mobileLayoutClasses.mainPadding}`}
               onClick={isChangingDeckMidSession ? () => {
                 // Cancel deck change and restore previous deck when clicking outside
@@ -3219,9 +3210,8 @@ const ReadingRoom = () => {
                 fetchAndSetDeck(deckId || 'rider-waite-classic');
               } : undefined}
             >
-              <div 
+              <div
                 className={`w-full ${isMobile ? 'max-w-4xl max-h-full overflow-y-auto' : 'max-w-5xl'} ${isMobile ? 'p-3' : 'p-4 md:p-6'} bg-card border border-border rounded-xl shadow-lg`}
-                onClick={(e) => e.stopPropagation()}
               >
                 {/* Header with title and Create Deck button */}
                 <div className="flex items-center justify-between mb-6">
@@ -4164,8 +4154,7 @@ const ReadingRoom = () => {
                         )}
                       </motion.div>
                       <div
-                        className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move select-none"
-                        onClick={(e) => e.stopPropagation()}
+                        className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move select-none pointer-events-none"
                       >
                         {selectedCard.position} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
                       </div>
@@ -4365,12 +4354,11 @@ const ReadingRoom = () => {
                               )}
                             </motion.div>
                             <div
-                              className={`absolute whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move select-none ${
+                              className={`absolute whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move select-none pointer-events-none ${
                                 adjustedPosition.rotation === 90
                                   ? '-right-16 top-1/2 transform -translate-y-1/2' // Position to the right for rotated cards
                                   : '-bottom-6 left-1/2 transform -translate-x-1/2' // Position below for normal cards
                               }`}
-                              onClick={(e) => e.stopPropagation()}
                             >
                               {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {(selectedCard as any).revealed && (selectedCard as any).isReversed && '(R)'}
                             </div>
@@ -4722,7 +4710,7 @@ const ReadingRoom = () => {
                       <motion.div className={`${isMobile ? 'w-20 h-30' : 'w-20 h-30 md:w-24 md:h-36'} rounded-md overflow-hidden shadow-lg cursor-pointer transition-shadow ${activeCardIndex === index ? 'ring-2 ring-primary shadow-xl' : ''}`} animate={{ rotateY: cardData.revealed ? 0 : 180 }} transition={cardAnimationConfig}>
                         {cardData.revealed ? <img src={cardData.image_url} alt={cardData.name} className={`w-full h-full object-cover rounded-md select-none ${cardData.isReversed ? 'rotate-180' : ''}`} draggable="false" /> : <TarotCardBack />}
                       </motion.div>
-                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move select-none" onClick={(e) => e.stopPropagation()}>
+                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move select-none pointer-events-none">
                         {cardData.position} {cardData.revealed && cardData.isReversed && '(R)'}
                       </div>
                     </motion.div>
@@ -4747,7 +4735,7 @@ const ReadingRoom = () => {
                           >
                             {cardData.revealed ? <img src={cardData.image_url} alt={cardData.name} className={`w-full h-full object-cover rounded-md select-none ${cardData.isReversed ? 'rotate-180' : ''}`} draggable="false" /> : <TarotCardBack />}
                           </motion.div>
-                          <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move select-none" onClick={(e) => e.stopPropagation()}>
+                          <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-card/80 backdrop-blur-sm px-1 md:px-2 py-0.5 rounded-full text-xs cursor-move select-none pointer-events-none">
                             {isMobile ? position.name.slice(0, 8) + (position.name.length > 8 ? '...' : '') : position.name} {cardData.revealed && cardData.isReversed && '(R)'}
                           </div>
                         </motion.div>
@@ -4838,11 +4826,7 @@ const ReadingRoom = () => {
           <div
             className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
             style={{  }}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setShowHelpModal(false);
-            }}
+            onClick={() => setShowHelpModal(false)}
           >
             <motion.div
               className="relative bg-card max-w-4xl w-full max-h-[90vh] rounded-xl overflow-hidden"
@@ -4851,16 +4835,11 @@ const ReadingRoom = () => {
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.3 }}
               style={{  }}
-              onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between bg-primary/10 p-4 border-b border-border">
                 <h3 className="font-serif font-bold text-xl">TarotForge Reading Room Guide</h3>
                 <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setShowHelpModal(false);
-                  }}
+                  onClick={() => setShowHelpModal(false)}
                   className="text-muted-foreground hover:text-foreground transition-colors"
                   style={{  }}
                 >
@@ -5162,11 +5141,7 @@ const ReadingRoom = () => {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             style={{  }}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setShowExitModal(false);
-            }}
+            onClick={() => setShowExitModal(false)}
           >
             <motion.div
               className={`bg-card border border-border rounded-lg shadow-lg ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md'} p-6`}
@@ -5175,7 +5150,6 @@ const ReadingRoom = () => {
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.2 }}
               style={{  }}
-              onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-destructive/10 rounded-full">
@@ -5204,11 +5178,7 @@ const ReadingRoom = () => {
               
               <div className="flex gap-3">
                 <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setShowExitModal(false);
-                  }}
+                  onClick={() => setShowExitModal(false)}
                   className="flex-1 px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors"
                   style={{  }}
                 >
@@ -5240,7 +5210,7 @@ const ReadingRoom = () => {
             className={`fixed inset-0 z-[100] ${isMobile ? 'bg-black' : 'bg-black/80'} flex items-center justify-center`}
             onClick={!isMobile ? closeCardGallery : undefined}
           >
-            <motion.div 
+            <motion.div
               className={`relative ${isMobile ? 'w-full h-full' : 'max-w-4xl max-h-[90vh] w-full mx-4'} ${!isMobile ? 'bg-card rounded-xl overflow-hidden shadow-2xl' : ''}`}
               initial={{ opacity: 0, scale: isMobile ? 1 : 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -5248,7 +5218,6 @@ const ReadingRoom = () => {
               transition={{ duration: 0.3 }}
               onTouchStart={handleGalleryTouchStart}
               onTouchEnd={handleGalleryTouchEnd}
-              onClick={(e) => e.stopPropagation()}
             >
               {/* Gallery Header */}
               <div className={`${isMobile ? 'absolute top-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm' : 'bg-primary/10 border-b border-border'} p-4 flex items-center justify-between`}>
@@ -5507,11 +5476,7 @@ const ReadingRoom = () => {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             style={{  }}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setShowInviteDropdown(false);
-            }}
+            onClick={() => setShowInviteDropdown(false)}
           >
             <motion.div
               className={`bg-card border border-border rounded-lg shadow-lg ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md'} p-6`}
@@ -5520,7 +5485,6 @@ const ReadingRoom = () => {
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.2 }}
               style={{  }}
-              onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-primary/10 rounded-full">
