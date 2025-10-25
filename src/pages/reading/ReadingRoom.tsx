@@ -166,6 +166,9 @@ const ReadingRoom = () => {
     height: typeof window !== 'undefined' ? window.innerHeight : 0,
   });
 
+  // Force re-render counter for tab switching
+  const [, forceUpdate] = useState(0);
+
   // Update screen dimensions on resize
   useEffect(() => {
     const updateDimensions = () => {
@@ -181,15 +184,24 @@ const ReadingRoom = () => {
     // Add focus event listener to re-enable interactions after tab switch
     const handleWindowFocus = () => {
       console.log('[Focus] Window regained focus, re-enabling interactions');
-      // Force a re-render to ensure event listeners are properly attached
-      document.body.style.pointerEvents = 'auto';
 
-      // Clear any lingering pointer-events: none from elements
-      setTimeout(() => {
+      // Immediately reset pointer-events everywhere
+      document.body.style.pointerEvents = '';
+      document.documentElement.style.pointerEvents = '';
+
+      // Force React to re-render
+      forceUpdate(prev => prev + 1);
+
+      // More aggressive cleanup - remove all pointer-events: none
+      requestAnimationFrame(() => {
+        // Reset body and html
+        document.body.style.pointerEvents = '';
+        document.documentElement.style.pointerEvents = '';
+
+        // Clear from all elements with inline pointer-events
         const allElements = document.querySelectorAll('[style*="pointer-events"]');
         allElements.forEach((el) => {
           const htmlEl = el as HTMLElement;
-          const computedStyle = window.getComputedStyle(htmlEl);
           if (htmlEl.style.pointerEvents === 'none' &&
               !htmlEl.classList.contains('pointer-events-none') &&
               !htmlEl.hasAttribute('disabled')) {
@@ -197,7 +209,10 @@ const ReadingRoom = () => {
             htmlEl.style.pointerEvents = '';
           }
         });
-      }, 100);
+
+        // Force another re-render after cleanup
+        forceUpdate(prev => prev + 1);
+      });
     };
 
     const handleWindowBlur = () => {
@@ -207,11 +222,17 @@ const ReadingRoom = () => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         console.log('[Visibility] Page became visible, re-enabling interactions');
-        document.body.style.pointerEvents = 'auto';
+        // Reset immediately
+        document.body.style.pointerEvents = '';
+        document.documentElement.style.pointerEvents = '';
+
+        // Force re-render
+        forceUpdate(prev => prev + 1);
+
         // Trigger the same cleanup as focus
-        setTimeout(() => {
+        requestAnimationFrame(() => {
           handleWindowFocus();
-        }, 50);
+        });
       }
     };
 
